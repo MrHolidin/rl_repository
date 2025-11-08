@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import threading
+import random
 from pathlib import Path
 
 # Add parent directory to path
@@ -118,62 +119,72 @@ def train_qlearning(
         episode_reward = 0
         episode_length = 0
         
+        # Pending transition: сохраняем переход агента до хода соперника
+        pending_obs = None
+        pending_action = None
+        pending_reward = 0.0
+        
         while not done:
             legal_actions = env.get_legal_actions()
             
             if current_player == 0:
+                # Ход агента
                 action = learning_agent.select_action(obs, legal_actions)
-            else:
-                action = opponent.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
-            # Learning agent observes transition
-            # Note: reward is from perspective of current player (who made the move)
-            if current_player == 0:
-                # Learning agent's perspective - reward is already correct
-                learning_agent.observe((obs, action, reward, next_obs, done, info))
-                episode_reward += reward
-            else:
-                # Opponent's move - we don't train on opponent's transitions
-                # But if game ended, we need to give final reward to learning agent
+                next_obs, reward, done, info = env.step(action)
+                
                 if done:
-                    # If opponent won, learning agent lost
-                    # If opponent lost, learning agent won
-                    # If draw, it's a draw
-                    winner = info.get("winner")
-                    if winner == -1:  # Opponent won
-                        final_reward = -1.0
-                    elif winner == 1:  # Learning agent won (shouldn't happen here)
-                        final_reward = 1.0
-                    else:  # Draw
-                        final_reward = 0.0
-                    # We need to observe this from learning agent's last state
-                    # But we don't have it here, so we'll handle it after the loop
-                    pass
+                    # Агент выиграл или ничья после его хода
+                    # Записываем transition сразу с финальным ревардом
+                    final_reward = reward  # env уже дал reward_win или reward_draw
+                    learning_agent.observe((obs, action, final_reward, next_obs, True, info))
+                    episode_reward += final_reward
+                else:
+                    # Игра продолжается - сохраняем переход до хода соперника
+                    pending_obs = obs
+                    pending_action = action
+                    pending_reward = reward  # shaping reward (тройки и т.п.)
+                    # Не записываем observe пока соперник не сходил
+                
+                obs = next_obs
+            else:
+                # Ход соперника
+                action = opponent.select_action(obs, legal_actions)
+                next_obs, opp_reward, done, info = env.step(action)
+                # opp_reward - для соперника, нам не нужен
+                
+                if pending_obs is not None:
+                    # Завершаем переход агента
+                    if done:
+                        # Соперник завершил игру
+                        winner = info.get("winner")
+                        if winner == 0:
+                            # Ничья
+                            final_reward = reward_draw
+                        else:
+                            # Соперник победил → агент проиграл
+                            final_reward = reward_loss  # отрицательный ревард
+                        
+                        learning_agent.observe((
+                            pending_obs, pending_action, final_reward, next_obs, True, info
+                        ))
+                        episode_reward += final_reward
+                    else:
+                        # Игра продолжается после хода соперника
+                        final_reward = pending_reward  # shaping reward за ход агента
+                        learning_agent.observe((
+                            pending_obs, pending_action, final_reward, next_obs, False, info
+                        ))
+                        episode_reward += final_reward
+                    
+                    # Очищаем pending transition
+                    pending_obs = None
+                    pending_action = None
+                    pending_reward = 0.0
+                
+                obs = next_obs
             
-            obs = next_obs
             current_player = 1 - current_player
             episode_length += 1
-        
-        # If game ended on opponent's move, we need to give final reward to learning agent
-        # This is handled by the done flag and reward in the step function
-        # The learning agent will observe the final state when it's their turn again
-        # But since the game is done, we need to handle it here
-        if done and current_player == 1:  # Game ended on opponent's move
-            # Get final reward for learning agent
-            winner = info.get("winner")
-            if winner == -1:  # Opponent won
-                final_reward = -1.0
-            elif winner == 1:  # Learning agent won
-                final_reward = 1.0
-            else:  # Draw
-                final_reward = 0.0
-            # Observe final transition (we use the last obs from learning agent's perspective)
-            # Note: This is a simplified approach - in practice, we might want to store
-            # the last observation from learning agent's perspective
-            # For now, we'll just update the episode reward
-            episode_reward += final_reward
         
         # Log metrics
         logger.log("episode_reward", episode_reward, step=episode)
@@ -270,39 +281,64 @@ def evaluate_agent(
         reward_invalid_action=reward_invalid_action,
     )
     
+    # Сохраняем старое значение epsilon и устанавливаем 0 для жадной политики при оценке
+    old_epsilon = agent.epsilon
+    agent.epsilon = 0.0
     agent.eval()
     wins = 0
     draws = 0
     losses = 0
     
-    for _ in range(num_episodes):
+    if seed is not None:
+        random.seed(seed)
+    
+    for episode_idx in range(num_episodes):
         obs = env.reset()
         done = False
-        current_player = 0  # 0: agent, 1: opponent
+        # Рандомизируем, кто ходит первым (как в тренировке)
+        agent_goes_first = random.random() < 0.5
+        agent_is_player_1 = agent_goes_first  # Если агент ходит первым, он player 1
         
         while not done:
             legal_actions = env.get_legal_actions()
             
-            if current_player == 0:
-                action = agent.select_action(obs, legal_actions)
+            # Определяем, кто должен ходить на основе env.current_player
+            # env.current_player == 1 означает player 1
+            # env.current_player == -1 означает player -1
+            if env.current_player == 1:
+                # Ходит player 1
+                if agent_is_player_1:
+                    action = agent.select_action(obs, legal_actions)
+                else:
+                    action = opponent.select_action(obs, legal_actions)
             else:
-                action = opponent.select_action(obs, legal_actions)
+                # Ходит player -1
+                if agent_is_player_1:
+                    action = opponent.select_action(obs, legal_actions)
+                else:
+                    action = agent.select_action(obs, legal_actions)
             
             next_obs, reward, done, info = env.step(action)
             
             if done:
                 winner = info.get("winner")
-                if winner == 1:  # Agent is player 1
-                    wins += 1
-                elif winner == -1:  # Opponent is player -1
-                    losses += 1
-                else:
+                # winner == 1 означает player 1 выиграл
+                # winner == -1 означает player -1 выиграл
+                # winner == 0 означает ничью
+                if winner == 0:
                     draws += 1
+                elif (winner == 1 and agent_is_player_1) or (winner == -1 and not agent_is_player_1):
+                    # Агент выиграл
+                    wins += 1
+                else:
+                    # Соперник выиграл
+                    losses += 1
                 break
             
             obs = next_obs
-            current_player = 1 - current_player
     
+    # Восстанавливаем старое значение epsilon и переводим агента обратно в режим обучения
+    agent.epsilon = old_epsilon
     agent.train()
     
     win_rate = wins / num_episodes

@@ -39,10 +39,12 @@ def play_human_vs_agent(
     elif agent_type == "qlearning":
         agent = QLearningAgent(seed=seed)
         agent.load(agent_path)
+        agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     elif agent_type == "dqn":
         agent = DQNAgent(rows=6, cols=7, seed=seed)
         agent.load(agent_path)
+        agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")

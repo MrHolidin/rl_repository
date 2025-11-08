@@ -110,16 +110,13 @@ class DQNAgent(BaseAgent):
         if not legal_actions:
             raise ValueError("No legal actions available")
         
-        # Epsilon-greedy
-        if self.training and random.random() < self.epsilon:
+        if random.random() < self.epsilon:
             return random.choice(legal_actions)
         else:
-            # Select best action from Q-network
             with torch.no_grad():
                 obs_tensor = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
                 q_values = self.q_network(obs_tensor).cpu().numpy()[0]
                 
-                # Mask illegal actions
                 masked_q_values = q_values.copy()
                 masked_q_values[[a for a in range(len(q_values)) if a not in legal_actions]] = -np.inf
                 
@@ -138,28 +135,20 @@ class DQNAgent(BaseAgent):
         """
         obs, action, reward, next_obs, done, info = transition
         
-        # Store in replay buffer
         self.replay_buffer.push(obs, action, reward, next_obs, done)
         
-        # Train if enough samples
         metrics = {}
         if len(self.replay_buffer) >= self.batch_size:
             metrics = self._train()
         
-        # Update target network periodically
         self.step_count += 1
         if self.step_count % self.target_update_freq == 0:
             if self.soft_update:
-                # Soft update: gradually blend weights
                 for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
                     target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
             else:
-                # Hard update: copy weights completely
                 self.target_network.load_state_dict(self.q_network.state_dict())
             metrics["target_network_updated"] = True
-        
-        # NOTE: Epsilon decay is now handled per episode in training loop, not per step
-        # This prevents epsilon from decaying too quickly
         
         return metrics
 
@@ -173,12 +162,8 @@ class DQNAgent(BaseAgent):
         Returns:
             List of legal action indices (columns that are not full)
         """
-        # Legal actions are columns where the top row (row 0) is empty
-        # Check if both current player's pieces and opponent's pieces are 0 in row 0
-        top_row_current = obs[0, 0, :]  # Current player's pieces in top row
-        top_row_opponent = obs[1, 0, :]  # Opponent's pieces in top row
-        
-        # Column is legal if top cell is empty (both channels are 0)
+        top_row_current = obs[0, 0, :]
+        top_row_opponent = obs[1, 0, :]
         legal_actions = [
             col for col in range(self.cols) 
             if top_row_current[col] == 0 and top_row_opponent[col] == 0
@@ -207,61 +192,46 @@ class DQNAgent(BaseAgent):
         next_obs_tensor = torch.FloatTensor(next_obs_batch).to(self.device)
         done_tensor = torch.BoolTensor(done_batch).to(self.device)
         
-        # Current Q-values
         q_values = self.q_network(obs_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
         
-        # Double DQN: Use main network to select action, target network to evaluate
+        # Double DQN: main network selects action, target network evaluates
         with torch.no_grad():
-            # Use main network to select best action (with legal action masking)
             next_q_values_main = self.q_network(next_obs_tensor)
-            
-            # Mask illegal actions for each next_obs in the batch
-            # Convert to numpy for easier masking
             next_q_values_main_np = next_q_values_main.cpu().numpy()
             next_actions = []
             
             for i in range(next_obs_tensor.shape[0]):
-                # Skip action selection for done states (will be masked by done_tensor anyway)
                 if done_batch[i]:
-                    next_actions.append(0)  # Dummy action, won't be used
+                    next_actions.append(0)
                     continue
                 
                 next_obs_np = next_obs_tensor[i].cpu().numpy()
                 legal_actions = self._get_legal_actions_from_obs(next_obs_np)
                 
                 if not legal_actions:
-                    # If no legal actions (shouldn't happen, but handle gracefully)
                     next_actions.append(0)
                 else:
-                    # Mask illegal actions
                     masked_q_vals = next_q_values_main_np[i].copy()
                     masked_q_vals[[a for a in range(len(masked_q_vals)) if a not in legal_actions]] = -np.inf
                     next_actions.append(np.argmax(masked_q_vals))
             
             next_actions_tensor = torch.LongTensor(next_actions).to(self.device)
-            
-            # Use target network to evaluate the selected action
             next_q_values_target = self.target_network(next_obs_tensor)
             next_q_value = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
-            
             target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * next_q_value
         
-        # Compute loss
         loss = nn.MSELoss()(q_value, target_q_value)
         
-        # Compute metrics before optimization
         avg_q = q_value.mean().item()
         max_q = q_value.max().item()
         min_q = q_value.min().item()
         avg_target_q = target_q_value.mean().item()
         td_error = (target_q_value - q_value).abs().mean().item()
         
-        # Optimize
         self.optimizer.zero_grad()
         loss.backward()
         
-        # Compute gradient norm before clipping
         total_grad_norm = 0.0
         for param in self.q_network.parameters():
             if param.grad is not None:
@@ -269,10 +239,8 @@ class DQNAgent(BaseAgent):
                 total_grad_norm += param_norm.item() ** 2
         total_grad_norm = total_grad_norm ** (1.0 / 2)
         
-        # Gradient clipping
         torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         
-        # Compute gradient norm after clipping
         total_grad_norm_clipped = 0.0
         for param in self.q_network.parameters():
             if param.grad is not None:
@@ -339,7 +307,6 @@ class DQNAgent(BaseAgent):
         self.q_network.load_state_dict(checkpoint["q_network_state_dict"])
         self.target_network.load_state_dict(checkpoint["target_network_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        # Default to 0.0 (pure exploitation) if epsilon not in checkpoint
         self.epsilon = checkpoint.get("epsilon", 0.0)
         self.step_count = checkpoint.get("step_count", 0)
 

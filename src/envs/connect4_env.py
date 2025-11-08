@@ -89,11 +89,6 @@ class Connect4Env:
             # Column is full
             return self._get_obs(), self.reward_invalid_action, self.done, {"invalid_action": True}
 
-        # Store the move position before switching player
-        move_row = row
-        move_col = action
-        move_player = self.current_player
-
         # Check for win
         won = self._check_win(row, action, self.current_player)
         
@@ -104,7 +99,7 @@ class Connect4Env:
         if won:
             self.winner = self.current_player
             self.done = True
-            reward = self.reward_win if self.current_player == 1 else self.reward_loss
+            reward = self.reward_win
             info = {"winner": self.current_player, "reason": "win", "three_in_row": False, "opponent_three_in_row": False}
         elif self._is_board_full():
             self.winner = 0
@@ -112,31 +107,22 @@ class Connect4Env:
             reward = self.reward_draw
             info = {"winner": 0, "reason": "draw", "three_in_row": False, "opponent_three_in_row": False}
         else:
-            # Check for 3 in a row (intermediate reward)
-            has_three = self._check_three_in_row(row, action, self.current_player)
-            if has_three:
-                reward = self.reward_three_in_row if self.current_player == 1 else -self.reward_three_in_row
-                info["three_in_row"] = True
-            else:
-                info["three_in_row"] = False
-
-        # Switch player
-        self.current_player *= -1
-        
-        # After switching, check if the opponent (who just made the move) has 3 in a row
-        # This is a penalty for the new current player
-        # We check the last move position (move_row, move_col) for the opponent (move_player)
-        if not self.done:
-            # Check if the opponent (who just made the move) has 3 in a row at their last move position
-            opponent_has_three = self._check_three_in_row(move_row, move_col, move_player)
+            # Shaping rewards: check all threes on board before switching player
+            if self.reward_three_in_row != 0.0:
+                if self._has_any_three(self.current_player):
+                    reward += self.reward_three_in_row
+                    info["three_in_row"] = True
+                else:
+                    info["three_in_row"] = False
             
-            if opponent_has_three:
-                # Apply penalty: negative for player 1, positive for player -1
-                penalty = -self.reward_opponent_three_in_row if self.current_player == 1 else self.reward_opponent_three_in_row
-                reward += penalty
-                info["opponent_three_in_row"] = True
-            else:
-                info["opponent_three_in_row"] = False
+            if self.reward_opponent_three_in_row != 0.0:
+                if self._has_any_three(-self.current_player):
+                    reward -= self.reward_opponent_three_in_row
+                    info["opponent_three_in_row"] = True
+                else:
+                    info["opponent_three_in_row"] = False
+
+        self.current_player *= -1
 
         return self._get_obs(), reward, self.done, info
 
@@ -183,10 +169,26 @@ class Connect4Env:
         Returns:
             True if player has 3 in a row (but not 4)
         """
-        # Check for 3 in a row, but not 4 (which would be a win)
         has_three = self._check_n_in_row(row, col, player, n=3)
         has_four = self._check_n_in_row(row, col, player, n=4)
         return has_three and not has_four
+    
+    def _has_any_three(self, player: int) -> bool:
+        """
+        Check if player has any 3 in a row anywhere on the board (but not 4).
+        
+        Args:
+            player: Player ID (1 or -1)
+            
+        Returns:
+            True if player has at least one 3 in a row (but not 4)
+        """
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if self.board[r, c] == player:
+                    if self._check_three_in_row(r, c, player):
+                        return True
+        return False
     
     def _check_n_in_row(self, row: int, col: int, player: int, n: int) -> bool:
         """
@@ -201,23 +203,16 @@ class Connect4Env:
         Returns:
             True if player has n pieces in a row
         """
-        directions = [
-            (0, 1),   # horizontal
-            (1, 0),   # vertical
-            (1, 1),   # diagonal /
-            (1, -1),  # diagonal \
-        ]
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
 
         for dr, dc in directions:
-            count = 1  # Count the piece just placed
-            # Check in positive direction
+            count = 1
             for i in range(1, n):
                 r, c = row + dr * i, col + dc * i
                 if 0 <= r < self.rows and 0 <= c < self.cols and self.board[r, c] == player:
                     count += 1
                 else:
                     break
-            # Check in negative direction
             for i in range(1, n):
                 r, c = row - dr * i, col - dc * i
                 if 0 <= r < self.rows and 0 <= c < self.cols and self.board[r, c] == player:
@@ -254,14 +249,8 @@ class Connect4Env:
             - Channel 2: Current player indicator (1 for player 1, 0 for player -1)
         """
         obs = np.zeros((3, self.rows, self.cols), dtype=np.float32)
-        
-        # Channel 0: Current player's pieces
         obs[0] = (self.board == self.current_player).astype(np.float32)
-        
-        # Channel 1: Opponent's pieces
         obs[1] = (self.board == -self.current_player).astype(np.float32)
-        
-        # Channel 2: Current player indicator
         obs[2] = np.full((self.rows, self.cols), 1.0 if self.current_player == 1 else 0.0, dtype=np.float32)
         
         return obs

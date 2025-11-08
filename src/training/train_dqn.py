@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import threading
+import random
 from pathlib import Path
 from collections import defaultdict
 
@@ -14,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.envs import Connect4Env
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.utils import MetricsLogger
+from src.selfplay import OpponentPool
 
 
 def train_dqn(
@@ -43,6 +45,7 @@ def train_dqn(
     reward_three_in_row: float = 0.0,
     reward_opponent_three_in_row: float = 0.0,
     reward_invalid_action: float = -0.1,
+    self_play_config: dict = None,
 ):
     """
     Train DQN agent using self-play.
@@ -65,10 +68,47 @@ def train_dqn(
         log_dir: Directory for logs
         device: Device to use ('cuda' or 'cpu')
         seed: Random seed
+        self_play_config: Self-play configuration dict (optional)
     """
     # Create directories
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
+    
+    # Initialize self-play config
+    if self_play_config is None:
+        self_play_config = {
+            "enabled": False,
+            "start_episode": 0,
+            "save_every": save_freq,
+            "self_play_fraction": 0.0,
+            "max_frozen_agents": 10,
+            "heuristic_distribution": {
+                "random": 0.2 if opponent_type == "random" else 0.0,
+                "heuristic": 0.5 if opponent_type == "heuristic" else 0.0,
+                "smart_heuristic": 0.3 if opponent_type == "smart_heuristic" else 0.0,
+            }
+        }
+        if not self_play_config["enabled"]:
+            self_play_config["heuristic_distribution"] = {
+                "random": 1.0 if opponent_type == "random" else 0.0,
+                "heuristic": 1.0 if opponent_type == "heuristic" else 0.0,
+                "smart_heuristic": 1.0 if opponent_type == "smart_heuristic" else 0.0,
+            }
+    
+    # Initialize opponent pool
+    opponent_pool = OpponentPool(
+        device=device,
+        seed=seed,
+        self_play_enabled=self_play_config.get("enabled", False),
+        self_play_start_episode=self_play_config.get("start_episode", 0),
+        self_play_fraction=self_play_config.get("self_play_fraction", 0.0),
+        max_frozen_agents=self_play_config.get("max_frozen_agents", 10),
+        heuristic_distribution=self_play_config.get("heuristic_distribution", {
+            "random": 0.2,
+            "heuristic": 0.5,
+            "smart_heuristic": 0.3,
+        }),
+    )
     
     # Initialize environment with reward configuration
     env = Connect4Env(
@@ -100,16 +140,6 @@ def train_dqn(
         seed=seed,
     )
     
-    # Create opponent based on type
-    if opponent_type == "random":
-        opponent = RandomAgent(seed=seed + 1)
-    elif opponent_type == "heuristic":
-        opponent = HeuristicAgent(seed=seed + 1)
-    elif opponent_type == "smart_heuristic":
-        opponent = SmartHeuristicAgent(seed=seed + 1)
-    else:
-        raise ValueError(f"Unknown opponent type: {opponent_type}. Must be 'random', 'heuristic', or 'smart_heuristic'")
-    
     # Initialize logger
     logger = MetricsLogger(log_dir=log_dir)
     
@@ -121,8 +151,15 @@ def train_dqn(
     print(f"Target update: {'soft' if soft_update else 'hard'} (freq: {target_update_freq})")
     if soft_update:
         print(f"Soft update tau: {tau}")
-    print(f"Opponent: {opponent_type}")
     print(f"Device: {learning_agent.device}")
+    if self_play_config.get("enabled", False):
+        print(f"Self-play: ENABLED")
+        print(f"  Start episode: {self_play_config.get('start_episode', 0)}")
+        print(f"  Self-play fraction: {self_play_config.get('self_play_fraction', 0.0):.1%}")
+        print(f"  Save every: {self_play_config.get('save_every', save_freq)} episodes")
+        print(f"  Max frozen agents: {self_play_config.get('max_frozen_agents', 10)}")
+    else:
+        print(f"Opponent: {opponent_type} (heuristic)")
     print()
     
     # Track training metrics
@@ -141,104 +178,99 @@ def train_dqn(
             print(f"Checkpoint saved: {checkpoint_path}")
             break
         
+        opponent = opponent_pool.sample_opponent(episode)
+        
         episode_start = time.time()
         obs = env.reset()
         done = False
-        current_player = 0  # 0: learning_agent, 1: opponent
+        learning_agent_goes_first = random.random() < 0.5
+        current_player = 0 if learning_agent_goes_first else 1
         episode_reward = 0
         episode_length = 0
         episode_training_steps = 0
         
-        # Store pending transition from learning agent's perspective
-        # We don't record it immediately, but wait until after opponent's move
-        # to know the final outcome
-        pending_learning_obs = None
-        pending_learning_action = None
+        # Pending transition: сохраняем переход агента до хода соперника
+        pending_obs = None
+        pending_action = None
+        pending_reward = 0.0
         
         while not done:
             legal_actions = env.get_legal_actions()
             
             if current_player == 0:
-                # Learning agent's turn
+                # Ход агента
                 action = learning_agent.select_action(obs, legal_actions)
-                # Save observation and action, but don't record transition yet
-                pending_learning_obs = obs.copy()
-                pending_learning_action = action
-            else:
-                # Opponent's turn
-                action = opponent.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
-            # Record learning agent's transition after opponent's move (or if game ended on agent's turn)
-            if current_player == 0:
-                # Learning agent just made a move
-                # Only record transition if game ended (otherwise wait for opponent's move)
+                next_obs, reward, done, info = env.step(action)
+                
                 if done:
-                    # Game ended on learning agent's move - record with final reward
-                    # next_obs is from opponent's perspective, we need to flip it to agent's perspective
-                    next_obs_flipped = next_obs.copy()
-                    next_obs_flipped[0] = next_obs[1]  # Current player becomes opponent
-                    next_obs_flipped[1] = next_obs[0]  # Opponent becomes current player
-                    next_obs_flipped[2] = 1.0 - next_obs[2]  # Flip player indicator
+                    # Агент выиграл или ничья после его хода
+                    # Записываем transition сразу с финальным ревардом
+                    final_reward = reward  # env уже дал reward_win или reward_draw
+                    train_metrics = learning_agent.observe((
+                        obs, action, final_reward, next_obs, True, info
+                    ))
+                    episode_reward += final_reward
                     
-                    # Reward is already from learning agent's perspective
-                    train_metrics = learning_agent.observe((pending_learning_obs, pending_learning_action, reward, next_obs_flipped, True, info))
-                    episode_reward += reward
-                    
-                    # Accumulate training metrics
                     if train_metrics:
                         episode_training_steps += 1
                         training_steps_count += 1
                         for key, value in train_metrics.items():
                             if key != "target_network_updated":
                                 training_metrics_accumulator[key].append(value)
-                # If game didn't end, we'll record the transition after opponent's move
+                else:
+                    # Игра продолжается - сохраняем переход до хода соперника
+                    pending_obs = obs
+                    pending_action = action
+                    pending_reward = reward  # shaping reward (тройки и т.п.)
+                    # Не записываем observe пока соперник не сходил
+                
+                obs = next_obs  # теперь POV соперника
             else:
-                # Opponent just made a move - record learning agent's transition
-                if pending_learning_obs is not None and pending_learning_action is not None:
-                    # After opponent's move, current_player switches back to agent
-                    # So next_obs is already from agent's perspective - no flip needed!
+                # Ход соперника
+                action = opponent.select_action(obs, legal_actions)
+                next_obs, opp_reward, done, info = env.step(action)
+                # opp_reward - для соперника, нам не нужен
+                
+                if pending_obs is not None:
+                    # Завершаем переход агента
                     if done:
-                        # Game ended on opponent's move - record with final reward
+                        # Соперник завершил игру
                         winner = info.get("winner")
-                        if winner == 1:  # Learning agent won (player 1)
-                            final_reward = reward_win
-                        elif winner == -1:  # Opponent won (player -1)
-                            final_reward = reward_loss
-                        else:  # Draw
+                        if winner == 0:
+                            # Ничья
                             final_reward = reward_draw
+                        else:
+                            # Соперник победил → агент проиграл
+                            final_reward = reward_loss  # отрицательный ревард
                         
+                        # next_obs уже POV агента (после хода соперника current_player снова = агент)
                         train_metrics = learning_agent.observe((
-                            pending_learning_obs,
-                            pending_learning_action,
-                            final_reward,
-                            next_obs,  # Already from agent's perspective
-                            True,  # done
-                            info
+                            pending_obs, pending_action, final_reward, next_obs, True, info
                         ))
                         episode_reward += final_reward
                     else:
-                        # Game continues - record transition with intermediate reward (0.0)
+                        # Игра продолжается после хода соперника
+                        # next_obs уже POV агента
+                        final_reward = pending_reward  # shaping reward за ход агента
                         train_metrics = learning_agent.observe((
-                            pending_learning_obs,
-                            pending_learning_action,
-                            0.0,  # Intermediate reward (no immediate reward for learning agent)
-                            next_obs,  # Already from agent's perspective
-                            False,  # not done
-                            info
+                            pending_obs, pending_action, final_reward, next_obs, False, info
                         ))
-                        # No reward added to episode_reward for intermediate transitions
+                        episode_reward += final_reward
                     
-                    # Accumulate training metrics
                     if train_metrics:
                         episode_training_steps += 1
                         training_steps_count += 1
                         for key, value in train_metrics.items():
                             if key != "target_network_updated":
                                 training_metrics_accumulator[key].append(value)
+                    
+                    # Очищаем pending transition
+                    pending_obs = None
+                    pending_action = None
+                    pending_reward = 0.0
+                
+                obs = next_obs  # POV агента
             
-            obs = next_obs
             current_player = 1 - current_player
             episode_length += 1
         
@@ -267,16 +299,13 @@ def train_dqn(
         if episode_training_metrics:
             logger.log_dict(episode_training_metrics, step=episode)
         
-        # Clear accumulator for next episode
         training_metrics_accumulator.clear()
         
-        # Decay epsilon once per episode (not per step!)
         if learning_agent.training and learning_agent.epsilon > learning_agent.epsilon_min:
             learning_agent.epsilon *= learning_agent.epsilon_decay
         
         logger.increment_episode()
         
-        # Evaluation (можно уменьшить частоту для более быстрого обновления)
         if (episode + 1) % eval_freq == 0:
             win_rate, draw_rate, loss_rate = evaluate_agent(
                 learning_agent, 
@@ -312,9 +341,7 @@ def train_dqn(
                 f"Loss: {avg_loss:.4f} | Avg Q: {avg_q:.4f} | TD Error: {avg_td_error:.4f} | Grad Norm: {grad_norm:.4f}"
             )
         
-        # Periodic detailed metrics report
         if (episode + 1) % (eval_freq // 2) == 0 and episode > 0:
-            # Get more detailed metrics
             max_q = episode_training_metrics.get("train_max_q", 0.0)
             min_q = episode_training_metrics.get("train_min_q", 0.0)
             avg_target_q = episode_training_metrics.get("train_avg_target_q", 0.0)
@@ -331,14 +358,28 @@ def train_dqn(
             checkpoint_path = os.path.join(checkpoint_dir, f"dqn_episode_{episode + 1}.pt")
             learning_agent.save(checkpoint_path)
             print(f"Checkpoint saved: {checkpoint_path}")
+            
+            if self_play_config.get("enabled", False):
+                save_every = self_play_config.get("save_every", save_freq)
+                if (episode + 1) % save_every == 0:
+                    opponent_pool.add_frozen_agent(checkpoint_path, episode + 1)
+                    pool_stats = opponent_pool.get_pool_stats()
+                    print(f"  Added frozen opponent from episode {episode + 1} to pool (total: {pool_stats['frozen_agents_count']})")
     
-    # Mark training as completed if we reached the end
-    if episode == num_episodes - 1:
+    final_episode = episode + 1 if 'episode' in locals() else num_episodes
+    if 'episode' in locals() and episode == num_episodes - 1:
         training_completed = True
+    else:
+        training_completed = False
     
-    # Final save - always save final checkpoint, even if stopped early
     final_path = os.path.join(checkpoint_dir, "dqn_final.pt")
     learning_agent.save(final_path)
+    
+    if self_play_config.get("enabled", False):
+        opponent_pool.add_frozen_agent(final_path, final_episode)
+        pool_stats = opponent_pool.get_pool_stats()
+        print(f"  Added final frozen opponent to pool (total: {pool_stats['frozen_agents_count']})")
+    
     if training_completed:
         print(f"\nTraining completed! Final model saved: {final_path}")
     else:
@@ -382,39 +423,64 @@ def evaluate_agent(
         reward_invalid_action=reward_invalid_action,
     )
     
+    # Сохраняем старое значение epsilon и устанавливаем 0 для жадной политики при оценке
+    old_epsilon = agent.epsilon
+    agent.epsilon = 0.0
     agent.eval()
     wins = 0
     draws = 0
     losses = 0
     
-    for _ in range(num_episodes):
+    if seed is not None:
+        random.seed(seed)
+    
+    for episode_idx in range(num_episodes):
         obs = env.reset()
         done = False
-        current_player = 0  # 0: agent, 1: opponent
+        # Рандомизируем, кто ходит первым (как в тренировке)
+        agent_goes_first = random.random() < 0.5
+        agent_is_player_1 = agent_goes_first  # Если агент ходит первым, он player 1
         
         while not done:
             legal_actions = env.get_legal_actions()
             
-            if current_player == 0:
-                action = agent.select_action(obs, legal_actions)
+            # Определяем, кто должен ходить на основе env.current_player
+            # env.current_player == 1 означает player 1
+            # env.current_player == -1 означает player -1
+            if env.current_player == 1:
+                # Ходит player 1
+                if agent_is_player_1:
+                    action = agent.select_action(obs, legal_actions)
+                else:
+                    action = opponent.select_action(obs, legal_actions)
             else:
-                action = opponent.select_action(obs, legal_actions)
+                # Ходит player -1
+                if agent_is_player_1:
+                    action = opponent.select_action(obs, legal_actions)
+                else:
+                    action = agent.select_action(obs, legal_actions)
             
             next_obs, reward, done, info = env.step(action)
             
             if done:
                 winner = info.get("winner")
-                if winner == 1:  # Agent is player 1
-                    wins += 1
-                elif winner == -1:  # Opponent is player -1
-                    losses += 1
-                else:
+                # winner == 1 означает player 1 выиграл
+                # winner == -1 означает player -1 выиграл
+                # winner == 0 означает ничью
+                if winner == 0:
                     draws += 1
+                elif (winner == 1 and agent_is_player_1) or (winner == -1 and not agent_is_player_1):
+                    # Агент выиграл
+                    wins += 1
+                else:
+                    # Соперник выиграл
+                    losses += 1
                 break
             
             obs = next_obs
-            current_player = 1 - current_player
     
+    # Восстанавливаем старое значение epsilon и переводим агента обратно в режим обучения
+    agent.epsilon = old_epsilon
     agent.train()
     
     win_rate = wins / num_episodes

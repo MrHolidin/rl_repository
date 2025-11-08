@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import random
 from pathlib import Path
 from typing import Tuple
 
@@ -47,6 +48,9 @@ def evaluate_agent_vs_opponent(
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
     
+    # Сохраняем старое значение epsilon и устанавливаем 0 для жадной политики при оценке
+    old_epsilon = agent.epsilon
+    agent.epsilon = 0.0
     agent.eval()
     
     # Create opponent
@@ -67,34 +71,54 @@ def evaluate_agent_vs_opponent(
     print(f"Evaluating {agent_type} agent against {opponent_type} opponent...")
     print(f"Episodes: {num_episodes}")
     
+    if seed is not None:
+        random.seed(seed)
+    
     for episode in range(num_episodes):
         obs = env.reset()
         done = False
-        current_player = 0  # 0: agent, 1: opponent
+        # Рандомизируем, кто ходит первым (как в тренировке)
+        agent_goes_first = random.random() < 0.5
+        agent_is_player_1 = agent_goes_first  # Если агент ходит первым, он player 1
         episode_length = 0
         
         while not done:
             legal_actions = env.get_legal_actions()
             
-            if current_player == 0:
-                action = agent.select_action(obs, legal_actions)
+            # Определяем, кто должен ходить на основе env.current_player
+            # env.current_player == 1 означает player 1
+            # env.current_player == -1 означает player -1
+            if env.current_player == 1:
+                # Ходит player 1
+                if agent_is_player_1:
+                    action = agent.select_action(obs, legal_actions)
+                else:
+                    action = opponent.select_action(obs, legal_actions)
             else:
-                action = opponent.select_action(obs, legal_actions)
+                # Ходит player -1
+                if agent_is_player_1:
+                    action = opponent.select_action(obs, legal_actions)
+                else:
+                    action = agent.select_action(obs, legal_actions)
             
             next_obs, reward, done, info = env.step(action)
             
             if done:
                 winner = info.get("winner")
-                if winner == 1:  # Agent is player 1
-                    wins += 1
-                elif winner == -1:  # Opponent is player -1
-                    losses += 1
-                else:
+                # winner == 1 означает player 1 выиграл
+                # winner == -1 означает player -1 выиграл
+                # winner == 0 означает ничью
+                if winner == 0:
                     draws += 1
+                elif (winner == 1 and agent_is_player_1) or (winner == -1 and not agent_is_player_1):
+                    # Агент выиграл
+                    wins += 1
+                else:
+                    # Соперник выиграл
+                    losses += 1
                 break
             
             obs = next_obs
-            current_player = 1 - current_player
             episode_length += 1
         
         episode_lengths.append(episode_length)
@@ -105,6 +129,10 @@ def evaluate_agent_vs_opponent(
     win_rate = wins / num_episodes
     draw_rate = draws / num_episodes
     loss_rate = losses / num_episodes
+    
+    # Восстанавливаем старое значение epsilon
+    agent.epsilon = old_epsilon
+    agent.train()
     
     print(f"\nResults:")
     print(f"Win rate: {win_rate:.2%} ({wins}/{num_episodes})")

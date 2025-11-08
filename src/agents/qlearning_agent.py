@@ -68,8 +68,8 @@ class QLearningAgent(BaseAgent):
         if state_hash not in self.q_table:
             self.q_table[state_hash] = {action: 0.0 for action in legal_actions}
         
-        # Epsilon-greedy
-        if self.training and random.random() < self.epsilon:
+        # Epsilon-greedy (works in both training and eval modes)
+        if random.random() < self.epsilon:
             return random.choice(legal_actions)
         else:
             # Select best action from legal actions
