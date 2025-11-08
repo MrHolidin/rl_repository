@@ -1,0 +1,26 @@
+# Q-learning Training Configuration
+
+# Training parameters
+num_episodes: 10000
+learning_rate: 0.1
+discount_factor: 0.99
+epsilon: 0.1
+epsilon_decay: 0.995
+epsilon_min: 0.01
+
+# Evaluation parameters
+eval_freq: 100
+eval_episodes: 100
+
+# Checkpoint parameters
+save_freq: 1000
+checkpoint_dir: "data/checkpoints"
+log_dir: "data/logs"
+
+# Environment parameters
+rows: 6
+cols: 7
+
+# Other parameters
+seed: 42
+

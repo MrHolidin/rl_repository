@@ -1,0 +1,23 @@
+# Core dependencies
+numpy>=1.21.0
+torch>=1.10.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Data processing
+pandas>=1.3.0
+
+# Jupyter notebook support
+jupyter>=1.0.0
+ipykernel>=6.0.0
+ipython>=7.0.0
+
+# Configuration (optional, for YAML support)
+pyyaml>=6.0
+
+# Testing (optional)
+pytest>=7.0.0
+pytest-cov>=3.0.0
+
