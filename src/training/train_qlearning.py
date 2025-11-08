@@ -33,6 +33,7 @@ def train_qlearning(
     reward_loss: float = -1.0,
     reward_draw: float = 0.0,
     reward_three_in_row: float = 0.0,
+    reward_opponent_three_in_row: float = 0.0,
     reward_invalid_action: float = -0.1,
 ):
     """
@@ -65,6 +66,7 @@ def train_qlearning(
         reward_loss=reward_loss,
         reward_draw=reward_draw,
         reward_three_in_row=reward_three_in_row,
+        reward_opponent_three_in_row=reward_opponent_three_in_row,
         reward_invalid_action=reward_invalid_action,
     )
     
@@ -195,6 +197,7 @@ def train_qlearning(
                 reward_loss=reward_loss,
                 reward_draw=reward_draw,
                 reward_three_in_row=reward_three_in_row,
+                reward_opponent_three_in_row=reward_opponent_three_in_row,
                 reward_invalid_action=reward_invalid_action,
             )
             logger.log_dict({
@@ -241,6 +244,7 @@ def evaluate_agent(
     reward_loss: float = -1.0,
     reward_draw: float = 0.0,
     reward_three_in_row: float = 0.0,
+    reward_opponent_three_in_row: float = 0.0,
     reward_invalid_action: float = -0.1,
 ) -> tuple:
     """
@@ -262,6 +266,7 @@ def evaluate_agent(
         reward_loss=reward_loss,
         reward_draw=reward_draw,
         reward_three_in_row=reward_three_in_row,
+        reward_opponent_three_in_row=reward_opponent_three_in_row,
         reward_invalid_action=reward_invalid_action,
     )
     

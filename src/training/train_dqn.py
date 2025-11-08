@@ -41,6 +41,7 @@ def train_dqn(
     reward_loss: float = -1.0,
     reward_draw: float = 0.0,
     reward_three_in_row: float = 0.0,
+    reward_opponent_three_in_row: float = 0.0,
     reward_invalid_action: float = -0.1,
 ):
     """
@@ -77,6 +78,7 @@ def train_dqn(
         reward_loss=reward_loss,
         reward_draw=reward_draw,
         reward_three_in_row=reward_three_in_row,
+        reward_opponent_three_in_row=reward_opponent_three_in_row,
         reward_invalid_action=reward_invalid_action,
     )
     
@@ -147,9 +149,11 @@ def train_dqn(
         episode_length = 0
         episode_training_steps = 0
         
-        # Store last observation from learning agent's perspective
-        last_learning_obs = None
-        last_learning_action = None
+        # Store pending transition from learning agent's perspective
+        # We don't record it immediately, but wait until after opponent's move
+        # to know the final outcome
+        pending_learning_obs = None
+        pending_learning_action = None
         
         while not done:
             legal_actions = env.get_legal_actions()
@@ -157,76 +161,82 @@ def train_dqn(
             if current_player == 0:
                 # Learning agent's turn
                 action = learning_agent.select_action(obs, legal_actions)
-                last_learning_obs = obs.copy()  # Save observation before action
-                last_learning_action = action
+                # Save observation and action, but don't record transition yet
+                pending_learning_obs = obs.copy()
+                pending_learning_action = action
             else:
                 # Opponent's turn
                 action = opponent.select_action(obs, legal_actions)
             
             next_obs, reward, done, info = env.step(action)
             
-            # Learning agent observes transition
-            # Note: reward is from perspective of current player (who made the move)
+            # Record learning agent's transition after opponent's move (or if game ended on agent's turn)
             if current_player == 0:
-                # Learning agent's perspective - reward is already correct
-                train_metrics = learning_agent.observe((obs, action, reward, next_obs, done, info))
-                episode_reward += reward
-                
-                # Accumulate training metrics
-                if train_metrics:
-                    episode_training_steps += 1
-                    training_steps_count += 1
-                    for key, value in train_metrics.items():
-                        if key != "target_network_updated":  # Handle boolean separately
-                            training_metrics_accumulator[key].append(value)
-            else:
-                # Opponent's move - if game ended, we need to give final reward to learning agent
+                # Learning agent just made a move
+                # Only record transition if game ended (otherwise wait for opponent's move)
                 if done:
-                    # Get final reward for learning agent from learning agent's perspective
-                    winner = info.get("winner")
-                    if winner == 1:  # Learning agent won (player 1)
-                        final_reward = 1.0
-                    elif winner == -1:  # Opponent won (player -1)
-                        final_reward = -1.0
-                    else:  # Draw
-                        final_reward = 0.0
+                    # Game ended on learning agent's move - record with final reward
+                    # next_obs is from opponent's perspective, we need to flip it to agent's perspective
+                    next_obs_flipped = next_obs.copy()
+                    next_obs_flipped[0] = next_obs[1]  # Current player becomes opponent
+                    next_obs_flipped[1] = next_obs[0]  # Opponent becomes current player
+                    next_obs_flipped[2] = 1.0 - next_obs[2]  # Flip player indicator
                     
-                    # Observe final transition from learning agent's last state
-                    if last_learning_obs is not None and last_learning_action is not None:
-                        # Use the observation from learning agent's perspective before opponent's move
-                        # The next_obs is from opponent's perspective, so we need to flip it
-                        # Actually, next_obs is already from the perspective of the next player (opponent)
-                        # We need to create an observation from learning agent's perspective
-                        # For simplicity, we'll use next_obs but with inverted perspective
-                        # Actually, the best approach is to use the observation as if it's learning agent's turn
-                        # But since the game is done, we can use a dummy next_obs
-                        final_next_obs = next_obs.copy()  # This is from opponent's perspective
-                        # We need to flip it to learning agent's perspective
-                        # The observation format is (3, rows, cols) where channels are:
-                        # 0: current player's pieces, 1: opponent's pieces, 2: current player indicator
-                        # We need to swap channels 0 and 1, and flip channel 2
-                        final_next_obs_flipped = final_next_obs.copy()
-                        final_next_obs_flipped[0] = next_obs[1]  # Current player becomes opponent
-                        final_next_obs_flipped[1] = next_obs[0]  # Opponent becomes current player
-                        final_next_obs_flipped[2] = 1.0 - next_obs[2]  # Flip player indicator
+                    # Reward is already from learning agent's perspective
+                    train_metrics = learning_agent.observe((pending_learning_obs, pending_learning_action, reward, next_obs_flipped, True, info))
+                    episode_reward += reward
+                    
+                    # Accumulate training metrics
+                    if train_metrics:
+                        episode_training_steps += 1
+                        training_steps_count += 1
+                        for key, value in train_metrics.items():
+                            if key != "target_network_updated":
+                                training_metrics_accumulator[key].append(value)
+                # If game didn't end, we'll record the transition after opponent's move
+            else:
+                # Opponent just made a move - record learning agent's transition
+                if pending_learning_obs is not None and pending_learning_action is not None:
+                    # After opponent's move, current_player switches back to agent
+                    # So next_obs is already from agent's perspective - no flip needed!
+                    if done:
+                        # Game ended on opponent's move - record with final reward
+                        winner = info.get("winner")
+                        if winner == 1:  # Learning agent won (player 1)
+                            final_reward = reward_win
+                        elif winner == -1:  # Opponent won (player -1)
+                            final_reward = reward_loss
+                        else:  # Draw
+                            final_reward = reward_draw
                         
                         train_metrics = learning_agent.observe((
-                            last_learning_obs,
-                            last_learning_action,
+                            pending_learning_obs,
+                            pending_learning_action,
                             final_reward,
-                            final_next_obs_flipped,
+                            next_obs,  # Already from agent's perspective
                             True,  # done
                             info
                         ))
                         episode_reward += final_reward
-                        
-                        # Accumulate training metrics
-                        if train_metrics:
-                            episode_training_steps += 1
-                            training_steps_count += 1
-                            for key, value in train_metrics.items():
-                                if key != "target_network_updated":
-                                    training_metrics_accumulator[key].append(value)
+                    else:
+                        # Game continues - record transition with intermediate reward (0.0)
+                        train_metrics = learning_agent.observe((
+                            pending_learning_obs,
+                            pending_learning_action,
+                            0.0,  # Intermediate reward (no immediate reward for learning agent)
+                            next_obs,  # Already from agent's perspective
+                            False,  # not done
+                            info
+                        ))
+                        # No reward added to episode_reward for intermediate transitions
+                    
+                    # Accumulate training metrics
+                    if train_metrics:
+                        episode_training_steps += 1
+                        training_steps_count += 1
+                        for key, value in train_metrics.items():
+                            if key != "target_network_updated":
+                                training_metrics_accumulator[key].append(value)
             
             obs = next_obs
             current_player = 1 - current_player
@@ -277,6 +287,7 @@ def train_dqn(
                 reward_loss=reward_loss,
                 reward_draw=reward_draw,
                 reward_three_in_row=reward_three_in_row,
+                reward_opponent_three_in_row=reward_opponent_three_in_row,
                 reward_invalid_action=reward_invalid_action,
             )
             logger.log_dict({
@@ -345,6 +356,7 @@ def evaluate_agent(
     reward_loss: float = -1.0,
     reward_draw: float = 0.0,
     reward_three_in_row: float = 0.0,
+    reward_opponent_three_in_row: float = 0.0,
     reward_invalid_action: float = -0.1,
 ) -> tuple:
     """
@@ -366,6 +378,7 @@ def evaluate_agent(
         reward_loss=reward_loss,
         reward_draw=reward_draw,
         reward_three_in_row=reward_three_in_row,
+        reward_opponent_three_in_row=reward_opponent_three_in_row,
         reward_invalid_action=reward_invalid_action,
     )
     
@@ -432,6 +445,12 @@ if __name__ == "__main__":
     parser.add_argument("--log-dir", type=str, default="data/logs", help="Log directory")
     parser.add_argument("--device", type=str, default=None, help="Device ('cuda' or 'cpu')")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--reward-win", type=float, default=1.0, help="Reward for winning")
+    parser.add_argument("--reward-loss", type=float, default=-1.0, help="Reward for losing")
+    parser.add_argument("--reward-draw", type=float, default=0.0, help="Reward for draw")
+    parser.add_argument("--reward-three-in-row", type=float, default=0.0, help="Reward for getting 3 in a row")
+    parser.add_argument("--reward-opponent-three-in-row", type=float, default=0.0, help="Penalty for opponent having 3 in a row")
+    parser.add_argument("--reward-invalid-action", type=float, default=-0.1, help="Reward for invalid action")
     
     args = parser.parse_args()
     
@@ -455,5 +474,11 @@ if __name__ == "__main__":
         log_dir=args.log_dir,
         device=args.device,
         seed=args.seed,
+        reward_win=args.reward_win,
+        reward_loss=args.reward_loss,
+        reward_draw=args.reward_draw,
+        reward_three_in_row=args.reward_three_in_row,
+        reward_opponent_three_in_row=args.reward_opponent_three_in_row,
+        reward_invalid_action=args.reward_invalid_action,
     )
 

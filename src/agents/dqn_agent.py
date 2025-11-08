@@ -163,6 +163,28 @@ class DQNAgent(BaseAgent):
         
         return metrics
 
+    def _get_legal_actions_from_obs(self, obs: np.ndarray) -> List[int]:
+        """
+        Extract legal actions from observation.
+        
+        Args:
+            obs: Observation array of shape (3, rows, cols)
+            
+        Returns:
+            List of legal action indices (columns that are not full)
+        """
+        # Legal actions are columns where the top row (row 0) is empty
+        # Check if both current player's pieces and opponent's pieces are 0 in row 0
+        top_row_current = obs[0, 0, :]  # Current player's pieces in top row
+        top_row_opponent = obs[1, 0, :]  # Opponent's pieces in top row
+        
+        # Column is legal if top cell is empty (both channels are 0)
+        legal_actions = [
+            col for col in range(self.cols) 
+            if top_row_current[col] == 0 and top_row_opponent[col] == 0
+        ]
+        return legal_actions
+
     def _train(self) -> dict:
         """
         Train the Q-network on a batch from replay buffer.
@@ -191,13 +213,37 @@ class DQNAgent(BaseAgent):
         
         # Double DQN: Use main network to select action, target network to evaluate
         with torch.no_grad():
-            # Use main network to select best action
+            # Use main network to select best action (with legal action masking)
             next_q_values_main = self.q_network(next_obs_tensor)
-            next_actions = next_q_values_main.argmax(1)
+            
+            # Mask illegal actions for each next_obs in the batch
+            # Convert to numpy for easier masking
+            next_q_values_main_np = next_q_values_main.cpu().numpy()
+            next_actions = []
+            
+            for i in range(next_obs_tensor.shape[0]):
+                # Skip action selection for done states (will be masked by done_tensor anyway)
+                if done_batch[i]:
+                    next_actions.append(0)  # Dummy action, won't be used
+                    continue
+                
+                next_obs_np = next_obs_tensor[i].cpu().numpy()
+                legal_actions = self._get_legal_actions_from_obs(next_obs_np)
+                
+                if not legal_actions:
+                    # If no legal actions (shouldn't happen, but handle gracefully)
+                    next_actions.append(0)
+                else:
+                    # Mask illegal actions
+                    masked_q_vals = next_q_values_main_np[i].copy()
+                    masked_q_vals[[a for a in range(len(masked_q_vals)) if a not in legal_actions]] = -np.inf
+                    next_actions.append(np.argmax(masked_q_vals))
+            
+            next_actions_tensor = torch.LongTensor(next_actions).to(self.device)
             
             # Use target network to evaluate the selected action
             next_q_values_target = self.target_network(next_obs_tensor)
-            next_q_value = next_q_values_target.gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            next_q_value = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
             
             target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * next_q_value
         
