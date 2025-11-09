@@ -175,6 +175,18 @@ class OpponentPool:
     
     # ---------- PUBLIC INTERFACE ----------
     
+    def sample_heuristic_opponent(self, episode: int):
+        """
+        Sample a heuristic opponent (ignores self-play, always returns heuristic).
+        
+        Args:
+            episode: Current episode number (for seed variation)
+            
+        Returns:
+            Heuristic agent instance
+        """
+        return self._create_heuristic_agent(episode)
+    
     def sample_opponent(self, episode: int):
         """
         Sample an opponent for the given episode.

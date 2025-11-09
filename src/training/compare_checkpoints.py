@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Literal
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,8 +16,9 @@ except ImportError:
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+from src.envs import Connect4Env, RewardConfig
 from src.agents import DQNAgent, QLearningAgent
+from src.utils.match import play_match
 
 
 def load_agent_from_checkpoint(
@@ -60,104 +61,15 @@ def load_agent_from_checkpoint(
     return agent, checkpoint_name
 
 
-def play_match(
-    agent1,
-    agent2,
-    num_games: int = 100,
-    seed: int = 42,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
-) -> Tuple[int, int, int]:
-    """
-    Play a match between two agents.
-    
-    Args:
-        agent1: First agent (plays as player 1)
-        agent2: Second agent (plays as player -1)
-        num_games: Number of games to play
-        seed: Random seed (used for reproducibility)
-        reward_*: Reward configuration
-        
-    Returns:
-        Tuple of (agent1_wins, draws, agent2_wins)
-    """
-    env = Connect4Env(
-        rows=6,
-        cols=7,
-        reward_win=reward_win,
-        reward_loss=reward_loss,
-        reward_draw=reward_draw,
-        reward_three_in_row=reward_three_in_row,
-        reward_opponent_three_in_row=reward_opponent_three_in_row,
-        reward_invalid_action=reward_invalid_action,
-    )
-    
-    agent1_wins = 0
-    draws = 0
-    agent2_wins = 0
-    
-    # Use seed for reproducibility (optional, doesn't affect correctness)
-    import random
-    
-    for game_idx in range(num_games):
-        # Set seed for each game for reproducibility
-        random.seed(seed + game_idx)
-        np.random.seed(seed + game_idx)
-        
-        obs = env.reset()
-        done = False
-        
-        # После reset() env.current_player = 1 (player 1 начинает)
-        # agent1 играет как player 1, agent2 играет как player -1
-        while not done:
-            legal_actions = env.get_legal_actions()
-            
-            # Определяем, какой агент должен ходить на основе env.current_player
-            # env.current_player == 1 означает player 1 (agent1)
-            # env.current_player == -1 означает player -1 (agent2)
-            if env.current_player == 1:
-                action = agent1.select_action(obs, legal_actions)
-            else:  # env.current_player == -1
-                action = agent2.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
-            if done:
-                winner = info.get("winner")
-                # winner == 1 означает player 1 выиграл (agent1)
-                # winner == -1 означает player -1 выиграл (agent2)
-                # winner == 0 означает ничью
-                if winner == 1:  # Agent1 (player 1) won
-                    agent1_wins += 1
-                elif winner == -1:  # Agent2 (player -1) won
-                    agent2_wins += 1
-                else:  # Draw (winner == 0)
-                    draws += 1
-                break
-            
-            obs = next_obs
-    
-    return agent1_wins, draws, agent2_wins
-
-
 def compare_checkpoints(
     checkpoint_paths: List[str],
-    model_type: str = "dqn",
+    model_type: Literal["dqn", "qlearning"] = "dqn",
     num_games_per_match: int = 100,
     device: Optional[str] = None,
     seed: int = 42,
     epsilon: float = 0.01,
     use_epsilon: bool = False,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
+    reward_config: Optional[RewardConfig] = None,
     verbose: bool = True,
 ) -> Dict:
     """
@@ -185,6 +97,10 @@ def compare_checkpoints(
     """
     if len(checkpoint_paths) < 2:
         raise ValueError("Need at least 2 checkpoints to compare")
+    
+    # Initialize reward config
+    if reward_config is None:
+        reward_config = RewardConfig()
     
     # Load all agents
     agents = []
@@ -227,44 +143,40 @@ def compare_checkpoints(
     for i in range(n):
         for j in range(i + 1, n):
             
-            # Match 1: agent i goes first (as player 1)
+            # Match 1: i first (player 1)
             match_count += 1
             if verbose:
                 print(f"Match {match_count}/{total_matches}: {checkpoint_names[i]} (first) vs {checkpoint_names[j]}", end=" ... ")
             
-            agent1_wins, draws, agent2_wins = play_match(
+            i_wins_first, draws, j_wins_first = play_match(
                 agents[i],
                 agents[j],
                 num_games=num_games_per_match,
                 seed=seed + match_count,
-                reward_win=reward_win,
-                reward_loss=reward_loss,
-                reward_draw=reward_draw,
-                reward_three_in_row=reward_three_in_row,
-                reward_opponent_three_in_row=reward_opponent_three_in_row,
-                reward_invalid_action=reward_invalid_action,
+                randomize_first_player=False,  # Fixed order: agent1 (i) always goes first
+                reward_config=reward_config,
             )
             
-            # When i goes first: i is agent1, j is agent2
-            wins_matrix[i, j] += agent1_wins  # i's wins when i goes first
-            wins_matrix[j, i] += agent2_wins  # j's wins when i goes first (j is agent2)
+            wins_matrix[i, j] += i_wins_first   # победы i
+            wins_matrix[j, i] += j_wins_first   # победы j
             draws_matrix[i, j] += draws
             draws_matrix[j, i] += draws
             
             if verbose:
-                win_rate = agent1_wins / num_games_per_match
-                print(f"Win rate: {win_rate:.1%} ({agent1_wins}/{num_games_per_match})")
+                win_rate = i_wins_first / num_games_per_match
+                print(f"Win rate: {win_rate:.1%} ({i_wins_first}/{num_games_per_match})")
             
-            # Match 2: agent j goes first (as player 1) - swap roles
+            # Match 2: j first (player 1)
             match_count += 1
             if verbose:
                 print(f"Match {match_count}/{total_matches}: {checkpoint_names[j]} (first) vs {checkpoint_names[i]}", end=" ... ")
             
-            agent2_wins_first, draws_swap, agent1_wins_second = play_match(
+            j_wins_second, draws_swap, i_wins_second = play_match(
                 agents[j],
                 agents[i],
                 num_games=num_games_per_match,
                 seed=seed + match_count,
+                randomize_first_player=False,  # Fixed order: agent1 (j) always goes first
                 reward_win=reward_win,
                 reward_loss=reward_loss,
                 reward_draw=reward_draw,
@@ -273,17 +185,14 @@ def compare_checkpoints(
                 reward_invalid_action=reward_invalid_action,
             )
             
-            # When j goes first, j is agent1, i is agent2
-            # So: agent2_wins_first = wins for i (when j goes first)
-            #     agent1_wins_second = wins for j (when j goes first)
-            wins_matrix[i, j] += agent2_wins_first  # i's wins when j goes first
-            wins_matrix[j, i] += agent1_wins_second  # j's wins when j goes first
+            wins_matrix[i, j] += i_wins_second   # победы i, теперь он второй
+            wins_matrix[j, i] += j_wins_second   # победы j, теперь он первый
             draws_matrix[i, j] += draws_swap
             draws_matrix[j, i] += draws_swap
             
             if verbose:
-                win_rate = agent2_wins_first / num_games_per_match
-                print(f"Win rate: {win_rate:.1%} ({agent2_wins_first}/{num_games_per_match})")
+                win_rate = i_wins_second / num_games_per_match
+                print(f"Win rate: {win_rate:.1%} ({i_wins_second}/{num_games_per_match})")
     
     # Calculate losses matrix: losses[i, j] = wins[j, i]
     losses_matrix = wins_matrix.T.copy()
@@ -445,31 +354,32 @@ def print_comparison_results(results: Dict):
     print("=" * 80)
 
 
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Compare multiple checkpoints")
-    parser.add_argument("--checkpoints", nargs="+", required=True, help="Paths to checkpoint files")
-    parser.add_argument("--model-type", type=str, default="dqn", choices=["dqn", "qlearning"], help="Model type")
-    parser.add_argument("--num-games", type=int, default=100, help="Number of games per match")
-    parser.add_argument("--device", type=str, default=None, help="Device ('cuda' or 'cpu')")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--epsilon", type=float, default=0.01, help="Epsilon for epsilon-greedy (used only if --use-epsilon is set)")
-    parser.add_argument("--use-epsilon", action="store_true", help="Use epsilon-greedy exploration (default: False = pure exploitation)")
-    parser.add_argument("--save-plot", type=str, default=None, help="Path to save plot")
-    
-    args = parser.parse_args()
-    
+def main(
+    checkpoints: list[str],
+    model_type: Literal["dqn", "qlearning"] = "dqn",
+    num_games: int = 100,
+    device: Optional[str] = None,
+    seed: int = 42,
+    epsilon: float = 0.01,
+    use_epsilon: bool = False,
+    save_plot: Optional[str] = None,
+):
+    """Main entry point for checkpoint comparison."""
     results = compare_checkpoints(
-        checkpoint_paths=args.checkpoints,
-        model_type=args.model_type,
-        num_games_per_match=args.num_games,
-        device=args.device,
-        seed=args.seed,
-        epsilon=args.epsilon,
-        use_epsilon=args.use_epsilon,
+        checkpoint_paths=checkpoints,
+        model_type=model_type,
+        num_games_per_match=num_games,
+        device=device,
+        seed=seed,
+        epsilon=epsilon,
+        use_epsilon=use_epsilon,
     )
     
     print_comparison_results(results)
-    plot_comparison_results(results, save_path=args.save_plot)
+    plot_comparison_results(results, save_path=save_plot)
+
+
+if __name__ == "__main__":
+    import tyro
+    tyro.cli(main)
 

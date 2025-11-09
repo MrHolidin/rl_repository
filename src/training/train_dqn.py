@@ -1,6 +1,5 @@
 """Training script for DQN agent."""
 
-import argparse
 import os
 import sys
 import time
@@ -8,11 +7,14 @@ import threading
 import random
 from pathlib import Path
 from collections import defaultdict
+from typing import Optional, Literal
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+import tyro
+
+from src.envs import Connect4Env, RewardConfig
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.utils import MetricsLogger
 from src.selfplay import OpponentPool
@@ -30,22 +32,17 @@ def train_dqn(
     target_update_freq: int = 100,
     soft_update: bool = False,
     tau: float = 0.01,
-    opponent_type: str = "random",
+    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     eval_freq: int = 100,
     eval_episodes: int = 100,
     save_freq: int = 1000,
     checkpoint_dir: str = "data/checkpoints",
     log_dir: str = "data/logs",
-    device: str = None,
+    device: Optional[str] = None,
     seed: int = 42,
-    stop_flag: threading.Event = None,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
-    self_play_config: dict = None,
+    stop_flag: Optional[threading.Event] = None,
+    reward_config: Optional[RewardConfig] = None,
+    self_play_config: Optional[dict] = None,
 ):
     """
     Train DQN agent using self-play.
@@ -73,6 +70,10 @@ def train_dqn(
     # Create directories
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
+    
+    # Initialize reward config
+    if reward_config is None:
+        reward_config = RewardConfig()
     
     # Initialize self-play config
     if self_play_config is None:
@@ -114,12 +115,7 @@ def train_dqn(
     env = Connect4Env(
         rows=6, 
         cols=7,
-        reward_win=reward_win,
-        reward_loss=reward_loss,
-        reward_draw=reward_draw,
-        reward_three_in_row=reward_three_in_row,
-        reward_opponent_three_in_row=reward_opponent_three_in_row,
-        reward_invalid_action=reward_invalid_action,
+        reward_config=reward_config,
     )
     
     # Initialize agents
@@ -238,10 +234,10 @@ def train_dqn(
                         winner = info.get("winner")
                         if winner == 0:
                             # Ничья
-                            final_reward = reward_draw
+                            final_reward = reward_config.draw
                         else:
                             # Соперник победил → агент проиграл
-                            final_reward = reward_loss  # отрицательный ревард
+                            final_reward = reward_config.loss  # отрицательный ревард
                         
                         # next_obs уже POV агента (после хода соперника current_player снова = агент)
                         train_metrics = learning_agent.observe((
@@ -309,15 +305,11 @@ def train_dqn(
         if (episode + 1) % eval_freq == 0:
             win_rate, draw_rate, loss_rate = evaluate_agent(
                 learning_agent, 
-                opponent, 
+                opponent_pool, 
+                episode,
                 eval_episodes, 
+                reward_config=reward_config,
                 seed=seed,
-                reward_win=reward_win,
-                reward_loss=reward_loss,
-                reward_draw=reward_draw,
-                reward_three_in_row=reward_three_in_row,
-                reward_opponent_three_in_row=reward_opponent_three_in_row,
-                reward_invalid_action=reward_invalid_action,
             )
             logger.log_dict({
                 "win_rate": win_rate,
@@ -390,23 +382,21 @@ def train_dqn(
 
 def evaluate_agent(
     agent, 
-    opponent, 
+    opponent_pool, 
+    episode: int,
     num_episodes: int, 
-    seed: int = None,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
+    reward_config: RewardConfig,
+    seed: Optional[int] = None,
 ) -> tuple:
     """
-    Evaluate agent against opponent.
+    Evaluate agent against opponents sampled from opponent pool.
     
     Args:
         agent: Agent to evaluate
-        opponent: Opponent agent
+        opponent_pool: Opponent pool to sample opponents from
+        episode: Current episode number (for opponent sampling)
         num_episodes: Number of evaluation episodes
+        reward_config: Reward configuration
         seed: Random seed
         
     Returns:
@@ -415,12 +405,7 @@ def evaluate_agent(
     env = Connect4Env(
         rows=6, 
         cols=7,
-        reward_win=reward_win,
-        reward_loss=reward_loss,
-        reward_draw=reward_draw,
-        reward_three_in_row=reward_three_in_row,
-        reward_opponent_three_in_row=reward_opponent_three_in_row,
-        reward_invalid_action=reward_invalid_action,
+        reward_config=reward_config,
     )
     
     # Сохраняем старое значение epsilon и устанавливаем 0 для жадной политики при оценке
@@ -435,6 +420,9 @@ def evaluate_agent(
         random.seed(seed)
     
     for episode_idx in range(num_episodes):
+        # Сэмплируем оппонента для каждой игры (как в обучении)
+        opponent = opponent_pool.sample_opponent(episode + episode_idx)
+        
         obs = env.reset()
         done = False
         # Рандомизируем, кто ходит первым (как в тренировке)
@@ -491,60 +479,5 @@ def evaluate_agent(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train DQN agent")
-    parser.add_argument("--num-episodes", type=int, default=10000, help="Number of training episodes")
-    parser.add_argument("--learning-rate", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--discount-factor", type=float, default=0.99, help="Discount factor")
-    parser.add_argument("--epsilon", type=float, default=1.0, help="Initial epsilon")
-    parser.add_argument("--epsilon-decay", type=float, default=0.995, help="Epsilon decay rate")
-    parser.add_argument("--epsilon-min", type=float, default=0.01, help="Minimum epsilon")
-    parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
-    parser.add_argument("--replay-buffer-size", type=int, default=10000, help="Replay buffer size")
-    parser.add_argument("--target-update-freq", type=int, default=100, help="Target update frequency")
-    parser.add_argument("--soft-update", action="store_true", help="Use soft target network update")
-    parser.add_argument("--tau", type=float, default=0.01, help="Soft update coefficient (only used with --soft-update)")
-    parser.add_argument("--opponent-type", type=str, choices=["random", "heuristic", "smart_heuristic"], default="random", help="Type of opponent agent")
-    parser.add_argument("--eval-freq", type=int, default=100, help="Evaluation frequency")
-    parser.add_argument("--eval-episodes", type=int, default=100, help="Evaluation episodes")
-    parser.add_argument("--save-freq", type=int, default=1000, help="Checkpoint save frequency")
-    parser.add_argument("--checkpoint-dir", type=str, default="data/checkpoints", help="Checkpoint directory")
-    parser.add_argument("--log-dir", type=str, default="data/logs", help="Log directory")
-    parser.add_argument("--device", type=str, default=None, help="Device ('cuda' or 'cpu')")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--reward-win", type=float, default=1.0, help="Reward for winning")
-    parser.add_argument("--reward-loss", type=float, default=-1.0, help="Reward for losing")
-    parser.add_argument("--reward-draw", type=float, default=0.0, help="Reward for draw")
-    parser.add_argument("--reward-three-in-row", type=float, default=0.0, help="Reward for getting 3 in a row")
-    parser.add_argument("--reward-opponent-three-in-row", type=float, default=0.0, help="Penalty for opponent having 3 in a row")
-    parser.add_argument("--reward-invalid-action", type=float, default=-0.1, help="Reward for invalid action")
-    
-    args = parser.parse_args()
-    
-    train_dqn(
-        num_episodes=args.num_episodes,
-        learning_rate=args.learning_rate,
-        discount_factor=args.discount_factor,
-        epsilon=args.epsilon,
-        epsilon_decay=args.epsilon_decay,
-        epsilon_min=args.epsilon_min,
-        batch_size=args.batch_size,
-        replay_buffer_size=args.replay_buffer_size,
-        target_update_freq=args.target_update_freq,
-        soft_update=args.soft_update,
-        tau=args.tau,
-        opponent_type=args.opponent_type,
-        eval_freq=args.eval_freq,
-        eval_episodes=args.eval_episodes,
-        save_freq=args.save_freq,
-        checkpoint_dir=args.checkpoint_dir,
-        log_dir=args.log_dir,
-        device=args.device,
-        seed=args.seed,
-        reward_win=args.reward_win,
-        reward_loss=args.reward_loss,
-        reward_draw=args.reward_draw,
-        reward_three_in_row=args.reward_three_in_row,
-        reward_opponent_three_in_row=args.reward_opponent_three_in_row,
-        reward_invalid_action=args.reward_invalid_action,
-    )
+    tyro.cli(train_dqn)
 

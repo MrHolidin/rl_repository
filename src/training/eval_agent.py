@@ -1,25 +1,25 @@
 """Evaluation script for agents."""
 
-import argparse
 import os
 import sys
-import random
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Literal, Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+import tyro
+
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.utils.match import play_match
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def evaluate_agent_vs_opponent(
     agent_path: str,
-    agent_type: str,
-    opponent_type: str = "random",
+    agent_type: Literal["qlearning", "dqn"],
+    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     num_episodes: int = 1000,
     seed: int = 42,
 ) -> Tuple[float, float, float]:
@@ -36,8 +36,6 @@ def evaluate_agent_vs_opponent(
     Returns:
         Tuple of (win_rate, draw_rate, loss_rate)
     """
-    env = Connect4Env(rows=6, cols=7)
-    
     # Load agent
     if agent_type == "qlearning":
         agent = QLearningAgent(seed=seed)
@@ -63,72 +61,30 @@ def evaluate_agent_vs_opponent(
     else:
         raise ValueError(f"Unknown opponent type: {opponent_type}")
     
-    wins = 0
-    draws = 0
-    losses = 0
-    episode_lengths = []
-    
     print(f"Evaluating {agent_type} agent against {opponent_type} opponent...")
     print(f"Episodes: {num_episodes}")
     
-    if seed is not None:
-        random.seed(seed)
+    # Use common play_match function with randomization
+    # agent is agent1, opponent is agent2
+    # Returns (agent1_wins, draws, agent2_wins) = (agent_wins, draws, opponent_wins)
+    agent_wins, draws, opponent_wins = play_match(
+        agent,
+        opponent,
+        num_games=num_episodes,
+        seed=seed,
+        randomize_first_player=True,  # Randomize who goes first each game
+    )
     
-    for episode in range(num_episodes):
-        obs = env.reset()
-        done = False
-        # Рандомизируем, кто ходит первым (как в тренировке)
-        agent_goes_first = random.random() < 0.5
-        agent_is_player_1 = agent_goes_first  # Если агент ходит первым, он player 1
-        episode_length = 0
-        
-        while not done:
-            legal_actions = env.get_legal_actions()
-            
-            # Определяем, кто должен ходить на основе env.current_player
-            # env.current_player == 1 означает player 1
-            # env.current_player == -1 означает player -1
-            if env.current_player == 1:
-                # Ходит player 1
-                if agent_is_player_1:
-                    action = agent.select_action(obs, legal_actions)
-                else:
-                    action = opponent.select_action(obs, legal_actions)
-            else:
-                # Ходит player -1
-                if agent_is_player_1:
-                    action = opponent.select_action(obs, legal_actions)
-                else:
-                    action = agent.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
-            if done:
-                winner = info.get("winner")
-                # winner == 1 означает player 1 выиграл
-                # winner == -1 означает player -1 выиграл
-                # winner == 0 означает ничью
-                if winner == 0:
-                    draws += 1
-                elif (winner == 1 and agent_is_player_1) or (winner == -1 and not agent_is_player_1):
-                    # Агент выиграл
-                    wins += 1
-                else:
-                    # Соперник выиграл
-                    losses += 1
-                break
-            
-            obs = next_obs
-            episode_length += 1
-        
-        episode_lengths.append(episode_length)
-        
-        if (episode + 1) % 100 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}")
+    wins = agent_wins
+    losses = opponent_wins
     
     win_rate = wins / num_episodes
     draw_rate = draws / num_episodes
     loss_rate = losses / num_episodes
+    
+    # Note: episode_lengths is not collected when using play_match
+    # If needed, it can be added to play_match function in the future
+    episode_lengths = []
     
     # Восстанавливаем старое значение epsilon
     agent.epsilon = old_epsilon
@@ -138,7 +94,8 @@ def evaluate_agent_vs_opponent(
     print(f"Win rate: {win_rate:.2%} ({wins}/{num_episodes})")
     print(f"Draw rate: {draw_rate:.2%} ({draws}/{num_episodes})")
     print(f"Loss rate: {loss_rate:.2%} ({losses}/{num_episodes})")
-    print(f"Average episode length: {np.mean(episode_lengths):.2f}")
+    if episode_lengths:
+        print(f"Average episode length: {np.mean(episode_lengths):.2f}")
     
     return win_rate, draw_rate, loss_rate
 
@@ -198,33 +155,35 @@ def plot_results(results: dict, save_path: str = None):
         plt.show()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate agent")
-    parser.add_argument("--agent-path", type=str, required=True, help="Path to agent checkpoint")
-    parser.add_argument("--agent-type", type=str, choices=["qlearning", "dqn"], required=True, help="Agent type")
-    parser.add_argument("--opponent-type", type=str, choices=["random", "heuristic", "smart_heuristic"], default="random", help="Opponent type")
-    parser.add_argument("--num-episodes", type=int, default=1000, help="Number of evaluation episodes")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--plot", action="store_true", help="Plot results")
-    parser.add_argument("--plot-path", type=str, default=None, help="Path to save plot")
-    
-    args = parser.parse_args()
-    
+def main(
+    agent_path: str,
+    agent_type: Literal["qlearning", "dqn"],
+    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
+    num_episodes: int = 1000,
+    seed: int = 42,
+    plot: bool = False,
+    plot_path: Optional[str] = None,
+):
+    """Main entry point for evaluation."""
     win_rate, draw_rate, loss_rate = evaluate_agent_vs_opponent(
-        agent_path=args.agent_path,
-        agent_type=args.agent_type,
-        opponent_type=args.opponent_type,
-        num_episodes=args.num_episodes,
-        seed=args.seed,
+        agent_path=agent_path,
+        agent_type=agent_type,
+        opponent_type=opponent_type,
+        num_episodes=num_episodes,
+        seed=seed,
     )
     
-    if args.plot:
+    if plot:
         results = {
-            args.opponent_type: {
+            opponent_type: {
                 "win_rate": win_rate,
                 "draw_rate": draw_rate,
                 "loss_rate": loss_rate,
             }
         }
-        plot_results(results, save_path=args.plot_path)
+        plot_results(results, save_path=plot_path)
+
+
+if __name__ == "__main__":
+    tyro.cli(main)
 

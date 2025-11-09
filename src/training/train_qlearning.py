@@ -1,16 +1,18 @@
 """Training script for Q-learning agent."""
 
-import argparse
 import os
 import sys
 import threading
 import random
 from pathlib import Path
+from typing import Optional, Literal
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+import tyro
+
+from src.envs import Connect4Env, RewardConfig
 from src.agents import QLearningAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.utils import MetricsLogger
 
@@ -22,20 +24,15 @@ def train_qlearning(
     epsilon: float = 0.1,
     epsilon_decay: float = 0.995,
     epsilon_min: float = 0.01,
-    opponent_type: str = "random",
+    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     eval_freq: int = 100,
     eval_episodes: int = 100,
     save_freq: int = 1000,
     checkpoint_dir: str = "data/checkpoints",
     log_dir: str = "data/logs",
     seed: int = 42,
-    stop_flag: threading.Event = None,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
+    stop_flag: Optional[threading.Event] = None,
+    reward_config: Optional[RewardConfig] = None,
 ):
     """
     Train Q-learning agent using self-play.
@@ -59,16 +56,15 @@ def train_qlearning(
     os.makedirs(checkpoint_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     
+    # Initialize reward config
+    if reward_config is None:
+        reward_config = RewardConfig()
+    
     # Initialize environment with reward configuration
     env = Connect4Env(
         rows=6, 
         cols=7,
-        reward_win=reward_win,
-        reward_loss=reward_loss,
-        reward_draw=reward_draw,
-        reward_three_in_row=reward_three_in_row,
-        reward_opponent_three_in_row=reward_opponent_three_in_row,
-        reward_invalid_action=reward_invalid_action,
+        reward_config=reward_config,
     )
     
     # Initialize agents
@@ -159,10 +155,10 @@ def train_qlearning(
                         winner = info.get("winner")
                         if winner == 0:
                             # Ничья
-                            final_reward = reward_draw
+                            final_reward = reward_config.draw
                         else:
                             # Соперник победил → агент проиграл
-                            final_reward = reward_loss  # отрицательный ревард
+                            final_reward = reward_config.loss  # отрицательный ревард
                         
                         learning_agent.observe((
                             pending_obs, pending_action, final_reward, next_obs, True, info
@@ -203,13 +199,8 @@ def train_qlearning(
                 learning_agent, 
                 opponent, 
                 eval_episodes, 
+                reward_config=reward_config,
                 seed=seed,
-                reward_win=reward_win,
-                reward_loss=reward_loss,
-                reward_draw=reward_draw,
-                reward_three_in_row=reward_three_in_row,
-                reward_opponent_three_in_row=reward_opponent_three_in_row,
-                reward_invalid_action=reward_invalid_action,
             )
             logger.log_dict({
                 "win_rate": win_rate,
@@ -250,13 +241,8 @@ def evaluate_agent(
     agent, 
     opponent, 
     num_episodes: int, 
-    seed: int = None,
-    reward_win: float = 1.0,
-    reward_loss: float = -1.0,
-    reward_draw: float = 0.0,
-    reward_three_in_row: float = 0.0,
-    reward_opponent_three_in_row: float = 0.0,
-    reward_invalid_action: float = -0.1,
+    reward_config: RewardConfig,
+    seed: Optional[int] = None,
 ) -> tuple:
     """
     Evaluate agent against opponent.
@@ -265,6 +251,7 @@ def evaluate_agent(
         agent: Agent to evaluate
         opponent: Opponent agent
         num_episodes: Number of evaluation episodes
+        reward_config: Reward configuration
         seed: Random seed
         
     Returns:
@@ -273,12 +260,7 @@ def evaluate_agent(
     env = Connect4Env(
         rows=6, 
         cols=7,
-        reward_win=reward_win,
-        reward_loss=reward_loss,
-        reward_draw=reward_draw,
-        reward_three_in_row=reward_three_in_row,
-        reward_opponent_three_in_row=reward_opponent_three_in_row,
-        reward_invalid_action=reward_invalid_action,
+        reward_config=reward_config,
     )
     
     # Сохраняем старое значение epsilon и устанавливаем 0 для жадной политики при оценке
@@ -349,36 +331,5 @@ def evaluate_agent(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train Q-learning agent")
-    parser.add_argument("--num-episodes", type=int, default=10000, help="Number of training episodes")
-    parser.add_argument("--learning-rate", type=float, default=0.1, help="Learning rate")
-    parser.add_argument("--discount-factor", type=float, default=0.99, help="Discount factor")
-    parser.add_argument("--epsilon", type=float, default=0.1, help="Initial epsilon")
-    parser.add_argument("--epsilon-decay", type=float, default=0.995, help="Epsilon decay rate")
-    parser.add_argument("--epsilon-min", type=float, default=0.01, help="Minimum epsilon")
-    parser.add_argument("--opponent-type", type=str, choices=["random", "heuristic", "smart_heuristic"], default="random", help="Type of opponent agent")
-    parser.add_argument("--eval-freq", type=int, default=100, help="Evaluation frequency")
-    parser.add_argument("--eval-episodes", type=int, default=100, help="Evaluation episodes")
-    parser.add_argument("--save-freq", type=int, default=1000, help="Checkpoint save frequency")
-    parser.add_argument("--checkpoint-dir", type=str, default="data/checkpoints", help="Checkpoint directory")
-    parser.add_argument("--log-dir", type=str, default="data/logs", help="Log directory")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    
-    args = parser.parse_args()
-    
-    train_qlearning(
-        num_episodes=args.num_episodes,
-        learning_rate=args.learning_rate,
-        discount_factor=args.discount_factor,
-        epsilon=args.epsilon,
-        epsilon_decay=args.epsilon_decay,
-        epsilon_min=args.epsilon_min,
-        opponent_type=args.opponent_type,
-        eval_freq=args.eval_freq,
-        eval_episodes=args.eval_episodes,
-        save_freq=args.save_freq,
-        checkpoint_dir=args.checkpoint_dir,
-        log_dir=args.log_dir,
-        seed=args.seed,
-    )
+    tyro.cli(train_qlearning)
 

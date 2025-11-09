@@ -1,21 +1,22 @@
 """Evaluate a trained model against multiple opponents."""
 
-import argparse
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Literal, Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+import tyro
+
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.utils.match import play_match
 
 
 def evaluate_model_against_opponents(
     model_path: str,
-    model_type: str,
-    opponents: List[str],
+    model_type: Literal["qlearning", "dqn"],
+    opponents: Optional[List[Literal["random", "heuristic", "smart_heuristic"]]] = None,
     num_episodes: int = 1000,
     seed: int = 42,
     use_epsilon: bool = True,
@@ -26,15 +27,16 @@ def evaluate_model_against_opponents(
     Args:
         model_path: Path to model checkpoint
         model_type: Type of model ('qlearning' or 'dqn')
-        opponents: List of opponent types to test against
+        opponents: List of opponent types to test against (default: all)
         num_episodes: Number of episodes per opponent
         seed: Random seed
+        use_epsilon: Whether to use epsilon-greedy (default: True)
         
     Returns:
         Dictionary with results for each opponent
     """
-    env = Connect4Env(rows=6, cols=7)
-    
+    if opponents is None:
+        opponents = ["random", "heuristic", "smart_heuristic"]
     # Load model
     if model_type == "qlearning":
         model = QLearningAgent(seed=seed)
@@ -82,37 +84,19 @@ def evaluate_model_against_opponents(
         else:
             raise ValueError(f"Unknown opponent type: {opponent_type}")
         
-        wins = 0
-        draws = 0
-        losses = 0
+        # Use common play_match function with randomization
+        # model is agent1, opponent is agent2
+        # Returns (agent1_wins, draws, agent2_wins) = (model_wins, draws, opponent_wins)
+        model_wins, draws, opponent_wins = play_match(
+            model,
+            opponent,
+            num_games=num_episodes,
+            seed=seed,
+            randomize_first_player=True,  # Randomize who goes first each game
+        )
         
-        for episode in range(num_episodes):
-            obs = env.reset()
-            done = False
-            current_player = 0  # 0: model, 1: opponent
-            
-            while not done:
-                legal_actions = env.get_legal_actions()
-                
-                if current_player == 0:
-                    action = model.select_action(obs, legal_actions)
-                else:
-                    action = opponent.select_action(obs, legal_actions)
-                
-                next_obs, reward, done, info = env.step(action)
-                
-                if done:
-                    winner = info.get("winner")
-                    if winner == 1:  # Model is player 1
-                        wins += 1
-                    elif winner == -1:  # Opponent is player -1
-                        losses += 1
-                    else:
-                        draws += 1
-                    break
-                
-                obs = next_obs
-                current_player = 1 - current_player
+        wins = model_wins
+        losses = opponent_wins
         
         win_rate = wins / num_episodes
         draw_rate = draws / num_episodes
@@ -182,42 +166,42 @@ def print_results(results: Dict[str, Dict[str, float]], model_path: str, model=N
         print()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate model against multiple opponents")
-    parser.add_argument("--model-path", type=str, required=True, help="Path to model checkpoint")
-    parser.add_argument("--model-type", type=str, choices=["qlearning", "dqn"], required=True, help="Model type")
-    parser.add_argument("--opponents", type=str, nargs="+", default=["random", "heuristic", "smart_heuristic"], 
-                        choices=["random", "heuristic", "smart_heuristic"],
-                        help="List of opponents to test against")
-    parser.add_argument("--num-episodes", type=int, default=1000, help="Number of episodes per opponent")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--no-epsilon", action="store_true", help="Set epsilon to 0 (pure exploitation, no random actions)")
-    
-    args = parser.parse_args()
-    
+def main(
+    model_path: str,
+    model_type: Literal["qlearning", "dqn"],
+    opponents: Optional[List[Literal["random", "heuristic", "smart_heuristic"]]] = None,
+    num_episodes: int = 1000,
+    seed: int = 42,
+    no_epsilon: bool = False,
+):
+    """Main entry point for evaluation."""
     # Load model to get epsilon for display
-    if args.model_type == "qlearning":
-        model_for_display = QLearningAgent(seed=args.seed)
-        model_for_display.load(args.model_path)
-    elif args.model_type == "dqn":
-        model_for_display = DQNAgent(rows=6, cols=7, seed=args.seed)
-        model_for_display.load(args.model_path)
+    if model_type == "qlearning":
+        model_for_display = QLearningAgent(seed=seed)
+        model_for_display.load(model_path)
+    elif model_type == "dqn":
+        model_for_display = DQNAgent(rows=6, cols=7, seed=seed)
+        model_for_display.load(model_path)
     else:
         model_for_display = None
     
     # Set epsilon to 0 if --no-epsilon flag is set
-    if args.no_epsilon and model_for_display is not None:
+    if no_epsilon and model_for_display is not None:
         if hasattr(model_for_display, 'epsilon'):
             model_for_display.epsilon = 0.0
     
     results = evaluate_model_against_opponents(
-        model_path=args.model_path,
-        model_type=args.model_type,
-        opponents=args.opponents,
-        num_episodes=args.num_episodes,
-        seed=args.seed,
-        use_epsilon=not args.no_epsilon,
+        model_path=model_path,
+        model_type=model_type,
+        opponents=opponents,
+        num_episodes=num_episodes,
+        seed=seed,
+        use_epsilon=not no_epsilon,
     )
     
-    print_results(results, args.model_path, model=model_for_display)
+    print_results(results, model_path, model=model_for_display)
+
+
+if __name__ == "__main__":
+    tyro.cli(main)
 

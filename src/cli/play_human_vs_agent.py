@@ -1,20 +1,22 @@
 """CLI for playing against agent."""
 
-import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Literal, Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+import tyro
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
 
 
 def play_human_vs_agent(
-    agent_path: str,
-    agent_type: str,
+    agent_type: Literal["random", "heuristic", "smart_heuristic", "qlearning", "dqn"],
+    agent_path: Optional[str] = None,
     human_first: bool = True,
     seed: int = 42,
 ):
@@ -22,11 +24,14 @@ def play_human_vs_agent(
     Play a game against an agent.
     
     Args:
-        agent_path: Path to agent checkpoint
         agent_type: Type of agent ('random', 'heuristic', 'qlearning', or 'dqn')
+        agent_path: Path to agent checkpoint (required for qlearning and dqn)
         human_first: Whether human plays first
         seed: Random seed
     """
+    if agent_type in ["qlearning", "dqn"] and agent_path is None:
+        print("Error: agent_path is required for qlearning and dqn agents")
+        sys.exit(1)
     env = Connect4Env(rows=6, cols=7)
     
     # Load agent
@@ -108,27 +113,6 @@ def play_human_vs_agent(
         print()
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Play against agent")
-    parser.add_argument("--agent-path", type=str, default=None, help="Path to agent checkpoint")
-    parser.add_argument("--agent-type", type=str, choices=["random", "heuristic", "smart_heuristic", "qlearning", "dqn"], required=True, help="Agent type")
-    parser.add_argument("--human-first", action="store_true", help="Human plays first")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    
-    args = parser.parse_args()
-    
-    if args.agent_type in ["qlearning", "dqn"] and args.agent_path is None:
-        print("Error: --agent-path is required for qlearning and dqn agents")
-        sys.exit(1)
-    
-    play_human_vs_agent(
-        agent_path=args.agent_path,
-        agent_type=args.agent_type,
-        human_first=args.human_first,
-        seed=args.seed,
-    )
-
-
 if __name__ == "__main__":
-    main()
+    tyro.cli(play_human_vs_agent)
 

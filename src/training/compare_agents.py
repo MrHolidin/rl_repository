@@ -1,6 +1,5 @@
 """Compare different agents against each other."""
 
-import argparse
 import sys
 from pathlib import Path
 from typing import Dict, Tuple
@@ -8,58 +7,10 @@ from typing import Dict, Tuple
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.envs import Connect4Env
+import tyro
+
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
-
-
-def play_match(agent1, agent2, num_games: int = 100, seed: int = 42) -> Tuple[int, int, int]:
-    """
-    Play matches between two agents.
-    
-    Args:
-        agent1: First agent (plays as player 1)
-        agent2: Second agent (plays as player -1)
-        num_games: Number of games to play
-        seed: Random seed
-        
-    Returns:
-        Tuple of (agent1_wins, draws, agent2_wins)
-    """
-    env = Connect4Env(rows=6, cols=7)
-    
-    agent1_wins = 0
-    agent2_wins = 0
-    draws = 0
-    
-    for game in range(num_games):
-        obs = env.reset()
-        done = False
-        current_player = 0  # 0: agent1, 1: agent2
-        
-        while not done:
-            legal_actions = env.get_legal_actions()
-            
-            if current_player == 0:
-                action = agent1.select_action(obs, legal_actions)
-            else:
-                action = agent2.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
-            if done:
-                winner = info.get("winner")
-                if winner == 1:  # Agent1 won
-                    agent1_wins += 1
-                elif winner == -1:  # Agent2 won
-                    agent2_wins += 1
-                else:  # Draw
-                    draws += 1
-                break
-            
-            obs = next_obs
-            current_player = 1 - current_player
-    
-    return agent1_wins, draws, agent2_wins
+from src.utils.match import play_match
 
 
 def compare_agents(num_games: int = 1000, seed: int = 42):
@@ -96,7 +47,13 @@ def compare_agents(num_games: int = 1000, seed: int = 42):
             agent1 = agents[name1]
             agent2 = agents[name2]
             
-            wins1, draws, wins2 = play_match(agent1, agent2, num_games, seed=seed + i * 10 + j)
+            wins1, draws, wins2 = play_match(
+                agent1, 
+                agent2, 
+                num_games=num_games, 
+                seed=seed + i * 10 + j,
+                randomize_first_player=False  # Fixed order: agent1 always goes first
+            )
             
             win_rate1 = wins1 / num_games
             draw_rate = draws / num_games
@@ -170,11 +127,5 @@ def compare_agents(num_games: int = 1000, seed: int = 42):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Compare different agents")
-    parser.add_argument("--num-games", type=int, default=1000, help="Number of games per match")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    
-    args = parser.parse_args()
-    
-    compare_agents(num_games=args.num_games, seed=args.seed)
+    tyro.cli(compare_agents)
 

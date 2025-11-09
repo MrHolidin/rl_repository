@@ -1,22 +1,24 @@
 """CLI for playing agent vs agent."""
 
-import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Literal, Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+import tyro
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
 
 
 def play_agent_vs_agent(
-    agent1_path: str,
-    agent1_type: str,
-    agent2_path: str,
-    agent2_type: str,
+    agent1_type: Literal["random", "heuristic", "smart_heuristic", "qlearning", "dqn"],
+    agent2_type: Literal["random", "heuristic", "smart_heuristic", "qlearning", "dqn"],
+    agent1_path: Optional[str] = None,
+    agent2_path: Optional[str] = None,
     num_games: int = 1,
     render: bool = True,
     seed: int = 42,
@@ -25,14 +27,21 @@ def play_agent_vs_agent(
     Play agent vs agent games.
     
     Args:
-        agent1_path: Path to agent1 checkpoint
         agent1_type: Type of agent1 ('random', 'heuristic', 'qlearning', or 'dqn')
-        agent2_path: Path to agent2 checkpoint
         agent2_type: Type of agent2 ('random', 'heuristic', 'qlearning', or 'dqn')
+        agent1_path: Path to agent1 checkpoint (required for qlearning and dqn)
+        agent2_path: Path to agent2 checkpoint (required for qlearning and dqn)
         num_games: Number of games to play
         render: Whether to render games
         seed: Random seed
     """
+    if agent1_type in ["qlearning", "dqn"] and agent1_path is None:
+        print("Error: agent1_path is required for qlearning and dqn agents")
+        sys.exit(1)
+    
+    if agent2_type in ["qlearning", "dqn"] and agent2_path is None:
+        print("Error: agent2_path is required for qlearning and dqn agents")
+        sys.exit(1)
     env = Connect4Env(rows=6, cols=7)
     
     # Load agent1
@@ -138,37 +147,6 @@ def play_agent_vs_agent(
     print("=" * 50)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Play agent vs agent")
-    parser.add_argument("--agent1-path", type=str, default=None, help="Path to agent1 checkpoint")
-    parser.add_argument("--agent1-type", type=str, choices=["random", "heuristic", "smart_heuristic", "qlearning", "dqn"], required=True, help="Agent1 type")
-    parser.add_argument("--agent2-path", type=str, default=None, help="Path to agent2 checkpoint")
-    parser.add_argument("--agent2-type", type=str, choices=["random", "heuristic", "smart_heuristic", "qlearning", "dqn"], required=True, help="Agent2 type")
-    parser.add_argument("--num-games", type=int, default=1, help="Number of games to play")
-    parser.add_argument("--no-render", action="store_true", help="Don't render games")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    
-    args = parser.parse_args()
-    
-    if args.agent1_type in ["qlearning", "dqn"] and args.agent1_path is None:
-        print("Error: --agent1-path is required for qlearning and dqn agents")
-        sys.exit(1)
-    
-    if args.agent2_type in ["qlearning", "dqn"] and args.agent2_path is None:
-        print("Error: --agent2-path is required for qlearning and dqn agents")
-        sys.exit(1)
-    
-    play_agent_vs_agent(
-        agent1_path=args.agent1_path,
-        agent1_type=args.agent1_type,
-        agent2_path=args.agent2_path,
-        agent2_type=args.agent2_type,
-        num_games=args.num_games,
-        render=not args.no_render,
-        seed=args.seed,
-    )
-
-
 if __name__ == "__main__":
-    main()
+    tyro.cli(play_agent_vs_agent)
 

@@ -17,6 +17,9 @@ ipython>=7.0.0
 # Configuration (optional, for YAML support)
 pyyaml>=6.0
 
+# CLI
+tyro>=0.5.0
+
 # Testing (optional)
 pytest>=7.0.0
 pytest-cov>=3.0.0

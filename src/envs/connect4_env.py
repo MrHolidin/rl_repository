@@ -3,6 +3,8 @@
 import numpy as np
 from typing import Tuple, List, Optional, Dict, Any
 
+from .reward_config import RewardConfig
+
 
 class Connect4Env:
     """
@@ -16,12 +18,7 @@ class Connect4Env:
         self, 
         rows: int = 6, 
         cols: int = 7,
-        reward_win: float = 1.0,
-        reward_loss: float = -1.0,
-        reward_draw: float = 0.0,
-        reward_three_in_row: float = 0.0,
-        reward_opponent_three_in_row: float = 0.0,
-        reward_invalid_action: float = -0.1,
+        reward_config: Optional[RewardConfig] = None,
     ):
         """
         Initialize Connect Four environment.
@@ -29,12 +26,7 @@ class Connect4Env:
         Args:
             rows: Number of rows (default: 6)
             cols: Number of columns (default: 7)
-            reward_win: Reward for winning (default: 1.0)
-            reward_loss: Reward for losing (default: -1.0)
-            reward_draw: Reward for draw (default: 0.0)
-            reward_three_in_row: Reward for getting 3 in a row (default: 0.0)
-            reward_opponent_three_in_row: Penalty for opponent having 3 in a row (default: 0.0)
-            reward_invalid_action: Reward for invalid action (default: -0.1)
+            reward_config: RewardConfig object (default: RewardConfig with default values)
         """
         self.rows = rows
         self.cols = cols
@@ -44,12 +36,9 @@ class Connect4Env:
         self.done = False
         
         # Reward configuration
-        self.reward_win = reward_win
-        self.reward_loss = reward_loss
-        self.reward_draw = reward_draw
-        self.reward_three_in_row = reward_three_in_row
-        self.reward_opponent_three_in_row = reward_opponent_three_in_row
-        self.reward_invalid_action = reward_invalid_action
+        if reward_config is None:
+            reward_config = RewardConfig()
+        self.reward_config = reward_config
         
         self.reset()
 
@@ -81,13 +70,13 @@ class Connect4Env:
         
         if action not in self.get_legal_actions():
             # Invalid action: return negative reward and don't change state
-            return self._get_obs(), self.reward_invalid_action, self.done, {"invalid_action": True}
+            return self._get_obs(), self.reward_config.invalid_action, self.done, {"invalid_action": True}
 
         # Drop piece in the column
         row = self._drop_piece(action, self.current_player)
         if row is None:
             # Column is full
-            return self._get_obs(), self.reward_invalid_action, self.done, {"invalid_action": True}
+            return self._get_obs(), self.reward_config.invalid_action, self.done, {"invalid_action": True}
 
         # Check for win
         won = self._check_win(row, action, self.current_player)
@@ -99,25 +88,25 @@ class Connect4Env:
         if won:
             self.winner = self.current_player
             self.done = True
-            reward = self.reward_win
+            reward = self.reward_config.win
             info = {"winner": self.current_player, "reason": "win", "three_in_row": False, "opponent_three_in_row": False}
         elif self._is_board_full():
             self.winner = 0
             self.done = True
-            reward = self.reward_draw
+            reward = self.reward_config.draw
             info = {"winner": 0, "reason": "draw", "three_in_row": False, "opponent_three_in_row": False}
         else:
             # Shaping rewards: check all threes on board before switching player
-            if self.reward_three_in_row != 0.0:
+            if self.reward_config.three_in_row != 0.0:
                 if self._has_any_three(self.current_player):
-                    reward += self.reward_three_in_row
+                    reward += self.reward_config.three_in_row
                     info["three_in_row"] = True
                 else:
                     info["three_in_row"] = False
             
-            if self.reward_opponent_three_in_row != 0.0:
+            if self.reward_config.opponent_three_in_row != 0.0:
                 if self._has_any_three(-self.current_player):
-                    reward -= self.reward_opponent_three_in_row
+                    reward -= self.reward_config.opponent_three_in_row
                     info["opponent_three_in_row"] = True
                 else:
                     info["opponent_three_in_row"] = False

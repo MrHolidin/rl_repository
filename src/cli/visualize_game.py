@@ -1,12 +1,14 @@
 """Visualize a game between a trained model and a bot in the console."""
 
-import argparse
 import sys
 import time
 from pathlib import Path
+from typing import Literal
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+import tyro
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
@@ -14,9 +16,9 @@ from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearni
 
 def visualize_game(
     model_path: str,
-    model_type: str,
-    opponent_type: str = "random",
-    model_first: bool = True,
+    model_type: Literal["qlearning", "dqn"],
+    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
+    opponent_first: bool = False,
     use_epsilon: bool = False,
     delay: float = 1.0,
     seed: int = 42,
@@ -28,11 +30,12 @@ def visualize_game(
         model_path: Path to model checkpoint
         model_type: Type of model ('qlearning' or 'dqn')
         opponent_type: Type of opponent ('random', 'heuristic', or 'smart_heuristic')
-        model_first: Whether model plays first (X) or second (O)
+        opponent_first: Whether opponent plays first (model plays second)
         use_epsilon: Whether to use epsilon-greedy (False = pure exploitation)
         delay: Delay between moves in seconds
         seed: Random seed
     """
+    model_first = not opponent_first
     env = Connect4Env(rows=6, cols=7)
     
     # Load model
@@ -152,47 +155,6 @@ def visualize_game(
         print()
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Visualize a game between a trained model and a bot",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Visualize DQN model vs random opponent
-  python src/cli/visualize_game.py --model-path data/checkpoints/dqn_final.pt --model-type dqn --opponent random
-
-  # Visualize Q-learning model vs smart heuristic, model plays second
-  python src/cli/visualize_game.py --model-path data/checkpoints/qlearning_final.pkl --model-type qlearning --opponent smart_heuristic --opponent-first
-
-  # Fast visualization (no delay)
-  python src/cli/visualize_game.py --model-path data/checkpoints/dqn_final.pt --model-type dqn --opponent heuristic --delay 0.0
-        """
-    )
-    parser.add_argument("--model-path", type=str, required=True, help="Path to model checkpoint")
-    parser.add_argument("--model-type", type=str, choices=["qlearning", "dqn"], required=True, help="Model type")
-    parser.add_argument("--opponent", type=str, choices=["random", "heuristic", "smart_heuristic"], 
-                        default="random", help="Opponent type (default: random)")
-    parser.add_argument("--opponent-first", action="store_true", 
-                        help="Opponent plays first (model plays second)")
-    parser.add_argument("--use-epsilon", action="store_true", 
-                        help="Use epsilon-greedy (default: pure exploitation)")
-    parser.add_argument("--delay", type=float, default=1.0, 
-                        help="Delay between moves in seconds (default: 1.0)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
-    
-    args = parser.parse_args()
-    
-    visualize_game(
-        model_path=args.model_path,
-        model_type=args.model_type,
-        opponent_type=args.opponent,
-        model_first=not args.opponent_first,
-        use_epsilon=args.use_epsilon,
-        delay=args.delay,
-        seed=args.seed,
-    )
-
-
 if __name__ == "__main__":
-    main()
+    tyro.cli(visualize_game)
 
