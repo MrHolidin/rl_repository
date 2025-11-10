@@ -22,6 +22,8 @@ import tyro
 
 from src.envs import Connect4Env, RewardConfig
 from src.agents import DQNAgent, QLearningAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 from src.utils.match import play_match
 from src.training.random_opening import RandomOpeningConfig
 
@@ -121,14 +123,21 @@ def load_agent_from_checkpoint(
     
     if model_type == "dqn":
         # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(checkpoint_path)
-        agent = DQNAgent(rows=6, cols=7, device=device, seed=seed, network_type=network_type)
-        agent.load(checkpoint_path)
+        observation_builder = BoardChannels(board_shape=(6, 7))
+        action_space = DiscreteActionSpace(n=7)
+        agent = DQNAgent.load(
+            checkpoint_path,
+            device=device,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
         agent.eval()
         agent.epsilon = epsilon
     elif model_type == "qlearning":
-        agent = QLearningAgent(seed=seed)
-        agent.load(checkpoint_path)
+        agent = QLearningAgent.load(checkpoint_path, seed=seed)
         agent.eval()
         agent.epsilon = epsilon
     else:

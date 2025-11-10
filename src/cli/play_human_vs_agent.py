@@ -12,6 +12,8 @@ import tyro
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 
 
 def play_human_vs_agent(
@@ -42,15 +44,20 @@ def play_human_vs_agent(
     elif agent_type == "smart_heuristic":
         agent = SmartHeuristicAgent(seed=seed)
     elif agent_type == "qlearning":
-        agent = QLearningAgent(seed=seed)
-        agent.load(agent_path)
+        agent = QLearningAgent.load(agent_path, seed=seed)
         agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     elif agent_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(agent_path)
-        agent = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
-        agent.load(agent_path)
+        observation_builder = BoardChannels(board_shape=(6, 7))
+        action_space = DiscreteActionSpace(n=7)
+        agent = DQNAgent.load(
+            agent_path,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
         agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     else:

@@ -24,16 +24,28 @@ def test_replay_buffer():
         reward = 0.0
         next_obs = np.random.rand(3, 6, 7)
         done = False
-        buffer.push(obs, action, reward, next_obs, done)
+        legal_mask = np.ones(7, dtype=bool)
+        next_legal_mask = np.ones(7, dtype=bool)
+        buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
     
     assert len(buffer) == 10
     
     # Sample batch
     batch = buffer.sample(5)
-    assert len(batch) == 5
-    obs_batch, actions, rewards, next_obs_batch, dones = batch
+    assert len(batch) == 7
+    (
+        obs_batch,
+        actions,
+        rewards,
+        next_obs_batch,
+        dones,
+        legal_masks,
+        next_legal_masks,
+    ) = batch
     assert obs_batch.shape[0] == 5
     assert actions.shape[0] == 5
+    assert legal_masks.shape[0] == 5
+    assert next_legal_masks.shape[0] == 5
 
 
 def test_replay_buffer_capacity():
@@ -47,7 +59,9 @@ def test_replay_buffer_capacity():
         reward = 0.0
         next_obs = np.random.rand(3, 6, 7)
         done = False
-        buffer.push(obs, action, reward, next_obs, done)
+        legal_mask = np.ones(7, dtype=bool)
+        next_legal_mask = np.ones(7, dtype=bool)
+        buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
     
     # Should be limited to capacity
     assert len(buffer) == 10

@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import tyro
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 from src.utils.match import play_match
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,14 +39,19 @@ def evaluate_agent_vs_opponent(
         Tuple of (win_rate, draw_rate, loss_rate)
     """
     # Load agent
+    observation_builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
     if agent_type == "qlearning":
-        agent = QLearningAgent(seed=seed)
-        agent.load(agent_path)
+        agent = QLearningAgent.load(agent_path, seed=seed)
     elif agent_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(agent_path)
-        agent = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
-        agent.load(agent_path)
+        agent = DQNAgent.load(
+            agent_path,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
     

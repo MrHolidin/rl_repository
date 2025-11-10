@@ -1,7 +1,10 @@
 """Base agent interface."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
 import numpy as np
 
 
@@ -9,51 +12,47 @@ class BaseAgent(ABC):
     """Base class for all agents."""
 
     @abstractmethod
+    def act(
+        self,
+        obs: np.ndarray,
+        legal_mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> int:
+        """Return an action for the given observation."""
+
     def select_action(self, obs: np.ndarray, legal_actions: List[int]) -> int:
-        """
-        Select an action given an observation.
-        
-        Args:
-            obs: Current observation
-            legal_actions: List of legal action indices
-            
-        Returns:
-            Selected action index
-        """
-        raise NotImplementedError
+        """Backward-compatible wrapper that routes to :meth:`act`."""
+        legal_mask = None
+        if legal_actions:
+            if hasattr(self, "num_actions"):
+                num_actions = getattr(self, "num_actions")
+            elif hasattr(self, "action_space") and hasattr(self.action_space, "size"):
+                num_actions = getattr(self.action_space, "size")
+            else:
+                num_actions = max(legal_actions) + 1
+            legal_mask = np.zeros(num_actions, dtype=bool)
+            legal_mask[legal_actions] = True
+        return self.act(obs, legal_mask=legal_mask, deterministic=False)
 
-    def observe(self, transition: Tuple[Any, ...]) -> None:
-        """
-        Observe a transition (for learning).
-        
-        Args:
-            transition: Tuple of (obs, action, reward, next_obs, done, info)
-        """
-        pass
+    def observe(self, transition: Any) -> Dict[str, float]:
+        """Observe a transition and optionally return training metrics."""
+        return {}
 
+    def update(self) -> Dict[str, float]:
+        """Perform a single optimisation step, returning metrics if any."""
+        return {}
+
+    @abstractmethod
     def save(self, path: str) -> None:
-        """
-        Save agent to file.
-        
-        Args:
-            path: Path to save file
-        """
-        pass
+        """Persist agent state to ``path``."""
 
-    def load(self, path: str) -> None:
-        """
-        Load agent from file.
-        
-        Args:
-            path: Path to load file from
-        """
-        pass
+    @classmethod
+    @abstractmethod
+    def load(cls, path: str, **kwargs: Any) -> "BaseAgent":
+        """Create an agent instance from ``path``."""
 
     def train(self) -> None:
         """Set agent to training mode."""
-        pass
 
     def eval(self) -> None:
         """Set agent to evaluation mode."""
-        pass
-

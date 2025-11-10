@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import tyro
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 from src.utils.match import play_match
 
 
@@ -38,14 +40,19 @@ def evaluate_model_against_opponents(
     if opponents is None:
         opponents = ["random", "heuristic", "smart_heuristic"]
     # Load model
+    observation_builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
     if model_type == "qlearning":
-        model = QLearningAgent(seed=seed)
-        model.load(model_path)
+        model = QLearningAgent.load(model_path, seed=seed)
     elif model_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(model_path)
-        model = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
-        model.load(model_path)
+        model = DQNAgent.load(
+            model_path,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     
@@ -178,14 +185,19 @@ def main(
 ):
     """Main entry point for evaluation."""
     # Load model to get epsilon for display
+    observation_builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
     if model_type == "qlearning":
-        model_for_display = QLearningAgent(seed=seed)
-        model_for_display.load(model_path)
+        model_for_display = QLearningAgent.load(model_path, seed=seed)
     elif model_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(model_path)
-        model_for_display = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
-        model_for_display.load(model_path)
+        model_for_display = DQNAgent.load(
+            model_path,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
     else:
         model_for_display = None
     

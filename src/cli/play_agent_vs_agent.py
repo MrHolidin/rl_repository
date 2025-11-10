@@ -12,6 +12,8 @@ import tyro
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 
 
 def play_agent_vs_agent(
@@ -52,14 +54,19 @@ def play_agent_vs_agent(
     elif agent1_type == "smart_heuristic":
         agent1 = SmartHeuristicAgent(seed=seed)
     elif agent1_type == "qlearning":
-        agent1 = QLearningAgent(seed=seed)
-        agent1.load(agent1_path)
+        agent1 = QLearningAgent.load(agent1_path, seed=seed)
         agent1.eval()
     elif agent1_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(agent1_path)
-        agent1 = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
-        agent1.load(agent1_path)
+        observation_builder = BoardChannels(board_shape=(6, 7))
+        action_space = DiscreteActionSpace(n=7)
+        agent1 = DQNAgent.load(
+            agent1_path,
+            seed=seed,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
         agent1.eval()
     else:
         raise ValueError(f"Unknown agent type: {agent1_type}")
@@ -72,14 +79,19 @@ def play_agent_vs_agent(
     elif agent2_type == "smart_heuristic":
         agent2 = SmartHeuristicAgent(seed=seed + 1)
     elif agent2_type == "qlearning":
-        agent2 = QLearningAgent(seed=seed + 1)
-        agent2.load(agent2_path)
+        agent2 = QLearningAgent.load(agent2_path, seed=seed + 1)
         agent2.eval()
     elif agent2_type == "dqn":
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(agent2_path)
-        agent2 = DQNAgent(rows=6, cols=7, seed=seed + 1, network_type=network_type)
-        agent2.load(agent2_path)
+        observation_builder = BoardChannels(board_shape=(6, 7))
+        action_space = DiscreteActionSpace(n=7)
+        agent2 = DQNAgent.load(
+            agent2_path,
+            seed=seed + 1,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
+        )
         agent2.eval()
     else:
         raise ValueError(f"Unknown agent type: {agent2_type}")

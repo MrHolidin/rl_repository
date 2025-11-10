@@ -1,0 +1,130 @@
+"""Tests for the generic Trainer and callbacks."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+import numpy as np
+
+from src.agents.base_agent import BaseAgent
+from src.envs.base import StepResult, TurnBasedEnv
+from src.training.trainer import (
+    CheckpointCallback,
+    EarlyStopCallback,
+    EvalCallback,
+    Trainer,
+    Transition,
+)
+
+
+class DummyEnv(TurnBasedEnv):
+    def __init__(self, episode_length: int = 5):
+        self.episode_length = episode_length
+        self._legal_mask = np.ones(2, dtype=bool)
+        self.reset()
+
+    def reset(self, seed: int | None = None) -> np.ndarray:
+        self._state = 0
+        self._steps = 0
+        return self._obs()
+
+    def step(self, action: int) -> StepResult:
+        self._steps += 1
+        self._state += action
+        terminated = self._steps >= self.episode_length
+        return StepResult(
+            obs=self._obs(),
+            reward=1.0,
+            terminated=terminated,
+            truncated=False,
+            info={"state": self._state},
+        )
+
+    @property
+    def legal_actions_mask(self) -> np.ndarray:
+        return self._legal_mask
+
+    def current_player(self) -> int:
+        return 0
+
+    def render(self) -> None:
+        pass
+
+    def _obs(self) -> np.ndarray:
+        return np.array([self._state], dtype=np.float32)
+
+
+class DummyAgent(BaseAgent):
+    def __init__(self):
+        self.observe_calls = 0
+        self.update_calls = 0
+        self.actions: list[int] = []
+        self.loss_sequence = [1.0, 0.9, 0.9, 0.9]
+
+    def act(self, obs: np.ndarray, legal_mask: np.ndarray | None = None, deterministic: bool = False) -> int:
+        if legal_mask is None:
+            return 0
+        legal_indices = np.flatnonzero(legal_mask)
+        action = int(legal_indices[0]) if legal_indices.size else 0
+        self.actions.append(action)
+        return action
+
+    def observe(self, transition: Transition) -> dict:
+        self.observe_calls += 1
+        return {}
+
+    def update(self) -> dict:
+        self.update_calls += 1
+        loss = self.loss_sequence[min(self.update_calls - 1, len(self.loss_sequence) - 1)]
+        return {"loss": loss}
+
+    def save(self, path: str) -> None:
+        Path(path).write_text("dummy")
+
+    @classmethod
+    def load(cls, path: str, **kwargs) -> "DummyAgent":
+        return cls()
+
+
+def test_trainer_runs_and_records_metrics():
+    env = DummyEnv()
+    agent = DummyAgent()
+
+    eval_results: list[dict] = []
+
+    def eval_fn(_: Trainer) -> dict:
+        result = {"metric": len(eval_results)}
+        eval_results.append(result)
+        return result
+
+    trainer = Trainer(env, agent, callbacks=[EvalCallback(eval_fn, interval=2)], track_timings=True)
+    trainer.train(total_steps=5)
+
+    assert trainer.global_step == 5
+    assert agent.observe_calls == 5
+    assert agent.update_calls == 5
+    # Eval should have run at steps 2 and 4
+    assert len(eval_results) == 2
+    assert trainer.timing_report is not None
+    report = trainer.timing_report
+    assert all(key in report for key in ("total", "core", "callbacks", "eval"))
+
+
+def test_trainer_checkpoint_and_early_stop():
+    env = DummyEnv()
+    agent = DummyAgent()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        checkpoint_cb = CheckpointCallback(tmpdir, interval=2)
+        early_stop_cb = EarlyStopCallback(monitor="loss", patience=1, mode="min")
+        trainer = Trainer(env, agent, callbacks=[checkpoint_cb, early_stop_cb])
+        trainer.train(total_steps=10)
+
+        # Early stop should trigger after loss stops improving
+        assert trainer.stop_training is True
+        # Step 1 loss=1.0 (best), step2 loss=0.9 (best), step3 loss=0.9 (no improvement) -> stop
+        assert trainer.global_step == 3
+
+        checkpoint_files = list(Path(tmpdir).glob("checkpoint_*.pt"))
+        assert checkpoint_files, "Checkpoint callback should persist model files."
+

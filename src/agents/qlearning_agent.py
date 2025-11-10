@@ -1,8 +1,9 @@
 """Q-learning agent implementation (tabular)."""
 
-import random
 import pickle
-from typing import List, Dict, Tuple
+import random
+from typing import Dict, List, Optional
+
 import numpy as np
 
 from .base_agent import BaseAgent
@@ -48,37 +49,37 @@ class QLearningAgent(BaseAgent):
             random.seed(seed)
             np.random.seed(seed)
 
-    def select_action(self, obs: np.ndarray, legal_actions: List[int]) -> int:
-        """
-        Select action using epsilon-greedy policy.
-        
-        Args:
-            obs: Current observation
-            legal_actions: List of legal action indices
-            
-        Returns:
-            Selected action index
-        """
+    def act(
+        self,
+        obs: np.ndarray,
+        legal_mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> int:
+        """Select action using epsilon-greedy policy."""
+        if legal_mask is None:
+            raise ValueError("QLearningAgent requires legal_mask to be provided.")
+        legal_actions = np.flatnonzero(legal_mask).tolist()
         if not legal_actions:
             raise ValueError("No legal actions available")
-        
+
         state_hash = self._obs_to_hash(obs)
         
         # Initialize Q-values for this state if not seen before
         if state_hash not in self.q_table:
             self.q_table[state_hash] = {action: 0.0 for action in legal_actions}
         
-        # Epsilon-greedy (works in both training and eval modes)
-        if random.random() < self.epsilon:
-            return random.choice(legal_actions)
-        else:
-            # Select best action from legal actions
-            q_values = self.q_table[state_hash]
-            best_value = max(q_values.get(a, 0.0) for a in legal_actions)
-            best_actions = [a for a in legal_actions if q_values.get(a, 0.0) == best_value]
-            return random.choice(best_actions)
+        explore = not deterministic and self.training and random.random() < self.epsilon
 
-    def observe(self, transition: Tuple) -> None:
+        if explore:
+            return int(random.choice(legal_actions))
+
+        # Select best action from legal actions
+        q_values = self.q_table[state_hash]
+        best_value = max(q_values.get(a, 0.0) for a in legal_actions)
+        best_actions = [a for a in legal_actions if q_values.get(a, 0.0) == best_value]
+        return int(random.choice(best_actions))
+
+    def observe(self, transition) -> Dict[str, float]:
         """
         Update Q-values using Q-learning update rule.
         
@@ -86,9 +87,16 @@ class QLearningAgent(BaseAgent):
             transition: Tuple of (obs, action, reward, next_obs, done, info)
         """
         if not self.training:
-            return
-        
-        obs, action, reward, next_obs, done, info = transition
+            return {}
+
+        if hasattr(transition, "obs"):
+            obs = transition.obs
+            action = transition.action
+            reward = transition.reward
+            next_obs = transition.next_obs
+            done = transition.terminated or transition.truncated
+        else:
+            obs, action, reward, next_obs, done, *_ = transition
         
         state_hash = self._obs_to_hash(obs)
         next_state_hash = self._obs_to_hash(next_obs)
@@ -122,6 +130,7 @@ class QLearningAgent(BaseAgent):
         
         # NOTE: Epsilon decay is now handled per episode in training loop, not per step
         # This prevents epsilon from decaying too quickly
+        return {}
 
     def _obs_to_hash(self, obs: np.ndarray) -> str:
         """
@@ -189,17 +198,18 @@ class QLearningAgent(BaseAgent):
                 "discount_factor": self.discount_factor,
             }, f)
 
-    def load(self, path: str) -> None:
+    @classmethod
+    def load(cls, path: str, **kwargs: object) -> "QLearningAgent":
         """
-        Load Q-table from file.
-        
-        Args:
-            path: Path to load file from
+        Load Q-table from file and return a new agent instance.
         """
         with open(path, "rb") as f:
             data = pickle.load(f)
-            self.q_table = data["q_table"]
-            self.epsilon = data.get("epsilon", self.epsilon)
-            self.learning_rate = data.get("learning_rate", self.learning_rate)
-            self.discount_factor = data.get("discount_factor", self.discount_factor)
+
+        agent = cls(**kwargs)
+        agent.q_table = data["q_table"]
+        agent.epsilon = data.get("epsilon", agent.epsilon)
+        agent.learning_rate = data.get("learning_rate", agent.learning_rate)
+        agent.discount_factor = data.get("discount_factor", agent.discount_factor)
+        return agent
 

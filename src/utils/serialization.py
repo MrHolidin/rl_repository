@@ -23,7 +23,7 @@ def save_agent(agent: Any, path: str) -> None:
             pickle.dump(agent, f)
 
 
-def load_agent(agent: Any, path: str) -> Any:
+def load_agent(agent: Any, path: str, **kwargs: Any) -> Any:
     """
     Load an agent from file.
     
@@ -34,11 +34,11 @@ def load_agent(agent: Any, path: str) -> Any:
     Returns:
         Loaded agent
     """
-    if hasattr(agent, "load"):
-        agent.load(path)
-        return agent
-    else:
-        # Fallback: pickle
-        with open(path, "rb") as f:
-            return pickle.load(f)
+    loader = getattr(agent, "load", None)
+    if loader is not None:
+        return loader(path, **kwargs)
+
+    # Fallback: pickle
+    with open(path, "rb") as f:
+        return pickle.load(f)
 

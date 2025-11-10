@@ -1,0 +1,10 @@
+defaults:
+  - game: connect4
+  - agent: dqn
+  - train: default
+  - eval: default
+
+hydra:
+  run:
+    dir: outputs/train/${now:%Y-%m-%d_%H-%M-%S}
+

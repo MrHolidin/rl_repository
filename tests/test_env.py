@@ -16,7 +16,8 @@ def test_env_initialization():
     env = Connect4Env(rows=6, cols=7)
     assert env.rows == 6
     assert env.cols == 7
-    assert env.current_player == 1
+    assert env.current_player() == 0
+    assert env.current_player_token == 1
     assert not env.done
 
 
@@ -26,7 +27,8 @@ def test_env_reset():
     obs = env.reset()
     assert obs.shape == (3, 6, 7)
     assert np.all(env.board == 0)
-    assert env.current_player == 1
+    assert env.current_player() == 0
+    assert env.current_player_token == 1
     assert not env.done
 
 
@@ -39,7 +41,8 @@ def test_env_step():
     next_obs, reward, done, info = env.step(0)
     assert next_obs.shape == (3, 6, 7)
     assert env.board[5, 0] == 1  # Piece should be at bottom
-    assert env.current_player == -1  # Player should switch
+    assert env.current_player() == 1  # Player index should switch
+    assert env.current_player_token == -1  # Player token should switch
     assert not done
 
 
@@ -71,7 +74,7 @@ def test_env_win_horizontal():
         obs, reward, done, info = env.step(action)
         if done:
             assert info["winner"] == 1
-            assert info["reason"] == "win"
+            assert info["termination_reason"] == "win"
             break
 
 
@@ -86,7 +89,7 @@ def test_env_win_vertical():
         obs, reward, done, info = env.step(action)
         if done:
             assert info["winner"] == 1
-            assert info["reason"] == "win"
+            assert info["termination_reason"] == "win"
             break
 
 

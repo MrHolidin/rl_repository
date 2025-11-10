@@ -28,6 +28,8 @@ class ReplayBuffer:
         reward: float,
         next_obs: np.ndarray,
         done: bool,
+        legal_mask: np.ndarray,
+        next_legal_mask: np.ndarray,
     ) -> None:
         """
         Add a transition to the buffer.
@@ -39,7 +41,7 @@ class ReplayBuffer:
             next_obs: Next observation
             done: Whether episode is done
         """
-        self.buffer.append((obs, action, reward, next_obs, done))
+        self.buffer.append((obs, action, reward, next_obs, done, legal_mask, next_legal_mask))
 
     def sample(self, batch_size: int) -> Tuple[np.ndarray, ...]:
         """
@@ -56,7 +58,7 @@ class ReplayBuffer:
         
         batch = random.sample(self.buffer, batch_size)
         
-        obs, actions, rewards, next_obs, dones = zip(*batch)
+        obs, actions, rewards, next_obs, dones, legal_masks, next_legal_masks = zip(*batch)
         
         return (
             np.array(obs),
@@ -64,6 +66,8 @@ class ReplayBuffer:
             np.array(rewards),
             np.array(next_obs),
             np.array(dones),
+            np.array(legal_masks),
+            np.array(next_legal_masks),
         )
 
     def __len__(self) -> int:

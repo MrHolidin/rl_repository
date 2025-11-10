@@ -1,7 +1,7 @@
 """Smart heuristic agent implementation for Connect Four."""
 
 import random
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 
 from .base_agent import BaseAgent
@@ -18,7 +18,7 @@ class SmartHeuristicAgent(BaseAgent):
     6. Avoid giving opponent opportunities
     """
 
-    def __init__(self, seed: int = None):
+    def __init__(self, seed: Optional[int] = None):
         """
         Initialize smart heuristic agent.
         
@@ -27,18 +27,18 @@ class SmartHeuristicAgent(BaseAgent):
         """
         if seed is not None:
             random.seed(seed)
+            np.random.seed(seed)
 
-    def select_action(self, obs: np.ndarray, legal_actions: List[int]) -> int:
-        """
-        Select action using smart heuristic rules.
-        
-        Args:
-            obs: Current observation
-            legal_actions: List of legal action indices
-            
-        Returns:
-            Selected action index
-        """
+    def act(
+        self,
+        obs: np.ndarray,
+        legal_mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> int:
+        """Select action using smart heuristic rules."""
+        if legal_mask is None:
+            raise ValueError("SmartHeuristicAgent requires legal_mask to be provided.")
+        legal_actions = np.flatnonzero(legal_mask).tolist()
         if not legal_actions:
             raise ValueError("No legal actions available")
         
@@ -92,10 +92,10 @@ class SmartHeuristicAgent(BaseAgent):
         # Priority 6: Avoid giving opponent opportunities
         safe_actions = self._get_safe_actions(board, legal_actions, current_player)
         if safe_actions:
-            return random.choice(safe_actions)
-        
+            return int(random.choice(safe_actions))
+
         # Fallback: random from legal actions
-        return random.choice(legal_actions)
+        return int(random.choice(legal_actions))
 
     def _would_win(self, board: np.ndarray, col: int, player: int) -> bool:
         """
@@ -341,4 +341,13 @@ class SmartHeuristicAgent(BaseAgent):
                 return True
         
         return False
+
+    def save(self, path: str) -> None:
+        """Smart heuristic agent has no persistent state."""
+        return None
+
+    @classmethod
+    def load(cls, path: str, **kwargs: object) -> "SmartHeuristicAgent":
+        """Return a new smart heuristic agent instance."""
+        return cls(**kwargs)
 

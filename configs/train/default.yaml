@@ -1,0 +1,19 @@
+total_steps: 10000
+deterministic: false
+track_timings: false
+callbacks:
+  - type: eval
+    enabled: ${eval.enabled}
+    params:
+      interval: 1000
+      num_episodes: ${eval.num_episodes}
+      deterministic: ${eval.deterministic}
+  - type: checkpoint
+    params:
+      interval: 2000
+      output_dir: ${hydra:run.dir}/checkpoints
+      prefix: model
+  - type: csv
+    params:
+      path: ${hydra:run.dir}/metrics.csv
+

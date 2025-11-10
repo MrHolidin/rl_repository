@@ -1,0 +1,25 @@
+id: dqn
+params:
+  learning_rate: 0.0005
+  discount_factor: 0.99
+  epsilon: 1.0
+  epsilon_decay: 0.995
+  epsilon_min: 0.05
+  batch_size: 128
+  replay_buffer_size: 50000
+  target_update_freq: 200
+  soft_update: false
+  tau: 0.01
+  model_config:
+    conv_layers:
+      - out_channels: 64
+        kernel_size: 3
+        stride: 1
+        padding: 1
+      - out_channels: 128
+        kernel_size: 3
+        stride: 1
+        padding: 1
+    fc_layers:
+      - 256
+

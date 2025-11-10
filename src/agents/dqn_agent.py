@@ -1,15 +1,19 @@
 """DQN agent implementation."""
 
-import random
+import copy
 import os
-from typing import List, Tuple, Optional, Literal
+import random
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 from .base_agent import BaseAgent
-from ..models.dqn_network import DQN
+from ..features.action_space import ActionSpace, DiscreteActionSpace
+from ..features.observation_builder import ObservationType
+from ..models.q_network_factory import build_q_network
 from ..utils.replay_buffer import ReplayBuffer
 
 
@@ -24,8 +28,9 @@ class DQNAgent(BaseAgent):
 
     def __init__(
         self,
-        rows: int = 6,
-        cols: int = 7,
+        observation_shape: Tuple[int, ...],
+        observation_type: ObservationType,
+        num_actions: int,
         learning_rate: float = 0.001,
         discount_factor: float = 0.99,
         epsilon: float = 1.0,
@@ -38,14 +43,17 @@ class DQNAgent(BaseAgent):
         tau: float = 0.01,
         device: Optional[str] = None,
         seed: int = None,
-        network_type: Literal["dqn", "dueling_dqn"] = "dqn",
+        network_type: str = "dqn",
+        model_config: Optional[Dict] = None,
+        action_space: Optional[ActionSpace] = None,
     ):
         """
         Initialize DQN agent.
         
         Args:
-            rows: Number of rows in board
-            cols: Number of columns in board
+            observation_shape: Shape of processed observation.
+            observation_type: Type of observation ("board" or "vector").
+            num_actions: Number of discrete actions.
             learning_rate: Learning rate for optimizer
             discount_factor: Discount factor (gamma)
             epsilon: Initial epsilon for epsilon-greedy
@@ -59,9 +67,12 @@ class DQNAgent(BaseAgent):
             device: Device to use ('cuda' or 'cpu')
             seed: Random seed
             network_type: Network architecture type ('dqn' or 'dueling_dqn')
+            model_config: Optional dictionary with model hyper-parameters
+            action_space: Optional ActionSpace instance; defaults to discrete space of size num_actions
         """
-        self.rows = rows
-        self.cols = cols
+        self.observation_shape = observation_shape
+        self.observation_type = observation_type
+        self.num_actions = num_actions
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.epsilon = epsilon
@@ -73,7 +84,9 @@ class DQNAgent(BaseAgent):
         self.tau = tau  # For soft update
         self.training = True
         self.step_count = 0
-        
+        self.model_config = copy.deepcopy(model_config) if model_config is not None else None
+        self.action_space = action_space or DiscreteActionSpace(num_actions)
+
         # Device
         if device is None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,10 +94,21 @@ class DQNAgent(BaseAgent):
             self.device = torch.device(device)
         
         # Networks
-        use_dueling = (network_type == "dueling_dqn")
-        
-        self.q_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols, dueling=use_dueling).to(self.device)
-        self.target_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols, dueling=use_dueling).to(self.device)
+        use_dueling = network_type == "dueling_dqn"
+        self.q_network = build_q_network(
+            observation_type=self.observation_type,
+            observation_shape=self.observation_shape,
+            num_actions=self.num_actions,
+            dueling=use_dueling,
+            model_config=self.model_config,
+        ).to(self.device)
+        self.target_network = build_q_network(
+            observation_type=self.observation_type,
+            observation_shape=self.observation_shape,
+            num_actions=self.num_actions,
+            dueling=use_dueling,
+            model_config=self.model_config,
+        ).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
         self.network_type = network_type
@@ -101,79 +125,84 @@ class DQNAgent(BaseAgent):
             np.random.seed(seed)
             torch.manual_seed(seed)
 
-    def select_action(self, obs: np.ndarray, legal_actions: List[int]) -> int:
-        """
-        Select action using epsilon-greedy policy.
-        
-        Args:
-            obs: Current observation
-            legal_actions: List of legal action indices
-            
-        Returns:
-            Selected action index
-        """
-        if not legal_actions:
-            raise ValueError("No legal actions available")
-        
-        if random.random() < self.epsilon:
-            return random.choice(legal_actions)
-        else:
-            with torch.no_grad():
-                obs_tensor = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
-                q_values = self.q_network(obs_tensor).cpu().numpy()[0]
-                
-                masked_q_values = q_values.copy()
-                masked_q_values[[a for a in range(len(q_values)) if a not in legal_actions]] = -np.inf
-                
-                best_action = np.argmax(masked_q_values)
-                return int(best_action)
+    def act(
+        self,
+        obs: np.ndarray,
+        legal_mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> int:
+        """Select action using epsilon-greedy policy with optional masking."""
+        if legal_mask is None:
+            if self.action_space is not None:
+                legal_mask = np.ones(self.action_space.size, dtype=bool)
+            else:
+                legal_mask = np.ones(self.num_actions, dtype=bool)
 
-    def observe(self, transition: Tuple) -> dict:
+        legal_actions = np.flatnonzero(legal_mask)
+        if legal_actions.size == 0:
+            raise ValueError("No legal actions available")
+
+        explore = (not deterministic) and self.training and random.random() < self.epsilon
+        if explore:
+            return int(np.random.choice(legal_actions))
+
+        with torch.no_grad():
+            obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
+            q_values = self.q_network(obs_tensor).cpu().numpy()[0]
+            masked_q_values = q_values.copy()
+            masked_q_values[~legal_mask.astype(bool)] = -np.inf
+            best_action = int(np.argmax(masked_q_values))
+            if masked_q_values[best_action] == -np.inf:
+                # Handle numerical issue when all entries masked
+                best_action = int(np.random.choice(legal_actions))
+            return best_action
+
+    def observe(self, transition) -> Dict[str, float]:
         """
         Store transition in replay buffer and train if enough samples.
         
         Args:
-            transition: Tuple of (obs, action, reward, next_obs, done, info)
+            transition: Tuple of (obs, action, reward, next_obs, done, info, legal_mask, next_legal_mask)
             
         Returns:
             Dictionary with training metrics if training occurred, empty dict otherwise
         """
-        obs, action, reward, next_obs, done, info = transition
-        
-        self.replay_buffer.push(obs, action, reward, next_obs, done)
-        
-        metrics = {}
-        if len(self.replay_buffer) >= self.batch_size:
-            metrics = self._train()
-        
+        if hasattr(transition, "obs"):
+            obs = transition.obs
+            action = transition.action
+            reward = transition.reward
+            next_obs = transition.next_obs
+            done = transition.terminated or transition.truncated
+            legal_mask = transition.legal_mask
+            next_legal_mask = transition.next_legal_mask
+        else:
+            obs, action, reward, next_obs, done, *_rest = transition
+            if len(_rest) >= 2:
+                legal_mask, next_legal_mask = _rest[:2]
+            else:
+                legal_mask = np.ones(self.num_actions, dtype=bool)
+                next_legal_mask = np.ones(self.num_actions, dtype=bool)
+
+        self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
         self.step_count += 1
-        if self.step_count % self.target_update_freq == 0:
+
+        return {}
+
+    def update(self) -> Dict[str, float]:
+        """Perform a training step using a batch from the replay buffer."""
+        if len(self.replay_buffer) < self.batch_size:
+            return {}
+        metrics = self._train()
+
+        if self.target_update_freq > 0 and self.step_count % self.target_update_freq == 0:
             if self.soft_update:
                 for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
                     target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
             else:
                 self.target_network.load_state_dict(self.q_network.state_dict())
             metrics["target_network_updated"] = True
-        
-        return metrics
 
-    def _get_legal_actions_from_obs(self, obs: np.ndarray) -> List[int]:
-        """
-        Extract legal actions from observation.
-        
-        Args:
-            obs: Observation array of shape (3, rows, cols)
-            
-        Returns:
-            List of legal action indices (columns that are not full)
-        """
-        top_row_current = obs[0, 0, :]
-        top_row_opponent = obs[1, 0, :]
-        legal_actions = [
-            col for col in range(self.cols) 
-            if top_row_current[col] == 0 and top_row_opponent[col] == 0
-        ]
-        return legal_actions
+        return metrics
 
     def _train(self) -> dict:
         """
@@ -186,7 +215,15 @@ class DQNAgent(BaseAgent):
             return {}
         
         # Sample batch
-        obs_batch, action_batch, reward_batch, next_obs_batch, done_batch = self.replay_buffer.sample(
+        (
+            obs_batch,
+            action_batch,
+            reward_batch,
+            next_obs_batch,
+            done_batch,
+            _legal_mask_batch,
+            next_legal_mask_batch,
+        ) = self.replay_buffer.sample(
             self.batch_size
         )
         
@@ -196,6 +233,7 @@ class DQNAgent(BaseAgent):
         reward_tensor = torch.FloatTensor(reward_batch).to(self.device)
         next_obs_tensor = torch.FloatTensor(next_obs_batch).to(self.device)
         done_tensor = torch.BoolTensor(done_batch).to(self.device)
+        next_legal_mask_tensor = torch.BoolTensor(next_legal_mask_batch).to(self.device)
         
         q_values = self.q_network(obs_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
@@ -203,28 +241,17 @@ class DQNAgent(BaseAgent):
         # Double DQN: main network selects action, target network evaluates
         with torch.no_grad():
             next_q_values_main = self.q_network(next_obs_tensor)
-            next_q_values_main_np = next_q_values_main.cpu().numpy()
-            next_actions = []
-            
-            for i in range(next_obs_tensor.shape[0]):
-                if done_batch[i]:
-                    next_actions.append(0)
-                    continue
-                
-                next_obs_np = next_obs_tensor[i].cpu().numpy()
-                legal_actions = self._get_legal_actions_from_obs(next_obs_np)
-                
-                if not legal_actions:
-                    next_actions.append(0)
-                else:
-                    masked_q_vals = next_q_values_main_np[i].copy()
-                    masked_q_vals[[a for a in range(len(masked_q_vals)) if a not in legal_actions]] = -np.inf
-                    next_actions.append(np.argmax(masked_q_vals))
-            
-            next_actions_tensor = torch.LongTensor(next_actions).to(self.device)
+            # Mask invalid actions
+            masked_next_q_values = next_q_values_main.masked_fill(~next_legal_mask_tensor, float("-inf"))
+            # Handle states with no legal actions (all False) by replacing -inf with 0
+            no_legal_actions = ~next_legal_mask_tensor.any(dim=1)
+            masked_next_q_values[no_legal_actions] = 0.0
+
+            next_actions_tensor = masked_next_q_values.argmax(dim=1)
+
             next_q_values_target = self.target_network(next_obs_tensor)
-            next_q_value = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
-            target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * next_q_value
+            target_next_q = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
+            target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * target_next_q
         
         loss = nn.MSELoss()(q_value, target_q_value)
         
@@ -291,9 +318,20 @@ class DQNAgent(BaseAgent):
             "target_network_state_dict": self.target_network.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "step_count": self.step_count,
-            "rows": self.rows,
-            "cols": self.cols,
             "network_type": self.network_type,
+            "observation_shape": self.observation_shape,
+            "observation_type": self.observation_type,
+            "num_actions": self.num_actions,
+            "model_config": self.model_config,
+            "learning_rate": self.learning_rate,
+            "discount_factor": self.discount_factor,
+            "epsilon_decay": self.epsilon_decay,
+            "epsilon_min": self.epsilon_min,
+            "batch_size": self.batch_size,
+            "target_update_freq": self.target_update_freq,
+            "soft_update": self.soft_update,
+            "tau": self.tau,
+            "replay_buffer_capacity": self.replay_buffer.capacity,
         }
         
         if save_epsilon:
@@ -301,40 +339,52 @@ class DQNAgent(BaseAgent):
         
         torch.save(checkpoint, path)
 
-    def load(self, path: str, auto_detect_network_type: bool = False) -> None:
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        *,
+        device: Optional[str] = None,
+        **overrides: Any,
+    ) -> "DQNAgent":
         """
-        Load agent from file.
-        
-        Args:
-            path: Path to load file from
-            auto_detect_network_type: If True, automatically detect and update network_type from checkpoint
+        Load agent from file and return a new instance.
         """
-        checkpoint = torch.load(path, map_location=self.device)
-        
-        # Check if network_type matches (for backward compatibility, default to "dqn")
-        saved_network_type = checkpoint.get("network_type", "dqn")
-        if saved_network_type != self.network_type:
-            if auto_detect_network_type:
-                # Auto-update network_type from checkpoint
-                # This requires recreating the networks with the correct architecture
-                use_dueling = (saved_network_type == "dueling_dqn")
-                self.q_network = DQN(rows=self.rows, cols=self.cols, in_channels=3, num_actions=self.cols, dueling=use_dueling).to(self.device)
-                self.target_network = DQN(rows=self.rows, cols=self.cols, in_channels=3, num_actions=self.cols, dueling=use_dueling).to(self.device)
-                self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
-                self.network_type = saved_network_type
-            else:
-                raise ValueError(
-                    f"Network type mismatch: saved model has '{saved_network_type}', "
-                    f"but agent was initialized with '{self.network_type}'. "
-                    f"Please initialize agent with network_type='{saved_network_type}' "
-                    f"or use load(path, auto_detect_network_type=True)"
-                )
-        
-        self.q_network.load_state_dict(checkpoint["q_network_state_dict"])
-        self.target_network.load_state_dict(checkpoint["target_network_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.epsilon = checkpoint.get("epsilon", 0.0)
-        self.step_count = checkpoint.get("step_count", 0)
+        map_location = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        checkpoint = torch.load(path, map_location=map_location)
+
+        observation_shape = tuple(checkpoint["observation_shape"])
+        observation_type = checkpoint.get("observation_type", "board")
+        num_actions = checkpoint["num_actions"]
+        network_type = checkpoint.get("network_type", "dqn")
+
+        base_kwargs: Dict[str, Any] = {
+            "observation_shape": observation_shape,
+            "observation_type": observation_type,
+            "num_actions": num_actions,
+            "learning_rate": checkpoint.get("learning_rate", 0.001),
+            "discount_factor": checkpoint.get("discount_factor", 0.99),
+            "epsilon": checkpoint.get("epsilon", 0.0),
+            "epsilon_decay": checkpoint.get("epsilon_decay", 0.995),
+            "epsilon_min": checkpoint.get("epsilon_min", 0.01),
+            "batch_size": checkpoint.get("batch_size", 32),
+            "replay_buffer_size": checkpoint.get("replay_buffer_capacity", 10000),
+            "target_update_freq": checkpoint.get("target_update_freq", 100),
+            "soft_update": checkpoint.get("soft_update", False),
+            "tau": checkpoint.get("tau", 0.01),
+            "device": device,
+            "network_type": network_type,
+            "model_config": checkpoint.get("model_config"),
+        }
+        base_kwargs.update(overrides)
+
+        agent = cls(**base_kwargs)
+        agent.q_network.load_state_dict(checkpoint["q_network_state_dict"])
+        agent.target_network.load_state_dict(checkpoint["target_network_state_dict"])
+        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        agent.epsilon = checkpoint.get("epsilon", agent.epsilon)
+        agent.step_count = checkpoint.get("step_count", 0)
+        return agent
     
     @staticmethod
     def get_network_type_from_checkpoint(path: str) -> str:

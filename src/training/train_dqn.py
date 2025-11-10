@@ -9,6 +9,8 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Optional, Literal, Dict
 
+import numpy as np
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -19,6 +21,8 @@ from src.agents import DQNAgent
 from src.utils import MetricsLogger
 from src.selfplay import OpponentPool, SelfPlayConfig
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
+from src.features.observation_builder import BoardChannels
+from src.features.action_space import DiscreteActionSpace
 
 
 def train_dqn(
@@ -46,6 +50,7 @@ def train_dqn(
     self_play_config: Optional[SelfPlayConfig] = None,
     network_type: Literal["dqn", "dueling_dqn"] = "dqn",
     random_opening_config: Optional[RandomOpeningConfig] = None,
+    model_config: Optional[Dict] = None,
 ):
     """
     Train DQN agent using self-play.
@@ -72,6 +77,7 @@ def train_dqn(
         self_play_config: Self-play configuration (optional)
         network_type: Network architecture type ('dqn' or 'dueling_dqn')
         random_opening_config: Configuration for randomized opening prologues (optional)
+        model_config: Optional model configuration dict for DQN architecture
     """
     # Create directories
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -99,16 +105,20 @@ def train_dqn(
     )
     
     # Initialize environment with reward configuration
+    observation_builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
     env = Connect4Env(
-        rows=6, 
+        rows=6,
         cols=7,
         reward_config=reward_config,
+        observation_builder=observation_builder,
     )
     
     # Initialize agents
     learning_agent = DQNAgent(
-        rows=6,
-        cols=7,
+        observation_shape=observation_builder.observation_shape,
+        observation_type=observation_builder.observation_type,
+        num_actions=action_space.size,
         learning_rate=learning_rate,
         discount_factor=discount_factor,
         epsilon=epsilon,
@@ -122,6 +132,8 @@ def train_dqn(
         device=device,
         seed=seed,
         network_type=network_type,
+        model_config=model_config,
+        action_space=action_space,
     )
     
     # Initialize logger
@@ -192,8 +204,10 @@ def train_dqn(
         pending_obs = None
         pending_action = None
         pending_reward = 0.0
+        pending_legal_mask = None
         
         while not done:
+            legal_mask = env.legal_actions_mask.astype(bool)
             legal_actions = env.get_legal_actions()
             
             if current_player == 0:
@@ -205,9 +219,18 @@ def train_dqn(
                     # Агент выиграл или ничья после его хода
                     # Записываем transition сразу с финальным ревардом
                     final_reward = reward  # env уже дал reward_win или reward_draw
-                    train_metrics = learning_agent.observe((
-                        obs, action, final_reward, next_obs, True, info
+                    next_legal_mask = np.zeros_like(legal_mask)
+                    learning_agent.observe((
+                        obs,
+                        action,
+                        final_reward,
+                        next_obs,
+                        True,
+                        info,
+                        legal_mask,
+                        next_legal_mask,
                     ))
+                    train_metrics = learning_agent.update()
                     episode_reward += final_reward
                     
                     if train_metrics:
@@ -221,6 +244,7 @@ def train_dqn(
                     pending_obs = obs
                     pending_action = action
                     pending_reward = reward  # shaping reward (тройки и т.п.)
+                    pending_legal_mask = legal_mask
                     # Не записываем observe пока соперник не сходил
                 
                 obs = next_obs  # теперь POV соперника
@@ -243,17 +267,35 @@ def train_dqn(
                             final_reward = reward_config.loss  # отрицательный ревард
                         
                         # next_obs уже POV агента (после хода соперника current_player снова = агент)
-                        train_metrics = learning_agent.observe((
-                            pending_obs, pending_action, final_reward, next_obs, True, info
+                        next_legal_mask = np.zeros_like(pending_legal_mask)
+                        learning_agent.observe((
+                            pending_obs,
+                            pending_action,
+                            final_reward,
+                            next_obs,
+                            True,
+                            info,
+                            pending_legal_mask,
+                            next_legal_mask,
                         ))
+                        train_metrics = learning_agent.update()
                         episode_reward += final_reward
                     else:
                         # Игра продолжается после хода соперника
                         # next_obs уже POV агента
                         final_reward = pending_reward  # shaping reward за ход агента
-                        train_metrics = learning_agent.observe((
-                            pending_obs, pending_action, final_reward, next_obs, False, info
+                        next_legal_mask = env.legal_actions_mask.astype(bool)
+                        learning_agent.observe((
+                            pending_obs,
+                            pending_action,
+                            final_reward,
+                            next_obs,
+                            False,
+                            info,
+                            pending_legal_mask,
+                            next_legal_mask,
                         ))
+                        train_metrics = learning_agent.update()
                         episode_reward += final_reward
                     
                     if train_metrics:
@@ -267,6 +309,7 @@ def train_dqn(
                     pending_obs = None
                     pending_action = None
                     pending_reward = 0.0
+                    pending_legal_mask = None
                 
                 obs = next_obs  # POV агента
             
@@ -434,10 +477,11 @@ def evaluate_agent(
         while not done:
             legal_actions = env.get_legal_actions()
             
-            # Определяем, кто должен ходить на основе env.current_player
-            # env.current_player == 1 означает player 1
-            # env.current_player == -1 означает player -1
-            if env.current_player == 1:
+            # Определяем, кто должен ходить на основе env.current_player_token
+            # current_player_token == 1 означает player 1
+            # current_player_token == -1 означает player -1
+            current_token = env.current_player_token
+            if current_token == 1:
                 # Ходит player 1
                 if agent_is_player_1:
                     action = agent.select_action(obs, legal_actions)

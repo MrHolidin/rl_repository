@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, QLearningAgent, DQNAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 
 
 def test_random_agent():
@@ -61,10 +63,19 @@ def test_qlearning_agent():
 def test_dqn_agent():
     """Test DQN agent."""
     env = Connect4Env(rows=6, cols=7)
-    agent = DQNAgent(rows=6, cols=7, seed=42)
+    builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
+    agent = DQNAgent(
+        observation_shape=builder.observation_shape,
+        observation_type=builder.observation_type,
+        num_actions=action_space.size,
+        seed=42,
+        action_space=action_space,
+    )
     
     obs = env.reset()
     legal_actions = env.get_legal_actions()
+    legal_mask = env.legal_actions_mask.astype(bool)
     
     # Select action
     action = agent.select_action(obs, legal_actions)
@@ -72,9 +83,13 @@ def test_dqn_agent():
     
     # Step environment
     next_obs, reward, done, info = env.step(action)
+    if done:
+        next_legal_mask = np.zeros_like(legal_mask)
+    else:
+        next_legal_mask = env.legal_actions_mask.astype(bool)
     
     # Observe transition
-    agent.observe((obs, action, reward, next_obs, done, info))
+    agent.observe((obs, action, reward, next_obs, done, info, legal_mask, next_legal_mask))
     
     # Check that replay buffer has samples
     assert len(agent.replay_buffer) > 0
@@ -82,7 +97,15 @@ def test_dqn_agent():
 
 def test_agent_train_eval_mode():
     """Test agent train/eval mode switching."""
-    agent = DQNAgent(rows=6, cols=7, seed=42)
+    builder = BoardChannels(board_shape=(6, 7))
+    action_space = DiscreteActionSpace(n=7)
+    agent = DQNAgent(
+        observation_shape=builder.observation_shape,
+        observation_type=builder.observation_type,
+        num_actions=action_space.size,
+        seed=42,
+        action_space=action_space,
+    )
     
     # Initially in training mode
     assert agent.training

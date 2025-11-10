@@ -1,7 +1,8 @@
 """Heuristic agent implementation."""
 
 import random
-from typing import List
+from typing import Optional
+
 import numpy as np
 
 from .base_agent import BaseAgent
@@ -15,7 +16,7 @@ class HeuristicAgent(BaseAgent):
     3. Otherwise random
     """
 
-    def __init__(self, seed: int = None):
+    def __init__(self, seed: Optional[int] = None):
         """
         Initialize heuristic agent.
         
@@ -24,18 +25,18 @@ class HeuristicAgent(BaseAgent):
         """
         if seed is not None:
             random.seed(seed)
+            np.random.seed(seed)
 
-    def select_action(self, obs: np.ndarray, legal_actions: List[int]) -> int:
-        """
-        Select action using heuristic rules.
-        
-        Args:
-            obs: Current observation
-            legal_actions: List of legal action indices
-            
-        Returns:
-            Selected action index
-        """
+    def act(
+        self,
+        obs: np.ndarray,
+        legal_mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> int:
+        """Select action using heuristic rules."""
+        if legal_mask is None:
+            raise ValueError("HeuristicAgent requires legal_mask to be provided.")
+        legal_actions = np.flatnonzero(legal_mask).tolist()
         if not legal_actions:
             raise ValueError("No legal actions available")
         
@@ -58,7 +59,7 @@ class HeuristicAgent(BaseAgent):
                 return action
         
         # Otherwise random
-        return random.choice(legal_actions)
+        return int(random.choice(legal_actions))
 
     def _would_win(self, board: np.ndarray, col: int, player: int) -> bool:
         """
@@ -116,4 +117,13 @@ class HeuristicAgent(BaseAgent):
         
         board[row, col] = 0  # Restore
         return False
+
+    def save(self, path: str) -> None:
+        """Heuristic agent has no persistent state."""
+        return None
+
+    @classmethod
+    def load(cls, path: str, **kwargs: object) -> "HeuristicAgent":
+        """Return a new heuristic agent."""
+        return cls(**kwargs)
 

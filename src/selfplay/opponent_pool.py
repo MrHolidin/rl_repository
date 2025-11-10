@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.features.action_space import DiscreteActionSpace
+from src.features.observation_builder import BoardChannels
 
 
 @dataclass
@@ -169,30 +171,19 @@ class OpponentPool:
             # Выгружаем из памяти
             victim.loaded_agent = None
         
-        # Auto-detect network_type from checkpoint
-        network_type = DQNAgent.get_network_type_from_checkpoint(info.checkpoint_path)
-        
+        observation_builder = BoardChannels(board_shape=(6, 7))
+        action_space = DiscreteActionSpace(n=7)
+
         # Создаём новый агент и грузим чекпоинт
-        agent = DQNAgent(
-            rows=6,
-            cols=7,
-            learning_rate=0.001,  # Not used in eval mode
-            discount_factor=0.99,
-            epsilon=0.0,  # Pure exploitation
-            epsilon_decay=0.995,
-            epsilon_min=0.0,
-            batch_size=32,
-            replay_buffer_size=1000,  # Minimal, not used in eval
-            target_update_freq=100,
-            soft_update=False,
-            tau=0.01,
+        agent = DQNAgent.load(
+            info.checkpoint_path,
             device=self.device,
             seed=self.seed,
-            network_type=network_type,
+            observation_shape=observation_builder.observation_shape,
+            observation_type=observation_builder.observation_type,
+            num_actions=action_space.size,
+            action_space=action_space,
         )
-        
-        # Load checkpoint
-        agent.load(info.checkpoint_path)
         agent.eval()
         agent.epsilon = 0.0  # Ensure pure exploitation
         

@@ -318,10 +318,11 @@ def evaluate_agent(
         while not done:
             legal_actions = env.get_legal_actions()
             
-            # Определяем, кто должен ходить на основе env.current_player
-            # env.current_player == 1 означает player 1
-            # env.current_player == -1 означает player -1
-            if env.current_player == 1:
+            # Определяем, кто должен ходить на основе env.current_player_token
+            # current_player_token == 1 означает player 1
+            # current_player_token == -1 означает player -1
+            current_token = env.current_player_token
+            if current_token == 1:
                 # Ходит player 1
                 if agent_is_player_1:
                     action = agent.select_action(obs, legal_actions)

@@ -80,10 +80,11 @@ def play_match(
         while not done:
             legal_actions = env.get_legal_actions()
             
-            # Determine which agent should move based on env.current_player
-            # env.current_player == 1 means player 1
-            # env.current_player == -1 means player -1
-            if env.current_player == 1:
+            # Determine which agent should move based on env.current_player_token
+            # current_player_token == 1 means player 1
+            # current_player_token == -1 means player -1
+            current_token = env.current_player_token
+            if current_token == 1:
                 # Player 1's turn
                 if agent1_is_player_1:
                     action = agent1.select_action(obs, legal_actions)
