@@ -2,7 +2,7 @@
 
 import random
 import os
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Literal
 import numpy as np
 import torch
 import torch.nn as nn
@@ -38,6 +38,7 @@ class DQNAgent(BaseAgent):
         tau: float = 0.01,
         device: Optional[str] = None,
         seed: int = None,
+        network_type: Literal["dqn", "dueling_dqn"] = "dqn",
     ):
         """
         Initialize DQN agent.
@@ -57,6 +58,7 @@ class DQNAgent(BaseAgent):
             tau: Soft update coefficient (only used if soft_update=True)
             device: Device to use ('cuda' or 'cpu')
             seed: Random seed
+            network_type: Network architecture type ('dqn' or 'dueling_dqn')
         """
         self.rows = rows
         self.cols = cols
@@ -79,10 +81,13 @@ class DQNAgent(BaseAgent):
             self.device = torch.device(device)
         
         # Networks
-        self.q_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols).to(self.device)
-        self.target_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols).to(self.device)
+        use_dueling = (network_type == "dueling_dqn")
+        
+        self.q_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols, dueling=use_dueling).to(self.device)
+        self.target_network = DQN(rows=rows, cols=cols, in_channels=3, num_actions=cols, dueling=use_dueling).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
+        self.network_type = network_type
         
         # Optimizer
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
@@ -288,6 +293,7 @@ class DQNAgent(BaseAgent):
             "step_count": self.step_count,
             "rows": self.rows,
             "cols": self.cols,
+            "network_type": self.network_type,
         }
         
         if save_epsilon:
@@ -295,18 +301,52 @@ class DQNAgent(BaseAgent):
         
         torch.save(checkpoint, path)
 
-    def load(self, path: str) -> None:
+    def load(self, path: str, auto_detect_network_type: bool = False) -> None:
         """
         Load agent from file.
         
         Args:
             path: Path to load file from
+            auto_detect_network_type: If True, automatically detect and update network_type from checkpoint
         """
         checkpoint = torch.load(path, map_location=self.device)
+        
+        # Check if network_type matches (for backward compatibility, default to "dqn")
+        saved_network_type = checkpoint.get("network_type", "dqn")
+        if saved_network_type != self.network_type:
+            if auto_detect_network_type:
+                # Auto-update network_type from checkpoint
+                # This requires recreating the networks with the correct architecture
+                use_dueling = (saved_network_type == "dueling_dqn")
+                self.q_network = DQN(rows=self.rows, cols=self.cols, in_channels=3, num_actions=self.cols, dueling=use_dueling).to(self.device)
+                self.target_network = DQN(rows=self.rows, cols=self.cols, in_channels=3, num_actions=self.cols, dueling=use_dueling).to(self.device)
+                self.optimizer = optim.Adam(self.q_network.parameters(), lr=self.learning_rate)
+                self.network_type = saved_network_type
+            else:
+                raise ValueError(
+                    f"Network type mismatch: saved model has '{saved_network_type}', "
+                    f"but agent was initialized with '{self.network_type}'. "
+                    f"Please initialize agent with network_type='{saved_network_type}' "
+                    f"or use load(path, auto_detect_network_type=True)"
+                )
         
         self.q_network.load_state_dict(checkpoint["q_network_state_dict"])
         self.target_network.load_state_dict(checkpoint["target_network_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epsilon = checkpoint.get("epsilon", 0.0)
         self.step_count = checkpoint.get("step_count", 0)
+    
+    @staticmethod
+    def get_network_type_from_checkpoint(path: str) -> str:
+        """
+        Get network type from checkpoint file.
+        
+        Args:
+            path: Path to checkpoint file
+            
+        Returns:
+            Network type ('dqn' or 'dueling_dqn')
+        """
+        checkpoint = torch.load(path, map_location='cpu')
+        return checkpoint.get("network_type", "dqn")
 

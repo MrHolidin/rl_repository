@@ -5,6 +5,7 @@ import numpy as np
 from typing import Tuple, Optional
 
 from src.envs import Connect4Env, RewardConfig
+from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 
 
 def play_match(
@@ -14,6 +15,7 @@ def play_match(
     seed: Optional[int] = None,
     randomize_first_player: bool = False,
     reward_config: Optional[RewardConfig] = None,
+    random_opening_config: Optional[RandomOpeningConfig] = None,
 ) -> Tuple[int, int, int]:
     """
     Play a match between two agents.
@@ -26,6 +28,7 @@ def play_match(
         randomize_first_player: If True, randomly choose who goes first each game.
                                If False, agent1 always goes first (as player 1).
         reward_config: RewardConfig object (default: RewardConfig with default values)
+        random_opening_config: Optional configuration for randomized opening prologues.
         
     Returns:
         Tuple of (agent1_wins, draws, agent2_wins)
@@ -55,6 +58,17 @@ def play_match(
             np.random.seed(seed + game_idx)
         
         obs = env.reset()
+        if random_opening_config is not None:
+            obs, _, prologue_done = maybe_apply_random_opening(
+                env=env,
+                initial_obs=obs,
+                config=random_opening_config,
+                rng=random,
+            )
+            if prologue_done:
+                # Rare case: random prologue finished the game. Restart without prologue.
+                obs = env.reset()
+        
         done = False
         
         # Determine who goes first

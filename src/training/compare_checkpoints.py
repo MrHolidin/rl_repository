@@ -46,7 +46,9 @@ def load_agent_from_checkpoint(
     checkpoint_name = Path(checkpoint_path).stem
     
     if model_type == "dqn":
-        agent = DQNAgent(rows=6, cols=7, device=device, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(checkpoint_path)
+        agent = DQNAgent(rows=6, cols=7, device=device, seed=seed, network_type=network_type)
         agent.load(checkpoint_path)
         agent.eval()
         agent.epsilon = epsilon if use_epsilon else 0.0
@@ -177,12 +179,7 @@ def compare_checkpoints(
                 num_games=num_games_per_match,
                 seed=seed + match_count,
                 randomize_first_player=False,  # Fixed order: agent1 (j) always goes first
-                reward_win=reward_win,
-                reward_loss=reward_loss,
-                reward_draw=reward_draw,
-                reward_three_in_row=reward_three_in_row,
-                reward_opponent_three_in_row=reward_opponent_three_in_row,
-                reward_invalid_action=reward_invalid_action,
+                reward_config=reward_config,
             )
             
             wins_matrix[i, j] += i_wins_second   # победы i, теперь он второй

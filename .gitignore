@@ -41,6 +41,7 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints/
 *.ipynb_checkpoints/
+notebooks/
 
 # Data and checkpoints (keep structure, ignore files)
 data/checkpoints/*.pt

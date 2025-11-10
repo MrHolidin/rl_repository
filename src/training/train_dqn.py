@@ -7,7 +7,7 @@ import threading
 import random
 from pathlib import Path
 from collections import defaultdict
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -15,9 +15,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import tyro
 
 from src.envs import Connect4Env, RewardConfig
-from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.agents import DQNAgent
 from src.utils import MetricsLogger
-from src.selfplay import OpponentPool
+from src.selfplay import OpponentPool, SelfPlayConfig
+from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 
 
 def train_dqn(
@@ -32,7 +33,6 @@ def train_dqn(
     target_update_freq: int = 100,
     soft_update: bool = False,
     tau: float = 0.01,
-    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     eval_freq: int = 100,
     eval_episodes: int = 100,
     save_freq: int = 1000,
@@ -42,7 +42,10 @@ def train_dqn(
     seed: int = 42,
     stop_flag: Optional[threading.Event] = None,
     reward_config: Optional[RewardConfig] = None,
-    self_play_config: Optional[dict] = None,
+    heuristic_distribution: Optional[Dict[str, float]] = None,
+    self_play_config: Optional[SelfPlayConfig] = None,
+    network_type: Literal["dqn", "dueling_dqn"] = "dqn",
+    random_opening_config: Optional[RandomOpeningConfig] = None,
 ):
     """
     Train DQN agent using self-play.
@@ -57,7 +60,6 @@ def train_dqn(
         batch_size: Batch size for training
         replay_buffer_size: Size of replay buffer
         target_update_freq: Target network update frequency
-        opponent_type: Type of opponent ('random', 'heuristic', or 'smart_heuristic')
         eval_freq: Evaluation frequency
         eval_episodes: Number of episodes for evaluation
         save_freq: Checkpoint save frequency
@@ -65,7 +67,11 @@ def train_dqn(
         log_dir: Directory for logs
         device: Device to use ('cuda' or 'cpu')
         seed: Random seed
-        self_play_config: Self-play configuration dict (optional)
+        reward_config: Reward configuration (default: RewardConfig with default values)
+        heuristic_distribution: Distribution of heuristic opponents (default: uniform distribution)
+        self_play_config: Self-play configuration (optional)
+        network_type: Network architecture type ('dqn' or 'dueling_dqn')
+        random_opening_config: Configuration for randomized opening prologues (optional)
     """
     # Create directories
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -75,40 +81,21 @@ def train_dqn(
     if reward_config is None:
         reward_config = RewardConfig()
     
-    # Initialize self-play config
-    if self_play_config is None:
-        self_play_config = {
-            "enabled": False,
-            "start_episode": 0,
-            "save_every": save_freq,
-            "self_play_fraction": 0.0,
-            "max_frozen_agents": 10,
-            "heuristic_distribution": {
-                "random": 0.2 if opponent_type == "random" else 0.0,
-                "heuristic": 0.5 if opponent_type == "heuristic" else 0.0,
-                "smart_heuristic": 0.3 if opponent_type == "smart_heuristic" else 0.0,
-            }
+    # Initialize heuristic distribution
+    if heuristic_distribution is None:
+        # Default: uniform distribution
+        heuristic_distribution = {
+            "random": 1.0 / 3.0,
+            "heuristic": 1.0 / 3.0,
+            "smart_heuristic": 1.0 / 3.0,
         }
-        if not self_play_config["enabled"]:
-            self_play_config["heuristic_distribution"] = {
-                "random": 1.0 if opponent_type == "random" else 0.0,
-                "heuristic": 1.0 if opponent_type == "heuristic" else 0.0,
-                "smart_heuristic": 1.0 if opponent_type == "smart_heuristic" else 0.0,
-            }
     
     # Initialize opponent pool
     opponent_pool = OpponentPool(
         device=device,
         seed=seed,
-        self_play_enabled=self_play_config.get("enabled", False),
-        self_play_start_episode=self_play_config.get("start_episode", 0),
-        self_play_fraction=self_play_config.get("self_play_fraction", 0.0),
-        max_frozen_agents=self_play_config.get("max_frozen_agents", 10),
-        heuristic_distribution=self_play_config.get("heuristic_distribution", {
-            "random": 0.2,
-            "heuristic": 0.5,
-            "smart_heuristic": 0.3,
-        }),
+        self_play_config=self_play_config,
+        heuristic_distribution=heuristic_distribution,
     )
     
     # Initialize environment with reward configuration
@@ -134,12 +121,14 @@ def train_dqn(
         tau=tau,
         device=device,
         seed=seed,
+        network_type=network_type,
     )
     
     # Initialize logger
     logger = MetricsLogger(log_dir=log_dir)
-    
+
     print("Starting DQN training...")
+    print(f"Network architecture: {network_type.upper()}")
     print(f"Episodes: {num_episodes}")
     print(f"Learning rate: {learning_rate}")
     print(f"Discount factor: {discount_factor}")
@@ -148,14 +137,19 @@ def train_dqn(
     if soft_update:
         print(f"Soft update tau: {tau}")
     print(f"Device: {learning_agent.device}")
-    if self_play_config.get("enabled", False):
-        print(f"Self-play: ENABLED")
-        print(f"  Start episode: {self_play_config.get('start_episode', 0)}")
-        print(f"  Self-play fraction: {self_play_config.get('self_play_fraction', 0.0):.1%}")
-        print(f"  Save every: {self_play_config.get('save_every', save_freq)} episodes")
-        print(f"  Max frozen agents: {self_play_config.get('max_frozen_agents', 10)}")
-    else:
-        print(f"Opponent: {opponent_type} (heuristic)")
+    print(f"Heuristic distribution: {heuristic_distribution}")
+    if self_play_config is not None:
+        print("Self-play: configured")
+        print(f"  Start episode: {self_play_config.start_episode}")
+        print(f"  Self-play fraction: {self_play_config.fraction:.1%}")
+        print(f"  Save every: {self_play_config.save_every} episodes")
+        print(f"  Max frozen agents: {self_play_config.max_frozen_agents}")
+    if random_opening_config is not None:
+        print(
+            "Random opening: "
+            f"p={random_opening_config.probability:.2f}, "
+            f"half-moves={random_opening_config.min_half_moves}-{random_opening_config.max_half_moves}"
+        )
     print()
     
     # Track training metrics
@@ -178,6 +172,15 @@ def train_dqn(
         
         episode_start = time.time()
         obs = env.reset()
+        obs, _, prologue_done = maybe_apply_random_opening(
+            env=env,
+            initial_obs=obs,
+            config=random_opening_config,
+            rng=random,
+        )
+        if prologue_done:
+            # Редкий случай: случайный пролог завершил игру. Начинаем заново без пролога.
+            obs = env.reset()
         done = False
         learning_agent_goes_first = random.random() < 0.5
         current_player = 0 if learning_agent_goes_first else 1
@@ -351,9 +354,8 @@ def train_dqn(
             learning_agent.save(checkpoint_path)
             print(f"Checkpoint saved: {checkpoint_path}")
             
-            if self_play_config.get("enabled", False):
-                save_every = self_play_config.get("save_every", save_freq)
-                if (episode + 1) % save_every == 0:
+            if self_play_config is not None:
+                if (episode + 1) % self_play_config.save_every == 0:
                     opponent_pool.add_frozen_agent(checkpoint_path, episode + 1)
                     pool_stats = opponent_pool.get_pool_stats()
                     print(f"  Added frozen opponent from episode {episode + 1} to pool (total: {pool_stats['frozen_agents_count']})")
@@ -367,7 +369,7 @@ def train_dqn(
     final_path = os.path.join(checkpoint_dir, "dqn_final.pt")
     learning_agent.save(final_path)
     
-    if self_play_config.get("enabled", False):
+    if self_play_config is not None:
         opponent_pool.add_frozen_agent(final_path, final_episode)
         pool_stats = opponent_pool.get_pool_stats()
         print(f"  Added final frozen opponent to pool (total: {pool_stats['frozen_agents_count']})")

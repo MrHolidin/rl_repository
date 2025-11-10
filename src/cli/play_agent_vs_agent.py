@@ -56,7 +56,9 @@ def play_agent_vs_agent(
         agent1.load(agent1_path)
         agent1.eval()
     elif agent1_type == "dqn":
-        agent1 = DQNAgent(rows=6, cols=7, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(agent1_path)
+        agent1 = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
         agent1.load(agent1_path)
         agent1.eval()
     else:
@@ -74,7 +76,9 @@ def play_agent_vs_agent(
         agent2.load(agent2_path)
         agent2.eval()
     elif agent2_type == "dqn":
-        agent2 = DQNAgent(rows=6, cols=7, seed=seed + 1)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(agent2_path)
+        agent2 = DQNAgent(rows=6, cols=7, seed=seed + 1, network_type=network_type)
         agent2.load(agent2_path)
         agent2.eval()
     else:

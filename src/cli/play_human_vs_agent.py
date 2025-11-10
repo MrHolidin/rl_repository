@@ -47,7 +47,9 @@ def play_human_vs_agent(
         agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     elif agent_type == "dqn":
-        agent = DQNAgent(rows=6, cols=7, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(agent_path)
+        agent = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
         agent.load(agent_path)
         agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()

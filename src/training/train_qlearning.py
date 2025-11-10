@@ -5,7 +5,7 @@ import sys
 import threading
 import random
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -13,8 +13,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import tyro
 
 from src.envs import Connect4Env, RewardConfig
-from src.agents import QLearningAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.agents import QLearningAgent
+from src.selfplay import OpponentPool
 from src.utils import MetricsLogger
+from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 
 
 def train_qlearning(
@@ -24,7 +26,6 @@ def train_qlearning(
     epsilon: float = 0.1,
     epsilon_decay: float = 0.995,
     epsilon_min: float = 0.01,
-    opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     eval_freq: int = 100,
     eval_episodes: int = 100,
     save_freq: int = 1000,
@@ -33,6 +34,8 @@ def train_qlearning(
     seed: int = 42,
     stop_flag: Optional[threading.Event] = None,
     reward_config: Optional[RewardConfig] = None,
+    heuristic_distribution: Optional[Dict[str, float]] = None,
+    random_opening_config: Optional[RandomOpeningConfig] = None,
 ):
     """
     Train Q-learning agent using self-play.
@@ -44,13 +47,15 @@ def train_qlearning(
         epsilon: Initial epsilon
         epsilon_decay: Epsilon decay rate
         epsilon_min: Minimum epsilon
-        opponent_type: Type of opponent ('random', 'heuristic', or 'smart_heuristic')
         eval_freq: Evaluation frequency
         eval_episodes: Number of episodes for evaluation
         save_freq: Checkpoint save frequency
         checkpoint_dir: Directory for checkpoints
         log_dir: Directory for logs
         seed: Random seed
+        reward_config: Reward configuration (default: RewardConfig with default values)
+        heuristic_distribution: Distribution of heuristic opponents (default: uniform distribution)
+        random_opening_config: Configuration for randomized opening prologues (optional)
     """
     # Create directories
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -59,6 +64,23 @@ def train_qlearning(
     # Initialize reward config
     if reward_config is None:
         reward_config = RewardConfig()
+    
+    # Initialize heuristic distribution
+    if heuristic_distribution is None:
+        # Default: uniform distribution
+        heuristic_distribution = {
+            "random": 1.0 / 3.0,
+            "heuristic": 1.0 / 3.0,
+            "smart_heuristic": 1.0 / 3.0,
+        }
+    
+    # Initialize opponent pool
+    opponent_pool = OpponentPool(
+        device=None,  # Q-learning doesn't use GPU
+        seed=seed,
+        self_play_config=None,  # Q-learning doesn't support self-play
+        heuristic_distribution=heuristic_distribution,
+    )
     
     # Initialize environment with reward configuration
     env = Connect4Env(
@@ -77,16 +99,6 @@ def train_qlearning(
         seed=seed,
     )
     
-    # Create opponent based on type
-    if opponent_type == "random":
-        opponent = RandomAgent(seed=seed + 1)
-    elif opponent_type == "heuristic":
-        opponent = HeuristicAgent(seed=seed + 1)
-    elif opponent_type == "smart_heuristic":
-        opponent = SmartHeuristicAgent(seed=seed + 1)
-    else:
-        raise ValueError(f"Unknown opponent type: {opponent_type}. Must be 'random', 'heuristic', or 'smart_heuristic'")
-    
     # Initialize logger
     logger = MetricsLogger(log_dir=log_dir)
     
@@ -95,7 +107,13 @@ def train_qlearning(
     print(f"Learning rate: {learning_rate}")
     print(f"Discount factor: {discount_factor}")
     print(f"Initial epsilon: {epsilon}")
-    print(f"Opponent: {opponent_type}")
+    print(f"Heuristic distribution: {heuristic_distribution}")
+    if random_opening_config is not None:
+        print(
+            "Random opening: "
+            f"p={random_opening_config.probability:.2f}, "
+            f"half-moves={random_opening_config.min_half_moves}-{random_opening_config.max_half_moves}"
+        )
     print()
     
     training_completed = False
@@ -109,7 +127,18 @@ def train_qlearning(
             print(f"Checkpoint saved: {checkpoint_path}")
             break
         
+        opponent = opponent_pool.sample_opponent(episode)
+        
         obs = env.reset()
+        obs, _, prologue_done = maybe_apply_random_opening(
+            env=env,
+            initial_obs=obs,
+            config=random_opening_config,
+            rng=random,
+        )
+        if prologue_done:
+            # Редкий случай: случайный пролог завершил игру. Начинаем заново без пролога.
+            obs = env.reset()
         done = False
         current_player = 0  # 0: learning_agent, 1: opponent
         episode_reward = 0
@@ -197,7 +226,8 @@ def train_qlearning(
         if (episode + 1) % eval_freq == 0:
             win_rate, draw_rate, loss_rate = evaluate_agent(
                 learning_agent, 
-                opponent, 
+                opponent_pool, 
+                episode,
                 eval_episodes, 
                 reward_config=reward_config,
                 seed=seed,
@@ -239,17 +269,19 @@ def train_qlearning(
 
 def evaluate_agent(
     agent, 
-    opponent, 
+    opponent_pool, 
+    episode: int,
     num_episodes: int, 
     reward_config: RewardConfig,
     seed: Optional[int] = None,
 ) -> tuple:
     """
-    Evaluate agent against opponent.
+    Evaluate agent against opponents sampled from opponent pool.
     
     Args:
         agent: Agent to evaluate
-        opponent: Opponent agent
+        opponent_pool: Opponent pool to sample opponents from
+        episode: Current episode number (for opponent sampling)
         num_episodes: Number of evaluation episodes
         reward_config: Reward configuration
         seed: Random seed
@@ -275,6 +307,8 @@ def evaluate_agent(
         random.seed(seed)
     
     for episode_idx in range(num_episodes):
+        opponent = opponent_pool.sample_opponent(episode + episode_idx)
+        
         obs = env.reset()
         done = False
         # Рандомизируем, кто ходит первым (как в тренировке)

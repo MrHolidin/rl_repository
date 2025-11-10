@@ -3,7 +3,8 @@
 import sys
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
+from collections import defaultdict
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -14,36 +15,108 @@ from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
 
 
+def find_latest_checkpoint(
+    checkpoint_dir: str = "data/checkpoints",
+    model_type: Literal["dqn", "qlearning"] = "dqn",
+) -> Optional[str]:
+    """
+    Find the latest checkpoint from all training runs.
+    
+    Args:
+        checkpoint_dir: Directory to search for checkpoints
+        model_type: Type of model ('dqn' or 'qlearning')
+        
+    Returns:
+        Path to latest checkpoint, or None if not found
+    """
+    checkpoint_path = Path(checkpoint_dir)
+    if not checkpoint_path.exists():
+        return None
+    
+    # Determine pattern based on model type
+    if model_type == "dqn":
+        pattern = "*.pt"
+    elif model_type == "qlearning":
+        pattern = "*.pkl"
+    else:
+        return None
+    
+    # Find all matching files recursively
+    checkpoints = list(checkpoint_path.rglob(pattern))
+    
+    if not checkpoints:
+        return None
+    
+    # Filter out intermediate files (like "stopped" or "final")
+    # Keep only numbered checkpoints (e.g., "dqn_episode_1000.pt")
+    filtered = []
+    for cp in checkpoints:
+        name = cp.stem
+        # Skip final and stopped checkpoints, keep only numbered ones
+        if "final" not in name.lower() and "stopped" not in name.lower():
+            # Extract episode number from filename
+            # Format: "dqn_episode_1000" or "qlearning_episode_1000"
+            try:
+                if "_episode_" in name:
+                    episode_str = name.split("_episode_")[-1]
+                    episode_num = int(episode_str)
+                    filtered.append((episode_num, str(cp)))
+            except (ValueError, IndexError):
+                # Skip files that don't match the pattern
+                continue
+    
+    if not filtered:
+        return None
+    
+    # Sort by episode number and take the latest one
+    filtered.sort(key=lambda x: x[0])
+    return filtered[-1][1]  # Return path of latest checkpoint
+
+
 def visualize_game(
-    model_path: str,
-    model_type: Literal["qlearning", "dqn"],
+    model_path: Optional[str] = None,
+    model_type: Literal["qlearning", "dqn"] = "dqn",
     opponent_type: Literal["random", "heuristic", "smart_heuristic"] = "random",
     opponent_first: bool = False,
     use_epsilon: bool = False,
     delay: float = 1.0,
     seed: int = 42,
+    checkpoint_dir: str = "data/checkpoints",
+    use_latest: bool = False,
 ):
     """
     Visualize a game between a trained model and a bot.
     
     Args:
-        model_path: Path to model checkpoint
+        model_path: Path to model checkpoint (if None and use_latest=True, finds latest automatically)
         model_type: Type of model ('qlearning' or 'dqn')
         opponent_type: Type of opponent ('random', 'heuristic', or 'smart_heuristic')
         opponent_first: Whether opponent plays first (model plays second)
         use_epsilon: Whether to use epsilon-greedy (False = pure exploitation)
         delay: Delay between moves in seconds
         seed: Random seed
+        checkpoint_dir: Directory to search for checkpoints (if use_latest=True)
+        use_latest: If True, automatically find and use latest checkpoint
     """
+    # Auto-find latest checkpoint if requested
+    if use_latest or model_path is None:
+        print(f"Searching for latest {model_type} checkpoint in {checkpoint_dir}...")
+        model_path = find_latest_checkpoint(checkpoint_dir, model_type)
+        if model_path is None:
+            raise ValueError(f"No {model_type} checkpoints found in {checkpoint_dir}")
+        print(f"✓ Found latest checkpoint: {model_path}")
+        print()
     model_first = not opponent_first
-    env = Connect4Env(rows=6, cols=7)
+    env = Connect4Env(rows=6, cols=7, reward_config=None)  # Use default RewardConfig
     
     # Load model
     if model_type == "qlearning":
         model = QLearningAgent(seed=seed)
         model.load(model_path)
     elif model_type == "dqn":
-        model = DQNAgent(rows=6, cols=7, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(model_path)
+        model = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
         model.load(model_path)
     else:
         raise ValueError(f"Unknown model type: {model_type}")

@@ -42,7 +42,9 @@ def evaluate_model_against_opponents(
         model = QLearningAgent(seed=seed)
         model.load(model_path)
     elif model_type == "dqn":
-        model = DQNAgent(rows=6, cols=7, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(model_path)
+        model = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
         model.load(model_path)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
@@ -180,7 +182,9 @@ def main(
         model_for_display = QLearningAgent(seed=seed)
         model_for_display.load(model_path)
     elif model_type == "dqn":
-        model_for_display = DQNAgent(rows=6, cols=7, seed=seed)
+        # Auto-detect network_type from checkpoint
+        network_type = DQNAgent.get_network_type_from_checkpoint(model_path)
+        model_for_display = DQNAgent(rows=6, cols=7, seed=seed, network_type=network_type)
         model_for_display.load(model_path)
     else:
         model_for_display = None
