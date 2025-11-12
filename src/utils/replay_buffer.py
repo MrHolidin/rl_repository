@@ -60,14 +60,16 @@ class ReplayBuffer:
         
         obs, actions, rewards, next_obs, dones, legal_masks, next_legal_masks = zip(*batch)
         
+        # Use np.stack for observations (more efficient for arrays of same shape)
+        # Use np.array for scalars and 1D arrays
         return (
-            np.array(obs),
-            np.array(actions),
-            np.array(rewards),
-            np.array(next_obs),
-            np.array(dones),
-            np.array(legal_masks),
-            np.array(next_legal_masks),
+            np.stack(obs) if obs else np.array(obs),
+            np.array(actions, dtype=np.int64),
+            np.array(rewards, dtype=np.float32),
+            np.stack(next_obs) if next_obs else np.array(next_obs),
+            np.array(dones, dtype=bool),
+            np.stack(legal_masks) if legal_masks else np.array(legal_masks),
+            np.stack(next_legal_masks) if next_legal_masks else np.array(next_legal_masks),
         )
 
     def __len__(self) -> int:

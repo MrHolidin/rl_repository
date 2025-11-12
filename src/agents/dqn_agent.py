@@ -46,6 +46,7 @@ class DQNAgent(BaseAgent):
         network_type: str = "dqn",
         model_config: Optional[Dict] = None,
         action_space: Optional[ActionSpace] = None,
+        compute_detailed_metrics: bool = True,
     ):
         """
         Initialize DQN agent.
@@ -69,6 +70,7 @@ class DQNAgent(BaseAgent):
             network_type: Network architecture type ('dqn' or 'dueling_dqn')
             model_config: Optional dictionary with model hyper-parameters
             action_space: Optional ActionSpace instance; defaults to discrete space of size num_actions
+            compute_detailed_metrics: If False, only compute loss and grad_norm (faster training)
         """
         self.observation_shape = observation_shape
         self.observation_type = observation_type
@@ -86,6 +88,7 @@ class DQNAgent(BaseAgent):
         self.step_count = 0
         self.model_config = copy.deepcopy(model_config) if model_config is not None else None
         self.action_space = action_space or DiscreteActionSpace(num_actions)
+        self.compute_detailed_metrics = compute_detailed_metrics
 
         # Device
         if device is None:
@@ -190,17 +193,31 @@ class DQNAgent(BaseAgent):
 
     def update(self) -> Dict[str, float]:
         """Perform a training step using a batch from the replay buffer."""
+        # Return buffer status even if not enough samples for training
         if len(self.replay_buffer) < self.batch_size:
-            return {}
+            return {
+                "buffer_size": len(self.replay_buffer),
+                "buffer_capacity": self.replay_buffer.capacity,
+                "buffer_utilization": len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0,
+            }
         metrics = self._train()
 
         if self.target_update_freq > 0 and self.step_count % self.target_update_freq == 0:
             if self.soft_update:
-                for target_param, param in zip(self.target_network.parameters(), self.q_network.parameters()):
-                    target_param.data.copy_(self.tau * param.data + (1.0 - self.tau) * target_param.data)
+                # Optimized soft update: target = (1-tau)*target + tau*main
+                with torch.no_grad():
+                    for target_param, main_param in zip(
+                        self.target_network.parameters(), self.q_network.parameters()
+                    ):
+                        target_param.data.mul_(1.0 - self.tau).add_(main_param.data, alpha=self.tau)
             else:
                 self.target_network.load_state_dict(self.q_network.state_dict())
             metrics["target_network_updated"] = True
+
+        # Add buffer status to metrics
+        metrics["buffer_size"] = len(self.replay_buffer)
+        metrics["buffer_capacity"] = self.replay_buffer.capacity
+        metrics["buffer_utilization"] = len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0
 
         return metrics
 
@@ -227,13 +244,13 @@ class DQNAgent(BaseAgent):
             self.batch_size
         )
         
-        # Convert to tensors
-        obs_tensor = torch.FloatTensor(obs_batch).to(self.device)
-        action_tensor = torch.LongTensor(action_batch).to(self.device)
-        reward_tensor = torch.FloatTensor(reward_batch).to(self.device)
-        next_obs_tensor = torch.FloatTensor(next_obs_batch).to(self.device)
-        done_tensor = torch.BoolTensor(done_batch).to(self.device)
-        next_legal_mask_tensor = torch.BoolTensor(next_legal_mask_batch).to(self.device)
+        # Convert to tensors (directly on device for efficiency)
+        obs_tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
+        action_tensor = torch.as_tensor(action_batch, dtype=torch.long, device=self.device)
+        reward_tensor = torch.as_tensor(reward_batch, dtype=torch.float32, device=self.device)
+        next_obs_tensor = torch.as_tensor(next_obs_batch, dtype=torch.float32, device=self.device)
+        done_tensor = torch.as_tensor(done_batch, dtype=torch.bool, device=self.device)
+        next_legal_mask_tensor = torch.as_tensor(next_legal_mask_batch, dtype=torch.bool, device=self.device)
         
         q_values = self.q_network(obs_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
@@ -255,43 +272,37 @@ class DQNAgent(BaseAgent):
         
         loss = nn.MSELoss()(q_value, target_q_value)
         
-        avg_q = q_value.mean().item()
-        max_q = q_value.max().item()
-        min_q = q_value.min().item()
-        avg_target_q = target_q_value.mean().item()
-        td_error = (target_q_value - q_value).abs().mean().item()
-        
         self.optimizer.zero_grad()
         loss.backward()
         
-        total_grad_norm = 0.0
-        for param in self.q_network.parameters():
-            if param.grad is not None:
-                param_norm = param.grad.data.norm(2)
-                total_grad_norm += param_norm.item() ** 2
-        total_grad_norm = total_grad_norm ** (1.0 / 2)
-        
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
-        
-        total_grad_norm_clipped = 0.0
-        for param in self.q_network.parameters():
-            if param.grad is not None:
-                param_norm = param.grad.data.norm(2)
-                total_grad_norm_clipped += param_norm.item() ** 2
-        total_grad_norm_clipped = total_grad_norm_clipped ** (1.0 / 2)
+        # Compute gradient norm efficiently using PyTorch's built-in function
+        # This returns the total norm before clipping
+        total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         
         self.optimizer.step()
         
-        return {
-            "loss": loss.item(),
-            "avg_q": avg_q,
-            "max_q": max_q,
-            "min_q": min_q,
-            "avg_target_q": avg_target_q,
-            "td_error": td_error,
-            "grad_norm": total_grad_norm,
-            "grad_norm_clipped": total_grad_norm_clipped,
-        }
+        # Compute metrics only if requested (reduces overhead)
+        metrics = {"loss": loss.item(), "grad_norm": total_grad_norm.item()}
+        
+        if self.compute_detailed_metrics:
+            # Batch all metric computations to reduce CPU-GPU sync overhead
+            with torch.no_grad():
+                avg_q = q_value.mean()
+                max_q = q_value.max()
+                min_q = q_value.min()
+                avg_target_q = target_q_value.mean()
+                td_error = (target_q_value - q_value).abs().mean()
+            
+            # Single synchronization point for all detailed metrics
+            metrics.update({
+                "avg_q": avg_q.item(),
+                "max_q": max_q.item(),
+                "min_q": min_q.item(),
+                "avg_target_q": avg_target_q.item(),
+                "td_error": td_error.item(),
+            })
+        
+        return metrics
 
     def train(self) -> None:
         """Set agent to training mode."""
