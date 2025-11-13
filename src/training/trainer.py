@@ -789,25 +789,36 @@ class Trainer:
         opponent_step: StepResult,
         reward_config: Any,
     ) -> float:
+        """
+        Compute final reward for agent's action after opponent's move.
+        
+        When opponent finishes the game (opponent_step.done == True):
+        - If winner == 0: draw -> reward_config.draw
+        - Otherwise: opponent won -> reward_config.loss (agent lost)
+        
+        When game continues: return pending_reward (shaping reward from agent's move).
+        """
         if not opponent_step.done:
+            # Game continues: return shaping reward from agent's move
             return pending_reward
 
+        # Game ended after opponent's move
         winner = opponent_step.info.get("winner")
         if reward_config is not None:
-            if winner == 1:
-                return getattr(reward_config, "win", pending_reward)
-            if winner == -1:
-                return getattr(reward_config, "loss", pending_reward)
             if winner == 0:
+                # Draw
                 return getattr(reward_config, "draw", 0.0)
+            else:
+                # Opponent won (regardless of whether winner == 1 or winner == -1)
+                # Agent lost
+                return getattr(reward_config, "loss", -1.0)
 
+        # Fallback if no reward_config
         if winner == 0:
             return 0.0
-        if winner == 1:
-            return max(pending_reward, 1.0)
-        if winner == -1:
-            return min(pending_reward, -1.0)
-        return pending_reward
+        else:
+            # Opponent won, agent lost
+            return -1.0
 
     def _finalize_timings(self) -> None:
         total_time = self._timings["total"]
