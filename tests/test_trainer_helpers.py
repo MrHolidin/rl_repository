@@ -46,21 +46,49 @@ class EvalTestEnv(TurnBasedEnv):
         pass
 
 
-def test_evaluate_agent_alternates_start_positions():
+def test_evaluate_agent_uses_series_helper_with_random_and_heuristic():
     agent = DummyAgent()
 
-    with patch.object(trainer_helpers, "make_game", return_value=EvalTestEnv()), patch.object(
+    series_outputs = [
+        {"wins": 3, "draws": 1, "losses": 6},
+        {"wins": 6, "draws": 2, "losses": 2},
+        {"wins": 7, "draws": 0, "losses": 3},
+    ]
+
+    with patch.object(
+        trainer_helpers, "play_series_vs_sampler", side_effect=series_outputs
+    ) as mock_series, patch.object(
+        trainer_helpers, "make_game", return_value=EvalTestEnv()
+    ), patch.object(
         trainer_helpers, "RandomAgent", side_effect=lambda seed=None: DummyOpponent()
+    ), patch.object(
+        trainer_helpers, "HeuristicAgent", side_effect=lambda seed=None: DummyOpponent()
     ):
         metrics = evaluate_agent(
             agent,
             game_id="dummy",
             game_params={},
-            num_episodes=4,
+            num_episodes=10,
             deterministic=True,
             seed=123,
         )
 
-    assert metrics["eval/win_rate"] == 0.5
-    assert metrics["eval/loss_rate"] == 0.5
+    assert mock_series.call_count == 3
+    random_metrics = {
+        "eval_random/win_rate": 0.3,
+        "eval_random/draw_rate": 0.1,
+        "eval_random/loss_rate": 0.6,
+    }
+    heuristic_metrics = {
+        "eval_heuristic/win_rate": 0.6,
+        "eval_heuristic/draw_rate": 0.2,
+        "eval_heuristic/loss_rate": 0.2,
+    }
+    smart_metrics = {
+        "eval_smart_heuristic/win_rate": 0.7,
+        "eval_smart_heuristic/draw_rate": 0.0,
+        "eval_smart_heuristic/loss_rate": 0.3,
+    }
+    for key, value in {**random_metrics, **heuristic_metrics, **smart_metrics}.items():
+        assert metrics[key] == value
 

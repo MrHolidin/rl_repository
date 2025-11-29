@@ -153,7 +153,8 @@ def train_dqn(
     if self_play_config is not None:
         print("Self-play: configured")
         print(f"  Start episode: {self_play_config.start_episode}")
-        print(f"  Self-play fraction: {self_play_config.fraction:.1%}")
+        print(f"  Current self fraction: {getattr(self_play_config, 'current_self_fraction', 0.0):.1%}")
+        print(f"  Past self fraction: {getattr(self_play_config, 'past_self_fraction', 0.0):.1%}")
         print(f"  Save every: {self_play_config.save_every} episodes")
         print(f"  Max frozen agents: {self_play_config.max_frozen_agents}")
     if random_opening_config is not None:

@@ -69,8 +69,8 @@ class SmartHeuristicAgent(BaseAgent):
         
         if threat_scores:
             # Choose action with highest threat score
-            best_action = max(threat_scores.items(), key=lambda x: x[1])[0]
-            return best_action
+            best_actions = [action for action, score in threat_scores.items() if score == max(threat_scores.values())]
+            return random.choice(best_actions)
         
         # Priority 4: Block opponent's threats
         block_scores = {}
@@ -80,9 +80,9 @@ class SmartHeuristicAgent(BaseAgent):
                 block_scores[action] = block_score
         
         if block_scores:
-            # Choose action that blocks highest threat
-            best_action = max(block_scores.items(), key=lambda x: x[1])[0]
-            return best_action
+            best_score = max(block_scores.values())
+            best_actions = [action for action, score in block_scores.items() if score == best_score]
+            return random.choice(best_actions)
         
         # Priority 5: Play center columns (more valuable)
         center_preference = self._get_center_preference(legal_actions, board.shape[1])
@@ -232,17 +232,20 @@ class SmartHeuristicAgent(BaseAgent):
             center_cols.append(center - 1)
         
         # Prefer center columns
-        for col in center_cols:
-            if col in legal_actions:
-                return col
+        center_candidates = [col for col in center_cols if col in legal_actions]
+        if center_candidates:
+            return random.choice(center_candidates)
         
         # Prefer columns near center
+        ring_candidates = []
         for offset in range(1, num_cols // 2 + 1):
             for col in center_cols:
-                for side in [-offset, offset]:
+                for side in (-offset, offset):
                     candidate = col + side
                     if candidate in legal_actions:
-                        return candidate
+                        ring_candidates.append(candidate)
+        if ring_candidates:
+            return random.choice(ring_candidates)
         
         return None
 

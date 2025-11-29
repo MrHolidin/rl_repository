@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.agents.base_agent import BaseAgent
 from src.features.action_space import DiscreteActionSpace
 from src.features.observation_builder import BoardChannels
 
@@ -24,19 +25,54 @@ class SelfPlayConfig:
     """Configuration options for self-play opponent sampling."""
 
     start_episode: int = 0
-    fraction: float = 0.5
+    current_self_fraction: float = 0.3
+    past_self_fraction: float = 0.3
     max_frozen_agents: int = 10
     save_every: int = 1000
 
     def __post_init__(self) -> None:
         if self.start_episode < 0:
             raise ValueError("start_episode must be non-negative")
-        if not 0.0 <= self.fraction <= 1.0:
-            raise ValueError("fraction must be between 0.0 and 1.0")
+        if not 0.0 <= self.current_self_fraction <= 1.0:
+            raise ValueError("current_self_fraction must be between 0.0 and 1.0")
+        if not 0.0 <= self.past_self_fraction <= 1.0:
+            raise ValueError("past_self_fraction must be between 0.0 and 1.0")
+        if self.current_self_fraction + self.past_self_fraction > 1.0:
+            raise ValueError("current_self_fraction + past_self_fraction must be <= 1.0")
         if self.max_frozen_agents < 0:
             raise ValueError("max_frozen_agents must be non-negative")
         if self.save_every <= 0:
             raise ValueError("save_every must be positive")
+
+
+class SelfPlayOpponent(BaseAgent):
+    """Lightweight wrapper around the current agent for self-play."""
+
+    def __init__(self, base_agent: BaseAgent, *, greedy: bool = True) -> None:
+        self._base_agent = base_agent
+        self._greedy = greedy
+
+    def act(
+        self,
+        obs,
+        legal_mask: Optional[Any] = None,
+        deterministic: bool = False,
+    ) -> int:
+        use_det = deterministic or self._greedy
+        return self._base_agent.act(obs, legal_mask=legal_mask, deterministic=use_det)
+
+    def save(self, path: str) -> None:  # pragma: no cover - not used
+        return None
+
+    @classmethod
+    def load(cls, path: str, **kwargs: Any) -> "SelfPlayOpponent":  # pragma: no cover - unused
+        raise NotImplementedError("SelfPlayOpponent cannot be loaded from disk.")
+
+    def eval(self) -> None:
+        return None
+
+    def train(self) -> None:
+        return None
 
 
 class OpponentPool:
@@ -53,6 +89,7 @@ class OpponentPool:
         seed: int,
         self_play_config: Optional[SelfPlayConfig],
         heuristic_distribution: Dict[str, float],
+        current_agent: Optional[BaseAgent] = None,
     ):
         """
         Initialize opponent pool.
@@ -71,6 +108,7 @@ class OpponentPool:
         self.max_loaded_agents = (
             self_play_config.max_frozen_agents if self_play_config is not None else 0
         )
+        self.current_agent = current_agent
         
         # Normalize heuristic distribution
         total = sum(heuristic_distribution.values())
@@ -209,26 +247,22 @@ class OpponentPool:
     def sample_opponent(self, episode: int):
         """
         Sample an opponent for the given episode.
-        
-        Args:
-            episode: Current episode number
-            
-        Returns:
-            Agent instance (heuristic or frozen DQN)
         """
         config = self.self_play_config
-        use_self_play = (
-            config is not None
-            and episode >= config.start_episode
-            and len(self.frozen_agents) > 0
-        )
-        
-        if use_self_play and random.random() < config.fraction:
-            # Use self-play: sample a frozen agent
-            info = self._sample_frozen_info()
-            if info is not None:
-                # episode просто используем как "step" для last_used
-                return self._get_loaded_frozen_agent(info, step=episode)
+        use_self_play = config is not None and episode >= (config.start_episode if config else 0)
+
+        if use_self_play and config is not None:
+            roll = random.random()
+            threshold_current = config.current_self_fraction
+            threshold_past = config.current_self_fraction + config.past_self_fraction
+
+            if self.current_agent is not None and (roll < threshold_current or len(self.frozen_agents) == 0):
+                return SelfPlayOpponent(self.current_agent, greedy=True)
+
+            if roll < threshold_past and self.frozen_agents:
+                info = self._sample_frozen_info()
+                if info is not None:
+                    return self._get_loaded_frozen_agent(info, step=episode)
         
         # Fallback: use heuristic opponent
         return self._create_heuristic_agent(episode)

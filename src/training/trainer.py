@@ -13,6 +13,7 @@ import numpy as np
 from src.agents.base_agent import BaseAgent
 from src.envs.base import StepResult, TurnBasedEnv
 from src.training.opponent_sampler import OpponentSampler, RandomOpponentSampler
+from src.training.random_opening import RandomOpeningConfig
 
 
 @dataclass
@@ -251,9 +252,14 @@ class ProgressLoggerCallback(TrainerCallback):
         grad_norm = avg_metrics.get("grad_norm", self._latest_metrics.get("grad_norm", 0.0))
         
         episode_num = trainer.episode_index if hasattr(trainer, "episode_index") else 0
+
+        
+        lr = getattr(trainer.agent, "learning_rate", None)
+        if lr is None and hasattr(trainer.agent, "optimizer"):   
+            lr = trainer.agent.optimizer.param_groups[0]["lr"]
         msg = (
             f"Episode {episode_num} | "
-            f"Epsilon: {epsilon:.4f} | "
+            f"Epsilon: {epsilon:.4f} | Learning RaTe: {lr:.4f} | "
             f"Buffer: {int(buffer_size)}/{int(buffer_capacity)} ({buffer_util:.1f}%) | "
             f"Train steps: {train_steps} | "
             f"Loss: {avg_loss:.4f} | Avg Q: {avg_q:.4f} | TD Error: {td_error:.4f} | Grad Norm: {grad_norm:.4f}"
@@ -404,6 +410,73 @@ class EarlyStopCallback(TrainerCallback):
                 trainer.stop_training = True
 
 
+class LearningRateDecayCallback(TrainerCallback):
+    """Multiply optimizer learning rate by ``decay_factor`` every N steps."""
+
+    def __init__(
+        self,
+        *,
+        interval_steps: int,
+        decay_factor: float,
+        min_lr: Optional[float] = None,
+        optimizer_attr: str = "optimizer",
+        metric_key: str = "learning_rate",
+    ) -> None:
+        if interval_steps <= 0:
+            raise ValueError("interval_steps must be > 0")
+        if decay_factor <= 0:
+            raise ValueError("decay_factor must be > 0")
+        self.interval_steps = interval_steps
+        self.decay_factor = decay_factor
+        self.min_lr = min_lr
+        self.optimizer_attr = optimizer_attr
+        self.metric_key = metric_key
+        self._optimizer = None
+        self._warned_missing_optimizer = False
+
+    def on_train_begin(self, trainer: "Trainer") -> None:
+        self._optimizer = getattr(trainer.agent, self.optimizer_attr, None)
+        if self._optimizer is None and not self._warned_missing_optimizer:
+            print(
+                f"[LearningRateDecayCallback] Agent has no '{self.optimizer_attr}'. "
+                "Skipping LR decay."
+            )
+            self._warned_missing_optimizer = True
+
+    def on_step_end(
+        self,
+        trainer: "Trainer",
+        step: int,
+        transition: Transition,
+        metrics: Dict[str, float],
+    ) -> None:
+        if self._optimizer is None:
+            return
+        if step % self.interval_steps != 0:
+            return
+
+        new_lr = None
+        for group in self._optimizer.param_groups:
+            old_lr = group.get("lr", None)
+            if old_lr is None:
+                continue
+            updated = old_lr * self.decay_factor
+            if self.min_lr is not None:
+                updated = max(updated, self.min_lr)
+            group["lr"] = updated
+            new_lr = updated
+
+        if new_lr is None:
+            return
+
+        agent = getattr(trainer, "agent", None)
+        if agent is not None and hasattr(agent, "learning_rate"):
+            agent.learning_rate = new_lr
+
+        if self.metric_key:
+            metrics[self.metric_key] = new_lr
+
+
 class Trainer:
     """Generic training loop that interacts with an environment via an agent."""
 
@@ -416,6 +489,7 @@ class Trainer:
         opponent_sampler: Optional[OpponentSampler] = None,
         start_policy: StartPolicy = StartPolicy.RANDOM,
         rng: Optional[Union[random.Random, np.random.Generator]] = None,
+        random_opening_config: Optional["RandomOpeningConfig"] = None,
     ) -> None:
         self.env = env
         self.agent = agent
@@ -434,6 +508,7 @@ class Trainer:
         self._rng = rng if rng is not None else random
         self._action_dim: Optional[int] = None
         self._agent_token = 1  # +1 when agent moves first, -1 otherwise
+        self.random_opening_config = random_opening_config
 
     def train(self, total_steps: int, *, deterministic: bool = False) -> None:
         """Run the training loop for the specified number of agent updates."""
@@ -441,6 +516,9 @@ class Trainer:
         reward_config = getattr(self.env, "reward_config", None)
 
         obs = self.env.reset()
+        obs, prologue_done = self._apply_random_opening(obs)
+        if prologue_done:
+            obs = self.env.reset()
         episode_reward = 0.0
         episode_length = 0
         pending: Optional[PendingTransition] = None
@@ -598,6 +676,10 @@ class Trainer:
 
         if not self.stop_training and self.global_step < self._target_total_steps:
             self._prepare_opponent()
+
+        obs, prologue_done = self._apply_random_opening(obs)
+        if prologue_done:
+            obs = self.env.reset()
 
         return obs, 0.0, 0, None, None, None
 
@@ -780,6 +862,50 @@ class Trainer:
         core_done = perf_counter() if self.track_timings else None
         self._after_transition(transition, metrics, iteration_start, core_done)
         return episode_reward
+
+    def _apply_random_opening(self, initial_obs: np.ndarray) -> Tuple[np.ndarray, bool]:
+        """Apply randomized opening sequence if enabled."""
+        cfg = self.random_opening_config
+        if cfg is None:
+            return initial_obs, False
+
+        rand = self._rng if isinstance(self._rng, random.Random) else random
+
+        if rand.random() >= cfg.probability:
+            return initial_obs, False
+
+        moves_to_play = rand.randint(cfg.min_half_moves, cfg.max_half_moves)
+        obs = initial_obs
+        done = False
+
+        for _ in range(moves_to_play):
+            if getattr(self.env, "done", False):
+                done = True
+                break
+            legal_actions = self._get_legal_actions_for_opening()
+            if not legal_actions:
+                break
+            action = rand.choice(legal_actions)
+            step = self.env.step(action)
+            if isinstance(step, StepResult):
+                obs = step.obs
+                done = step.done
+            else:
+                obs, _, done, _ = step
+            if done:
+                break
+
+        return obs, done
+
+    def _get_legal_actions_for_opening(self) -> List[int]:
+        if hasattr(self.env, "get_legal_actions"):
+            actions = self.env.get_legal_actions()
+            return list(actions)
+        mask = getattr(self.env, "legal_actions_mask", None)
+        if mask is not None:
+            mask_arr = np.asarray(mask, dtype=bool)
+            return np.flatnonzero(mask_arr).tolist()
+        raise RuntimeError("Environment must expose get_legal_actions() or legal_actions_mask for random opening.")
 
     def _agent_relative_result(self, winner: Optional[int]) -> Optional[int]:
         """Convert environment winner token into agent-centric result."""
