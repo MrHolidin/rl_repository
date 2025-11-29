@@ -1,13 +1,12 @@
 """Generic training loop and callbacks for turn-based environments."""
 
 from __future__ import annotations
-
-import csv
-import os
+import random
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -43,6 +42,14 @@ class PendingTransition:
     action: int
     reward: float
     legal_mask: Optional[np.ndarray]
+
+
+class StartPolicy(Enum):
+    """Policy for determining who goes first in each episode."""
+
+    RANDOM = "random"
+    AGENT_FIRST = "agent_first"
+    OPPONENT_FIRST = "opponent_first"
 
 
 class TrainerCallback:
@@ -95,6 +102,8 @@ class EvalCallback(TrainerCallback):
             self.time_spent += perf_counter() - start
             self.history.append(result)
             metrics.update({f"{self.name}/{k}": v for k, v in result.items()})
+            summary = " | ".join(f"{k}={v:.4f}" if isinstance(v, (int, float)) else f"{k}={v}" for k, v in result.items())
+            print(f"[{self.name}] step {step}: {summary}")
 
 
 class CheckpointCallback(TrainerCallback):
@@ -139,28 +148,15 @@ class ProgressLoggerCallback(TrainerCallback):
         self.detailed_metrics_interval = detailed_metrics_interval or (step_interval // 2 if step_interval else 0)
         self.total_steps = total_steps
         
-        # Episode statistics
-        self._wins = 0
-        self._draws = 0
-        self._losses = 0
-        self._episode_count = 0
         self._episode_metrics: List[Dict[str, float]] = []
-        self._last_detailed_metrics_step = 0
         self._last_episode_summary_step = 0
-        self._current_episode_train_steps = 0
         self._total_train_steps = 0
         self._latest_metrics: Dict[str, float] = {}
 
     def on_train_begin(self, trainer: "Trainer") -> None:
         """Initialize tracking."""
-        self._wins = 0
-        self._draws = 0
-        self._losses = 0
-        self._episode_count = 0
         self._episode_metrics.clear()
-        self._last_detailed_metrics_step = 0
         self._last_episode_summary_step = 0
-        self._current_episode_train_steps = 0
         self._total_train_steps = 0
         self._latest_metrics.clear()
         self._last_total_train_steps = 0
@@ -185,7 +181,6 @@ class ProgressLoggerCallback(TrainerCallback):
             
             # Count training steps (when loss or grad_norm is present)
             if "loss" in metrics or "grad_norm" in metrics:
-                self._current_episode_train_steps += 1
                 self._total_train_steps += 1
         
         # Print detailed metrics periodically (between episode summaries)
@@ -198,7 +193,6 @@ class ProgressLoggerCallback(TrainerCallback):
             # Only print if we have detailed metrics
             if any(k in self._latest_metrics for k in ["max_q", "min_q", "avg_target_q"]):
                 self._print_detailed_metrics(trainer, step)
-                self._last_detailed_metrics_step = step
 
     def on_episode_end(
         self,
@@ -207,42 +201,19 @@ class ProgressLoggerCallback(TrainerCallback):
         episode_info: Dict[str, Any],
     ) -> None:
         """Track episode statistics."""
-        self._episode_count += 1
-        info = episode_info.get("info", {})
-        winner = info.get("winner") if isinstance(info, dict) else None
-        
-        if winner == 1:
-            self._wins += 1
-        elif winner == -1:
-            self._losses += 1
-        elif winner == 0:
-            self._draws += 1
-        
         # Print episode summary if at evaluation interval
         if self.step_interval and trainer.global_step - self._last_episode_summary_step >= self.step_interval:
-            self._print_episode_summary(trainer, trainer.global_step, episode_info)
+            self._print_episode_summary(trainer, trainer.global_step)
             self._last_episode_summary_step = trainer.global_step
-            # Reset detailed metrics counter after episode summary
-            self._last_detailed_metrics_step = trainer.global_step
             # Clear episode metrics after summary to start fresh
             self._episode_metrics.clear()
-            self._current_episode_train_steps = 0
-        else:
-            # Clear episode metrics after tracking (but keep latest_metrics for detailed output)
-            self._current_episode_train_steps = 0
 
     def _print_episode_summary(
         self,
         trainer: "Trainer",
         step: int,
-        episode_info: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Print episode summary with win/draw/loss rates."""
-        total_episodes = max(1, self._episode_count)
-        win_rate = self._wins / total_episodes
-        draw_rate = self._draws / total_episodes
-        loss_rate = self._losses / total_episodes
-        
+        """Print episode summary with aggregated training metrics."""
         # Compute average metrics from collected metrics since last summary
         avg_metrics = {}
         if self._episode_metrics:
@@ -270,14 +241,8 @@ class ProgressLoggerCallback(TrainerCallback):
         if epsilon is None:
             epsilon = self._latest_metrics.get("epsilon", avg_metrics.get("epsilon", 0.0))
         
-        # Count training steps since last summary (from metrics that had loss/grad_norm)
-        train_steps = sum(
-            1 for m in self._episode_metrics if "loss" in m or "grad_norm" in m
-        )
-        # Use total train steps if available
-        if train_steps == 0 and self._total_train_steps > 0:
-            train_steps = self._total_train_steps - getattr(self, "_last_total_train_steps", 0)
-            self._last_total_train_steps = self._total_train_steps
+        train_steps = self._total_train_steps - getattr(self, "_last_total_train_steps", 0)
+        self._last_total_train_steps = self._total_train_steps
         
         # Get training metrics (prefer average over latest for episode summary)
         avg_loss = avg_metrics.get("loss", self._latest_metrics.get("loss", 0.0))
@@ -285,12 +250,9 @@ class ProgressLoggerCallback(TrainerCallback):
         td_error = avg_metrics.get("td_error", self._latest_metrics.get("td_error", 0.0))
         grad_norm = avg_metrics.get("grad_norm", self._latest_metrics.get("grad_norm", 0.0))
         
-        # Build message (episode number without total, as total_steps is steps not episodes)
-        episode_num = trainer.episode_index if hasattr(trainer, "episode_index") else self._episode_count
-        
+        episode_num = trainer.episode_index if hasattr(trainer, "episode_index") else 0
         msg = (
             f"Episode {episode_num} | "
-            f"Win: {win_rate:.2%} | Draw: {draw_rate:.2%} | Loss: {loss_rate:.2%} | "
             f"Epsilon: {epsilon:.4f} | "
             f"Buffer: {int(buffer_size)}/{int(buffer_capacity)} ({buffer_util:.1f}%) | "
             f"Train steps: {train_steps} | "
@@ -325,173 +287,6 @@ class ProgressLoggerCallback(TrainerCallback):
         self.print_fn(msg)
 
 
-class CSVLoggerCallback(TrainerCallback):
-    """Append training metrics to a CSV file."""
-
-    def __init__(
-        self,
-        csv_path: str | Path,
-        fieldnames: Optional[Sequence[str]] = None,
-        mode: str = "step",
-    ):
-        self.csv_path = Path(csv_path)
-        self.fieldnames = list(fieldnames) if fieldnames is not None else None
-        self._file = None
-        self._writer: Optional[csv.DictWriter] = None
-        self._fieldnames: List[str] = []
-        self.mode = mode if mode in {"step", "episode"} else "step"
-        self._episode_metrics: List[Dict[str, float]] = []
-        self._episode_count = 0
-        self._wins = 0
-        self._draws = 0
-        self._losses = 0
-
-    def on_train_begin(self, trainer: "Trainer") -> None:
-        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = self.csv_path.open("w+", newline="")
-        self._fieldnames = ["step"]
-        if self.mode == "episode":
-            self._fieldnames.append("global_step")
-            self._episode_metrics.clear()
-            self._episode_count = 0
-            self._wins = 0
-            self._draws = 0
-            self._losses = 0
-        if self.fieldnames is not None:
-            for name in self.fieldnames:
-                if name not in self._fieldnames:
-                    self._fieldnames.append(name)
-        self._writer = csv.DictWriter(self._file, fieldnames=self._fieldnames)
-        self._writer.writeheader()
-
-    def on_step_end(
-        self,
-        trainer: "Trainer",
-        step: int,
-        transition: Transition,
-        metrics: Dict[str, float],
-    ) -> None:
-        if self._file is None:
-            return
-        if self.mode == "episode":
-            # Collect metrics for episode aggregation
-            numeric_metrics = {
-                k: float(v) for k, v in metrics.items() if isinstance(v, (int, float))
-            }
-            # Always append, even if empty (to track that step occurred)
-            self._episode_metrics.append(numeric_metrics)
-            return
-        # Step mode: write metrics immediately
-        row: Dict[str, Any] = {"step": step, **metrics}
-
-        new_fields = [key for key in row.keys() if key not in self._fieldnames]
-        if new_fields:
-            self._fieldnames.extend(sorted(new_fields))
-            self._rewrite_with_new_fieldnames()
-
-        self._write_row(row)
-
-    def on_train_end(self, trainer: "Trainer") -> None:
-        if self.mode == "episode":
-            self._episode_metrics.clear()
-        if self._file is not None:
-            self._file.close()
-            self._file = None
-            self._writer = None
-            self._fieldnames = []
-
-    def on_episode_end(
-        self,
-        trainer: "Trainer",
-        episode: int,
-        episode_info: Dict[str, Any],
-    ) -> None:
-        if self.mode != "episode" or self._file is None:
-            return
-
-        self._episode_count += 1
-        row: Dict[str, Any] = {
-            "step": self._episode_count,
-            "global_step": trainer.global_step,
-            "episode_reward": float(episode_info.get("reward", 0.0)),
-            "episode_length": float(episode_info.get("length", 0)),
-        }
-
-        info = episode_info.get("info", {})
-        winner = None
-        if isinstance(info, dict):
-            winner = info.get("winner")
-            for key, value in info.items():
-                if isinstance(value, (int, float)):
-                    row[f"info_{key}"] = float(value)
-
-        if winner == 1:
-            self._wins += 1
-        elif winner == -1:
-            self._losses += 1
-        elif winner == 0:
-            self._draws += 1
-        if winner is not None:
-            row["winner"] = winner
-
-        total_episodes = max(1, self._episode_count)
-        row["win_rate"] = self._wins / total_episodes
-        row["draw_rate"] = self._draws / total_episodes
-        row["loss_rate"] = self._losses / total_episodes
-
-        epsilon = getattr(trainer.agent, "epsilon", None)
-        if epsilon is not None:
-            row["epsilon"] = float(epsilon)
-
-        if self._episode_metrics:
-            keys = set().union(*(m.keys() for m in self._episode_metrics))
-            for key in sorted(keys):
-                values = [m[key] for m in self._episode_metrics if key in m]
-                if not values:
-                    continue
-                avg_value = sum(values) / len(values)
-                if key.startswith("train_") or key.startswith("eval/") or "/" in key:
-                    row[key] = avg_value
-                else:
-                    row[f"train_{key}"] = avg_value
-        self._episode_metrics.clear()
-
-        self._write_row(row)
-
-    def _write_row(self, row: Dict[str, Any]) -> None:
-        if self._file is None:
-            return
-        new_fields = [key for key in row.keys() if key not in self._fieldnames]
-        if new_fields:
-            self._fieldnames.extend(sorted(new_fields))
-            self._rewrite_with_new_fieldnames()
-
-        assert self._writer is not None
-        ordered_row = {name: row.get(name, "") for name in self._fieldnames}
-        self._writer.writerow(ordered_row)
-        self._file.flush()
-
-    def _rewrite_with_new_fieldnames(self) -> None:
-        if self._file is None:
-            return
-
-        self._file.flush()
-        self._file.seek(0)
-        reader = csv.DictReader(self._file)
-        existing_rows: List[Dict[str, Any]] = []
-        if reader.fieldnames is not None:
-            for row in reader:
-                existing_rows.append(row)
-
-        self._file.seek(0)
-        self._file.truncate(0)
-        self._writer = csv.DictWriter(self._file, fieldnames=self._fieldnames)
-        self._writer.writeheader()
-        for row in existing_rows:
-            ordered = {name: row.get(name, "") for name in self._fieldnames}
-            self._writer.writerow(ordered)
-
-
 class WandbLoggerCallback(TrainerCallback):
     """Optional Weights & Biases logger."""
 
@@ -521,6 +316,51 @@ class WandbLoggerCallback(TrainerCallback):
         if self._run is not None:
             self._run.finish()
             self._run = None
+
+
+class EpsilonDecayCallback(TrainerCallback):
+    """Decay epsilon after each step or episode."""
+
+    def __init__(self, every: str = "step"):
+        """
+        Args:
+            every: "step" or "episode" - when to decay epsilon
+        """
+        if every not in {"step", "episode"}:
+            raise ValueError("every must be 'step' or 'episode'")
+        self.every = every
+
+    def on_step_end(
+        self,
+        trainer: "Trainer",
+        step: int,
+        transition: Transition,
+        metrics: Dict[str, float],
+    ) -> None:
+        if self.every == "step":
+            self._decay(trainer)
+
+    def on_episode_end(
+        self,
+        trainer: "Trainer",
+        episode: int,
+        episode_info: Dict[str, Any],
+    ) -> None:
+        if self.every == "episode":
+            self._decay(trainer)
+
+    @staticmethod
+    def _decay(trainer: "Trainer") -> None:
+        """Decay epsilon if agent supports it."""
+        agent = trainer.agent
+        if not getattr(agent, "training", True):
+            return
+        if not (hasattr(agent, "epsilon") and hasattr(agent, "epsilon_decay") and hasattr(agent, "epsilon_min")):
+            return
+        if agent.epsilon > agent.epsilon_min:
+            agent.epsilon *= agent.epsilon_decay
+            if agent.epsilon < agent.epsilon_min:
+                agent.epsilon = agent.epsilon_min
 
 
 class EarlyStopCallback(TrainerCallback):
@@ -574,6 +414,8 @@ class Trainer:
         callbacks: Optional[Iterable[TrainerCallback]] = None,
         track_timings: bool = False,
         opponent_sampler: Optional[OpponentSampler] = None,
+        start_policy: StartPolicy = StartPolicy.RANDOM,
+        rng: Optional[Union[random.Random, np.random.Generator]] = None,
     ) -> None:
         self.env = env
         self.agent = agent
@@ -588,6 +430,10 @@ class Trainer:
         self._default_opponent_sampler = RandomOpponentSampler()
         self._current_opponent: Optional[BaseAgent] = None
         self._target_total_steps = 0
+        self.start_policy = start_policy
+        self._rng = rng if rng is not None else random
+        self._action_dim: Optional[int] = None
+        self._agent_token = 1  # +1 when agent moves first, -1 otherwise
 
     def train(self, total_steps: int, *, deterministic: bool = False) -> None:
         """Run the training loop for the specified number of agent updates."""
@@ -604,88 +450,81 @@ class Trainer:
 
         self._prepare_opponent()
 
+        # Determine who goes first in first episode
+        current_player_is_agent = self._should_agent_go_first()
+
+        # If opponent goes first, handle opening
+        if not current_player_is_agent:
+            obs, episode_reward, episode_length, current_player_is_agent = self._handle_opponent_start(
+                obs, episode_reward, episode_length, reward_config, None
+            )
+
         while self.global_step < total_steps and not self.stop_training:
             iteration_start = perf_counter() if self.track_timings else None
 
-            legal_mask = self._legal_mask_array(getattr(self.env, "legal_actions_mask", None))
-            action = self.agent.act(obs, legal_mask=legal_mask, deterministic=deterministic)
-            agent_step = self.env.step(action)
-            episode_length += 1
+            if current_player_is_agent:
+                # Agent's turn
+                agent_step, pending = self._agent_turn(obs, deterministic)
+                episode_length += 1
 
-            transition: Optional[Transition] = None
-            metrics: Dict[str, float] = {}
+                if agent_step.done:
+                    # Agent won or drew
+                    transition = Transition(
+                        obs=obs,
+                        action=pending.action,
+                        reward=agent_step.reward,
+                        next_obs=agent_step.obs,
+                        terminated=agent_step.terminated,
+                        truncated=agent_step.truncated,
+                        info=agent_step.info,
+                        legal_mask=pending.legal_mask,
+                        next_legal_mask=self._zero_mask_like(pending.legal_mask),
+                    )
+                    metrics = self._process_agent_transition(transition)
+                    episode_reward += transition.reward
+                    core_done = perf_counter() if self.track_timings else None
+                    self._after_transition(transition, metrics, iteration_start, core_done)
 
-            if agent_step.done:
-                transition = Transition(
-                    obs=obs,
-                    action=action,
-                    reward=agent_step.reward,
-                    next_obs=agent_step.obs,
-                    terminated=agent_step.terminated,
-                    truncated=agent_step.truncated,
-                    info=agent_step.info,
-                    legal_mask=legal_mask,
-                    next_legal_mask=self._zero_mask_like(legal_mask),
-                )
-                metrics = self._process_agent_transition(transition)
-                episode_reward += agent_step.reward
+                    obs, episode_reward, episode_length, pending, transition, end_info = self._handle_episode_end(
+                        episode_reward, episode_length, agent_step.info
+                    )
+                    iteration_start = perf_counter() if self.track_timings else None
+                    episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
+                    current_player_is_agent = self._should_agent_go_first()
+                    continue
 
-                core_done = perf_counter() if self.track_timings else None
-                self._after_transition(transition, metrics, iteration_start, core_done)
+                # Game continues, wait for opponent
+                obs = agent_step.obs
+                current_player_is_agent = False
+            else:
+                # Opponent's turn
+                if pending is None:
+                    obs, episode_reward, episode_length, current_player_is_agent = self._handle_opponent_start(
+                        obs, episode_reward, episode_length, reward_config, iteration_start
+                    )
+                    continue
+                else:
+                    # Normal opponent turn after agent's move
+                    opponent_step, transition = self._opponent_turn_and_credit(obs, pending, reward_config)
+                    episode_length += 1
+                    metrics = self._process_agent_transition(transition)
+                    episode_reward += transition.reward
+                    pending = None
 
-                obs, episode_reward, episode_length, pending = self._handle_episode_end(
-                    episode_reward,
-                    episode_length,
-                    agent_step.info,
-                )
-                continue
+                    core_done = perf_counter() if self.track_timings else None
+                    self._after_transition(transition, metrics, iteration_start, core_done)
 
-            pending = PendingTransition(obs=obs, action=action, reward=agent_step.reward, legal_mask=legal_mask)
-            obs = agent_step.obs
+                    obs = opponent_step.obs
+                    if opponent_step.done:
+                        obs, episode_reward, episode_length, pending, transition, end_info = self._handle_episode_end(
+                            episode_reward, episode_length, opponent_step.info
+                        )
+                        iteration_start = perf_counter() if self.track_timings else None
+                        episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
+                        current_player_is_agent = self._should_agent_go_first()
+                        continue
 
-            opponent = self._current_opponent or self._prepare_opponent()
-            opponent_mask = self._legal_mask_array(getattr(self.env, "legal_actions_mask", None))
-            opponent_action = opponent.act(obs, legal_mask=opponent_mask, deterministic=False)
-            opponent_step = self.env.step(opponent_action)
-            episode_length += 1
-
-            assert pending is not None  # for mypy/mind
-            final_reward = self._compute_agent_reward(
-                pending.reward,
-                opponent_step,
-                reward_config,
-            )
-            next_mask = (
-                self._legal_mask_array(getattr(self.env, "legal_actions_mask", None))
-                if not opponent_step.done
-                else self._zero_mask_like(pending.legal_mask)
-            )
-
-            transition = Transition(
-                obs=pending.obs,
-                action=pending.action,
-                reward=final_reward,
-                next_obs=opponent_step.obs,
-                terminated=opponent_step.terminated,
-                truncated=opponent_step.truncated,
-                info=opponent_step.info,
-                legal_mask=pending.legal_mask,
-                next_legal_mask=next_mask,
-            )
-            metrics = self._process_agent_transition(transition)
-            episode_reward += final_reward
-            pending = None
-
-            core_done = perf_counter() if self.track_timings else None
-            self._after_transition(transition, metrics, iteration_start, core_done)
-
-            obs = opponent_step.obs
-            if opponent_step.done:
-                obs, episode_reward, episode_length, pending = self._handle_episode_end(
-                    episode_reward,
-                    episode_length,
-                    opponent_step.info,
-                )
+                    current_player_is_agent = True  # Switch back to agent
 
         for callback in self.callbacks:
             callback.on_train_end(self)
@@ -716,15 +555,6 @@ class Trainer:
         if self.track_timings and iteration_start is not None and core_done is not None:
             self._timings["core"] += max(0.0, core_done - iteration_start)
 
-        # Decay epsilon after each step (if agent supports it)
-        # User should configure epsilon_decay appropriately for per-step updates
-        if hasattr(self.agent, "epsilon") and hasattr(self.agent, "epsilon_decay") and hasattr(self.agent, "epsilon_min"):
-            if self.agent.training and self.agent.epsilon > self.agent.epsilon_min:
-                self.agent.epsilon *= self.agent.epsilon_decay
-                # Ensure epsilon doesn't go below minimum
-                if self.agent.epsilon < self.agent.epsilon_min:
-                    self.agent.epsilon = self.agent.epsilon_min
-
         self.global_step += 1
         for callback in self.callbacks:
             cb_start = perf_counter() if self.track_timings else None
@@ -740,11 +570,21 @@ class Trainer:
         episode_reward: float,
         episode_length: int,
         info: Dict[str, Any],
-    ) -> Tuple[np.ndarray, float, int, Optional[PendingTransition]]:
+    ) -> Tuple[np.ndarray, float, int, Optional[PendingTransition], Optional[Transition], Optional[Dict[str, Any]]]:
+        """
+        Handle episode end: callbacks, reset environment, prepare opponent.
+        
+        Returns:
+            obs, episode_reward (reset to 0.0), episode_length (reset to 0), pending, transition, end_info
+        """
+        winner = info.get("winner") if isinstance(info, dict) else None
+        agent_result = self._agent_relative_result(winner)
         episode_info = {
             "reward": episode_reward,
             "length": episode_length,
             "info": info,
+            "agent_token": self._agent_token,
+            "agent_result": agent_result,
         }
         for callback in self.callbacks:
             callback.on_episode_end(self, self.episode_index, episode_info)
@@ -759,7 +599,7 @@ class Trainer:
         if not self.stop_training and self.global_step < self._target_total_steps:
             self._prepare_opponent()
 
-        return obs, 0.0, 0, None
+        return obs, 0.0, 0, None, None, None
 
     def _prepare_opponent(self) -> BaseAgent:
         sampler = self.opponent_sampler or self._default_opponent_sampler
@@ -771,17 +611,187 @@ class Trainer:
         self._current_opponent = opponent
         return opponent
 
-    def _legal_mask_array(self, mask: Optional[np.ndarray]) -> Optional[np.ndarray]:
+    def _as_bool_mask(self, mask: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        """Convert mask to boolean array."""
         if mask is None:
             return None
-        if isinstance(mask, np.ndarray) and mask.dtype == bool:
-            return mask.astype(bool, copy=True)
-        return np.asarray(mask, dtype=bool)
+        return np.asarray(mask, dtype=bool, order='C')
 
     def _zero_mask_like(self, mask: Optional[np.ndarray]) -> Optional[np.ndarray]:
-        if mask is None:
+        """Create zero mask with same shape as input."""
+        m = self._as_bool_mask(mask)
+        return None if m is None else np.zeros_like(m, dtype=bool)
+
+    def _get_action_dim(self) -> int:
+        """Get the action space dimension from the environment."""
+        if self._action_dim is not None:
+            return self._action_dim
+        # Try to get from legal_actions_mask
+        if hasattr(self.env, "legal_actions_mask") and self.env.legal_actions_mask is not None:
+            self._action_dim = int(len(self.env.legal_actions_mask))
+            return self._action_dim
+        # Try cols attribute (for Connect4Env)
+        if hasattr(self.env, "cols"):
+            self._action_dim = int(self.env.cols)
+            return self._action_dim
+        raise RuntimeError("Cannot infer action dimension; provide legal_actions_mask or cols.")
+
+    def _opponent_opening(
+        self,
+        obs: np.ndarray,
+        episode_length: int,
+        reward_config: Any,
+    ) -> Tuple[np.ndarray, int, Optional[Transition], Optional[Dict[str, Any]]]:
+        """
+        If opponent goes first in current episode, make their move.
+        
+        Returns:
+            obs, episode_length, maybe_transition_or_None, maybe_episode_end_info_or_None
+        """
+        opponent = self._current_opponent or self._prepare_opponent()
+        opp_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        opp_action = opponent.act(obs, legal_mask=opp_mask, deterministic=False)
+        opp_step = self.env.step(opp_action)
+        episode_length += 1
+
+        if not opp_step.done:
+            return opp_step.obs, episode_length, None, None
+
+        # Episode ended on opponent's first move: account for agent loss/draw
+        winner = opp_step.info.get("winner")
+        if reward_config is not None:
+            final_reward = (
+                getattr(reward_config, "draw", 0.0) if winner == 0
+                else getattr(reward_config, "loss", -1.0)
+            )
+        else:
+            final_reward = 0.0 if winner == 0 else -1.0
+
+        legal_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        transition = Transition(
+            obs=obs,
+            action=0,  # Dummy action, agent didn't actually move
+            reward=final_reward,
+            next_obs=opp_step.obs,
+            terminated=opp_step.terminated,
+            truncated=opp_step.truncated,
+            info=opp_step.info,
+            legal_mask=legal_mask if legal_mask is not None else np.zeros(self._get_action_dim(), dtype=bool),
+            next_legal_mask=self._zero_mask_like(legal_mask),
+        )
+        return opp_step.obs, episode_length, transition, opp_step.info
+
+    def _agent_turn(
+        self,
+        obs: np.ndarray,
+        deterministic: bool,
+    ) -> Tuple[StepResult, PendingTransition]:
+        """Agent makes a move. Returns step result and pending transition."""
+        legal = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        action = self.agent.act(obs, legal_mask=legal, deterministic=deterministic)
+        step = self.env.step(action)
+        pending = PendingTransition(obs=obs, action=action, reward=step.reward, legal_mask=legal)
+        return step, pending  # step.obs is position before opponent's response
+
+    def _opponent_turn_and_credit(
+        self,
+        obs_after_agent: np.ndarray,
+        pending: PendingTransition,
+        reward_config: Any,
+    ) -> Tuple[StepResult, Transition]:
+        """Opponent makes a move and create final transition for agent."""
+        opp = self._current_opponent or self._prepare_opponent()
+        opp_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        opp_action = opp.act(obs_after_agent, legal_mask=opp_mask, deterministic=False)
+        opp_step = self.env.step(opp_action)
+
+        final_reward = self._compute_agent_reward(pending.reward, opp_step, reward_config)
+        next_mask = (
+            self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+            if not opp_step.done
+            else self._zero_mask_like(pending.legal_mask)
+        )
+        transition = Transition(
+            obs=pending.obs,
+            action=pending.action,
+            reward=final_reward,
+            next_obs=opp_step.obs,
+            terminated=opp_step.terminated,
+            truncated=opp_step.truncated,
+            info=opp_step.info,
+            legal_mask=pending.legal_mask,
+            next_legal_mask=next_mask,
+        )
+        return opp_step, transition
+
+    def _handle_opponent_start(
+        self,
+        obs: np.ndarray,
+        episode_reward: float,
+        episode_length: int,
+        reward_config: Any,
+        iteration_start: Optional[float],
+    ) -> Tuple[np.ndarray, float, int, bool]:
+        """Handle opponent opening sequence when they move first."""
+        obs, episode_length, transition, end_info = self._opponent_opening(obs, episode_length, reward_config)
+        if transition is None:
+            return obs, episode_reward, episode_length, True
+
+        metrics = self._process_agent_transition(transition)
+        episode_reward += transition.reward
+
+        core_done = perf_counter() if self.track_timings else None
+        core_start = iteration_start if iteration_start is not None else core_done
+        self._after_transition(transition, metrics, core_start, core_done)
+
+        obs, episode_reward, episode_length, pending, transition, end_info = self._handle_episode_end(
+            episode_reward, episode_length, end_info or {}
+        )
+        iteration_start = perf_counter() if self.track_timings else None
+        episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
+        current_player_is_agent = self._should_agent_go_first()
+        return obs, episode_reward, episode_length, current_player_is_agent
+
+    def _should_agent_go_first(self) -> bool:
+        """Determine if agent should go first based on start policy."""
+        if self.start_policy == StartPolicy.AGENT_FIRST:
+            goes_first = True
+        elif self.start_policy == StartPolicy.OPPONENT_FIRST:
+            goes_first = False
+        else:
+            if isinstance(self._rng, random.Random):
+                goes_first = self._rng.random() < 0.5
+            else:  # np.random.Generator
+                goes_first = self._rng.random() < 0.5
+        self._agent_token = 1 if goes_first else -1
+        return goes_first
+
+    def _process_maybe_opening_transition(
+        self,
+        transition: Optional[Transition],
+        episode_reward: float,
+        iteration_start: Optional[float],
+    ) -> float:
+        """Process transition from opponent opening if present."""
+        if transition is None:
+            return episode_reward
+        metrics = self._process_agent_transition(transition)
+        episode_reward += transition.reward
+        core_done = perf_counter() if self.track_timings else None
+        self._after_transition(transition, metrics, iteration_start, core_done)
+        return episode_reward
+
+    def _agent_relative_result(self, winner: Optional[int]) -> Optional[int]:
+        """Convert environment winner token into agent-centric result."""
+        if winner is None:
             return None
-        return np.zeros_like(mask, dtype=bool)
+        if winner == 0:
+            return 0
+        if winner == self._agent_token:
+            return 1
+        if winner == -self._agent_token:
+            return -1
+        return None
 
     def _compute_agent_reward(
         self,

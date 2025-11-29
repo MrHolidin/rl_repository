@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
@@ -13,7 +14,9 @@ from src.training.trainer import (
     CheckpointCallback,
     EarlyStopCallback,
     EvalCallback,
+    StartPolicy,
     Trainer,
+    TrainerCallback,
     Transition,
 )
 
@@ -87,6 +90,37 @@ class DummyAgent(BaseAgent):
         return cls()
 
 
+class CaptureAgentResultCallback(TrainerCallback):
+    def __init__(self):
+        self.results: list[Optional[int]] = []
+
+    def on_episode_end(
+        self,
+        trainer: Trainer,
+        episode: int,
+        episode_info: dict,
+    ) -> None:
+        self.results.append(episode_info.get("agent_result"))
+
+
+class FixedWinnerEnv(DummyEnv):
+    """Single-step environment that reports predefined winner token."""
+
+    def __init__(self, winner: int):
+        super().__init__(episode_length=1)
+        self._winner = winner
+
+    def step(self, action: int) -> StepResult:
+        result = super().step(action)
+        return StepResult(
+            obs=result.obs,
+            reward=result.reward,
+            terminated=result.terminated,
+            truncated=result.truncated,
+            info={"winner": self._winner},
+        )
+
+
 def test_trainer_runs_and_records_metrics():
     env = DummyEnv()
     agent = DummyAgent()
@@ -127,4 +161,20 @@ def test_trainer_checkpoint_and_early_stop():
 
         checkpoint_files = list(Path(tmpdir).glob("checkpoint_*.pt"))
         assert checkpoint_files, "Checkpoint callback should persist model files."
+
+
+def test_trainer_agent_result_respects_player_order():
+    agent = DummyAgent()
+    env = FixedWinnerEnv(winner=1)
+    cb = CaptureAgentResultCallback()
+    trainer = Trainer(env, agent, callbacks=[cb], start_policy=StartPolicy.AGENT_FIRST)
+    trainer.train(total_steps=1)
+    assert cb.results == [1]
+
+    agent2 = DummyAgent()
+    env2 = FixedWinnerEnv(winner=-1)
+    cb2 = CaptureAgentResultCallback()
+    trainer2 = Trainer(env2, agent2, callbacks=[cb2], start_policy=StartPolicy.OPPONENT_FIRST)
+    trainer2.train(total_steps=1)
+    assert cb2.results == [1]
 
