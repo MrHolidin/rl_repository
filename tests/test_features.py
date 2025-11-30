@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from src.features.observation_builder import BoardChannels
+from src.models.dueling_utils import dueling_aggregate
 from src.models.q_network_factory import build_q_network
 
 
@@ -88,4 +89,18 @@ def test_build_q_network_board_and_vector():
     vector_input = torch.zeros((3, *vector_shape), dtype=torch.float32)
     vector_output = vector_model(vector_input)
     assert vector_output.shape == (3, 5)
+
+
+def test_dueling_aggregate_respects_mask():
+    value = torch.tensor([[1.0]])
+    advantage = torch.tensor([[1.0, -1.0, 2.0]])
+    legal_mask = torch.tensor([[True, False, True]])
+
+    q_values = dueling_aggregate(value, advantage, legal_mask)
+    expected = torch.tensor([[0.5, -0.5, 1.5]])
+    assert torch.allclose(q_values, expected)
+
+    all_illegal_mask = torch.zeros_like(legal_mask, dtype=torch.bool)
+    q_all_illegal = dueling_aggregate(value, advantage, all_illegal_mask)
+    assert torch.allclose(q_all_illegal, torch.full_like(advantage, 1.0))
 

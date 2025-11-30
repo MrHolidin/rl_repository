@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..features.observation_builder import ObservationType
+from .dueling_utils import dueling_aggregate
 
 
 def _ensure_default_conv_layers(config: Optional[Dict]) -> List[Dict[str, int]]:
@@ -68,14 +69,14 @@ class ConvQNetwork(nn.Module):
 
         self.dueling = dueling
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, legal_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         x = self.conv(x)
         x = x.view(x.size(0), -1)
 
         if self.dueling:
             value = self.value_stream(x)
             advantage = self.adv_stream(x)
-            return value + advantage - advantage.mean(dim=1, keepdim=True)
+            return dueling_aggregate(value, advantage, legal_mask)
 
         return self.fc(x)
 
@@ -95,12 +96,12 @@ class MLPQNetwork(nn.Module):
 
         self.dueling = dueling
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, legal_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         x = x.view(x.size(0), -1)
         if self.dueling:
             value = self.value_stream(x)
             advantage = self.adv_stream(x)
-            return value + advantage - advantage.mean(dim=1, keepdim=True)
+            return dueling_aggregate(value, advantage, legal_mask)
         return self.body(x)
 
 

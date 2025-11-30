@@ -18,6 +18,16 @@ class FrozenAgentInfo:
     episode: int
     loaded_agent: Optional[DQNAgent] = None  # lazy loading
     last_used: int = 0  # шаг/эпизод последнего использования
+    games: int = 0
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+
+    @property
+    def win_rate(self) -> float:
+        if self.games == 0:
+            return 0.5  # априори считаем «средней сложностью»
+        return self.wins / self.games
 
 
 @dataclass
@@ -179,11 +189,28 @@ class OpponentPool:
         # больше НЕ режем список по длине — ограничиваем только число loaded_agent
     
     def _sample_frozen_info(self) -> Optional[FrozenAgentInfo]:
-        """Sample a random frozen agent from the pool."""
+        """Sample a frozen agent prioritized by PFSP-like weights."""
         if not self.frozen_agents:
             return None
-        # выбираем из ВСЕХ чекпоинтов случайно
-        return random.choice(self.frozen_agents)
+
+        weights: List[float] = []
+        for info in self.frozen_agents:
+            p = info.win_rate
+            w = (1.0 - p) ** 2  # "hard" PFSP — чаще выбираем сложных соперников
+            weights.append(w)
+
+        total = sum(weights)
+        if total <= 0:
+            return random.choice(self.frozen_agents)
+
+        r = random.random() * total
+        acc = 0.0
+        for info, weight in zip(self.frozen_agents, weights):
+            acc += weight
+            if r <= acc:
+                return info
+
+        return self.frozen_agents[-1]
     
     def _get_loaded_frozen_agent(self, info: FrozenAgentInfo, step: int) -> DQNAgent:
         """

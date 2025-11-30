@@ -141,7 +141,8 @@ class DQNAgent(BaseAgent):
             else:
                 legal_mask = np.ones(self.num_actions, dtype=bool)
 
-        legal_actions = np.flatnonzero(legal_mask)
+        legal_mask_arr = np.asarray(legal_mask, dtype=bool)
+        legal_actions = np.flatnonzero(legal_mask_arr)
         if legal_actions.size == 0:
             raise ValueError("No legal actions available")
 
@@ -151,9 +152,14 @@ class DQNAgent(BaseAgent):
 
         with torch.no_grad():
             obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
-            q_values = self.q_network(obs_tensor).cpu().numpy()[0]
+            legal_mask_tensor = torch.as_tensor(
+                legal_mask_arr,
+                dtype=torch.bool,
+                device=self.device,
+            ).unsqueeze(0)
+            q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor).cpu().numpy()[0]
             masked_q_values = q_values.copy()
-            masked_q_values[~legal_mask.astype(bool)] = -np.inf
+            masked_q_values[~legal_mask_arr] = -np.inf
             best_action = int(np.argmax(masked_q_values))
             if masked_q_values[best_action] == -np.inf:
                 # Handle numerical issue when all entries masked
@@ -238,11 +244,9 @@ class DQNAgent(BaseAgent):
             reward_batch,
             next_obs_batch,
             done_batch,
-            _legal_mask_batch,
+            legal_mask_batch,
             next_legal_mask_batch,
-        ) = self.replay_buffer.sample(
-            self.batch_size
-        )
+        ) = self.replay_buffer.sample(self.batch_size)
         
         # Convert to tensors (directly on device for efficiency)
         obs_tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
@@ -250,14 +254,15 @@ class DQNAgent(BaseAgent):
         reward_tensor = torch.as_tensor(reward_batch, dtype=torch.float32, device=self.device)
         next_obs_tensor = torch.as_tensor(next_obs_batch, dtype=torch.float32, device=self.device)
         done_tensor = torch.as_tensor(done_batch, dtype=torch.bool, device=self.device)
+        legal_mask_tensor = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
         next_legal_mask_tensor = torch.as_tensor(next_legal_mask_batch, dtype=torch.bool, device=self.device)
         
-        q_values = self.q_network(obs_tensor)
+        q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
         
         # Double DQN: main network selects action, target network evaluates
         with torch.no_grad():
-            next_q_values_main = self.q_network(next_obs_tensor)
+            next_q_values_main = self.q_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
             # Mask invalid actions
             masked_next_q_values = next_q_values_main.masked_fill(~next_legal_mask_tensor, float("-inf"))
             # Handle states with no legal actions (all False) by replacing -inf with 0
@@ -266,7 +271,7 @@ class DQNAgent(BaseAgent):
 
             next_actions_tensor = masked_next_q_values.argmax(dim=1)
 
-            next_q_values_target = self.target_network(next_obs_tensor)
+            next_q_values_target = self.target_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
             target_next_q = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
             target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * target_next_q
         
