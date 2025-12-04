@@ -25,7 +25,7 @@ class FrozenAgentInfo:
 
     @property
     def win_rate(self) -> float:
-        if self.games == 0:
+        if self.games <= 100:
             return 0.5  # априори считаем «средней сложностью»
         return self.wins / self.games
 
@@ -189,14 +189,15 @@ class OpponentPool:
         # больше НЕ режем список по длине — ограничиваем только число loaded_agent
     
     def _sample_frozen_info(self) -> Optional[FrozenAgentInfo]:
-        """Sample a frozen agent prioritized by PFSP-like weights."""
+        """Sample a frozen agent with PFSP-like weights (hard: prefer strong opponents)."""
         if not self.frozen_agents:
             return None
 
         weights: List[float] = []
+        eps = 1e-2  # чтобы никто не выпадал совсем
         for info in self.frozen_agents:
-            p = info.win_rate
-            w = (1.0 - p) ** 2  # "hard" PFSP — чаще выбираем сложных соперников
+            p = info.win_rate  
+            w = max(p, eps) ** 2
             weights.append(w)
 
         total = sum(weights)
@@ -211,6 +212,7 @@ class OpponentPool:
                 return info
 
         return self.frozen_agents[-1]
+
     
     def _get_loaded_frozen_agent(self, info: FrozenAgentInfo, step: int) -> DQNAgent:
         """

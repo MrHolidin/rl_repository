@@ -3,7 +3,8 @@
 import copy
 import os
 import random
-from typing import Any, Dict, Optional, Tuple
+from collections import deque
+from typing import Any, Deque, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -14,7 +15,7 @@ from .base_agent import BaseAgent
 from ..features.action_space import ActionSpace, DiscreteActionSpace
 from ..features.observation_builder import ObservationType
 from ..models.q_network_factory import build_q_network
-from ..utils.replay_buffer import ReplayBuffer
+from ..utils.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
 class DQNAgent(BaseAgent):
@@ -47,6 +48,12 @@ class DQNAgent(BaseAgent):
         model_config: Optional[Dict] = None,
         action_space: Optional[ActionSpace] = None,
         compute_detailed_metrics: bool = True,
+        use_per: bool = False,
+        per_alpha: float = 0.6,
+        per_beta_start: float = 0.4,
+        per_beta_frames: int = 100_000,
+        per_eps: float = 1e-6,
+        n_step: int = 1,
     ):
         """
         Initialize DQN agent.
@@ -89,6 +96,11 @@ class DQNAgent(BaseAgent):
         self.model_config = copy.deepcopy(model_config) if model_config is not None else None
         self.action_space = action_space or DiscreteActionSpace(num_actions)
         self.compute_detailed_metrics = compute_detailed_metrics
+        self.use_per = use_per
+        self.per_eps = per_eps
+        self.n_step = max(1, n_step)
+        # Online n-step buffer storing recent transitions
+        self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
 
         # Device
         if device is None:
@@ -120,7 +132,16 @@ class DQNAgent(BaseAgent):
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
         
         # Replay buffer
-        self.replay_buffer = ReplayBuffer(capacity=replay_buffer_size)
+        if self.use_per:
+            self.replay_buffer = PrioritizedReplayBuffer(
+                capacity=replay_buffer_size,
+                alpha=per_alpha,
+                beta_start=per_beta_start,
+                beta_frames=per_beta_frames,
+                eps=per_eps,
+            )
+        else:
+            self.replay_buffer = ReplayBuffer(capacity=replay_buffer_size)
         
         # Random seed
         if seed is not None:
@@ -192,10 +213,84 @@ class DQNAgent(BaseAgent):
                 legal_mask = np.ones(self.num_actions, dtype=bool)
                 next_legal_mask = np.ones(self.num_actions, dtype=bool)
 
-        self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
+        if self.n_step == 1 or self._n_step_buffer is None:
+            self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
+        else:
+            self._store_n_step_transition(
+                obs,
+                action,
+                reward,
+                next_obs,
+                done,
+                legal_mask,
+                next_legal_mask,
+            )
         self.step_count += 1
 
         return {}
+
+    def _store_n_step_transition(
+        self,
+        obs,
+        action,
+        reward,
+        next_obs,
+        done,
+        legal_mask,
+        next_legal_mask,
+    ) -> None:
+        """Accumulate transitions for the current episode and push n-step returns when it ends."""
+        if self._n_step_buffer is None:
+            return
+
+        self._n_step_buffer.append(
+            (obs, action, reward, next_obs, bool(done), legal_mask, next_legal_mask)
+        )
+
+        if len(self._n_step_buffer) >= self.n_step:
+            self._push_n_step_transition()
+
+        if done:
+            while self._n_step_buffer:
+                self._push_n_step_transition()
+
+    def _push_n_step_transition(self) -> None:
+        """Assemble a single n-step transition from the rolling buffer and push to replay."""
+        if self._n_step_buffer is None or not self._n_step_buffer:
+            return
+
+        gamma = self.discount_factor
+
+        obs_t, action_t, _r0, next_obs_0, done_0, legal_t, next_legal_0 = self._n_step_buffer[0]
+
+        R = 0.0
+        discount = 1.0
+        next_obs_n = next_obs_0
+        next_legal_n = next_legal_0
+        done_n = done_0
+
+        for idx, (_obs_i, _action_i, r_i, next_obs_i, done_i, _legal_i, next_legal_i) in enumerate(self._n_step_buffer):
+            R += discount * r_i
+            discount *= gamma
+
+            next_obs_n = next_obs_i
+            next_legal_n = next_legal_i
+            done_n = done_i
+
+            if done_i or (idx + 1) >= self.n_step:
+                break
+
+        self.replay_buffer.push(
+            obs_t,
+            action_t,
+            R,
+            next_obs_n,
+            done_n,
+            legal_t,
+            next_legal_n,
+        )
+
+        self._n_step_buffer.popleft()
 
     def update(self) -> Dict[str, float]:
         """Perform a training step using a batch from the replay buffer."""
@@ -238,15 +333,30 @@ class DQNAgent(BaseAgent):
             return {}
         
         # Sample batch
-        (
-            obs_batch,
-            action_batch,
-            reward_batch,
-            next_obs_batch,
-            done_batch,
-            legal_mask_batch,
-            next_legal_mask_batch,
-        ) = self.replay_buffer.sample(self.batch_size)
+        if self.use_per:
+            (
+                obs_batch,
+                action_batch,
+                reward_batch,
+                next_obs_batch,
+                done_batch,
+                legal_mask_batch,
+                next_legal_mask_batch,
+                indices,
+                is_weights,
+            ) = self.replay_buffer.sample(self.batch_size)
+        else:
+            (
+                obs_batch,
+                action_batch,
+                reward_batch,
+                next_obs_batch,
+                done_batch,
+                legal_mask_batch,
+                next_legal_mask_batch,
+            ) = self.replay_buffer.sample(self.batch_size)
+            indices = None
+            is_weights = np.ones(len(action_batch), dtype=np.float32)
         
         # Convert to tensors (directly on device for efficiency)
         obs_tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
@@ -256,6 +366,7 @@ class DQNAgent(BaseAgent):
         done_tensor = torch.as_tensor(done_batch, dtype=torch.bool, device=self.device)
         legal_mask_tensor = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
         next_legal_mask_tensor = torch.as_tensor(next_legal_mask_batch, dtype=torch.bool, device=self.device)
+        is_weights_tensor = torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
         
         q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
@@ -273,9 +384,14 @@ class DQNAgent(BaseAgent):
 
             next_q_values_target = self.target_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
             target_next_q = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
-            target_q_value = reward_tensor + (1 - done_tensor.float()) * self.discount_factor * target_next_q
+            gamma_bootstrap = self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
+            target_q_value = reward_tensor + (1 - done_tensor.float()) * gamma_bootstrap * target_next_q
         
-        loss = nn.MSELoss()(q_value, target_q_value)
+        td_errors = target_q_value - q_value
+        td_errors_abs = td_errors.detach().abs()
+
+        loss_elements = (td_errors ** 2) * is_weights_tensor
+        loss = loss_elements.mean()
         
         self.optimizer.zero_grad()
         loss.backward()
@@ -285,6 +401,10 @@ class DQNAgent(BaseAgent):
         total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         
         self.optimizer.step()
+
+        if self.use_per and indices is not None:
+            new_prios = td_errors_abs.cpu().numpy() + self.per_eps
+            self.replay_buffer.update_priorities(indices, new_prios)
         
         # Compute metrics only if requested (reduces overhead)
         metrics = {"loss": loss.item(), "grad_norm": total_grad_norm.item()}
@@ -296,7 +416,7 @@ class DQNAgent(BaseAgent):
                 max_q = q_value.max()
                 min_q = q_value.min()
                 avg_target_q = target_q_value.mean()
-                td_error = (target_q_value - q_value).abs().mean()
+                mean_td_error = td_errors_abs.mean()
             
             # Single synchronization point for all detailed metrics
             metrics.update({
@@ -304,7 +424,7 @@ class DQNAgent(BaseAgent):
                 "max_q": max_q.item(),
                 "min_q": min_q.item(),
                 "avg_target_q": avg_target_q.item(),
-                "td_error": td_error.item(),
+                "td_error": mean_td_error.item(),
             })
         
         return metrics
@@ -348,6 +468,7 @@ class DQNAgent(BaseAgent):
             "soft_update": self.soft_update,
             "tau": self.tau,
             "replay_buffer_capacity": self.replay_buffer.capacity,
+            "n_step": self.n_step,
         }
         
         if save_epsilon:
@@ -391,6 +512,7 @@ class DQNAgent(BaseAgent):
             "device": device,
             "network_type": network_type,
             "model_config": checkpoint.get("model_config"),
+            "n_step": checkpoint.get("n_step", 1),
         }
         base_kwargs.update(overrides)
 

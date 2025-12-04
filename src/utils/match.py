@@ -2,7 +2,7 @@
 
 import random
 import numpy as np
-from typing import Tuple, Optional
+from typing import List, Optional, Tuple
 
 from src.envs import Connect4Env, RewardConfig
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
@@ -16,7 +16,8 @@ def play_match(
     randomize_first_player: bool = False,
     reward_config: Optional[RewardConfig] = None,
     random_opening_config: Optional[RandomOpeningConfig] = None,
-) -> Tuple[int, int, int]:
+    collect_episode_lengths: bool = False,
+) -> Tuple[int, int, int] | Tuple[int, int, int, List[int]]:
     """
     Play a match between two agents.
     
@@ -31,7 +32,8 @@ def play_match(
         random_opening_config: Optional configuration for randomized opening prologues.
         
     Returns:
-        Tuple of (agent1_wins, draws, agent2_wins)
+        Tuple of (agent1_wins, draws, agent2_wins). If ``collect_episode_lengths`` is True,
+        also returns a list with the number of half-moves (ply) for every game played.
     """
     # Initialize reward config
     if reward_config is None:
@@ -46,6 +48,7 @@ def play_match(
     agent1_wins = 0
     draws = 0
     agent2_wins = 0
+    episode_lengths: List[int] | None = [] if collect_episode_lengths else None
     
     if seed is not None:
         random.seed(seed)
@@ -77,6 +80,7 @@ def play_match(
         else:
             agent1_is_player_1 = True  # agent1 always goes first
         
+        moves = 0
         while not done:
             legal_actions = env.get_legal_actions()
             
@@ -98,6 +102,7 @@ def play_match(
                     action = agent1.select_action(obs, legal_actions)
             
             next_obs, reward, done, info = env.step(action)
+            moves += 1
             
             if done:
                 winner = info.get("winner")
@@ -112,9 +117,13 @@ def play_match(
                 else:
                     # Agent2 won
                     agent2_wins += 1
+                if episode_lengths is not None:
+                    episode_lengths.append(moves)
                 break
             
             obs = next_obs
     
+    if episode_lengths is not None:
+        return agent1_wins, draws, agent2_wins, episode_lengths
     return agent1_wins, draws, agent2_wins
 

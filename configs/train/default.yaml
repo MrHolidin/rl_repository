@@ -8,6 +8,10 @@ callbacks:
       interval: 1000
       num_episodes: ${eval.num_episodes}
       deterministic: ${eval.deterministic}
+  - type: progress_logger
+    params:
+      step_interval: 1000
+      detailed_metrics_interval: 500
   - type: checkpoint
     params:
       interval: 2000
