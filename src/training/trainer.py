@@ -328,6 +328,7 @@ class Trainer:
         start_policy: StartPolicy = StartPolicy.RANDOM,
         rng: Optional[Union[random.Random, np.random.Generator]] = None,
         random_opening_config: Optional["RandomOpeningConfig"] = None,
+        data_augment_fn: Optional[Callable[[Transition], Sequence[Transition]]] = None,
     ) -> None:
         self.env = env
         self.agent = agent
@@ -347,6 +348,7 @@ class Trainer:
         self._action_dim: Optional[int] = None
         self._agent_token = 1  # +1 when agent moves first, -1 otherwise
         self.random_opening_config = random_opening_config
+        self.data_augment_fn = data_augment_fn
 
     def train(self, total_steps: int, *, deterministic: bool = False) -> None:
         """Run the training loop for the specified number of agent updates."""
@@ -450,15 +452,39 @@ class Trainer:
 
     def _process_agent_transition(self, transition: Transition) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
-        observe_metrics = self.agent.observe(transition) or {}
-        metrics.update(observe_metrics)
+
+        transitions: List[Transition] = [transition]
+        if self.data_augment_fn is not None:
+            extra = self.data_augment_fn(transition)
+            if extra:
+                if isinstance(extra, Transition):
+                    transitions.append(extra)
+                else:
+                    transitions.extend(list(extra))
+
+        for t in transitions:
+            observe_metrics = self.agent.observe(t) or {}
+            for key, value in observe_metrics.items():
+                if (
+                    key in metrics
+                    and isinstance(metrics[key], (int, float))
+                    and isinstance(value, (int, float))
+                ):
+                    metrics[key] = 0.5 * (metrics[key] + value)
+                else:
+                    metrics[key] = value
 
         update_metrics = self.agent.update() or {}
         for key, value in update_metrics.items():
-            if key in metrics and isinstance(metrics[key], (int, float)):
-                metrics[key] = (metrics[key] + value) / 2.0
+            if (
+                key in metrics
+                and isinstance(metrics[key], (int, float))
+                and isinstance(value, (int, float))
+            ):
+                metrics[key] = 0.5 * (metrics[key] + value)
             else:
                 metrics[key] = value
+
         return metrics
 
     def _after_transition(
