@@ -109,6 +109,7 @@ class Connect4Env(TurnBasedEnv):
                 reward = self.reward_config.draw
                 info["termination_reason"] = "draw"
             else:
+                reward = self.reward_config.loss
                 info["termination_reason"] = "loss"
         else:
             if self.reward_config.three_in_row != 0.0:
