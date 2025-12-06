@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, List
 
 import numpy as np
@@ -10,22 +9,14 @@ import numpy as np
 from ..features.observation_builder import BoardChannels, ObservationBuilder
 from .base import StepResult, TurnBasedEnv
 from .reward_config import RewardConfig
-
-
-@dataclass
-class Connect4State:
-    """
-    Complete Connect Four game state kept outside the env itself.
-
-    Keeping the board/turn/winner together makes it easier to explicitly copy
-    the state or share it with planning modules instead of scattering the
-    attributes on the env directly.
-    """
-
-    board: np.ndarray
-    current_player_index: int
-    winner: Optional[int]
-    done: bool
+from src.games.connect4 import (
+    CONNECT4_COLS,
+    CONNECT4_ROWS,
+    Connect4Game,
+    Connect4State,
+    build_state_dict,
+    check_n_in_row,
+)
 
 
 class Connect4Env(TurnBasedEnv):
@@ -38,17 +29,16 @@ class Connect4Env(TurnBasedEnv):
 
     def __init__(
         self,
-        rows: int = 6,
-        cols: int = 7,
+        rows: int = CONNECT4_ROWS,
+        cols: int = CONNECT4_COLS,
         reward_config: Optional[RewardConfig] = None,
         observation_builder: Optional[ObservationBuilder] = None,
     ):
         self.rows = rows
         self.cols = cols
 
+        self._game = Connect4Game(rows=rows, cols=cols)
         self._state: Optional[Connect4State] = None
-        self._last_move: Optional[Tuple[int, int]] = None
-        self._player_tokens = np.array([1, -1], dtype=np.int8)
         self._rng = np.random.default_rng()
 
         if observation_builder is None:
@@ -69,13 +59,7 @@ class Connect4Env(TurnBasedEnv):
         if seed is not None:
             self._rng = np.random.default_rng(seed)
 
-        board = np.zeros((self.rows, self.cols), dtype=np.int8)
-        self._state = Connect4State(
-            board=board,
-            current_player_index=0,
-            winner=None,
-            done=False,
-        )
+        self._state = self._game.initial_state()
         self._last_move = None
         return self._get_obs()
 
@@ -101,70 +85,40 @@ class Connect4Env(TurnBasedEnv):
             )
 
         current_token = self.current_player_token
-        row = self._drop_piece(action, current_token)
-        if row is None:
-            info = {
-                "winner": None,
-                "termination_reason": "illegal",
-                "invalid_action": True,
-                "three_in_row": False,
-                "opponent_three_in_row": False,
-            }
-            return StepResult(
-                obs=self._get_obs(),
-                reward=self.reward_config.invalid_action,
-                terminated=False,
-                truncated=False,
-                info=info,
-            )
-
         assert self._state is not None
-        self._last_move = (row, action)
-
-        won = self._check_win(row, action, current_token)
+        new_state = self._game.apply_action(self._state, action)
+        self._state = new_state
 
         reward = 0.0
         terminated = False
         truncated = False
         info: Dict[str, Any] = {
-            "winner": None,
+            "winner": self._state.winner,
             "termination_reason": None,
             "invalid_action": False,
             "three_in_row": False,
             "opponent_three_in_row": False,
         }
 
-        if won:
-            self._state.winner = current_token
-            self._state.done = True
+        if self._state.done:
             terminated = True
-            reward = self.reward_config.win
-            info["winner"] = self._state.winner
-            info["termination_reason"] = "win"
-        elif self._is_board_full():
-            self._state.winner = 0
-            self._state.done = True
-            terminated = True
-            reward = self.reward_config.draw
-            info["winner"] = 0
-            info["termination_reason"] = "draw"
+            if self._state.winner == current_token:
+                reward = self.reward_config.win
+                info["termination_reason"] = "win"
+            elif self._state.winner == 0:
+                reward = self.reward_config.draw
+                info["termination_reason"] = "draw"
+            else:
+                info["termination_reason"] = "loss"
         else:
             if self.reward_config.three_in_row != 0.0:
                 if self._has_any_three(current_token):
                     reward += self.reward_config.three_in_row
                     info["three_in_row"] = True
-                else:
-                    info["three_in_row"] = False
-
             if self.reward_config.opponent_three_in_row != 0.0:
                 if self._has_any_three(-current_token):
                     reward -= self.reward_config.opponent_three_in_row
                     info["opponent_three_in_row"] = True
-                else:
-                    info["opponent_three_in_row"] = False
-
-        assert self._state is not None
-        self._state.current_player_index = 1 - self._state.current_player_index
 
         return StepResult(
             obs=self._get_obs(),
@@ -178,20 +132,10 @@ class Connect4Env(TurnBasedEnv):
     # Internal game logic (operates on self._state.board)
     # ------------------------------------------------------------------
 
-    def _drop_piece(self, col: int, player: int) -> Optional[int]:
-        board = self.board
-        for row in range(self.rows - 1, -1, -1):
-            if board[row, col] == 0:
-                board[row, col] = player
-                return row
-        return None
-
-    def _check_win(self, row: int, col: int, player: int) -> bool:
-        return self._check_n_in_row(row, col, player, n=4)
-
     def _check_three_in_row(self, row: int, col: int, player: int) -> bool:
-        has_three = self._check_n_in_row(row, col, player, n=3)
-        has_four = self._check_n_in_row(row, col, player, n=4)
+        board = self.board
+        has_three = check_n_in_row(board, row, col, player, n=3, rows=self.rows, cols=self.cols)
+        has_four = check_n_in_row(board, row, col, player, n=4, rows=self.rows, cols=self.cols)
         return has_three and not has_four
 
     def _has_any_three(self, player: int) -> bool:
@@ -203,45 +147,20 @@ class Connect4Env(TurnBasedEnv):
                         return True
         return False
 
-    def _check_n_in_row(self, row: int, col: int, player: int, n: int) -> bool:
-        board = self.board
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
-
-        for dr, dc in directions:
-            count = 1
-            for i in range(1, n):
-                r, c = row + dr * i, col + dc * i
-                if 0 <= r < self.rows and 0 <= c < self.cols and board[r, c] == player:
-                    count += 1
-                else:
-                    break
-            for i in range(1, n):
-                r, c = row - dr * i, col - dc * i
-                if 0 <= r < self.rows and 0 <= c < self.cols and board[r, c] == player:
-                    count += 1
-                else:
-                    break
-
-            if count >= n:
-                return True
-
-        return False
-
-    def _is_board_full(self) -> bool:
-        return np.all(self.board != 0)
-
     # ------------------------------------------------------------------
     # Legal actions & state API
     # ------------------------------------------------------------------
 
     def get_legal_actions(self) -> List[int]:
-        board = self.board
-        return [col for col in range(self.cols) if board[0, col] == 0]
+        assert self._state is not None
+        return list(self._game.legal_actions(self._state))
 
     @property
     def legal_actions_mask(self) -> np.ndarray:
-        board = self.board
-        return (board[0] == 0).astype(bool)
+        mask = np.zeros(self.cols, dtype=bool)
+        for action in self.get_legal_actions():
+            mask[action] = True
+        return mask
 
     def current_player(self) -> int:
         assert self._state is not None
@@ -250,7 +169,7 @@ class Connect4Env(TurnBasedEnv):
     @property
     def current_player_token(self) -> int:
         assert self._state is not None
-        return int(self._player_tokens[self._state.current_player_index])
+        return self._game.current_player(self._state)
 
     # ------------------------------------------------------------------
     # State/board helpers
@@ -260,6 +179,11 @@ class Connect4Env(TurnBasedEnv):
     def board(self) -> np.ndarray:
         assert self._state is not None
         return self._state.board
+
+    @property
+    def last_move(self) -> Optional[Tuple[int, int]]:
+        assert self._state is not None
+        return self._state.last_move
 
     @property
     def winner(self) -> Optional[int]:
@@ -277,13 +201,10 @@ class Connect4Env(TurnBasedEnv):
 
     def _get_obs(self) -> np.ndarray:
         assert self._state is not None
-        state = {
-            "board": self.board,
-            "current_player_token": self.current_player_token,
-            "last_move": self._last_move,
-            "legal_actions_mask": self.legal_actions_mask,
-        }
-        return self._observation_builder.build(state)
+        state_dict = build_state_dict(
+            self._state, self._game, legal_mask=self.legal_actions_mask
+        )
+        return self._observation_builder.build(state_dict)
 
     # ------------------------------------------------------------------
     # Utilities & debugging
@@ -333,6 +254,7 @@ class Connect4Env(TurnBasedEnv):
             current_player_index=self._state.current_player_index,
             winner=self._state.winner,
             done=self._state.done,
+            last_move=self._state.last_move,
         )
 
     def set_state(self, state: Connect4State) -> None:
@@ -341,5 +263,5 @@ class Connect4Env(TurnBasedEnv):
             current_player_index=state.current_player_index,
             winner=state.winner,
             done=state.done,
+            last_move=state.last_move,
         )
-        self._last_move = None

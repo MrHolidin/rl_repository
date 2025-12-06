@@ -41,7 +41,7 @@ class PendingTransition:
 
     obs: np.ndarray
     action: int
-    reward: float
+    reward: float 
     legal_mask: Optional[np.ndarray]
 
 

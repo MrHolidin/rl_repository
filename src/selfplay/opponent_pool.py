@@ -7,8 +7,6 @@ from typing import List, Optional, Dict, Any
 
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.base_agent import BaseAgent
-from src.features.action_space import DiscreteActionSpace
-from src.features.observation_builder import BoardChannels
 
 
 @dataclass
@@ -238,18 +236,10 @@ class OpponentPool:
             # Выгружаем из памяти
             victim.loaded_agent = None
         
-        observation_builder = BoardChannels(board_shape=(6, 7))
-        action_space = DiscreteActionSpace(n=7)
-
-        # Создаём новый агент и грузим чекпоинт
+        # Load agent from checkpoint (network is restored automatically)
         agent = DQNAgent.load(
             info.checkpoint_path,
             device=self.device,
-            seed=self.seed,
-            observation_shape=observation_builder.observation_shape,
-            observation_type=observation_builder.observation_type,
-            num_actions=action_space.size,
-            action_space=action_space,
         )
         agent.eval()
         agent.epsilon = 0.0  # Ensure pure exploitation

@@ -2,9 +2,11 @@
 
 import random
 import numpy as np
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from src.envs import Connect4Env, RewardConfig
+from src.envs.base import TurnBasedEnv
+from src.games.connect4 import CONNECT4_COLS, CONNECT4_ROWS
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 
 
@@ -17,7 +19,8 @@ def play_match(
     reward_config: Optional[RewardConfig] = None,
     random_opening_config: Optional[RandomOpeningConfig] = None,
     collect_episode_lengths: bool = False,
-) -> Tuple[int, int, int] | Tuple[int, int, int, List[int]]:
+    env: Optional[TurnBasedEnv] = None,
+) -> Union[Tuple[int, int, int], Tuple[int, int, int, List[int]]]:
     """
     Play a match between two agents.
     
@@ -30,20 +33,27 @@ def play_match(
                                If False, agent1 always goes first (as player 1).
         reward_config: RewardConfig object (default: RewardConfig with default values)
         random_opening_config: Optional configuration for randomized opening prologues.
+        collect_episode_lengths: If True, also return episode lengths.
+        env: Optional environment to use. If None, creates a default Connect4Env.
         
     Returns:
         Tuple of (agent1_wins, draws, agent2_wins). If ``collect_episode_lengths`` is True,
         also returns a list with the number of half-moves (ply) for every game played.
     """
-    # Initialize reward config
-    if reward_config is None:
-        reward_config = RewardConfig()
+    # Create default env if not provided
+    if env is None:
+        if reward_config is None:
+            reward_config = RewardConfig()
+        env = Connect4Env(
+            rows=CONNECT4_ROWS,
+            cols=CONNECT4_COLS,
+            reward_config=reward_config,
+        )
     
-    env = Connect4Env(
-        rows=6,
-        cols=7,
-        reward_config=reward_config,
-    )
+    # Allow policy-based agents to access the env for state queries
+    for agent in (agent1, agent2):
+        if hasattr(agent, "set_env"):
+            agent.set_env(env)
     
     agent1_wins = 0
     draws = 0

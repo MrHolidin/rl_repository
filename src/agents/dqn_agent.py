@@ -13,24 +13,25 @@ import torch.optim as optim
 
 from .base_agent import BaseAgent
 from ..features.action_space import ActionSpace, DiscreteActionSpace
-from ..features.observation_builder import ObservationType
-from ..models.q_network_factory import build_q_network
+from ..models.base_dqn_network import BaseDQNNetwork
+from ..models.q_network_factory import create_network_from_checkpoint
 from ..utils.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
 class DQNAgent(BaseAgent):
     """
-    Deep Q-Network agent for Connect Four.
+    Deep Q-Network agent.
     
     Uses Double DQN algorithm to reduce overestimation bias:
     - Main network selects the best action
     - Target network evaluates the selected action
+    
+    The network must be provided at construction time.
     """
 
     def __init__(
         self,
-        observation_shape: Tuple[int, ...],
-        observation_type: ObservationType,
+        network: nn.Module,
         num_actions: int,
         learning_rate: float = 0.001,
         discount_factor: float = 0.99,
@@ -44,8 +45,6 @@ class DQNAgent(BaseAgent):
         tau: float = 0.01,
         device: Optional[str] = None,
         seed: int = None,
-        network_type: str = "dqn",
-        model_config: Optional[Dict] = None,
         action_space: Optional[ActionSpace] = None,
         compute_detailed_metrics: bool = True,
         use_per: bool = False,
@@ -59,28 +58,29 @@ class DQNAgent(BaseAgent):
         Initialize DQN agent.
         
         Args:
-            observation_shape: Shape of processed observation.
-            observation_type: Type of observation ("board" or "vector").
+            network: Q-network to use for action selection and training.
             num_actions: Number of discrete actions.
-            learning_rate: Learning rate for optimizer
-            discount_factor: Discount factor (gamma)
-            epsilon: Initial epsilon for epsilon-greedy
-            epsilon_decay: Epsilon decay rate
-            epsilon_min: Minimum epsilon value
-            batch_size: Batch size for training
-            replay_buffer_size: Size of replay buffer
-            target_update_freq: Frequency of target network updates
-            soft_update: Whether to use soft target network update
-            tau: Soft update coefficient (only used if soft_update=True)
-            device: Device to use ('cuda' or 'cpu')
-            seed: Random seed
-            network_type: Network architecture type ('dqn' or 'dueling_dqn')
-            model_config: Optional dictionary with model hyper-parameters
-            action_space: Optional ActionSpace instance; defaults to discrete space of size num_actions
-            compute_detailed_metrics: If False, only compute loss and grad_norm (faster training)
+            learning_rate: Learning rate for optimizer.
+            discount_factor: Discount factor (gamma).
+            epsilon: Initial epsilon for epsilon-greedy.
+            epsilon_decay: Epsilon decay rate.
+            epsilon_min: Minimum epsilon value.
+            batch_size: Batch size for training.
+            replay_buffer_size: Size of replay buffer.
+            target_update_freq: Frequency of target network updates.
+            soft_update: Whether to use soft target network update.
+            tau: Soft update coefficient (only used if soft_update=True).
+            device: Device to use ('cuda' or 'cpu').
+            seed: Random seed.
+            action_space: Optional ActionSpace instance; defaults to discrete space of size num_actions.
+            compute_detailed_metrics: If False, only compute loss and grad_norm (faster training).
+            use_per: Whether to use prioritized experience replay.
+            per_alpha: PER alpha parameter.
+            per_beta_start: PER beta start value.
+            per_beta_frames: PER beta annealing frames.
+            per_eps: Small constant for PER priorities.
+            n_step: N-step returns (1 = standard TD).
         """
-        self.observation_shape = observation_shape
-        self.observation_type = observation_type
         self.num_actions = num_actions
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
@@ -90,16 +90,14 @@ class DQNAgent(BaseAgent):
         self.batch_size = batch_size
         self.target_update_freq = target_update_freq
         self.soft_update = soft_update
-        self.tau = tau  # For soft update
+        self.tau = tau
         self.training = True
         self.step_count = 0
-        self.model_config = copy.deepcopy(model_config) if model_config is not None else None
         self.action_space = action_space or DiscreteActionSpace(num_actions)
         self.compute_detailed_metrics = compute_detailed_metrics
         self.use_per = use_per
         self.per_eps = per_eps
         self.n_step = max(1, n_step)
-        # Online n-step buffer storing recent transitions
         self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
 
         # Device
@@ -109,24 +107,10 @@ class DQNAgent(BaseAgent):
             self.device = torch.device(device)
         
         # Networks
-        use_dueling = network_type == "dueling_dqn"
-        self.q_network = build_q_network(
-            observation_type=self.observation_type,
-            observation_shape=self.observation_shape,
-            num_actions=self.num_actions,
-            dueling=use_dueling,
-            model_config=self.model_config,
-        ).to(self.device)
-        self.target_network = build_q_network(
-            observation_type=self.observation_type,
-            observation_shape=self.observation_shape,
-            num_actions=self.num_actions,
-            dueling=use_dueling,
-            model_config=self.model_config,
-        ).to(self.device)
+        self.q_network = network.to(self.device)
+        self.target_network = copy.deepcopy(network).to(self.device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
-        self.network_type = network_type
         
         # Optimizer
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
@@ -183,19 +167,18 @@ class DQNAgent(BaseAgent):
             masked_q_values[~legal_mask_arr] = -np.inf
             best_action = int(np.argmax(masked_q_values))
             if masked_q_values[best_action] == -np.inf:
-                # Handle numerical issue when all entries masked
                 best_action = int(np.random.choice(legal_actions))
             return best_action
 
     def observe(self, transition) -> Dict[str, float]:
         """
-        Store transition in replay buffer and train if enough samples.
+        Store transition in replay buffer.
         
         Args:
-            transition: Tuple of (obs, action, reward, next_obs, done, info, legal_mask, next_legal_mask)
+            transition: Tuple of (obs, action, reward, next_obs, done, ..., legal_mask, next_legal_mask)
             
         Returns:
-            Dictionary with training metrics if training occurred, empty dict otherwise
+            Empty dictionary (metrics returned by update()).
         """
         if hasattr(transition, "obs"):
             obs = transition.obs
@@ -216,15 +199,7 @@ class DQNAgent(BaseAgent):
         if self.n_step == 1 or self._n_step_buffer is None:
             self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
         else:
-            self._store_n_step_transition(
-                obs,
-                action,
-                reward,
-                next_obs,
-                done,
-                legal_mask,
-                next_legal_mask,
-            )
+            self._store_n_step_transition(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
         self.step_count += 1
 
         return {}
@@ -239,7 +214,7 @@ class DQNAgent(BaseAgent):
         legal_mask,
         next_legal_mask,
     ) -> None:
-        """Accumulate transitions for the current episode and push n-step returns when it ends."""
+        """Accumulate transitions and push n-step returns."""
         if self._n_step_buffer is None:
             return
 
@@ -255,12 +230,11 @@ class DQNAgent(BaseAgent):
                 self._push_n_step_transition()
 
     def _push_n_step_transition(self) -> None:
-        """Assemble a single n-step transition from the rolling buffer and push to replay."""
+        """Assemble n-step transition and push to replay."""
         if self._n_step_buffer is None or not self._n_step_buffer:
             return
 
         gamma = self.discount_factor
-
         obs_t, action_t, _r0, next_obs_0, done_0, legal_t, next_legal_0 = self._n_step_buffer[0]
 
         R = 0.0
@@ -272,40 +246,28 @@ class DQNAgent(BaseAgent):
         for idx, (_obs_i, _action_i, r_i, next_obs_i, done_i, _legal_i, next_legal_i) in enumerate(self._n_step_buffer):
             R += discount * r_i
             discount *= gamma
-
             next_obs_n = next_obs_i
             next_legal_n = next_legal_i
             done_n = done_i
-
             if done_i or (idx + 1) >= self.n_step:
                 break
 
-        self.replay_buffer.push(
-            obs_t,
-            action_t,
-            R,
-            next_obs_n,
-            done_n,
-            legal_t,
-            next_legal_n,
-        )
-
+        self.replay_buffer.push(obs_t, action_t, R, next_obs_n, done_n, legal_t, next_legal_n)
         self._n_step_buffer.popleft()
 
     def update(self) -> Dict[str, float]:
         """Perform a training step using a batch from the replay buffer."""
-        # Return buffer status even if not enough samples for training
         if len(self.replay_buffer) < self.batch_size:
             return {
                 "buffer_size": len(self.replay_buffer),
                 "buffer_capacity": self.replay_buffer.capacity,
                 "buffer_utilization": len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0,
             }
+        
         metrics = self._train()
 
         if self.target_update_freq > 0 and self.step_count % self.target_update_freq == 0:
             if self.soft_update:
-                # Optimized soft update: target = (1-tau)*target + tau*main
                 with torch.no_grad():
                     for target_param, main_param in zip(
                         self.target_network.parameters(), self.q_network.parameters()
@@ -315,7 +277,6 @@ class DQNAgent(BaseAgent):
                 self.target_network.load_state_dict(self.q_network.state_dict())
             metrics["target_network_updated"] = True
 
-        # Add buffer status to metrics
         metrics["buffer_size"] = len(self.replay_buffer)
         metrics["buffer_capacity"] = self.replay_buffer.capacity
         metrics["buffer_utilization"] = len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0
@@ -323,42 +284,25 @@ class DQNAgent(BaseAgent):
         return metrics
 
     def _train(self) -> dict:
-        """
-        Train the Q-network on a batch from replay buffer.
-        
-        Returns:
-            Dictionary with training metrics (loss, avg_q, max_q, grad_norm)
-        """
+        """Train the Q-network on a batch from replay buffer."""
         if not self.training:
             return {}
         
         # Sample batch
         if self.use_per:
             (
-                obs_batch,
-                action_batch,
-                reward_batch,
-                next_obs_batch,
-                done_batch,
-                legal_mask_batch,
-                next_legal_mask_batch,
-                indices,
-                is_weights,
+                obs_batch, action_batch, reward_batch, next_obs_batch, done_batch,
+                legal_mask_batch, next_legal_mask_batch, indices, is_weights,
             ) = self.replay_buffer.sample(self.batch_size)
         else:
             (
-                obs_batch,
-                action_batch,
-                reward_batch,
-                next_obs_batch,
-                done_batch,
-                legal_mask_batch,
-                next_legal_mask_batch,
+                obs_batch, action_batch, reward_batch, next_obs_batch, done_batch,
+                legal_mask_batch, next_legal_mask_batch,
             ) = self.replay_buffer.sample(self.batch_size)
             indices = None
             is_weights = np.ones(len(action_batch), dtype=np.float32)
         
-        # Convert to tensors (directly on device for efficiency)
+        # Convert to tensors
         obs_tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
         action_tensor = torch.as_tensor(action_batch, dtype=torch.long, device=self.device)
         reward_tensor = torch.as_tensor(reward_batch, dtype=torch.float32, device=self.device)
@@ -371,15 +315,12 @@ class DQNAgent(BaseAgent):
         q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
         
-        # Double DQN: main network selects action, target network evaluates
+        # Double DQN
         with torch.no_grad():
             next_q_values_main = self.q_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
-            # Mask invalid actions
             masked_next_q_values = next_q_values_main.masked_fill(~next_legal_mask_tensor, float("-inf"))
-            # Handle states with no legal actions (all False) by replacing -inf with 0
             no_legal_actions = ~next_legal_mask_tensor.any(dim=1)
             masked_next_q_values[no_legal_actions] = 0.0
-
             next_actions_tensor = masked_next_q_values.argmax(dim=1)
 
             next_q_values_target = self.target_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
@@ -395,22 +336,16 @@ class DQNAgent(BaseAgent):
         
         self.optimizer.zero_grad()
         loss.backward()
-        
-        # Compute gradient norm efficiently using PyTorch's built-in function
-        # This returns the total norm before clipping
         total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
-        
         self.optimizer.step()
 
         if self.use_per and indices is not None:
             new_prios = td_errors_abs.cpu().numpy() + self.per_eps
             self.replay_buffer.update_priorities(indices, new_prios)
         
-        # Compute metrics only if requested (reduces overhead)
         metrics = {"loss": loss.item(), "grad_norm": total_grad_norm.item()}
         
         if self.compute_detailed_metrics:
-            # Batch all metric computations to reduce CPU-GPU sync overhead
             with torch.no_grad():
                 avg_q = q_value.mean()
                 max_q = q_value.max()
@@ -418,7 +353,6 @@ class DQNAgent(BaseAgent):
                 avg_target_q = target_q_value.mean()
                 mean_td_error = td_errors_abs.mean()
             
-            # Single synchronization point for all detailed metrics
             metrics.update({
                 "avg_q": avg_q.item(),
                 "max_q": max_q.item(),
@@ -443,22 +377,37 @@ class DQNAgent(BaseAgent):
         """
         Save agent to file.
         
+        The checkpoint contains all information needed to restore the agent,
+        including the network architecture.
+        
         Args:
-            path: Path to save file
-            save_epsilon: Whether to save epsilon value (default: True)
+            path: Path to save file.
+            save_epsilon: Whether to save epsilon value.
         """
         os.makedirs(os.path.dirname(path), exist_ok=True)
         
+        # Get network serialization info
+        if isinstance(self.q_network, BaseDQNNetwork):
+            network_class = self.q_network.get_class_name()
+            network_kwargs = self.q_network.get_constructor_kwargs()
+        else:
+            raise TypeError(
+                f"Cannot serialize network of type {type(self.q_network).__name__}. "
+                "Network must inherit from BaseDQNNetwork."
+            )
+        
         checkpoint = {
+            # Network architecture
+            "network_class": network_class,
+            "network_kwargs": network_kwargs,
+            # Network weights
             "q_network_state_dict": self.q_network.state_dict(),
             "target_network_state_dict": self.target_network.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
+            # Agent state
             "step_count": self.step_count,
-            "network_type": self.network_type,
-            "observation_shape": self.observation_shape,
-            "observation_type": self.observation_type,
             "num_actions": self.num_actions,
-            "model_config": self.model_config,
+            # Hyperparameters
             "learning_rate": self.learning_rate,
             "discount_factor": self.discount_factor,
             "epsilon_decay": self.epsilon_decay,
@@ -485,20 +434,29 @@ class DQNAgent(BaseAgent):
         **overrides: Any,
     ) -> "DQNAgent":
         """
-        Load agent from file and return a new instance.
+        Load agent from file.
+        
+        The network is automatically recreated from checkpoint metadata.
+        
+        Args:
+            path: Path to checkpoint file.
+            device: Device to use ('cuda' or 'cpu').
+            **overrides: Additional keyword arguments to override saved parameters.
+            
+        Returns:
+            Loaded DQNAgent instance.
         """
         map_location = device or ("cuda" if torch.cuda.is_available() else "cpu")
         checkpoint = torch.load(path, map_location=map_location)
 
-        observation_shape = tuple(checkpoint["observation_shape"])
-        observation_type = checkpoint.get("observation_type", "board")
-        num_actions = checkpoint["num_actions"]
-        network_type = checkpoint.get("network_type", "dqn")
+        # Recreate network from checkpoint
+        network_class = checkpoint["network_class"]
+        network_kwargs = checkpoint["network_kwargs"]
+        network = create_network_from_checkpoint(network_class, network_kwargs)
 
         base_kwargs: Dict[str, Any] = {
-            "observation_shape": observation_shape,
-            "observation_type": observation_type,
-            "num_actions": num_actions,
+            "network": network,
+            "num_actions": checkpoint["num_actions"],
             "learning_rate": checkpoint.get("learning_rate", 0.001),
             "discount_factor": checkpoint.get("discount_factor", 0.99),
             "epsilon": checkpoint.get("epsilon", 0.0),
@@ -510,8 +468,6 @@ class DQNAgent(BaseAgent):
             "soft_update": checkpoint.get("soft_update", False),
             "tau": checkpoint.get("tau", 0.01),
             "device": device,
-            "network_type": network_type,
-            "model_config": checkpoint.get("model_config"),
             "n_step": checkpoint.get("n_step", 1),
         }
         base_kwargs.update(overrides)
@@ -525,16 +481,22 @@ class DQNAgent(BaseAgent):
         return agent
     
     @staticmethod
-    def get_network_type_from_checkpoint(path: str) -> str:
+    def get_checkpoint_info(path: str) -> Dict[str, Any]:
         """
-        Get network type from checkpoint file.
+        Get info from checkpoint without loading weights.
         
         Args:
-            path: Path to checkpoint file
+            path: Path to checkpoint file.
             
         Returns:
-            Network type ('dqn' or 'dueling_dqn')
+            Dictionary with checkpoint metadata.
         """
         checkpoint = torch.load(path, map_location='cpu')
-        return checkpoint.get("network_type", "dqn")
-
+        return {
+            "network_class": checkpoint.get("network_class"),
+            "network_kwargs": checkpoint.get("network_kwargs"),
+            "num_actions": checkpoint.get("num_actions"),
+            "step_count": checkpoint.get("step_count", 0),
+            "epsilon": checkpoint.get("epsilon"),
+            "n_step": checkpoint.get("n_step", 1),
+        }

@@ -1,16 +1,87 @@
-"""Factory utilities for building Q-value networks based on observation type."""
+"""Factory utilities for building Q-value networks based on observation type and game."""
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Type
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from ..features.observation_builder import ObservationType
+from .base_dqn_network import BaseDQNNetwork
 from .dueling_utils import dueling_aggregate
 
+
+# ---------------------------------------------------------------------------
+# Registry for game-specific DQN networks
+# ---------------------------------------------------------------------------
+
+_NETWORK_REGISTRY_BY_CLASS: Dict[str, Type[BaseDQNNetwork]] = {}
+
+
+def register_network(network_class: Type[BaseDQNNetwork]) -> Type[BaseDQNNetwork]:
+    """
+    Register a game-specific DQN network class.
+    
+    Args:
+        network_class: The network class to register.
+        
+    Returns:
+        The same class (for use as decorator).
+    """
+    class_name = network_class.get_class_name()
+    _NETWORK_REGISTRY_BY_CLASS[class_name] = network_class
+    return network_class
+
+
+def get_registered_networks() -> Dict[str, Type[BaseDQNNetwork]]:
+    """Return a copy of the network registry (by class name)."""
+    return dict(_NETWORK_REGISTRY_BY_CLASS)
+
+
+def get_network_class(class_name: str) -> Optional[Type[BaseDQNNetwork]]:
+    """
+    Get network class by its class name.
+    
+    Args:
+        class_name: Name of the network class (e.g., "Connect4DQN").
+        
+    Returns:
+        The network class if registered, None otherwise.
+    """
+    return _NETWORK_REGISTRY_BY_CLASS.get(class_name)
+
+
+def create_network_from_checkpoint(
+    class_name: str,
+    kwargs: Dict,
+) -> BaseDQNNetwork:
+    """
+    Create a network instance from checkpoint data.
+    
+    Args:
+        class_name: Name of the network class.
+        kwargs: Constructor arguments.
+        
+    Returns:
+        Network instance.
+        
+    Raises:
+        ValueError: If network class is not registered.
+    """
+    network_class = get_network_class(class_name)
+    if network_class is None:
+        raise ValueError(
+            f"Network class '{class_name}' not found in registry. "
+            f"Available: {list(_NETWORK_REGISTRY_BY_CLASS.keys())}"
+        )
+    return network_class(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Generic network implementations for fallback
+# ---------------------------------------------------------------------------
 
 def _ensure_default_conv_layers(config: Optional[Dict]) -> List[Dict[str, int]]:
     if config is None or "conv_layers" not in config:
@@ -116,14 +187,59 @@ def _build_mlp(input_dim: int, hidden_layers: Sequence[int], output_dim: int) ->
     return nn.Sequential(*layers)
 
 
+# ---------------------------------------------------------------------------
+# Main factory function
+# ---------------------------------------------------------------------------
+
 def build_q_network(
     observation_type: ObservationType,
     observation_shape: Tuple[int, ...],
     num_actions: int,
     dueling: bool = False,
     model_config: Optional[Dict] = None,
+    network_class: Optional[str] = None,
 ) -> nn.Module:
-    """Construct a Q-network based on the observation type."""
+    """
+    Construct a Q-network based on the observation type and optional network class.
+    
+    Args:
+        observation_type: Type of observation ("board" or "vector").
+        observation_shape: Shape of the observation tensor.
+        num_actions: Number of discrete actions.
+        dueling: Whether to use dueling architecture.
+        model_config: Optional dictionary with model hyper-parameters.
+        network_class: Optional network class name to use (e.g., "Connect4DQN").
+        
+    Returns:
+        A Q-network module.
+    """
+    # Try to use specified network class if available
+    if network_class is not None:
+        cls = get_network_class(network_class)
+        if cls is not None:
+            return _build_game_specific_network(
+                cls,
+                observation_shape,
+                num_actions,
+                dueling,
+                model_config,
+            )
+    
+    # Auto-detect: Connect4 has 6x7 board
+    if observation_type == "board" and len(observation_shape) == 3:
+        in_channels, rows, cols = observation_shape
+        if rows == 6 and cols == 7:
+            cls = get_network_class("Connect4DQN")
+            if cls is not None:
+                return _build_game_specific_network(
+                    cls,
+                    observation_shape,
+                    num_actions,
+                    dueling,
+                    model_config,
+                )
+    
+    # Fallback to generic networks
     if observation_type == "board":
         conv_layers = _ensure_default_conv_layers(model_config)
         fc_layers = _ensure_default_fc_layers(model_config, default=[256])
@@ -135,3 +251,58 @@ def build_q_network(
 
     raise ValueError(f"Unsupported observation type '{observation_type}'.")
 
+
+def _build_game_specific_network(
+    network_class: Type[BaseDQNNetwork],
+    observation_shape: Tuple[int, ...],
+    num_actions: int,
+    dueling: bool,
+    model_config: Optional[Dict],
+) -> BaseDQNNetwork:
+    """
+    Build a game-specific network with appropriate parameters.
+    
+    Args:
+        network_class: The specialized network class.
+        observation_shape: Shape of the observation tensor.
+        num_actions: Number of discrete actions.
+        dueling: Whether to use dueling architecture.
+        model_config: Optional dictionary with model hyper-parameters.
+        
+    Returns:
+        Instantiated game-specific network.
+    """
+    # Extract common parameters
+    kwargs = {
+        "num_actions": num_actions,
+        "dueling": dueling,
+    }
+    
+    # For board-based games, extract dimensions
+    if len(observation_shape) == 3:
+        in_channels, rows, cols = observation_shape
+        kwargs["in_channels"] = in_channels
+        kwargs["rows"] = rows
+        kwargs["cols"] = cols
+    
+    # Apply any model_config overrides
+    if model_config is not None:
+        # Allow overriding network parameters through model_config
+        for key in ["rows", "cols", "in_channels"]:
+            if key in model_config:
+                kwargs[key] = model_config[key]
+    
+    return network_class(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Auto-register Connect4DQN on import
+# ---------------------------------------------------------------------------
+
+def _auto_register_networks():
+    """Register all known game-specific networks."""
+    from .dqn_network import Connect4DQN
+    register_network(Connect4DQN)
+
+
+_auto_register_networks()
