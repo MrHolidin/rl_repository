@@ -9,6 +9,7 @@ from typing import Any, Deque, Dict, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 
 from .base_agent import BaseAgent
@@ -54,6 +55,7 @@ class DQNAgent(BaseAgent):
         per_eps: float = 1e-6,
         n_step: int = 1,
         use_twin_q: bool = False,
+        target_q_clip: Optional[float] = None,
     ):
         """
         Initialize DQN agent.
@@ -102,6 +104,7 @@ class DQNAgent(BaseAgent):
         self.per_eps = per_eps
         self.n_step = max(1, n_step)
         self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
+        self.target_q_clip = target_q_clip
 
         # Device
         if device is None:
@@ -365,17 +368,22 @@ class DQNAgent(BaseAgent):
             
             gamma_bootstrap = self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
             target_q_value = reward_tensor + (1 - done_tensor.float()) * gamma_bootstrap * target_next_q
+            
+            # Target clipping for adversarial games (prevents Q-value explosion)
+            if self.target_q_clip is not None:
+                target_q_value = torch.clamp(target_q_value, -self.target_q_clip, self.target_q_clip)
         
         td_errors = target_q_value - q_value
         td_errors_abs = td_errors.detach().abs()
 
-        loss_elements = (td_errors ** 2) * is_weights_tensor
+        # Huber loss (smooth_l1) - more stable than MSE for large TD errors
+        loss_elements = F.smooth_l1_loss(q_value, target_q_value, reduction='none') * is_weights_tensor
         loss = loss_elements.mean()
         
         # Twin Q: add loss for second network
         if self.use_twin_q:
             td_errors2 = target_q_value - q_value2
-            loss_elements2 = (td_errors2 ** 2) * is_weights_tensor
+            loss_elements2 = F.smooth_l1_loss(q_value2, target_q_value, reduction='none') * is_weights_tensor
             loss = loss + loss_elements2.mean()
         
         self.optimizer.zero_grad()
