@@ -53,6 +53,7 @@ class DQNAgent(BaseAgent):
         per_beta_frames: int = 100_000,
         per_eps: float = 1e-6,
         n_step: int = 1,
+        use_twin_q: bool = False,
     ):
         """
         Initialize DQN agent.
@@ -80,8 +81,10 @@ class DQNAgent(BaseAgent):
             per_beta_frames: PER beta annealing frames.
             per_eps: Small constant for PER priorities.
             n_step: N-step returns (1 = standard TD).
+            use_twin_q: Use Twin Q-networks (Clipped Double Q-Learning from TD3).
         """
         self.num_actions = num_actions
+        self.use_twin_q = use_twin_q
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.epsilon = epsilon
@@ -112,8 +115,24 @@ class DQNAgent(BaseAgent):
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
         
+        # Twin Q-networks (for Clipped Double Q-Learning)
+        if self.use_twin_q:
+            self.q_network2 = copy.deepcopy(network).to(self.device)
+            self.target_network2 = copy.deepcopy(network).to(self.device)
+            self.target_network2.load_state_dict(self.q_network2.state_dict())
+            self.target_network2.eval()
+        else:
+            self.q_network2 = None
+            self.target_network2 = None
+        
         # Optimizer
-        self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
+        if self.use_twin_q:
+            self.optimizer = optim.Adam(
+                list(self.q_network.parameters()) + list(self.q_network2.parameters()),
+                lr=learning_rate
+            )
+        else:
+            self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
         
         # Replay buffer
         if self.use_per:
@@ -273,8 +292,16 @@ class DQNAgent(BaseAgent):
                         self.target_network.parameters(), self.q_network.parameters()
                     ):
                         target_param.data.mul_(1.0 - self.tau).add_(main_param.data, alpha=self.tau)
+                    # Update second target network if using Twin Q
+                    if self.use_twin_q:
+                        for target_param, main_param in zip(
+                            self.target_network2.parameters(), self.q_network2.parameters()
+                        ):
+                            target_param.data.mul_(1.0 - self.tau).add_(main_param.data, alpha=self.tau)
             else:
                 self.target_network.load_state_dict(self.q_network.state_dict())
+                if self.use_twin_q:
+                    self.target_network2.load_state_dict(self.q_network2.state_dict())
             metrics["target_network_updated"] = True
 
         metrics["buffer_size"] = len(self.replay_buffer)
@@ -315,7 +342,11 @@ class DQNAgent(BaseAgent):
         q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
         
-        # Double DQN
+        if self.use_twin_q:
+            q_values2 = self.q_network2(obs_tensor, legal_mask=legal_mask_tensor)
+            q_value2 = q_values2.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
+        
+        # Double DQN (with optional Twin Q / Clipped Double Q-Learning)
         with torch.no_grad():
             next_q_values_main = self.q_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
             masked_next_q_values = next_q_values_main.masked_fill(~next_legal_mask_tensor, float("-inf"))
@@ -325,6 +356,13 @@ class DQNAgent(BaseAgent):
 
             next_q_values_target = self.target_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
             target_next_q = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
+            
+            # Twin Q: take minimum of two target networks
+            if self.use_twin_q:
+                next_q_values_target2 = self.target_network2(next_obs_tensor, legal_mask=next_legal_mask_tensor)
+                target_next_q2 = next_q_values_target2.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
+                target_next_q = torch.min(target_next_q, target_next_q2)
+            
             gamma_bootstrap = self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
             target_q_value = reward_tensor + (1 - done_tensor.float()) * gamma_bootstrap * target_next_q
         
@@ -334,9 +372,21 @@ class DQNAgent(BaseAgent):
         loss_elements = (td_errors ** 2) * is_weights_tensor
         loss = loss_elements.mean()
         
+        # Twin Q: add loss for second network
+        if self.use_twin_q:
+            td_errors2 = target_q_value - q_value2
+            loss_elements2 = (td_errors2 ** 2) * is_weights_tensor
+            loss = loss + loss_elements2.mean()
+        
         self.optimizer.zero_grad()
         loss.backward()
-        total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
+        if self.use_twin_q:
+            total_grad_norm = torch.nn.utils.clip_grad_norm_(
+                list(self.q_network.parameters()) + list(self.q_network2.parameters()), 
+                max_norm=1.0
+            )
+        else:
+            total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         if self.use_per and indices is not None:

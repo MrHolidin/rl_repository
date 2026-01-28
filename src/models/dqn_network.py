@@ -14,11 +14,10 @@ class Connect4DQN(BaseDQNNetwork):
     """
     Deep Q-Network specialized for Connect Four.
 
-    Architecture features:
-    - Conv block with GroupNorm (better for RL, PER, self-play than BatchNorm)
-    - Two residual blocks with 128 channels
-    - Global Average Pooling over the board (6x7) → compact feature vector
-    - Dueling head with LayerNorm (optional)
+    Simple architecture:
+    - Two conv layers (no normalization for stable gradients)
+    - Flatten → FC layers
+    - Optional dueling head
     """
 
     def __init__(
@@ -35,54 +34,27 @@ class Connect4DQN(BaseDQNNetwork):
         self.cols = cols
         self.in_channels = in_channels
 
-        # --- Conv block ---
-        # 3×6×7 → 64×6×7
+        # Conv layers (no normalization - keeps gradients stable)
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, padding=1)
-        self.gn1 = nn.GroupNorm(num_groups=8, num_channels=64)
-
-        # 64×6×7 → 128×6×7
         self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-        self.gn2 = nn.GroupNorm(num_groups=16, num_channels=128)
 
-        # Two residual blocks with 128 channels
-        self.res_block1 = self._make_res_block(128)
-        self.res_block2 = self._make_res_block(128)
+        # Flatten size: 128 channels * rows * cols
+        self.flatten_size = 128 * rows * cols
 
-        # After conv block the feature map size: (B, 128, rows, cols)
-        # We apply Global Average Pooling → (B, 128)
-        conv_out_channels = 128
-        head_in_dim = conv_out_channels  # after GAP
-
-        # --- Fully connected layers ---
+        # FC layers
         if dueling:
-            # Shared layer before value/advantage split
-            self.fc_shared = nn.Linear(head_in_dim, 256)
-            self.shared_norm = nn.LayerNorm(256)
-            self.shared_dropout = nn.Dropout(p=0.05)
+            self.fc_shared = nn.Linear(self.flatten_size, 256)
 
-            # Value stream: V(s)
+            # Value stream
             self.fc_value_hidden = nn.Linear(256, 128)
             self.fc_value = nn.Linear(128, 1)
 
-            # Advantage stream: A(s, a)
+            # Advantage stream
             self.fc_adv_hidden = nn.Linear(256, 128)
             self.fc_advantage = nn.Linear(128, num_actions)
         else:
-            # Standard DQN head
-            self.fc1 = nn.Linear(head_in_dim, 256)
-            self.fc1_norm = nn.LayerNorm(256)
+            self.fc1 = nn.Linear(self.flatten_size, 256)
             self.fc2 = nn.Linear(256, num_actions)
-
-    @staticmethod
-    def _make_res_block(channels: int) -> nn.Module:
-        """One residual block: Conv-GN-ReLU-Conv-GN with external skip connection."""
-        return nn.Sequential(
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-            nn.GroupNorm(num_groups=16 if channels >= 128 else 8, num_channels=channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-            nn.GroupNorm(num_groups=16 if channels >= 128 else 8, num_channels=channels),
-        )
 
     def forward(
         self,
@@ -96,54 +68,29 @@ class Connect4DQN(BaseDQNNetwork):
         Returns:
             Q-values: (batch, num_actions)
         """
+        # Conv layers
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
 
-        # --- Conv block with residual layers ---
-        # 3×6×7 → 64×6×7
-        x = self.conv1(x)
-        x = self.gn1(x)
-        x = F.relu(x)
-
-        # 64×6×7 → 128×6×7
-        x = self.conv2(x)
-        x = self.gn2(x)
-        x = F.relu(x)
-
-        # Residual block 1
-        res = x
-        out = self.res_block1(x)
-        x = F.relu(res + out)
-
-        # Residual block 2
-        res = x
-        out = self.res_block2(x)
-        x = F.relu(res + out)
-
-        # --- Global Average Pooling over the board ---
-        # (B, 128, rows, cols) → (B, 128)
-        x = x.mean(dim=(2, 3))
+        # Flatten
+        x = x.view(x.size(0), -1)
 
         if self._dueling:
             # Shared layer
-            x = self.fc_shared(x)
-            x = self.shared_norm(x)
-            x = F.relu(x)
-            x = self.shared_dropout(x)
+            x = F.relu(self.fc_shared(x))
 
             # Value stream
-            value = F.relu(self.fc_value_hidden(x))   # (B, 128)
-            value = self.fc_value(value)              # (B, 1)
+            value = F.relu(self.fc_value_hidden(x))
+            value = self.fc_value(value)
 
             # Advantage stream
-            advantage = F.relu(self.fc_adv_hidden(x))  # (B, 128)
-            advantage = self.fc_advantage(advantage)   # (B, num_actions)
+            advantage = F.relu(self.fc_adv_hidden(x))
+            advantage = self.fc_advantage(advantage)
 
-            # Proper aggregation considering legal actions
+            # Aggregation considering legal actions
             q_values = dueling_aggregate(value, advantage, legal_mask)
         else:
-            # Standard DQN head
-            x = self.fc1(x)
-            x = self.fc1_norm(x)
-            x = F.relu(x)
+            x = F.relu(self.fc1(x))
             q_values = self.fc2(x)
 
         return q_values
