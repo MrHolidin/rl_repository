@@ -23,11 +23,9 @@ class SmartHeuristicAgent(BaseAgent):
         Initialize smart heuristic agent.
         
         Args:
-            seed: Random seed for reproducibility
+            seed: Random seed for reproducibility (uses local RNG, not global)
         """
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        self._rng = random.Random(seed)
 
     def act(
         self,
@@ -42,13 +40,12 @@ class SmartHeuristicAgent(BaseAgent):
         if not legal_actions:
             raise ValueError("No legal actions available")
         
-        # Extract board from observation
+        # Extract board from observation (relative coords: current player = +1)
         board = np.zeros((obs.shape[1], obs.shape[2]), dtype=np.int8)
-        board[obs[0] == 1] = 1  # Current player's pieces
-        board[obs[1] == 1] = -1  # Opponent's pieces
-        
-        current_player = 1 if obs[2, 0, 0] == 1 else -1
-        opponent = -current_player
+        board[obs[0] == 1] = 1
+        board[obs[1] == 1] = -1
+        current_player = 1
+        opponent = -1
         
         # Priority 1: Win if possible
         for action in legal_actions:
@@ -70,7 +67,7 @@ class SmartHeuristicAgent(BaseAgent):
         if threat_scores:
             # Choose action with highest threat score
             best_actions = [action for action, score in threat_scores.items() if score == max(threat_scores.values())]
-            return random.choice(best_actions)
+            return self._rng.choice(best_actions)
         
         # Priority 4: Block opponent's threats
         block_scores = {}
@@ -82,7 +79,7 @@ class SmartHeuristicAgent(BaseAgent):
         if block_scores:
             best_score = max(block_scores.values())
             best_actions = [action for action, score in block_scores.items() if score == best_score]
-            return random.choice(best_actions)
+            return self._rng.choice(best_actions)
         
         # Priority 5: Play center columns (more valuable)
         center_preference = self._get_center_preference(legal_actions, board.shape[1])
@@ -92,10 +89,10 @@ class SmartHeuristicAgent(BaseAgent):
         # Priority 6: Avoid giving opponent opportunities
         safe_actions = self._get_safe_actions(board, legal_actions, current_player)
         if safe_actions:
-            return int(random.choice(safe_actions))
+            return int(self._rng.choice(safe_actions))
 
         # Fallback: random from legal actions
-        return int(random.choice(legal_actions))
+        return int(self._rng.choice(legal_actions))
 
     def _would_win(self, board: np.ndarray, col: int, player: int) -> bool:
         """
@@ -234,7 +231,7 @@ class SmartHeuristicAgent(BaseAgent):
         # Prefer center columns
         center_candidates = [col for col in center_cols if col in legal_actions]
         if center_candidates:
-            return random.choice(center_candidates)
+            return self._rng.choice(center_candidates)
         
         # Prefer columns near center
         ring_candidates = []
@@ -245,7 +242,7 @@ class SmartHeuristicAgent(BaseAgent):
                     if candidate in legal_actions:
                         ring_candidates.append(candidate)
         if ring_candidates:
-            return random.choice(ring_candidates)
+            return self._rng.choice(ring_candidates)
         
         return None
 

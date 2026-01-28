@@ -21,11 +21,9 @@ class HeuristicAgent(BaseAgent):
         Initialize heuristic agent.
         
         Args:
-            seed: Random seed for reproducibility
+            seed: Random seed for reproducibility (uses local RNG, not global)
         """
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        self._rng = random.Random(seed)
 
     def act(
         self,
@@ -40,13 +38,11 @@ class HeuristicAgent(BaseAgent):
         if not legal_actions:
             raise ValueError("No legal actions available")
         
-        # Extract board from observation
-        # obs shape: (3, rows, cols)
+        # Extract board from observation (relative coords: current player = +1)
         board = np.zeros((obs.shape[1], obs.shape[2]), dtype=np.int8)
-        board[obs[0] == 1] = 1  # Current player's pieces
-        board[obs[1] == 1] = -1  # Opponent's pieces
-        
-        current_player = 1 if obs[2, 0, 0] == 1 else -1
+        board[obs[0] == 1] = 1
+        board[obs[1] == 1] = -1
+        current_player = 1
         
         # Try to win
         for action in legal_actions:
@@ -59,7 +55,7 @@ class HeuristicAgent(BaseAgent):
                 return action
         
         # Otherwise random
-        return int(random.choice(legal_actions))
+        return int(self._rng.choice(legal_actions))
 
     def _would_win(self, board: np.ndarray, col: int, player: int) -> bool:
         """

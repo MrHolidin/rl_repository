@@ -1,6 +1,5 @@
 """Random agent implementation."""
 
-import random
 from typing import Optional
 
 import numpy as np
@@ -16,11 +15,9 @@ class RandomAgent(BaseAgent):
         Initialize random agent.
 
         Args:
-            seed: Random seed for reproducibility
+            seed: Random seed for reproducibility (uses local RNG, not global)
         """
-        if seed is not None:
-            random.seed(seed)
-            np.random.seed(seed)
+        self._rng = np.random.default_rng(seed)
 
     def act(
         self,
@@ -44,7 +41,7 @@ class RandomAgent(BaseAgent):
         legal_indices = np.flatnonzero(legal_mask)
         if legal_indices.size == 0:
             raise ValueError("No legal actions available")
-        return int(np.random.choice(legal_indices))
+        return int(self._rng.choice(legal_indices))
 
     def save(self, path: str) -> None:
         """Random agent has no state to persist."""
