@@ -1,3 +1,5 @@
+"""Abstract state value function for search algorithms."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -19,4 +21,3 @@ class StateValueFn(Generic[StateT], ABC):
         Higher is better for ``game.current_player(state)``.
         """
         ...
-

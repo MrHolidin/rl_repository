@@ -1,3 +1,5 @@
+"""DQN-based value function for Connect4 search."""
+
 from __future__ import annotations
 
 from typing import Sequence
@@ -5,14 +7,16 @@ from typing import Sequence
 import numpy as np
 import torch
 
-from ..connect4_game import Connect4Game
-from ..connect4_state import Connect4State
-from ..connect4_eval import connect4_terminal_evaluator
-from ..utils import build_state_dict
+from src.envs.connect4 import (
+    Connect4Game,
+    Connect4State,
+    connect4_terminal_evaluator,
+    build_state_dict,
+)
 from src.games.turn_based_game import TurnBasedGame
 from src.features.observation_builder import ObservationBuilder
 from src.agents.dqn_agent import DQNAgent
-from src.policies.value_fn import StateValueFn
+from ..value_fn import StateValueFn
 
 
 class Connect4DQNValueFn(StateValueFn[Connect4State]):
@@ -71,4 +75,3 @@ class Connect4DQNValueFn(StateValueFn[Connect4State]):
 
         value = float(np.max(q_values_np))
         return value
-

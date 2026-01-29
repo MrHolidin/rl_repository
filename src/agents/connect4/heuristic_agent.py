@@ -1,11 +1,11 @@
-"""Heuristic agent implementation."""
+"""Heuristic agent implementation for Connect Four."""
 
 import random
 from typing import Optional
 
 import numpy as np
 
-from .base_agent import BaseAgent
+from ..base_agent import BaseAgent
 
 
 class HeuristicAgent(BaseAgent):
@@ -122,4 +122,3 @@ class HeuristicAgent(BaseAgent):
     def load(cls, path: str, **kwargs: object) -> "HeuristicAgent":
         """Return a new heuristic agent."""
         return cls(**kwargs)
-

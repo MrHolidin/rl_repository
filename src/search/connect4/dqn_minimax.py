@@ -1,15 +1,16 @@
+"""DQN-Minimax policy factory for Connect4."""
+
 from __future__ import annotations
 
 from typing import Optional
 
 import numpy as np
 
-from ..connect4_game import Connect4Game
-from ..connect4_state import Connect4State
+from src.envs.connect4 import Connect4Game, Connect4State
 from src.features.observation_builder import ObservationBuilder
 from src.agents.dqn_agent import DQNAgent
-from src.policies.minimax_policy import MinimaxPolicy, MinimaxConfig
-from .connect4_dqn_value_fn import Connect4DQNValueFn
+from ..minimax_policy import MinimaxPolicy, MinimaxConfig
+from .dqn_value_fn import Connect4DQNValueFn
 
 
 def make_connect4_dqn_minimax_policy(
@@ -35,4 +36,3 @@ def make_connect4_dqn_minimax_policy(
         config=config,
         rng=rng,
     )
-

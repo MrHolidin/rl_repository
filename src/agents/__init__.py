@@ -2,8 +2,7 @@
 
 from .base_agent import BaseAgent
 from .random_agent import RandomAgent
-from .heuristic_agent import HeuristicAgent
-from .smart_heuristic_agent import SmartHeuristicAgent
+from .connect4 import HeuristicAgent, SmartHeuristicAgent
 from .qlearning_agent import QLearningAgent
 from .dqn_agent import DQNAgent
 from .ppo_agent import PPOAgent

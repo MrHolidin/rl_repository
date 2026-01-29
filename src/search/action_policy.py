@@ -1,3 +1,5 @@
+"""Abstract action policy interface for search algorithms."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -35,4 +37,3 @@ class ActionPolicy(ABC, Generic[S]):
                 ``game.legal_actions`` when ``None``).
         """
         raise NotImplementedError
-

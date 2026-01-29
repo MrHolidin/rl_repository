@@ -301,7 +301,7 @@ def _build_game_specific_network(
 
 def _auto_register_networks():
     """Register all known game-specific networks."""
-    from .dqn_network import Connect4DQN
+    from .connect4_dqn import Connect4DQN
     register_network(Connect4DQN)
 
 

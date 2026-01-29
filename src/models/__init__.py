@@ -1,7 +1,7 @@
 """Model modules."""
 
 from .base_dqn_network import BaseDQNNetwork
-from .dqn_network import Connect4DQN, DQN
+from .connect4_dqn import Connect4DQN, DQN
 from .simple_mlp import SimpleMLP
 from .author_critic_network import ActorCriticCNN
 from .q_network_factory import (

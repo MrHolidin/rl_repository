@@ -1,3 +1,5 @@
+"""Connect4 game state dataclass."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,4 +15,3 @@ class Connect4State:
     winner: Optional[int]
     done: bool
     last_move: Optional[Tuple[int, int]] = None
-

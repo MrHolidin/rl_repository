@@ -1,8 +1,10 @@
+"""Connect4 evaluation functions for search algorithms."""
+
 from __future__ import annotations
 
 from typing import Optional
 
-from .connect4_state import Connect4State
+from .state import Connect4State
 from src.games.turn_based_game import TurnBasedGame
 
 
@@ -22,4 +24,3 @@ def connect4_terminal_evaluator(
     if winner == -root_player:
         return -1.0
     return 0.0
-

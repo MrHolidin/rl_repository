@@ -7,7 +7,7 @@ import numpy as np
 from src.agents.base_agent import BaseAgent
 from src.envs.base import TurnBasedEnv
 from src.games.turn_based_game import Action, TurnBasedGame
-from src.policies.action_policy import ActionPolicy
+from src.search.action_policy import ActionPolicy
 
 S = TypeVar("S")
 

@@ -8,7 +8,7 @@ from src.agents.base_agent import BaseAgent
 from src.agents import RandomAgent
 
 try:
-    from src.selfplay import OpponentPool  # type: ignore
+    from src.training.selfplay import OpponentPool  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
     OpponentPool = None  # type: ignore[misc]
 

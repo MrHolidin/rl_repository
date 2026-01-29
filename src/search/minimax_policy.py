@@ -1,3 +1,5 @@
+"""Minimax search policy with alpha-beta pruning."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,8 +9,8 @@ import math
 import numpy as np
 
 from src.games.turn_based_game import Action, TurnBasedGame
-from src.policies.action_policy import ActionPolicy
-from src.policies.value_fn import StateValueFn
+from .action_policy import ActionPolicy
+from .value_fn import StateValueFn
 
 StateT = TypeVar("StateT")
 
@@ -119,4 +121,3 @@ class MinimaxPolicy(ActionPolicy[StateT], Generic[StateT]):
                     break
 
         return value
-

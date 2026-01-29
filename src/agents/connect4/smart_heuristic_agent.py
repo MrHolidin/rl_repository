@@ -4,7 +4,7 @@ import random
 from typing import List, Optional, Tuple
 import numpy as np
 
-from .base_agent import BaseAgent
+from ..base_agent import BaseAgent
 
 
 class SmartHeuristicAgent(BaseAgent):
@@ -350,4 +350,3 @@ class SmartHeuristicAgent(BaseAgent):
     def load(cls, path: str, **kwargs: object) -> "SmartHeuristicAgent":
         """Return a new smart heuristic agent instance."""
         return cls(**kwargs)
-

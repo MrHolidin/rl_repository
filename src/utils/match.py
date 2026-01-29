@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple, Union
 
 from src.envs import Connect4Env, RewardConfig
 from src.envs.base import TurnBasedEnv
-from src.games.connect4 import CONNECT4_COLS, CONNECT4_ROWS
+from src.envs.connect4 import CONNECT4_COLS, CONNECT4_ROWS
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 
 

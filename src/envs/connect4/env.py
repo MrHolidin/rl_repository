@@ -6,17 +6,12 @@ from typing import Any, Dict, Optional, Tuple, List
 
 import numpy as np
 
-from ..features.observation_builder import BoardChannels, ObservationBuilder
-from .base import StepResult, TurnBasedEnv
-from .reward_config import RewardConfig
-from src.games.connect4 import (
-    CONNECT4_COLS,
-    CONNECT4_ROWS,
-    Connect4Game,
-    Connect4State,
-    build_state_dict,
-    check_n_in_row,
-)
+from ...features.observation_builder import BoardChannels, ObservationBuilder
+from ..base import StepResult, TurnBasedEnv
+from ..reward_config import RewardConfig
+from .state import Connect4State
+from .game import Connect4Game
+from .utils import CONNECT4_COLS, CONNECT4_ROWS, build_state_dict, check_n_in_row
 
 
 class Connect4Env(TurnBasedEnv):

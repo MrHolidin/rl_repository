@@ -1,3 +1,5 @@
+"""DQN policy adapter for Connect4 search algorithms."""
+
 from __future__ import annotations
 
 from typing import Optional, Sequence, Tuple
@@ -5,11 +7,10 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 
 from src.agents.dqn_agent import DQNAgent
-from ..connect4_state import Connect4State
-from ..utils import build_state_dict
+from src.envs.connect4 import Connect4State, build_state_dict
 from src.features.observation_builder import ObservationBuilder
 from src.games.turn_based_game import Action, TurnBasedGame
-from src.policies.action_policy import ActionPolicy
+from ..action_policy import ActionPolicy
 
 
 class Connect4DQNPolicy(ActionPolicy[Connect4State]):
@@ -74,4 +75,3 @@ class Connect4DQNPolicy(ActionPolicy[Connect4State]):
         state_dict = build_state_dict(state, game, legal_mask=legal_mask)
         obs = self.observation_builder.build(state_dict)
         return obs, legal_mask
-

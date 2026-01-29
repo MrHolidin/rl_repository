@@ -6,7 +6,7 @@ from typing import Optional, Tuple, Dict, Any, Sequence
 
 import numpy as np
 
-from .connect4_state import Connect4State
+from .state import Connect4State
 from src.games.turn_based_game import TurnBasedGame
 
 # Default board dimensions
@@ -95,4 +95,3 @@ def check_n_in_row(
             return True
 
     return False
-

@@ -62,12 +62,14 @@ def test_qlearning_agent():
 
 def test_dqn_agent():
     """Test DQN agent."""
+    from src.models import Connect4DQN
+    
     env = Connect4Env(rows=6, cols=7)
     builder = BoardChannels(board_shape=(6, 7))
     action_space = DiscreteActionSpace(n=7)
+    network = Connect4DQN(rows=6, cols=7, in_channels=3, num_actions=7)
     agent = DQNAgent(
-        observation_shape=builder.observation_shape,
-        observation_type=builder.observation_type,
+        network=network,
         num_actions=action_space.size,
         seed=42,
         action_space=action_space,
@@ -97,11 +99,12 @@ def test_dqn_agent():
 
 def test_agent_train_eval_mode():
     """Test agent train/eval mode switching."""
-    builder = BoardChannels(board_shape=(6, 7))
+    from src.models import Connect4DQN
+    
     action_space = DiscreteActionSpace(n=7)
+    network = Connect4DQN(rows=6, cols=7, in_channels=3, num_actions=7)
     agent = DQNAgent(
-        observation_shape=builder.observation_shape,
-        observation_type=builder.observation_type,
+        network=network,
         num_actions=action_space.size,
         seed=42,
         action_space=action_space,

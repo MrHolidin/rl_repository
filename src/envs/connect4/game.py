@@ -1,10 +1,12 @@
+"""Connect4 game rules (immutable state, for search algorithms)."""
+
 from __future__ import annotations
 
 from typing import Optional, Sequence
 
 import numpy as np
 
-from .connect4_state import Connect4State
+from .state import Connect4State
 from .utils import CONNECT4_COLS, CONNECT4_ROWS, check_n_in_row
 from src.games.turn_based_game import TurnBasedGame, Action
 
@@ -89,4 +91,3 @@ class Connect4Game(TurnBasedGame[Connect4State]):
 
     def _is_board_full(self, board: np.ndarray) -> bool:
         return np.all(board != 0)
-

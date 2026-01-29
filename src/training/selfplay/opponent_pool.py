@@ -304,4 +304,3 @@ class OpponentPool:
                 and len(self.frozen_agents) > 0
             ),
         }
-
