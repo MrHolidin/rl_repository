@@ -26,12 +26,8 @@ def test_board_channels_basic():
     obs = builder.build(raw_state)
     assert obs.shape == builder.observation_shape
     assert obs.dtype == np.float32
-    # Current player's piece channel should mark player 1 token
     assert obs[0, 5, 0] == 1.0
-    # Opponent channel should mark player -1 token
     assert obs[1, 4, 3] == 1.0
-    # Turn channel should be full of ones because current player token is 1
-    assert np.all(obs[2] == 1.0)
 
 
 def test_board_channels_with_extras():
@@ -51,16 +47,12 @@ def test_board_channels_with_extras():
 
     obs = builder.build(raw_state)
     assert obs.shape == builder.observation_shape
-    # Turn channel should be zeros because current player token is -1
-    assert np.all(obs[2] == 0.0)
-    # Last move channel should highlight the last move
-    assert obs[3, last_move[0], last_move[1]] == 1.0
-    # Legal moves channel should contain mask on the top row
-    assert np.all(obs[4, 0, :] == legal_mask.astype(np.float32))
+    assert obs[2, last_move[0], last_move[1]] == 1.0
+    assert np.all(obs[3, 0, :] == legal_mask.astype(np.float32))
 
 
 def test_build_q_network_board_and_vector():
-    board_shape = (3, 6, 7)
+    board_shape = (2, 6, 7)
     num_actions = 7
     board_model = build_q_network(
         observation_type="board",

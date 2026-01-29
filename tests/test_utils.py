@@ -19,10 +19,10 @@ def test_replay_buffer():
     
     # Add transitions
     for i in range(10):
-        obs = np.random.rand(3, 6, 7)
+        obs = np.random.rand(2, 6, 7)
         action = i % 7
         reward = 0.0
-        next_obs = np.random.rand(3, 6, 7)
+        next_obs = np.random.rand(2, 6, 7)
         done = False
         legal_mask = np.ones(7, dtype=bool)
         next_legal_mask = np.ones(7, dtype=bool)
@@ -54,10 +54,10 @@ def test_replay_buffer_capacity():
     
     # Add more than capacity
     for i in range(20):
-        obs = np.random.rand(3, 6, 7)
+        obs = np.random.rand(2, 6, 7)
         action = i % 7
         reward = 0.0
-        next_obs = np.random.rand(3, 6, 7)
+        next_obs = np.random.rand(2, 6, 7)
         done = False
         legal_mask = np.ones(7, dtype=bool)
         next_legal_mask = np.ones(7, dtype=bool)

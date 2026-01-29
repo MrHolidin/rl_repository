@@ -24,7 +24,7 @@ class Connect4DQN(BaseDQNNetwork):
         self,
         rows: int = 6,
         cols: int = 7,
-        in_channels: int = 3,
+        in_channels: int = 2,
         num_actions: int = 7,
         dueling: bool = False,
     ):

@@ -99,17 +99,9 @@ class TicTacToeEnv(TurnBasedEnv):
     
     def _get_obs(self) -> np.ndarray:
         """Build observation from current player's perspective."""
-        obs = np.zeros((3, 3, 3), dtype=np.float32)
-        
-        # Channel 0: current player's pieces
+        obs = np.zeros((2, 3, 3), dtype=np.float32)
         obs[0] = (self._board == self._current_token).astype(np.float32)
-        
-        # Channel 1: opponent's pieces
         obs[1] = (self._board == -self._current_token).astype(np.float32)
-        
-        # Channel 2: turn indicator (1 if token=1, 0 if token=-1)
-        obs[2] = 1.0 if self._current_token == 1 else 0.0
-        
         return obs
     
     def _check_win(self, token: int) -> bool:

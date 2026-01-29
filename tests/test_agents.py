@@ -67,7 +67,7 @@ def test_dqn_agent():
     env = Connect4Env(rows=6, cols=7)
     builder = BoardChannels(board_shape=(6, 7))
     action_space = DiscreteActionSpace(n=7)
-    network = Connect4DQN(rows=6, cols=7, in_channels=3, num_actions=7)
+    network = Connect4DQN(rows=6, cols=7, in_channels=2, num_actions=7)
     agent = DQNAgent(
         network=network,
         num_actions=action_space.size,
@@ -102,7 +102,7 @@ def test_agent_train_eval_mode():
     from src.models import Connect4DQN
     
     action_space = DiscreteActionSpace(n=7)
-    network = Connect4DQN(rows=6, cols=7, in_channels=3, num_actions=7)
+    network = Connect4DQN(rows=6, cols=7, in_channels=2, num_actions=7)
     agent = DQNAgent(
         network=network,
         num_actions=action_space.size,

@@ -7,10 +7,10 @@ Read this before implementing or extending agents. These rules keep training and
 ## Observation
 
 - **Perspective:** Observation is always from the **current player's** point of view (the player whose turn it is).
-- **BoardChannels layout:**  
+- **BoardChannels layout (base):**  
   - `obs[0]` — current player's pieces  
   - `obs[1]` — opponent's pieces  
-  - `obs[2]` — legacy / optional channel (current-player token indicator). **Agents must not use it to determine player sign.** It is redundant and may be removed; treat it as debug/optional only.
+  With `include_last_move` / `include_legal_moves`, extra channels follow.
 - **Invariant:** In this representation, "current player" is effectively +1 when reconstructing the board. Agents that parse the board (e.g. heuristics, value functions) should set: my pieces from `obs[0]`, opponent from `obs[1]`, and `current_player = 1`.
 - **next_obs:** In a transition, `next_obs` is the state **where the agent is to move again** (or a terminal state). If the environment returned `next_obs` right after the agent's move (before the opponent's response), the trainer must finish the opponent's move before recording the transition; otherwise this invariant is broken.
 

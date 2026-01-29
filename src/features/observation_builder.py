@@ -47,7 +47,7 @@ class BoardChannels(ObservationBuilder):
         self._include_legal_moves = include_legal_moves
         self._dtype = dtype
 
-        channels = 3  # current player pieces, opponent pieces, current player indicator
+        channels = 2  # current player pieces, opponent pieces
         if include_last_move:
             channels += 1
         if include_legal_moves:
@@ -65,15 +65,10 @@ class BoardChannels(ObservationBuilder):
         legal_moves_mask: Optional[np.ndarray] = raw_state.get("legal_actions_mask")
 
         obs = np.zeros(self._observation_shape, dtype=self._dtype)
-        current_channel = (board == current_player_token).astype(self._dtype)
-        opponent_channel = (board == -current_player_token).astype(self._dtype)
-        turn_channel = np.full((self._rows, self._cols), 1.0 if current_player_token == 1 else 0.0, dtype=self._dtype)
+        obs[0] = (board == current_player_token).astype(self._dtype)
+        obs[1] = (board == -current_player_token).astype(self._dtype)
 
-        obs[0] = current_channel
-        obs[1] = opponent_channel
-        obs[2] = turn_channel
-
-        channel_idx = 3
+        channel_idx = 2
 
         if self._include_last_move:
             last_move_channel = np.zeros((self._rows, self._cols), dtype=self._dtype)

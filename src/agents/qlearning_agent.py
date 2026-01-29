@@ -142,17 +142,12 @@ class QLearningAgent(BaseAgent):
         Returns:
             State hash string
         """
-        # Reconstruct board from observation
-        # obs shape: (3, rows, cols)
+        # Reconstruct board from observation (obs always from current player's view)
+        # obs shape: (2, rows, cols) — current player pieces, opponent pieces
         board = np.zeros((obs.shape[1], obs.shape[2]), dtype=np.int8)
-        board[obs[0] == 1] = 1  # Current player's pieces
-        board[obs[1] == 1] = -1  # Opponent's pieces
-        
-        # Include current player in hash
-        current_player = 1 if obs[2, 0, 0] == 1 else -1
-        
-        # Create hash: board state + current player
-        return ",".join(str(x) for x in board.flatten()) + f",p{current_player}"
+        board[obs[0] == 1] = 1
+        board[obs[1] == 1] = -1
+        return ",".join(str(x) for x in board.flatten()) + ",p1"
 
     def _get_legal_actions_from_obs(self, obs: np.ndarray) -> List[int]:
         """

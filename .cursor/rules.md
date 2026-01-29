@@ -19,3 +19,8 @@ These are optional stabilizers; their absence cannot fully break learning.
 ### Evaluation
 - Winrate and policy behavior dominate all scalar training metrics.
 - avg_q is diagnostic only; it is not a success metric.
+
+ # Documentation
+ - Look at docs/agents/*.md when start new chat or need some clarification
+ - If your change makes documantation outdated, update
+ - Do not add unnecessary information to docs, keep it clean and consice

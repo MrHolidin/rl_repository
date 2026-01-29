@@ -25,7 +25,7 @@ def test_env_reset():
     """Test environment reset."""
     env = Connect4Env(rows=6, cols=7)
     obs = env.reset()
-    assert obs.shape == (3, 6, 7)
+    assert obs.shape == (2, 6, 7)
     assert np.all(env.board == 0)
     assert env.current_player() == 0
     assert env.current_player_token == 1
@@ -39,7 +39,7 @@ def test_env_step():
     
     # First action
     next_obs, reward, done, info = env.step(0)
-    assert next_obs.shape == (3, 6, 7)
+    assert next_obs.shape == (2, 6, 7)
     assert env.board[5, 0] == 1  # Piece should be at bottom
     assert env.current_player() == 1  # Player index should switch
     assert env.current_player_token == -1  # Player token should switch
