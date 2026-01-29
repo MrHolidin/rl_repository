@@ -10,15 +10,13 @@ import numpy as np
 
 from src.agents.base_agent import BaseAgent
 from src.envs.base import StepResult, TurnBasedEnv
-from src.training.trainer import (
+from src.training.callbacks import (
     CheckpointCallback,
     EarlyStopCallback,
     EvalCallback,
-    StartPolicy,
-    Trainer,
     TrainerCallback,
-    Transition,
 )
+from src.training.trainer import StartPolicy, Trainer, Transition
 
 
 class DummyEnv(TurnBasedEnv):

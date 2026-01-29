@@ -1,12 +1,14 @@
 """Config package exports."""
 
-from .models import (
+from .schema import (
     AgentConfig,
     AppConfig,
     CallbackConfig,
     EvalConfig,
     GameConfig,
+    OpponentSamplerConfig,
     TrainConfig,
+    load_config,
 )
 
 __all__ = [
@@ -15,6 +17,8 @@ __all__ = [
     "CallbackConfig",
     "EvalConfig",
     "GameConfig",
+    "OpponentSamplerConfig",
     "TrainConfig",
+    "load_config",
 ]
 

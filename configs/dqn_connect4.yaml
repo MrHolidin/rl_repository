@@ -1,0 +1,51 @@
+seed: 42
+
+game:
+  id: connect4
+  params:
+    rows: 6
+    cols: 7
+
+agent:
+  id: dqn
+  params:
+    learning_rate: 0.0005
+    discount_factor: 0.99
+    epsilon: 1.0
+    epsilon_decay: 0.995
+    epsilon_min: 0.05
+    batch_size: 128
+    replay_buffer_size: 50000
+    target_update_freq: 200
+    soft_update: false
+    tau: 0.01
+    device: null
+
+train:
+  total_steps: 500
+  deterministic: false
+  track_timings: false
+  start_policy: random  # or agent_first, opponent_first
+  opponent_sampler:
+    type: random
+    params: {}  # optional: seed
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200
+        prefix: model
+    - type: epsilon_decay
+      params:
+        every: step  # or episode
+    - type: lr_decay
+      params:
+        interval_steps: 200
+        decay_factor: 0.5
+        min_lr: 1.0e-6
+        optimizer_attr: optimizer
+        metric_key: learning_rate
+
+eval:
+  enabled: false
+  num_episodes: 20
+  deterministic: true

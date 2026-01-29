@@ -43,6 +43,9 @@ venv.bak/
 *.ipynb_checkpoints/
 notebooks/
 
+# Training runs (config copy, meta, checkpoints)
+runs/
+
 # Data and checkpoints (keep structure, ignore files)
 data/checkpoints/*.pt
 data/checkpoints/*.pkl

@@ -192,6 +192,11 @@ python -m src.cli.play_agent_vs_agent \
 - Epsilon (для epsilon-greedy)
 - Replay buffer size (для DQN)
 
+## Документация
+
+- **[Pipeline](docs/pipeline.md)** — запуск обучения из YAML (`python -m src.cli.train --config ...`), структура конфига, `run_dir`, `meta.json`, коллбэки.
+- **[Agents](docs/agents/README.md)** — агенты и инварианты (наблюдения, награды, маски ходов).
+
 ## Тестирование
 
 ```bash
