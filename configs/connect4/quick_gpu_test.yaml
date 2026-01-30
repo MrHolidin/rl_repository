@@ -1,0 +1,37 @@
+# Short run to verify GPU usage (~500 steps, ~5 sec)
+seed: 42
+
+game:
+  id: connect4
+  params: { rows: 6, cols: 7 }
+
+agent:
+  id: dqn
+  params:
+    learning_rate: 1.0e-5
+    discount_factor: 0.99
+    use_twin_q: false
+    epsilon: 1.0
+    epsilon_decay: 0.9998
+    epsilon_min: 0.05
+    batch_size: 128
+    replay_buffer_size: 2000
+    target_update_freq: 500
+    device: cuda:0
+
+train:
+  total_steps: 500
+  deterministic: false
+  track_timings: true
+  start_policy: agent_first
+  opponent_sampler:
+    type: random
+    params: {}
+  callbacks:
+    - type: checkpoint
+      params: { interval: 500, prefix: dqn }
+    - type: epsilon_decay
+      params: { every: step }
+
+eval:
+  enabled: false

@@ -512,6 +512,8 @@ class DQNAgent(BaseAgent):
         network_kwargs = checkpoint["network_kwargs"]
         network = create_network_from_checkpoint(network_class, network_kwargs)
 
+        load_optimizer = overrides.pop("load_optimizer", True)
+
         base_kwargs: Dict[str, Any] = {
             "network": network,
             "num_actions": checkpoint["num_actions"],
@@ -533,7 +535,11 @@ class DQNAgent(BaseAgent):
         agent = cls(**base_kwargs)
         agent.q_network.load_state_dict(checkpoint["q_network_state_dict"])
         agent.target_network.load_state_dict(checkpoint["target_network_state_dict"])
-        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if load_optimizer and "optimizer_state_dict" in checkpoint:
+            try:
+                agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            except (ValueError, KeyError):
+                pass  # skip if optimizer structure mismatches (e.g. eval-only load)
         agent.epsilon = checkpoint.get("epsilon", agent.epsilon)
         agent.step_count = checkpoint.get("step_count", 0)
         return agent

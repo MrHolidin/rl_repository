@@ -65,10 +65,25 @@ Updated every 100 steps (configurable via `status_interval` in `run()`). Fields:
 | `total_steps` | Target total steps from config |
 | `episode` | Current episode index |
 | `epsilon` | Current exploration epsilon (if agent has one) |
+| `device` | Actual device used (e.g. `cuda:0`, `cpu`) |
+| `device_name` | GPU model name when using CUDA (e.g. `NVIDIA GeForce RTX 4060`) |
 | `start_time` | Run start time (ISO format) |
 | `last_heartbeat` | Last status update time (ISO format) |
 
 A run is considered **stale** if `last_heartbeat` is older than 2 minutes and **dead** if the PID file exists but the process is not running.
+
+### Plot checkpoint progress (win rate vs random/heuristic)
+
+After training, evaluate all checkpoints against random and heuristic opponents and plot win rate vs step:
+
+```bash
+python -m src.cli.eval_progress --run_dir runs/connect4_main --num_games 50 --out runs/connect4_main/progress.png
+```
+
+- `--run_dir`: Run directory containing `checkpoints/` subdir
+- `--num_games`: Games per checkpoint per opponent (default: 50)
+- `--out`: Output path for plot (default: `run_dir/progress.png`)
+- `--prefix`: Filter checkpoints by prefix (e.g. `dqn` for `dqn_2000.pt`)
 
 ## Config structure (YAML)
 
