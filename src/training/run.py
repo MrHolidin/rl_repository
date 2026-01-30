@@ -1,11 +1,13 @@
-"""Training pipeline: run_dir, config copy, meta, callbacks (checkpoint, epsilon_decay, lr_decay)."""
+"""Training pipeline: run_dir, config copy, meta, callbacks, graceful stop."""
 
 from __future__ import annotations
 
+import os
 import random
+import signal
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -18,9 +20,59 @@ from src.training.callbacks import (
     CheckpointCallback,
     EpsilonDecayCallback,
     LearningRateDecayCallback,
+    StatusFileCallback,
     TrainerCallback,
 )
 from src.training.trainer import StartPolicy, Trainer
+
+
+# Global reference for signal handler
+_current_trainer: Optional[Trainer] = None
+_original_sigterm_handler: Optional[Callable] = None
+_original_sigint_handler: Optional[Callable] = None
+
+
+def _sigterm_handler(signum: int, frame: Any) -> None:
+    """Handle SIGTERM/SIGINT for graceful shutdown."""
+    if _current_trainer is not None:
+        _current_trainer.stop_training = True
+
+
+def _install_signal_handlers() -> None:
+    """Install signal handlers for graceful stop."""
+    global _original_sigterm_handler, _original_sigint_handler
+    try:
+        _original_sigterm_handler = signal.signal(signal.SIGTERM, _sigterm_handler)
+        _original_sigint_handler = signal.signal(signal.SIGINT, _sigterm_handler)
+    except (ValueError, OSError):
+        # signal handlers can only be set in main thread
+        pass
+
+
+def _restore_signal_handlers() -> None:
+    """Restore original signal handlers."""
+    try:
+        if _original_sigterm_handler is not None:
+            signal.signal(signal.SIGTERM, _original_sigterm_handler)
+        if _original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, _original_sigint_handler)
+    except (ValueError, OSError):
+        pass
+
+
+def _write_pid(run_dir: Path) -> None:
+    """Write current PID to run_dir/pid."""
+    (run_dir / "pid").write_text(str(os.getpid()))
+
+
+def _remove_pid(run_dir: Path) -> None:
+    """Remove pid file."""
+    pid_path = run_dir / "pid"
+    if pid_path.exists():
+        try:
+            pid_path.unlink()
+        except OSError:
+            pass
 
 
 def _resolve_device(device: Optional[str]) -> str:
@@ -154,11 +206,34 @@ def run(
     run_dir: Union[str, Path],
     *,
     command: Optional[str] = None,
+    status_interval: int = 100,
 ) -> None:
+    """
+    Run training from a config file.
+
+    Args:
+        config_path: Path to YAML config.
+        run_dir: Directory for outputs (config copy, meta.json, checkpoints, status.json).
+        command: Command string for meta.json (defaults to sys.argv).
+        status_interval: How often to update status.json (in steps).
+    """
+    global _current_trainer
+
     config_path = Path(config_path)
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+
+    # Write PID for external monitoring/stopping
+    _write_pid(run_dir)
+
+    # Remove stale stop file if present
+    stop_path = run_dir / "stop"
+    if stop_path.exists():
+        try:
+            stop_path.unlink()
+        except OSError:
+            pass
 
     raw_config = config_path.read_text()
     (run_dir / "config.yaml").write_text(raw_config)
@@ -198,7 +273,13 @@ def run(
     )
     write_meta_json(run_dir / "meta.json", meta)
 
+    # Build callbacks
     callbacks: List[TrainerCallback] = [
+        StatusFileCallback(
+            run_dir=run_dir,
+            interval=status_interval,
+            total_steps=app_cfg.train.total_steps,
+        ),
         _build_checkpoint_callback(run_dir, app_cfg.train.callbacks),
     ]
     for cb_cfg in app_cfg.train.callbacks:
@@ -220,7 +301,17 @@ def run(
         start_policy=start_policy,
         rng=rng,
     )
-    trainer.train(
-        total_steps=app_cfg.train.total_steps,
-        deterministic=app_cfg.train.deterministic,
-    )
+
+    # Install signal handlers for graceful stop
+    _current_trainer = trainer
+    _install_signal_handlers()
+
+    try:
+        trainer.train(
+            total_steps=app_cfg.train.total_steps,
+            deterministic=app_cfg.train.deterministic,
+        )
+    finally:
+        _current_trainer = None
+        _restore_signal_handlers()
+        _remove_pid(run_dir)

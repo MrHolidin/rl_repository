@@ -8,6 +8,7 @@ from .eval import EvalCallback
 from .epsilon_decay import EpsilonDecayCallback
 from .lr_decay import LearningRateDecayCallback
 from .performance_tracker import PerformanceTrackerCallback
+from .status_file import StatusFileCallback
 from .wandb_logger import WandbLoggerCallback
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "EarlyStopCallback",
     "LearningRateDecayCallback",
     "PerformanceTrackerCallback",
+    "StatusFileCallback",
 ]

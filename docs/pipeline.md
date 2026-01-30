@@ -24,7 +24,51 @@ Every run creates a directory (either given by `--run_dir` or the default) with:
 |------|-------------|
 | `config.yaml` | Copy of the config file used for this run |
 | `meta.json` | Run metadata (git, command, seed, device, versions, etc.) |
+| `status.json` | Live progress: step, episode, epsilon, heartbeat (updated every 100 steps) |
+| `pid` | Process ID (exists while running, removed on completion) |
 | `checkpoints/` | Saved model checkpoints (e.g. `model_200.pt`, `model_400.pt`) |
+
+## Managing runs
+
+### List running pipelines
+
+```bash
+python -m src.cli.runs list
+```
+
+Example output:
+```
+  my_experiment                            running    step=12345/50000 (24.7%)  ep=678    ε=0.4200  [1h 23m 45s]  (pid=12345)
+```
+
+Use `--all` to also show completed/stopped runs:
+```bash
+python -m src.cli.runs list --all
+```
+
+### Stop a running pipeline
+
+```bash
+python -m src.cli.runs stop runs/my_experiment
+```
+
+This sends `SIGTERM` to the process (instant graceful shutdown). If the signal fails, it creates a `stop` file that the pipeline checks periodically.
+
+### Status file (`status.json`)
+
+Updated every 100 steps (configurable via `status_interval` in `run()`). Fields:
+
+| Field | Description |
+|-------|-------------|
+| `status` | `running`, `completed`, `stopped`, `dead`, or `stale` |
+| `step` | Current training step |
+| `total_steps` | Target total steps from config |
+| `episode` | Current episode index |
+| `epsilon` | Current exploration epsilon (if agent has one) |
+| `start_time` | Run start time (ISO format) |
+| `last_heartbeat` | Last status update time (ISO format) |
+
+A run is considered **stale** if `last_heartbeat` is older than 2 minutes and **dead** if the PID file exists but the process is not running.
 
 ## Config structure (YAML)
 
