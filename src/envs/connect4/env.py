@@ -149,10 +149,8 @@ class Connect4Env(TurnBasedEnv):
 
     @property
     def legal_actions_mask(self) -> np.ndarray:
-        mask = np.zeros(self.cols, dtype=bool)
-        for action in self.get_legal_actions():
-            mask[action] = True
-        return mask
+        assert self._state is not None
+        return self._state.board[0] == 0
 
     def current_player(self) -> int:
         assert self._state is not None

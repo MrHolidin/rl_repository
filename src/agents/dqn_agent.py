@@ -337,15 +337,24 @@ class DQNAgent(BaseAgent):
             indices = None
             is_weights = np.ones(len(action_batch), dtype=np.float32)
         
-        # Convert to tensors
-        obs_tensor = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
-        action_tensor = torch.as_tensor(action_batch, dtype=torch.long, device=self.device)
-        reward_tensor = torch.as_tensor(reward_batch, dtype=torch.float32, device=self.device)
-        next_obs_tensor = torch.as_tensor(next_obs_batch, dtype=torch.float32, device=self.device)
-        done_tensor = torch.as_tensor(done_batch, dtype=torch.bool, device=self.device)
-        legal_mask_tensor = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
-        next_legal_mask_tensor = torch.as_tensor(next_legal_mask_batch, dtype=torch.bool, device=self.device)
-        is_weights_tensor = torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
+        # Convert to tensors (pinned memory + async transfer for GPU)
+        use_pinned = self.device.type == "cuda"
+        non_blocking = use_pinned
+        
+        def to_tensor(arr, dtype):
+            t = torch.from_numpy(np.ascontiguousarray(arr)).to(dtype)
+            if use_pinned:
+                t = t.pin_memory()
+            return t.to(self.device, non_blocking=non_blocking)
+        
+        obs_tensor = to_tensor(obs_batch, torch.float32)
+        action_tensor = to_tensor(action_batch, torch.long)
+        reward_tensor = to_tensor(reward_batch, torch.float32)
+        next_obs_tensor = to_tensor(next_obs_batch, torch.float32)
+        done_tensor = to_tensor(done_batch, torch.bool)
+        legal_mask_tensor = to_tensor(legal_mask_batch, torch.bool)
+        next_legal_mask_tensor = to_tensor(next_legal_mask_batch, torch.bool)
+        is_weights_tensor = to_tensor(is_weights, torch.float32)
         
         q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
