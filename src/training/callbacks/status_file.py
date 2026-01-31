@@ -92,6 +92,14 @@ class StatusFileCallback(TrainerCallback):
         }
         if epsilon is not None:
             data["epsilon"] = round(epsilon, 6)
+        if self._start_time and step > 0:
+            try:
+                start = datetime.fromisoformat(self._start_time.replace("Z", "+00:00"))
+                elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+                if elapsed > 0:
+                    data["steps_per_sec"] = round(step / elapsed, 1)
+            except (ValueError, TypeError):
+                pass
         data.update(self._device_info)
         self._atomic_write(data)
 

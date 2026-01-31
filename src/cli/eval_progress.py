@@ -55,6 +55,13 @@ def main() -> None:
         default=42,
         help="Random seed (default: 42)",
     )
+    parser.add_argument(
+        "--start_policy",
+        type=str,
+        choices=["random", "agent_first", "opponent_first"],
+        default="random",
+        help="Who goes first: random, agent_first, or opponent_first (default: random)",
+    )
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
@@ -77,7 +84,7 @@ def main() -> None:
         num_games=args.num_games,
         device=args.device,
         seed=args.seed,
-        randomize_first_player=True,
+        start_policy=args.start_policy,
     )
 
     if df.empty:

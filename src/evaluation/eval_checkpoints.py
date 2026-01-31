@@ -70,7 +70,7 @@ def eval_checkpoints_vs_opponents(
     device: Optional[str] = None,
     seed: int = 42,
     reward_config: Optional[RewardConfig] = None,
-    randomize_first_player: bool = True,
+    start_policy: str = "random",
 ) -> pd.DataFrame:
     """
     Evaluate each checkpoint against each opponent.
@@ -82,7 +82,7 @@ def eval_checkpoints_vs_opponents(
         device: Device for DQN ('cuda' or 'cpu').
         seed: Random seed.
         reward_config: Environment reward config.
-        randomize_first_player: Randomize who goes first each game.
+        start_policy: Who goes first: 'random', 'agent_first', or 'opponent_first'.
 
     Returns:
         DataFrame with columns: step, win_rate_<opponent>, draw_rate_<opponent>, ...
@@ -117,15 +117,26 @@ def eval_checkpoints_vs_opponents(
                 if hasattr(a, "epsilon"):
                     setattr(a, "epsilon", 0.0)
 
-            wins, draws, losses = play_match(
-                agent,
-                opponent,
+            sp = (start_policy or "random").strip().lower()
+            randomize_first = sp == "random"
+            agent_first_in_call = sp != "opponent_first"
+
+            if agent_first_in_call:
+                a1, a2 = agent, opponent
+            else:
+                a1, a2 = opponent, agent
+
+            w1, draws, w2 = play_match(
+                a1,
+                a2,
                 num_games=num_games,
                 seed=seed + hash(path.stem) % (2**16) + hash(opp_name) % (2**16),
-                randomize_first_player=randomize_first_player,
+                randomize_first_player=randomize_first,
                 reward_config=reward_config,
                 env=env,
             )
+            wins = w1 if agent_first_in_call else w2
+            losses = w2 if agent_first_in_call else w1
             total = wins + draws + losses
             row[f"win_rate_{opp_name}"] = wins / total if total else 0.0
             row[f"draw_rate_{opp_name}"] = draws / total if total else 0.0
