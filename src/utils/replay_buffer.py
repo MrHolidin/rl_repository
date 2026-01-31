@@ -1,38 +1,62 @@
 """Experience replay buffer for DQN."""
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import numpy as np
+import torch
 
 
 class ReplayBuffer:
     """
     Experience replay buffer for storing and sampling transitions.
-    Uses pre-allocated numpy arrays for efficient sampling.
+    Uses pre-allocated arrays. Supports GPU storage for faster sampling.
     """
 
-    def __init__(self, capacity: int = 10000, seed: Optional[int] = None):
+    def __init__(
+        self,
+        capacity: int = 10000,
+        seed: Optional[int] = None,
+        device: Optional[Union[str, torch.device]] = None,
+    ):
         self.capacity = capacity
         self.pos = 0
         self.size = 0
-        self._obs_buf: Optional[np.ndarray] = None
-        self._next_obs_buf: Optional[np.ndarray] = None
-        self._action_buf: Optional[np.ndarray] = None
-        self._reward_buf: Optional[np.ndarray] = None
-        self._done_buf: Optional[np.ndarray] = None
-        self._legal_mask_buf: Optional[np.ndarray] = None
-        self._next_legal_mask_buf: Optional[np.ndarray] = None
         self._rng = np.random.default_rng(seed)
+        
+        # Device for storage (None = numpy/CPU, "cuda" = GPU tensors)
+        if device is None:
+            self.device = None
+        else:
+            self.device = torch.device(device)
+        self._use_gpu = self.device is not None and self.device.type == "cuda"
+        
+        self._obs_buf = None
+        self._next_obs_buf = None
+        self._action_buf = None
+        self._reward_buf = None
+        self._done_buf = None
+        self._legal_mask_buf = None
+        self._next_legal_mask_buf = None
 
     def _allocate(self, obs: np.ndarray, legal_mask: np.ndarray) -> None:
         obs = np.asarray(obs, dtype=np.float32)
         legal_mask = np.asarray(legal_mask, dtype=bool)
-        self._obs_buf = np.zeros((self.capacity, *obs.shape), dtype=np.float32)
-        self._next_obs_buf = np.zeros((self.capacity, *obs.shape), dtype=np.float32)
-        self._action_buf = np.zeros(self.capacity, dtype=np.int64)
-        self._reward_buf = np.zeros(self.capacity, dtype=np.float32)
-        self._done_buf = np.zeros(self.capacity, dtype=bool)
-        self._legal_mask_buf = np.zeros((self.capacity, *legal_mask.shape), dtype=bool)
-        self._next_legal_mask_buf = np.zeros((self.capacity, *legal_mask.shape), dtype=bool)
+        
+        if self._use_gpu:
+            self._obs_buf = torch.zeros((self.capacity, *obs.shape), dtype=torch.float32, device=self.device)
+            self._next_obs_buf = torch.zeros((self.capacity, *obs.shape), dtype=torch.float32, device=self.device)
+            self._action_buf = torch.zeros(self.capacity, dtype=torch.long, device=self.device)
+            self._reward_buf = torch.zeros(self.capacity, dtype=torch.float32, device=self.device)
+            self._done_buf = torch.zeros(self.capacity, dtype=torch.bool, device=self.device)
+            self._legal_mask_buf = torch.zeros((self.capacity, *legal_mask.shape), dtype=torch.bool, device=self.device)
+            self._next_legal_mask_buf = torch.zeros((self.capacity, *legal_mask.shape), dtype=torch.bool, device=self.device)
+        else:
+            self._obs_buf = np.zeros((self.capacity, *obs.shape), dtype=np.float32)
+            self._next_obs_buf = np.zeros((self.capacity, *obs.shape), dtype=np.float32)
+            self._action_buf = np.zeros(self.capacity, dtype=np.int64)
+            self._reward_buf = np.zeros(self.capacity, dtype=np.float32)
+            self._done_buf = np.zeros(self.capacity, dtype=bool)
+            self._legal_mask_buf = np.zeros((self.capacity, *legal_mask.shape), dtype=bool)
+            self._next_legal_mask_buf = np.zeros((self.capacity, *legal_mask.shape), dtype=bool)
 
     def push(
         self,
@@ -48,31 +72,53 @@ class ReplayBuffer:
             self._allocate(obs, legal_mask)
 
         idx = self.pos
-        np.copyto(self._obs_buf[idx], np.asarray(obs, dtype=np.float32))
-        np.copyto(self._next_obs_buf[idx], np.asarray(next_obs, dtype=np.float32))
-        np.copyto(self._legal_mask_buf[idx], np.asarray(legal_mask, dtype=bool))
-        np.copyto(self._next_legal_mask_buf[idx], np.asarray(next_legal_mask, dtype=bool))
-        self._action_buf[idx] = action
-        self._reward_buf[idx] = reward
-        self._done_buf[idx] = done
+        
+        if self._use_gpu:
+            self._obs_buf[idx] = torch.from_numpy(np.asarray(obs, dtype=np.float32)).to(self.device)
+            self._next_obs_buf[idx] = torch.from_numpy(np.asarray(next_obs, dtype=np.float32)).to(self.device)
+            self._legal_mask_buf[idx] = torch.from_numpy(np.asarray(legal_mask, dtype=bool)).to(self.device)
+            self._next_legal_mask_buf[idx] = torch.from_numpy(np.asarray(next_legal_mask, dtype=bool)).to(self.device)
+            self._action_buf[idx] = action
+            self._reward_buf[idx] = reward
+            self._done_buf[idx] = done
+        else:
+            np.copyto(self._obs_buf[idx], np.asarray(obs, dtype=np.float32))
+            np.copyto(self._next_obs_buf[idx], np.asarray(next_obs, dtype=np.float32))
+            np.copyto(self._legal_mask_buf[idx], np.asarray(legal_mask, dtype=bool))
+            np.copyto(self._next_legal_mask_buf[idx], np.asarray(next_legal_mask, dtype=bool))
+            self._action_buf[idx] = action
+            self._reward_buf[idx] = reward
+            self._done_buf[idx] = done
 
         self.pos = (self.pos + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
 
-    def sample(self, batch_size: int) -> Tuple[np.ndarray, ...]:
+    def sample(self, batch_size: int):
         batch_size = min(batch_size, self.size)
         indices = self._rng.choice(self.size, size=batch_size, replace=False)
         phys = (self.pos - self.size + indices + self.capacity) % self.capacity
 
-        return (
-            self._obs_buf[phys],
-            self._action_buf[phys],
-            self._reward_buf[phys],
-            self._next_obs_buf[phys],
-            self._done_buf[phys],
-            self._legal_mask_buf[phys],
-            self._next_legal_mask_buf[phys],
-        )
+        if self._use_gpu:
+            phys_t = torch.from_numpy(phys).to(self.device)
+            return (
+                self._obs_buf[phys_t],
+                self._action_buf[phys_t],
+                self._reward_buf[phys_t],
+                self._next_obs_buf[phys_t],
+                self._done_buf[phys_t],
+                self._legal_mask_buf[phys_t],
+                self._next_legal_mask_buf[phys_t],
+            )
+        else:
+            return (
+                self._obs_buf[phys],
+                self._action_buf[phys],
+                self._reward_buf[phys],
+                self._next_obs_buf[phys],
+                self._done_buf[phys],
+                self._legal_mask_buf[phys],
+                self._next_legal_mask_buf[phys],
+            )
 
     def __len__(self) -> int:
         return self.size
