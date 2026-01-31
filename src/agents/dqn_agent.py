@@ -388,35 +388,72 @@ class DQNAgent(BaseAgent):
         
         self.optimizer.zero_grad()
         loss.backward()
+        clip_norm = 1.0
         if self.use_twin_q:
             total_grad_norm = torch.nn.utils.clip_grad_norm_(
-                list(self.q_network.parameters()) + list(self.q_network2.parameters()), 
-                max_norm=1.0
+                list(self.q_network.parameters()) + list(self.q_network2.parameters()),
+                max_norm=clip_norm,
             )
         else:
-            total_grad_norm = torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
+            total_grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.q_network.parameters(), max_norm=clip_norm
+            )
         self.optimizer.step()
 
         if self.use_per and indices is not None:
             new_prios = td_errors_abs.cpu().numpy() + self.per_eps
             self.replay_buffer.update_priorities(indices, new_prios)
-        
-        metrics = {"loss": loss.item(), "grad_norm": total_grad_norm.item()}
-        
+
+        pre_clip_norm = float(total_grad_norm)  # clip_grad_norm returns pre-clip norm
+        lr = self.optimizer.param_groups[0].get("lr", self.learning_rate)
+        metrics = {
+            "loss": loss.item(),
+            "grad_norm": pre_clip_norm,
+            "update_magnitude": lr * min(pre_clip_norm, clip_norm),
+        }
+
         if self.compute_detailed_metrics:
             with torch.no_grad():
                 avg_q = q_value.mean()
-                max_q = q_value.max()
-                min_q = q_value.min()
                 avg_target_q = target_q_value.mean()
                 mean_td_error = td_errors_abs.mean()
-            
+
+                # Target Q: mean, p95, max (bootstrap drift early signal)
+                target_q_np = target_q_value.cpu().float().numpy()
+                tq_sorted = np.sort(target_q_np)
+                target_q_p95 = float(np.percentile(tq_sorted, 95))
+                target_q_max = float(target_q_value.max().item())
+
+                # TD error tails (important for PER)
+                td_np = td_errors_abs.cpu().float().numpy()
+                td_sorted = np.sort(td_np)
+                td_error_p95 = float(np.percentile(td_sorted, 95))
+                td_error_max = float(td_errors_abs.max().item())
+
+                # Q spread over legal: mean(max_a Q - min_a Q) per sample
+                masked_max = q_values.masked_fill(~legal_mask_tensor, float("-inf")).max(dim=1)[0]
+                masked_min = q_values.masked_fill(~legal_mask_tensor, float("inf")).min(dim=1)[0]
+                spread = masked_max - masked_min
+                spread = torch.where(torch.isfinite(spread), spread, torch.zeros_like(spread))
+                q_spread = float(spread.mean().item())
+
+                # Top2 gap over legal (ranking quality)
+                masked_q = q_values.masked_fill(~legal_mask_tensor, float("-inf"))
+                top2 = masked_q.topk(2, dim=1)
+                gap = top2.values[:, 0] - top2.values[:, 1]
+                gap = torch.where(torch.isfinite(gap), gap, torch.zeros_like(gap))
+                top2_gap = float(gap.mean().item())
+
             metrics.update({
                 "avg_q": avg_q.item(),
-                "max_q": max_q.item(),
-                "min_q": min_q.item(),
                 "avg_target_q": avg_target_q.item(),
+                "target_q_p95": target_q_p95,
+                "target_q_max": target_q_max,
                 "td_error": mean_td_error.item(),
+                "td_error_p95": td_error_p95,
+                "td_error_max": td_error_max,
+                "q_spread": q_spread,
+                "top2_gap": top2_gap,
             })
         
         return metrics

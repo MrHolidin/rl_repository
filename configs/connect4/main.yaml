@@ -25,7 +25,7 @@ agent:
     device: cuda:0  # force NVIDIA GPU (avoid Intel integrated)
 
 train:
-  total_steps: 50000
+  total_steps: 250000
   deterministic: false
   track_timings: true
   start_policy: agent_first
@@ -37,6 +37,9 @@ train:
       params:
         interval: 2000
         prefix: dqn
+    - type: metrics_file
+      params:
+        interval: 100
     - type: epsilon_decay
       params:
         every: episode

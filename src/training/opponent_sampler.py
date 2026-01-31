@@ -31,19 +31,21 @@ class OpponentSampler(ABC):
 
 
 class RandomOpponentSampler(OpponentSampler):
-    """Always returns a fresh random agent."""
+    """Returns a fresh random agent per episode with episode-varying seed for diversity."""
 
     def __init__(self, seed: Optional[int] = None):
         self.seed = seed
-        self._episodes_sampled = 0
+        self._episode_index = 0
 
-    def prepare(self, episode_index: int) -> None:  # pragma: no cover - trivial
-        self._episodes_sampled = episode_index
+    def prepare(self, episode_index: int) -> None:
+        self._episode_index = episode_index
 
     def sample(self) -> BaseAgent:
-        agent = RandomAgent(seed=(self.seed if self.seed is not None else None))
-        self._episodes_sampled += 1
-        return agent
+        episode = self._episode_index
+        self._episode_index += 1
+        # Episode-varying seed gives diverse opponents each episode (match OpponentPool)
+        opp_seed = (self.seed + 100000 + episode) if self.seed is not None else None
+        return RandomAgent(seed=opp_seed)
 
 
 class OpponentPoolSampler(OpponentSampler):

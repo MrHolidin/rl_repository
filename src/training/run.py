@@ -20,6 +20,7 @@ from src.training.callbacks import (
     CheckpointCallback,
     EpsilonDecayCallback,
     LearningRateDecayCallback,
+    MetricsFileCallback,
     StatusFileCallback,
     TrainerCallback,
 )
@@ -127,6 +128,18 @@ def _build_epsilon_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallbac
     if every not in ("step", "episode"):
         every = "step"
     return EpsilonDecayCallback(every=every)
+
+
+def _build_metrics_file_callback(
+    run_dir: Path,
+    cb: CallbackConfig,
+) -> Optional[TrainerCallback]:
+    if not cb.enabled or cb.type.lower() != "metrics_file":
+        return None
+    p = cb.params
+    interval = int(p.get("interval", 100))
+    filename = str(p.get("filename", "metrics.csv"))
+    return MetricsFileCallback(run_dir=run_dir, interval=interval, filename=filename)
 
 
 def _build_lr_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallback]:
@@ -283,6 +296,10 @@ def run(
         _build_checkpoint_callback(run_dir, app_cfg.train.callbacks),
     ]
     for cb_cfg in app_cfg.train.callbacks:
+        built = _build_metrics_file_callback(run_dir, cb_cfg)
+        if built is not None:
+            callbacks.append(built)
+            continue
         for builder in (_build_epsilon_decay_callback, _build_lr_decay_callback):
             built = builder(cb_cfg)
             if built is not None:
