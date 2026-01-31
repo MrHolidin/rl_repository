@@ -42,6 +42,7 @@ class TrainConfig:
     track_timings: bool = False
     callbacks: List[CallbackConfig] = field(default_factory=list)
     start_policy: str = "random"
+    random_opening: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -88,6 +89,7 @@ class AppConfig:
             track_timings=train_data.get("track_timings", False),
             callbacks=callbacks,
             start_policy=str(train_data.get("start_policy", "random")),
+            random_opening=train_data.get("random_opening"),
         )
 
         eval_data = data.get("eval", {})

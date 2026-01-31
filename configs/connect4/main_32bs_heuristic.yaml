@@ -30,6 +30,10 @@ train:
   deterministic: false
   track_timings: true
   start_policy: random
+  random_opening:
+    probability: 0.5
+    min_half_moves: 1
+    max_half_moves: 6
   opponent_sampler:
     type: pool
     params:

@@ -62,9 +62,6 @@ class MetricsFileCallback(TrainerCallback):
         transition: Transition,
         metrics: Dict[str, float],
     ) -> None:
-        if step % self.interval != 0:
-            return
-
         agent = trainer.agent
         epsilon = getattr(agent, "epsilon", None)
         lr = getattr(agent, "learning_rate", None)
@@ -80,6 +77,9 @@ class MetricsFileCallback(TrainerCallback):
             for key in self.FIELDS:
                 if key not in ("step", "episode") and key in metrics:
                     self._last[key] = metrics[key]
+
+        if step % self.interval != 0:
+            return
 
         row = {"step": step, "episode": trainer.episode_index}
         for key in self.FIELDS:

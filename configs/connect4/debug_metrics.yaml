@@ -1,0 +1,38 @@
+# Short run to debug metrics.csv (~200 steps, few seconds)
+seed: 42
+
+game:
+  id: connect4
+  params: { rows: 6, cols: 7 }
+
+agent:
+  id: dqn
+  params:
+    learning_rate: 1.0e-5
+    discount_factor: 0.99
+    use_twin_q: false
+    epsilon: 1.0
+    epsilon_decay: 0.9998
+    epsilon_min: 0.05
+    batch_size: 32
+    replay_buffer_size: 500
+    target_update_freq: 200
+    device: cuda:0
+    metrics_interval: 100
+
+train:
+  total_steps: 250
+  deterministic: false
+  track_timings: true
+  start_policy: agent_first
+  opponent_sampler:
+    type: random
+    params: {}
+  callbacks:
+    - type: metrics_file
+      params: { interval: 50 }
+    - type: epsilon_decay
+      params: { every: step }
+
+eval:
+  enabled: false

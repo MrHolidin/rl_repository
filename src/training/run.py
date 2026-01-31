@@ -24,6 +24,7 @@ from src.training.callbacks import (
     StatusFileCallback,
     TrainerCallback,
 )
+from src.training.random_opening import RandomOpeningConfig
 from src.training.trainer import StartPolicy, Trainer
 
 
@@ -310,6 +311,8 @@ def run(
 
     opponent_sampler = _build_opponent_sampler(app_cfg, agent, device)
     start_policy = _resolve_start_policy(app_cfg.train.start_policy)
+    ro = getattr(app_cfg.train, "random_opening", None)
+    random_opening_config = RandomOpeningConfig(**ro) if ro else None
 
     trainer = Trainer(
         env,
@@ -319,6 +322,7 @@ def run(
         opponent_sampler=opponent_sampler,
         start_policy=start_policy,
         rng=rng,
+        random_opening_config=random_opening_config,
     )
 
     # Install signal handlers for graceful stop

@@ -223,7 +223,7 @@ class DQNAgent(BaseAgent):
         else:
             obs, action, reward, next_obs, done, *_rest = transition
             if len(_rest) >= 2:
-                legal_mask, next_legal_mask = _rest[:2]
+                legal_mask, next_legal_mask = _rest[-2], _rest[-1]
             else:
                 legal_mask = np.ones(self.num_actions, dtype=bool)
                 next_legal_mask = np.ones(self.num_actions, dtype=bool)
