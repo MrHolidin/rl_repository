@@ -340,7 +340,7 @@ class DQNAgent(BaseAgent):
                 legal_mask_batch, next_legal_mask_batch,
             ) = self.replay_buffer.sample(self.batch_size)
             indices = None
-            is_weights = np.ones(len(action_batch), dtype=np.float32)
+            is_weights = None
         
         # Convert to tensors if needed (GPU buffer returns tensors directly)
         if isinstance(obs_batch, torch.Tensor):
@@ -352,7 +352,11 @@ class DQNAgent(BaseAgent):
             done_tensor = done_batch
             legal_mask_tensor = legal_mask_batch
             next_legal_mask_tensor = next_legal_mask_batch
-            is_weights_tensor = torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
+            is_weights_tensor = (
+                torch.as_tensor(is_weights, dtype=torch.float32, device=self.device)
+                if is_weights is not None
+                else torch.ones(self.batch_size, dtype=torch.float32, device=self.device)
+            )
         else:
             # CPU numpy arrays - use pinned memory for async transfer
             use_pinned = self.device.type == "cuda"
@@ -371,7 +375,11 @@ class DQNAgent(BaseAgent):
             done_tensor = to_tensor(done_batch, torch.bool)
             legal_mask_tensor = to_tensor(legal_mask_batch, torch.bool)
             next_legal_mask_tensor = to_tensor(next_legal_mask_batch, torch.bool)
-            is_weights_tensor = to_tensor(is_weights, torch.float32)
+            is_weights_tensor = (
+                to_tensor(is_weights, torch.float32)
+                if is_weights is not None
+                else torch.ones(self.batch_size, dtype=torch.float32, device=self.device)
+            )
         
         q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
         q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
