@@ -24,3 +24,6 @@ These are optional stabilizers; their absence cannot fully break learning.
  - Look at docs/agents/*.md when start new chat or need some clarification
  - If your change makes documantation outdated, update
  - Do not add unnecessary information to docs, keep it clean and consice
+
+ # Instruments
+ - use python3 in terminal

@@ -145,15 +145,20 @@ class DQNAgent(BaseAgent):
                 beta_start=per_beta_start,
                 beta_frames=per_beta_frames,
                 eps=per_eps,
+                seed=seed,
             )
         else:
-            self.replay_buffer = ReplayBuffer(capacity=replay_buffer_size)
+            self.replay_buffer = ReplayBuffer(capacity=replay_buffer_size, seed=seed)
         
         # Random seed
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)
+            if self.device.type == "cuda":
+                torch.cuda.manual_seed_all(seed)
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
 
     def act(
         self,

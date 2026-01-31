@@ -34,7 +34,6 @@ class Connect4Env(TurnBasedEnv):
 
         self._game = Connect4Game(rows=rows, cols=cols)
         self._state: Optional[Connect4State] = None
-        self._rng = np.random.default_rng()
 
         if observation_builder is None:
             observation_builder = BoardChannels(board_shape=(rows, cols))
@@ -51,9 +50,6 @@ class Connect4Env(TurnBasedEnv):
     # ------------------------------------------------------------------
 
     def reset(self, seed: Optional[int] = None) -> np.ndarray:
-        if seed is not None:
-            self._rng = np.random.default_rng(seed)
-
         self._state = self._game.initial_state()
         self._last_move = None
         return self._get_obs()
