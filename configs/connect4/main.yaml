@@ -23,6 +23,7 @@ agent:
     tau: 0.001
     n_step: 1
     device: cuda:0  # force NVIDIA GPU (avoid Intel integrated)
+    metrics_interval: 100
 
 train:
   total_steps: 250000

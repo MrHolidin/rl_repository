@@ -18,6 +18,7 @@ agent:
     replay_buffer_size: 2000
     target_update_freq: 500
     device: cuda:0
+    metrics_interval: 100
 
 train:
   total_steps: 500

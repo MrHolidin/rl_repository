@@ -56,6 +56,7 @@ class DQNAgent(BaseAgent):
         n_step: int = 1,
         use_twin_q: bool = False,
         target_q_clip: Optional[float] = None,
+        metrics_interval: int = 1,
     ):
         """
         Initialize DQN agent.
@@ -100,6 +101,8 @@ class DQNAgent(BaseAgent):
         self.step_count = 0
         self.action_space = action_space or DiscreteActionSpace(num_actions)
         self.compute_detailed_metrics = compute_detailed_metrics
+        self.metrics_interval = max(1, metrics_interval)
+        self._train_steps = 0
         self.use_per = use_per
         self.per_eps = per_eps
         self.n_step = max(1, n_step)
@@ -440,7 +443,9 @@ class DQNAgent(BaseAgent):
             "update_magnitude": lr * min(pre_clip_norm, clip_norm),
         }
 
-        if self.compute_detailed_metrics:
+        self._train_steps += 1
+        should_compute = self.compute_detailed_metrics and (self._train_steps % self.metrics_interval == 0)
+        if should_compute:
             with torch.no_grad():
                 avg_q = q_value.mean()
                 avg_target_q = target_q_value.mean()
