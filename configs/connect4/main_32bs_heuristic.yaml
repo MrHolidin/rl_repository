@@ -1,0 +1,67 @@
+seed: 42
+
+game:
+  id: connect4
+  params:
+    rows: 6
+    cols: 7
+
+agent:
+  id: dqn
+  params:
+    learning_rate: 1.0e-5
+    discount_factor: 0.99
+    use_twin_q: false
+    epsilon: 1.0
+    epsilon_decay: 0.9998
+    epsilon_min: 0.05
+    batch_size: 32
+    replay_buffer_size: 20000
+    use_per: false
+    target_update_freq: 1000
+    soft_update: false
+    tau: 0.001
+    n_step: 1
+    device: cuda:0
+    metrics_interval: 100
+
+train:
+  total_steps: 100000
+  deterministic: false
+  track_timings: true
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      heuristic_distribution:
+        random: 0.2
+        heuristic: 0.8
+      self_play:
+        start_episode: 0
+        current_self_fraction: 0
+        past_self_fraction: 0
+        max_frozen_agents: 0
+        save_every: 1000
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 5000
+        prefix: dqn
+    - type: metrics_file
+      params:
+        interval: 100
+    - type: epsilon_decay
+      params:
+        every: step
+    - type: lr_decay
+      params:
+        interval_steps: 50000
+        decay_factor: 0.9
+        min_lr: 1.0e-6
+        optimizer_attr: optimizer
+        metric_key: learning_rate
+
+eval:
+  enabled: false
+  num_episodes: 50
+  deterministic: true

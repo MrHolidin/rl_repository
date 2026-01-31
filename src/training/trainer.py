@@ -134,10 +134,8 @@ class Trainer:
 
         self._prepare_opponent()
 
-        # Determine who goes first in first episode
-        current_player_is_agent = self._should_agent_go_first()
+        current_player_is_agent = self._resolve_whose_turn_after_episode_start()
 
-        # If opponent goes first, handle opening
         if not current_player_is_agent:
             obs, episode_reward, episode_length, current_player_is_agent = self._handle_opponent_start(
                 obs, episode_reward, episode_length, reward_config, None
@@ -174,7 +172,7 @@ class Trainer:
                     )
                     iteration_start = perf_counter() if self.track_timings else None
                     episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
-                    current_player_is_agent = self._should_agent_go_first()
+                    current_player_is_agent = self._resolve_whose_turn_after_episode_start()
                     continue
 
                 # Game continues, wait for opponent
@@ -205,7 +203,7 @@ class Trainer:
                         )
                         iteration_start = perf_counter() if self.track_timings else None
                         episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
-                        current_player_is_agent = self._should_agent_go_first()
+                        current_player_is_agent = self._resolve_whose_turn_after_episode_start()
                         continue
 
                     current_player_is_agent = True  # Switch back to agent
@@ -477,6 +475,17 @@ class Trainer:
                 goes_first = self._rng.random() < 0.5
         self._agent_token = 1 if goes_first else -1
         return goes_first
+
+    def _is_agent_turn(self) -> bool:
+        """True if env's current player is the agent (uses actual env state after e.g. random opening)."""
+        if hasattr(self.env, "current_player_token"):
+            return getattr(self.env, "current_player_token") == self._agent_token
+        return self._agent_token == 1
+
+    def _resolve_whose_turn_after_episode_start(self) -> bool:
+        """Set agent token from start policy and return whether it is the agent's turn (uses env state after e.g. random opening)."""
+        self._should_agent_go_first()
+        return self._is_agent_turn()
 
     def _process_maybe_opening_transition(
         self,

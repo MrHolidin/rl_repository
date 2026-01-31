@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from src.agents import HeuristicAgent, RandomAgent
+from src.agents import HeuristicAgent, RandomAgent, SmartHeuristicAgent
 from src.agents.dqn_agent import DQNAgent
 from src.envs import Connect4Env, RewardConfig
 from src.features.action_space import DiscreteActionSpace
@@ -62,10 +62,32 @@ def load_dqn_checkpoint(
     return agent
 
 
+_VALID_OPPONENT_NAMES = frozenset({"random", "heuristic", "smart_heuristic"})
+
+
+def build_opponents_from_names(
+    names: List[str],
+    seed: int = 42,
+) -> Dict[str, "BaseAgent"]:
+    """Build opponent agents from names (random, heuristic, smart_heuristic)."""
+    from src.agents.base_agent import BaseAgent
+
+    bad = [n for n in names if n not in _VALID_OPPONENT_NAMES]
+    if bad:
+        raise ValueError(f"Unknown opponent names: {bad}. Valid: {sorted(_VALID_OPPONENT_NAMES)}")
+    agents = {
+        "random": RandomAgent,
+        "heuristic": HeuristicAgent,
+        "smart_heuristic": SmartHeuristicAgent,
+    }
+    return {name: agents[name](seed=seed + (i + 1)) for i, name in enumerate(names)}
+
+
 def eval_checkpoints_vs_opponents(
     checkpoint_paths: List[Path],
     *,
     opponents: Optional[Dict[str, "BaseAgent"]] = None,
+    opponent_names: Optional[List[str]] = None,
     num_games: int = 100,
     device: Optional[str] = None,
     seed: int = 42,
@@ -77,7 +99,8 @@ def eval_checkpoints_vs_opponents(
 
     Args:
         checkpoint_paths: List of checkpoint file paths.
-        opponents: Dict of {name: agent}. Default: random + heuristic.
+        opponents: Dict of {name: agent}. Ignored if opponent_names is set.
+        opponent_names: List of opponent types: random, heuristic, smart_heuristic. Builds opponents if given.
         num_games: Games per (checkpoint, opponent) pair.
         device: Device for DQN ('cuda' or 'cpu').
         seed: Random seed.
@@ -93,7 +116,9 @@ def eval_checkpoints_vs_opponents(
         reward_config = RewardConfig()
     env = Connect4Env(rows=6, cols=7, reward_config=reward_config)
 
-    if opponents is None:
+    if opponent_names is not None:
+        opponents = build_opponents_from_names(opponent_names, seed=seed)
+    elif opponents is None:
         opponents = {
             "random": RandomAgent(seed=seed + 1),
             "heuristic": HeuristicAgent(seed=seed + 2),

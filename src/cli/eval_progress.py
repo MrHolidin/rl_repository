@@ -62,6 +62,14 @@ def main() -> None:
         default="random",
         help="Who goes first: random, agent_first, or opponent_first (default: random)",
     )
+    parser.add_argument(
+        "--opponents",
+        nargs="+",
+        choices=["random", "heuristic", "smart_heuristic"],
+        default=["random", "heuristic"],
+        metavar="OPP",
+        help="Opponent types to evaluate against (default: random heuristic)",
+    )
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
@@ -81,6 +89,7 @@ def main() -> None:
 
     df = eval_checkpoints_vs_opponents(
         paths,
+        opponent_names=args.opponents,
         num_games=args.num_games,
         device=args.device,
         seed=args.seed,
