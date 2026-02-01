@@ -14,9 +14,9 @@ agent:
     discount_factor: 0.99
     use_twin_q: false
     epsilon: 1.0
-    epsilon_decay: 0.99995
+    epsilon_decay: 0.99998
     epsilon_min: 0.05
-    batch_size: 32
+    batch_size: 64
     replay_buffer_size: 100000
     use_per: false
     target_update_freq: 1000
@@ -25,9 +25,11 @@ agent:
     n_step: 1
     device: cuda:0
     metrics_interval: 100
+    update_every: 4
+    grad_clip_norm: 2
 
 train:
-  total_steps: 200000
+  total_steps: 1000000
   deterministic: false
   track_timings: true
   start_policy: random
@@ -43,10 +45,10 @@ train:
         heuristic: 0.8
       self_play:
         start_episode: 0
-        current_self_fraction: 0
-        past_self_fraction: 0
+        current_self_fraction: 0.3
+        past_self_fraction: 0.2
         max_frozen_agents: 0
-        save_every: 1000
+        save_every: 5000
   callbacks:
     - type: checkpoint
       params:

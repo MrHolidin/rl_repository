@@ -172,3 +172,71 @@ def eval_checkpoints_vs_opponents(
         print(f"  → {win_str}", flush=True)
 
     return pd.DataFrame(rows)
+
+
+def eval_single_checkpoint_by_side(
+    checkpoint_path: Path,
+    *,
+    opponent_name: str = "smart_heuristic",
+    num_games_per_side: int = 200,
+    device: Optional[str] = None,
+    seed: int = 42,
+    reward_config: Optional[RewardConfig] = None,
+) -> Dict[str, Dict[str, float]]:
+    """
+    Evaluate one checkpoint vs one opponent, 200 games with DQN first and 200 with DQN second.
+    Returns win/draw/loss rates per side.
+    """
+    if reward_config is None:
+        reward_config = RewardConfig()
+    env = Connect4Env(rows=6, cols=7, reward_config=reward_config)
+    opponents = build_opponents_from_names([opponent_name], seed=seed)
+    opponent = opponents[opponent_name]
+    agent = load_dqn_checkpoint(checkpoint_path, device=device, seed=seed)
+    for a in (agent, opponent):
+        if hasattr(a, "eval"):
+            a.eval()
+        if hasattr(a, "epsilon"):
+            setattr(a, "epsilon", 0.0)
+
+    # DQN first (agent1 = DQN)
+    w1, d1, l1 = play_match(
+        agent, opponent,
+        num_games=num_games_per_side,
+        seed=seed,
+        randomize_first_player=False,
+        reward_config=reward_config,
+        env=env,
+    )
+    total1 = w1 + d1 + l1
+    # DQN second (agent2 = DQN)
+    l2, d2, w2 = play_match(
+        opponent, agent,
+        num_games=num_games_per_side,
+        seed=seed + 10000,
+        randomize_first_player=False,
+        reward_config=reward_config,
+        env=env,
+    )
+    total2 = l2 + d2 + w2
+
+    return {
+        "dqn_first": {
+            "win_rate": w1 / total1 if total1 else 0.0,
+            "draw_rate": d1 / total1 if total1 else 0.0,
+            "loss_rate": l1 / total1 if total1 else 0.0,
+            "wins": w1,
+            "draws": d1,
+            "losses": l1,
+            "games": total1,
+        },
+        "dqn_second": {
+            "win_rate": w2 / total2 if total2 else 0.0,
+            "draw_rate": d2 / total2 if total2 else 0.0,
+            "loss_rate": l2 / total2 if total2 else 0.0,
+            "wins": w2,
+            "draws": d2,
+            "losses": l2,
+            "games": total2,
+        },
+    }

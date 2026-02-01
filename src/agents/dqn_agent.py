@@ -57,6 +57,8 @@ class DQNAgent(BaseAgent):
         use_twin_q: bool = False,
         target_q_clip: Optional[float] = None,
         metrics_interval: int = 1,
+        update_every: int = 1,
+        grad_clip_norm: float = 1.0,
     ):
         """
         Initialize DQN agent.
@@ -102,6 +104,8 @@ class DQNAgent(BaseAgent):
         self.action_space = action_space or DiscreteActionSpace(num_actions)
         self.compute_detailed_metrics = compute_detailed_metrics
         self.metrics_interval = max(1, metrics_interval)
+        self.update_every = max(1, update_every)
+        self.grad_clip_norm = float(grad_clip_norm)
         self._train_steps = 0
         self.use_per = use_per
         self.per_eps = per_eps
@@ -292,7 +296,14 @@ class DQNAgent(BaseAgent):
                 "buffer_capacity": self.replay_buffer.capacity,
                 "buffer_utilization": len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0,
             }
-        
+
+        if self.step_count % self.update_every != 0:
+            return {
+                "buffer_size": len(self.replay_buffer),
+                "buffer_capacity": self.replay_buffer.capacity,
+                "buffer_utilization": len(self.replay_buffer) / self.replay_buffer.capacity if self.replay_buffer.capacity > 0 else 0.0,
+            }
+
         metrics = self._train()
 
         if self.target_update_freq > 0 and self.step_count % self.target_update_freq == 0:
@@ -424,15 +435,14 @@ class DQNAgent(BaseAgent):
         
         self.optimizer.zero_grad()
         loss.backward()
-        clip_norm = 1.0
         if self.use_twin_q:
             total_grad_norm = torch.nn.utils.clip_grad_norm_(
                 list(self.q_network.parameters()) + list(self.q_network2.parameters()),
-                max_norm=clip_norm,
+                max_norm=self.grad_clip_norm,
             )
         else:
             total_grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.q_network.parameters(), max_norm=clip_norm
+                self.q_network.parameters(), max_norm=self.grad_clip_norm
             )
         self.optimizer.step()
 
@@ -448,7 +458,7 @@ class DQNAgent(BaseAgent):
         if should_compute:
             pre_clip_norm = float(total_grad_norm)
             metrics["grad_norm"] = pre_clip_norm
-            metrics["update_magnitude"] = lr * min(pre_clip_norm, clip_norm)
+            metrics["update_magnitude"] = lr * min(pre_clip_norm, self.grad_clip_norm)
             metrics["loss"] = loss.item()
             with torch.no_grad():
                 avg_q = q_value.mean()
@@ -550,6 +560,8 @@ class DQNAgent(BaseAgent):
             "tau": self.tau,
             "replay_buffer_capacity": self.replay_buffer.capacity,
             "n_step": self.n_step,
+            "update_every": self.update_every,
+            "grad_clip_norm": self.grad_clip_norm,
         }
         
         if save_epsilon:
@@ -603,6 +615,8 @@ class DQNAgent(BaseAgent):
             "tau": checkpoint.get("tau", 0.01),
             "device": device,
             "n_step": checkpoint.get("n_step", 1),
+            "update_every": checkpoint.get("update_every", 1),
+            "grad_clip_norm": checkpoint.get("grad_clip_norm", 1.0),
         }
         base_kwargs.update(overrides)
 
