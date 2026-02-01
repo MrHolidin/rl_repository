@@ -203,6 +203,22 @@ class DQNAgent(BaseAgent):
             best_action = int(masked_q.argmax(dim=1).item())
             return best_action
 
+    def act_batch(
+        self,
+        obs_batch: np.ndarray,
+        legal_mask_batch: np.ndarray,
+        deterministic: bool = True,
+    ) -> np.ndarray:
+        """Select actions for a batch of observations. For eval; no exploration."""
+        B = obs_batch.shape[0]
+        with torch.no_grad():
+            obs_t = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
+            legal_t = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
+            q = self.q_network(obs_t, legal_mask=legal_t)
+            q.masked_fill_(~legal_t, float("-inf"))
+            actions = q.argmax(dim=1)
+        return actions.cpu().numpy().astype(np.int64)
+
     def observe(self, transition) -> Dict[str, float]:
         """
         Store transition in replay buffer.
@@ -458,7 +474,16 @@ class DQNAgent(BaseAgent):
         if should_compute:
             pre_clip_norm = float(total_grad_norm)
             metrics["grad_norm"] = pre_clip_norm
-            metrics["update_magnitude"] = lr * min(pre_clip_norm, self.grad_clip_norm)
+            step_norm = min(pre_clip_norm, self.grad_clip_norm)
+            update_magnitude = lr * step_norm
+            metrics["update_magnitude"] = update_magnitude
+            metrics["effective_step_ratio"] = step_norm / pre_clip_norm if pre_clip_norm > 0 else 1.0
+            with torch.no_grad():
+                params = list(self.q_network.parameters())
+                if self.use_twin_q:
+                    params = params + list(self.q_network2.parameters())
+                param_norm = sum(p.data.pow(2).sum().item() for p in params) ** 0.5
+            metrics["effective_step_size"] = update_magnitude / param_norm if param_norm > 0 else 0.0
             metrics["loss"] = loss.item()
             with torch.no_grad():
                 avg_q = q_value.mean()

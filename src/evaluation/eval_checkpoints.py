@@ -11,9 +11,7 @@ import pandas as pd
 from src.agents import HeuristicAgent, RandomAgent, SmartHeuristicAgent
 from src.agents.dqn_agent import DQNAgent
 from src.envs import Connect4Env, RewardConfig
-from src.features.action_space import DiscreteActionSpace
-from src.features.observation_builder import BoardChannels
-from src.utils.match import play_match
+from src.utils.match import play_match, play_match_batched
 
 
 def _step_from_filename(name: str) -> Optional[int]:
@@ -89,6 +87,7 @@ def eval_checkpoints_vs_opponents(
     opponents: Optional[Dict[str, "BaseAgent"]] = None,
     opponent_names: Optional[List[str]] = None,
     num_games: int = 100,
+    batch_size: Optional[int] = 32,
     device: Optional[str] = None,
     seed: int = 42,
     reward_config: Optional[RewardConfig] = None,
@@ -102,6 +101,7 @@ def eval_checkpoints_vs_opponents(
         opponents: Dict of {name: agent}. Ignored if opponent_names is set.
         opponent_names: List of opponent types: random, heuristic, smart_heuristic. Builds opponents if given.
         num_games: Games per (checkpoint, opponent) pair.
+        batch_size: Parallel envs for batched eval (default 32). None = sequential.
         device: Device for DQN ('cuda' or 'cpu').
         seed: Random seed.
         reward_config: Environment reward config.
@@ -151,15 +151,25 @@ def eval_checkpoints_vs_opponents(
             else:
                 a1, a2 = opponent, agent
 
-            w1, draws, w2 = play_match(
-                a1,
-                a2,
-                num_games=num_games,
-                seed=seed + hash(path.stem) % (2**16) + hash(opp_name) % (2**16),
-                randomize_first_player=randomize_first,
-                reward_config=reward_config,
-                env=env,
-            )
+            match_seed = seed + hash(path.stem) % (2**16) + hash(opp_name) % (2**16)
+            if batch_size is not None and batch_size > 0:
+                w1, draws, w2 = play_match_batched(
+                    a1, a2,
+                    num_games=num_games,
+                    batch_size=min(batch_size, num_games),
+                    seed=match_seed,
+                    randomize_first_player=randomize_first,
+                    reward_config=reward_config,
+                )
+            else:
+                w1, draws, w2 = play_match(
+                    a1, a2,
+                    num_games=num_games,
+                    seed=match_seed,
+                    randomize_first_player=randomize_first,
+                    reward_config=reward_config,
+                    env=env,
+                )
             wins = w1 if agent_first_in_call else w2
             losses = w2 if agent_first_in_call else w1
             total = wins + draws + losses

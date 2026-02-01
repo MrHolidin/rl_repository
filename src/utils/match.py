@@ -5,9 +5,132 @@ import numpy as np
 from typing import List, Optional, Tuple, Union
 
 from src.envs import Connect4Env, RewardConfig
-from src.envs.base import TurnBasedEnv
+from src.envs.base import TurnBasedEnv, StepResult
 from src.envs.connect4 import CONNECT4_COLS, CONNECT4_ROWS
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
+
+
+def _apply_turn_batch(
+    envs: List[TurnBasedEnv],
+    turn_mask: List[bool],
+    obs_list: List[Optional[np.ndarray]],
+    agent,
+) -> List[Optional[StepResult]]:
+    results: List[Optional[StepResult]] = [None] * len(envs)
+    indices = [i for i in range(len(envs)) if turn_mask[i]]
+    if not indices:
+        return results
+    if hasattr(agent, "act_batch"):
+        obs_batch = np.stack([obs_list[i] for i in indices])
+        legal_batch = np.stack([envs[i].legal_actions_mask for i in indices])
+        out = agent.act_batch(obs_batch, legal_batch, deterministic=True)
+        for k, i in enumerate(indices):
+            results[i] = envs[i].step(int(out[k]))
+    else:
+        for i in indices:
+            legal = envs[i].get_legal_actions()
+            results[i] = envs[i].step(agent.select_action(obs_list[i], legal))
+    return results
+
+
+def play_match_batched(
+    agent1,
+    agent2,
+    num_games: int,
+    batch_size: int = 32,
+    seed: Optional[int] = None,
+    randomize_first_player: bool = False,
+    reward_config: Optional[RewardConfig] = None,
+    random_opening_config: Optional[RandomOpeningConfig] = None,
+    collect_episode_lengths: bool = False,
+) -> Union[Tuple[int, int, int], Tuple[int, int, int, List[int]]]:
+    """
+    Play num_games between agent1 and agent2 using batch_size parallel envs.
+    Batches forward passes when an agent implements act_batch (e.g. DQN).
+    Same return convention as play_match.
+    """
+    if reward_config is None:
+        reward_config = RewardConfig()
+    envs = [Connect4Env(rows=CONNECT4_ROWS, cols=CONNECT4_COLS, reward_config=reward_config) for _ in range(batch_size)]
+    n = len(envs)
+
+    obs: List[Optional[np.ndarray]] = [None] * n
+    done = [True] * n
+    agent1_is_player_1: List[bool] = [True] * n
+    moves_count: List[int] = [0] * n
+    game_id: List[Optional[int]] = [None] * n
+    next_game_id = 0
+    agent1_wins = draws = agent2_wins = 0
+    episode_lengths: List[int] = [] if collect_episode_lengths else []
+
+    def start_game(slot: int, gid: int) -> None:
+        nonlocal next_game_id
+        env = envs[slot]
+        game_rng = random.Random(seed + gid) if seed is not None else random
+        ob = env.reset(seed=seed + gid if seed is not None else None)
+        if random_opening_config is not None:
+            ob, _, prologue_done = maybe_apply_random_opening(
+                env=env, initial_obs=ob, config=random_opening_config, rng=game_rng
+            )
+            if prologue_done:
+                ob = env.reset(seed=seed + gid if seed is not None else None)
+        obs[slot] = ob
+        done[slot] = False
+        agent1_is_player_1[slot] = (game_rng.random() < 0.5) if randomize_first_player else True
+        moves_count[slot] = 0
+        game_id[slot] = gid
+        next_game_id += 1
+
+    for i in range(min(batch_size, num_games)):
+        start_game(i, i)
+
+    while agent1_wins + draws + agent2_wins < num_games:
+        agent1_turn = [
+            i for i in range(n)
+            if not done[i] and (
+                (envs[i].current_player_token == 1 and agent1_is_player_1[i])
+                or (envs[i].current_player_token == -1 and not agent1_is_player_1[i])
+            )
+        ]
+        agent2_turn = [
+            i for i in range(n)
+            if not done[i] and (
+                (envs[i].current_player_token == 1 and not agent1_is_player_1[i])
+                or (envs[i].current_player_token == -1 and agent1_is_player_1[i])
+            )
+        ]
+        turn_mask1 = [i in agent1_turn for i in range(n)]
+        turn_mask2 = [i in agent2_turn for i in range(n)]
+        res1 = _apply_turn_batch(envs, turn_mask1, obs, agent1)
+        res2 = _apply_turn_batch(envs, turn_mask2, obs, agent2)
+
+        for i in range(n):
+            res = res1[i] if res1[i] is not None else res2[i]
+            if res is None:
+                continue
+            obs[i] = res.obs
+            moves_count[i] += 1
+            if res.done:
+                done[i] = True
+                w = res.info.get("winner")
+                a1_first = agent1_is_player_1[i]
+                if w == 0:
+                    draws += 1
+                elif (w == 1 and a1_first) or (w == -1 and not a1_first):
+                    agent1_wins += 1
+                else:
+                    agent2_wins += 1
+                if collect_episode_lengths:
+                    episode_lengths.append(moves_count[i])
+                gid = game_id[i]
+                if next_game_id < num_games:
+                    start_game(i, next_game_id)
+                else:
+                    game_id[i] = None
+
+    if collect_episode_lengths:
+        return agent1_wins, draws, agent2_wins, episode_lengths
+    return agent1_wins, draws, agent2_wins
 
 
 def play_match(

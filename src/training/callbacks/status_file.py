@@ -47,6 +47,7 @@ class StatusFileCallback(TrainerCallback):
         self.interval = max(1, interval)
         self.total_steps = total_steps
         self.status_path = self.run_dir / "status.json"
+        self.self_play_frozen_path = self.run_dir / "self_play_frozen.json"
         self.stop_path = self.run_dir / "stop"
         self._start_time: Optional[str] = None
         self._device_info: Dict[str, Any] = {}
@@ -101,9 +102,27 @@ class StatusFileCallback(TrainerCallback):
             except (ValueError, TypeError):
                 pass
         data.update(self._device_info)
-        self._atomic_write(data)
+        self._atomic_write(self.status_path, data)
+        self._write_self_play_frozen(trainer)
 
-    def _atomic_write(self, data: Dict[str, Any]) -> None:
+    def _write_self_play_frozen(self, trainer: "Trainer") -> None:
+        """Write self_play_frozen.json when opponent_sampler is a pool with frozen agents."""
+        sampler = getattr(trainer, "opponent_sampler", None)
+        if sampler is None:
+            return
+        pool = getattr(sampler, "opponent_pool", None)
+        if pool is None or not getattr(pool, "frozen_agents", None):
+            return
+        try:
+            stats = pool.get_frozen_stats_for_status()
+        except Exception:
+            return
+        if not stats:
+            return
+        data = {"frozen_agents": stats}
+        self._atomic_write(self.self_play_frozen_path, data)
+
+    def _atomic_write(self, path: Path, data: Dict[str, Any]) -> None:
         """Write JSON atomically via tempfile + rename."""
         try:
             fd, tmp_path = tempfile.mkstemp(
@@ -112,11 +131,10 @@ class StatusFileCallback(TrainerCallback):
             try:
                 with os.fdopen(fd, "w") as f:
                     json.dump(data, f, indent=2)
-                os.replace(tmp_path, self.status_path)
+                os.replace(tmp_path, path)
             except Exception:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
                 raise
         except Exception:
-            # fallback: direct write (less safe but better than nothing)
-            self.status_path.write_text(json.dumps(data, indent=2))
+            path.write_text(json.dumps(data, indent=2))

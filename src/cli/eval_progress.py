@@ -32,6 +32,12 @@ def main() -> None:
         help="Games per checkpoint per opponent (default: 50)",
     )
     parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=32,
+        help="Parallel envs for batched eval (default: 32). Set 0 for sequential.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=None,
@@ -91,6 +97,7 @@ def main() -> None:
         paths,
         opponent_names=args.opponents,
         num_games=args.num_games,
+        batch_size=args.batch_size if args.batch_size > 0 else None,
         device=args.device,
         seed=args.seed,
         start_policy=args.start_policy,

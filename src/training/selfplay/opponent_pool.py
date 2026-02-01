@@ -304,3 +304,25 @@ class OpponentPool:
                 and len(self.frozen_agents) > 0
             ),
         }
+
+    def get_frozen_stats_for_status(self) -> List[Dict[str, Any]]:
+        """Per-frozen-agent stats (sofar) and current selection probability. Same weights as _sample_frozen_info."""
+        if not self.frozen_agents:
+            return []
+        eps = 1e-2
+        weights = [max(info.win_rate, eps) ** 2 for info in self.frozen_agents]
+        total = sum(weights)
+        probs = [w / total for w in weights] if total > 0 else [1.0 / len(self.frozen_agents)] * len(self.frozen_agents)
+        out = []
+        for info, p in zip(self.frozen_agents, probs):
+            out.append({
+                "checkpoint": os.path.basename(info.checkpoint_path),
+                "episode": info.episode,
+                "games": info.games,
+                "wins": info.wins,
+                "losses": info.losses,
+                "draws": info.draws,
+                "win_rate": round(info.win_rate, 4),
+                "selection_probability": round(p, 4),
+            })
+        return out

@@ -10,7 +10,7 @@ agent:
   id: dqn
   params:
     dueling: false
-    learning_rate: 51.0e-4
+    learning_rate: 1.0e-4
     discount_factor: 0.99
     use_twin_q: false
     epsilon: 1.0
@@ -29,7 +29,7 @@ agent:
     grad_clip_norm: 2
 
 train:
-  total_steps: 400000
+  total_steps: 1000000
   deterministic: false
   track_timings: true
   start_policy: random
@@ -45,9 +45,9 @@ train:
         heuristic: 0.8
       self_play:
         start_episode: 0
-        current_self_fraction: 0.0
-        past_self_fraction: 0.0
-        max_frozen_agents: 0
+        current_self_fraction: 0.6
+        past_self_fraction: 0.4
+        max_frozen_agents: 20
         save_every: 10000
   callbacks:
     - type: checkpoint
