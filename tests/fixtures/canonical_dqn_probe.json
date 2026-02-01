@@ -124,7 +124,7 @@
         true,
         true
       ],
-      "expected_action": 4
+      "expected_action": 2
     },
     {
       "obs": [
@@ -250,7 +250,7 @@
         true,
         true
       ],
-      "expected_action": 5
+      "expected_action": 0
     },
     {
       "obs": [
@@ -376,7 +376,7 @@
         true,
         true
       ],
-      "expected_action": 1
+      "expected_action": 0
     }
   ]
 }

@@ -23,10 +23,10 @@ if "dqn" not in list_agents():
     def _dqn_factory(**kwargs):
         # If network is already provided, use it directly
         if "network" in kwargs:
-            # Clean up old-style params
             kwargs.pop("observation_shape", None)
             kwargs.pop("observation_type", None)
             kwargs.pop("network_type", None)
+            kwargs.pop("dueling", None)
             return DQNAgent(**kwargs)
         
         # Extract network-related params
@@ -58,8 +58,9 @@ if "dqn" not in list_agents():
         in_channels = obs_shape[0] if len(obs_shape) == 3 else 3
         rows = obs_shape[1] if len(obs_shape) == 3 else 6
         cols = obs_shape[2] if len(obs_shape) == 3 else 7
-        dueling = network_type == "dueling_dqn"
-        
+        dueling = kwargs.pop("dueling", None)
+        if dueling is None:
+            dueling = network_type == "dueling_dqn"
         network = Connect4DQN(
             rows=rows,
             cols=cols,

@@ -194,12 +194,9 @@ class DQNAgent(BaseAgent):
                 dtype=torch.bool,
                 device=self.device,
             ).unsqueeze(0)
-            q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor).cpu().numpy()[0]
-            masked_q_values = q_values.copy()
-            masked_q_values[~legal_mask_arr] = -np.inf
-            best_action = int(np.argmax(masked_q_values))
-            if masked_q_values[best_action] == -np.inf:
-                best_action = int(np.random.choice(legal_actions))
+            q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
+            masked_q = q_values.masked_fill(~legal_mask_tensor, float("-inf"))
+            best_action = int(masked_q.argmax(dim=1).item())
             return best_action
 
     def observe(self, transition) -> Dict[str, float]:
@@ -443,17 +440,16 @@ class DQNAgent(BaseAgent):
             new_prios = td_errors_abs.cpu().numpy() + self.per_eps
             self.replay_buffer.update_priorities(indices, new_prios)
 
-        pre_clip_norm = float(total_grad_norm)  # clip_grad_norm returns pre-clip norm
         lr = self.optimizer.param_groups[0].get("lr", self.learning_rate)
-        metrics = {
-            "loss": loss.item(),
-            "grad_norm": pre_clip_norm,
-            "update_magnitude": lr * min(pre_clip_norm, clip_norm),
-        }
-
         self._train_steps += 1
         should_compute = self.compute_detailed_metrics and (self._train_steps % self.metrics_interval == 0)
+
+        metrics = {}
         if should_compute:
+            pre_clip_norm = float(total_grad_norm)
+            metrics["grad_norm"] = pre_clip_norm
+            metrics["update_magnitude"] = lr * min(pre_clip_norm, clip_norm)
+            metrics["loss"] = loss.item()
             with torch.no_grad():
                 avg_q = q_value.mean()
                 avg_target_q = target_q_value.mean()
