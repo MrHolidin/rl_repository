@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.agents.othello import OthelloHeuristicAgent
 from src.agents.base_agent import BaseAgent
 
 
@@ -166,6 +167,8 @@ class OpponentPool:
             return HeuristicAgent(seed=opp_seed)
         elif opp_type == "smart_heuristic":
             return SmartHeuristicAgent(seed=opp_seed)
+        elif opp_type == "othello_heuristic":
+            return OthelloHeuristicAgent(seed=opp_seed)
         else:
             raise ValueError(f"Unknown heuristic opponent type: {opp_type}")
     

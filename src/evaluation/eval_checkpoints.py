@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import pandas as pd
 
 from src.agents import HeuristicAgent, RandomAgent, SmartHeuristicAgent
+from src.agents.othello import OthelloHeuristicAgent
 from src.agents.dqn_agent import DQNAgent
 from src.envs import Connect4Env, RewardConfig
+from src.envs.othello import OthelloEnv
 from src.utils.match import play_match, play_match_batched
+
+if TYPE_CHECKING:
+    from src.envs.base import TurnBasedEnv
 
 
 def _step_from_filename(name: str) -> Optional[int]:
@@ -60,25 +65,39 @@ def load_dqn_checkpoint(
     return agent
 
 
-_VALID_OPPONENT_NAMES = frozenset({"random", "heuristic", "smart_heuristic"})
+_VALID_OPPONENT_NAMES = frozenset({
+    "random", "heuristic", "smart_heuristic", "othello_heuristic"
+})
+
+_OPPONENT_CLASSES = {
+    "random": RandomAgent,
+    "heuristic": HeuristicAgent,
+    "smart_heuristic": SmartHeuristicAgent,
+    "othello_heuristic": OthelloHeuristicAgent,
+}
 
 
 def build_opponents_from_names(
     names: List[str],
     seed: int = 42,
 ) -> Dict[str, "BaseAgent"]:
-    """Build opponent agents from names (random, heuristic, smart_heuristic)."""
+    """Build opponent agents from names (random, heuristic, smart_heuristic, othello_heuristic)."""
     from src.agents.base_agent import BaseAgent
 
     bad = [n for n in names if n not in _VALID_OPPONENT_NAMES]
     if bad:
         raise ValueError(f"Unknown opponent names: {bad}. Valid: {sorted(_VALID_OPPONENT_NAMES)}")
-    agents = {
-        "random": RandomAgent,
-        "heuristic": HeuristicAgent,
-        "smart_heuristic": SmartHeuristicAgent,
-    }
-    return {name: agents[name](seed=seed + (i + 1)) for i, name in enumerate(names)}
+    return {name: _OPPONENT_CLASSES[name](seed=seed + (i + 1)) for i, name in enumerate(names)}
+
+
+def _create_env(game_id: str, reward_config: Optional[RewardConfig] = None) -> "TurnBasedEnv":
+    """Create environment by game_id."""
+    if reward_config is None:
+        reward_config = RewardConfig()
+    if game_id == "othello":
+        return OthelloEnv(size=8, reward_config=reward_config)
+    else:
+        return Connect4Env(rows=6, cols=7, reward_config=reward_config)
 
 
 def eval_checkpoints_vs_opponents(
@@ -92,6 +111,7 @@ def eval_checkpoints_vs_opponents(
     seed: int = 42,
     reward_config: Optional[RewardConfig] = None,
     start_policy: str = "random",
+    game_id: str = "connect4",
 ) -> pd.DataFrame:
     """
     Evaluate each checkpoint against each opponent.
@@ -99,13 +119,14 @@ def eval_checkpoints_vs_opponents(
     Args:
         checkpoint_paths: List of checkpoint file paths.
         opponents: Dict of {name: agent}. Ignored if opponent_names is set.
-        opponent_names: List of opponent types: random, heuristic, smart_heuristic. Builds opponents if given.
+        opponent_names: List of opponent types: random, heuristic, smart_heuristic, othello_heuristic.
         num_games: Games per (checkpoint, opponent) pair.
         batch_size: Parallel envs for batched eval (default 32). None = sequential.
         device: Device for DQN ('cuda' or 'cpu').
         seed: Random seed.
         reward_config: Environment reward config.
         start_policy: Who goes first: 'random', 'agent_first', or 'opponent_first'.
+        game_id: Game identifier ('connect4' or 'othello').
 
     Returns:
         DataFrame with columns: step, win_rate_<opponent>, draw_rate_<opponent>, ...
@@ -114,7 +135,7 @@ def eval_checkpoints_vs_opponents(
 
     if reward_config is None:
         reward_config = RewardConfig()
-    env = Connect4Env(rows=6, cols=7, reward_config=reward_config)
+    env = _create_env(game_id, reward_config)
 
     if opponent_names is not None:
         opponents = build_opponents_from_names(opponent_names, seed=seed)
@@ -160,6 +181,7 @@ def eval_checkpoints_vs_opponents(
                     seed=match_seed,
                     randomize_first_player=randomize_first,
                     reward_config=reward_config,
+                    game_id=game_id,
                 )
             else:
                 w1, draws, w2 = play_match(
@@ -192,6 +214,7 @@ def eval_single_checkpoint_by_side(
     device: Optional[str] = None,
     seed: int = 42,
     reward_config: Optional[RewardConfig] = None,
+    game_id: str = "connect4",
 ) -> Dict[str, Dict[str, float]]:
     """
     Evaluate one checkpoint vs one opponent, 200 games with DQN first and 200 with DQN second.
@@ -199,7 +222,7 @@ def eval_single_checkpoint_by_side(
     """
     if reward_config is None:
         reward_config = RewardConfig()
-    env = Connect4Env(rows=6, cols=7, reward_config=reward_config)
+    env = _create_env(game_id, reward_config)
     opponents = build_opponents_from_names([opponent_name], seed=seed)
     opponent = opponents[opponent_name]
     agent = load_dqn_checkpoint(checkpoint_path, device=device, seed=seed)

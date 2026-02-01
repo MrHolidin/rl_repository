@@ -71,10 +71,17 @@ def main() -> None:
     parser.add_argument(
         "--opponents",
         nargs="+",
-        choices=["random", "heuristic", "smart_heuristic"],
+        choices=["random", "heuristic", "smart_heuristic", "othello_heuristic"],
         default=["random", "heuristic"],
         metavar="OPP",
         help="Opponent types to evaluate against (default: random heuristic)",
+    )
+    parser.add_argument(
+        "--game",
+        type=str,
+        choices=["connect4", "othello"],
+        default="connect4",
+        help="Game type (default: connect4)",
     )
     args = parser.parse_args()
 
@@ -101,6 +108,7 @@ def main() -> None:
         device=args.device,
         seed=args.seed,
         start_policy=args.start_policy,
+        game_id=args.game,
     )
 
     if df.empty:

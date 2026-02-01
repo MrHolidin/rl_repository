@@ -2,12 +2,21 @@
 
 import random
 import numpy as np
-from typing import List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from src.envs import Connect4Env, RewardConfig
 from src.envs.base import TurnBasedEnv, StepResult
 from src.envs.connect4 import CONNECT4_COLS, CONNECT4_ROWS
+from src.envs.othello import OthelloEnv
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
+
+
+def _default_env_factory(game_id: str, reward_config: RewardConfig) -> TurnBasedEnv:
+    """Create environment by game_id."""
+    if game_id == "othello":
+        return OthelloEnv(size=8, reward_config=reward_config)
+    else:
+        return Connect4Env(rows=CONNECT4_ROWS, cols=CONNECT4_COLS, reward_config=reward_config)
 
 
 def _apply_turn_batch(
@@ -43,6 +52,8 @@ def play_match_batched(
     reward_config: Optional[RewardConfig] = None,
     random_opening_config: Optional[RandomOpeningConfig] = None,
     collect_episode_lengths: bool = False,
+    game_id: str = "connect4",
+    env_factory: Optional[Callable[[RewardConfig], TurnBasedEnv]] = None,
 ) -> Union[Tuple[int, int, int], Tuple[int, int, int, List[int]]]:
     """
     Play num_games between agent1 and agent2 using batch_size parallel envs.
@@ -51,7 +62,10 @@ def play_match_batched(
     """
     if reward_config is None:
         reward_config = RewardConfig()
-    envs = [Connect4Env(rows=CONNECT4_ROWS, cols=CONNECT4_COLS, reward_config=reward_config) for _ in range(batch_size)]
+    if env_factory is not None:
+        envs = [env_factory(reward_config) for _ in range(batch_size)]
+    else:
+        envs = [_default_env_factory(game_id, reward_config) for _ in range(batch_size)]
     n = len(envs)
 
     obs: List[Optional[np.ndarray]] = [None] * n

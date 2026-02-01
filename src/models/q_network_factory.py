@@ -225,11 +225,25 @@ def build_q_network(
                 model_config,
             )
     
-    # Auto-detect: Connect4 has 6x7 board
+    # Auto-detect game-specific networks by board shape
     if observation_type == "board" and len(observation_shape) == 3:
         in_channels, rows, cols = observation_shape
+        
+        # Connect4: 6x7 board
         if rows == 6 and cols == 7:
             cls = get_network_class("Connect4DQN")
+            if cls is not None:
+                return _build_game_specific_network(
+                    cls,
+                    observation_shape,
+                    num_actions,
+                    dueling,
+                    model_config,
+                )
+        
+        # Othello: 8x8 board
+        if rows == 8 and cols == 8:
+            cls = get_network_class("OthelloDQN")
             if cls is not None:
                 return _build_game_specific_network(
                     cls,
@@ -272,37 +286,56 @@ def _build_game_specific_network(
     Returns:
         Instantiated game-specific network.
     """
-    # Extract common parameters
-    kwargs = {
-        "num_actions": num_actions,
-        "dueling": dueling,
-    }
+    class_name = network_class.get_class_name()
     
     # For board-based games, extract dimensions
     if len(observation_shape) == 3:
         in_channels, rows, cols = observation_shape
-        kwargs["in_channels"] = in_channels
-        kwargs["rows"] = rows
-        kwargs["cols"] = cols
+    else:
+        in_channels, rows, cols = None, None, None
+    
+    # Build kwargs based on network type
+    if class_name == "OthelloDQN":
+        # OthelloDQN: non-dueling, uses board_size instead of rows/cols
+        kwargs = {
+            "board_size": rows if rows is not None else 8,
+            "in_channels": in_channels if in_channels is not None else 2,
+            "num_actions": num_actions,
+        }
+    else:
+        # Connect4DQN and others: use rows/cols
+        kwargs = {
+            "num_actions": num_actions,
+            "dueling": dueling,
+        }
+        if in_channels is not None:
+            kwargs["in_channels"] = in_channels
+        if rows is not None:
+            kwargs["rows"] = rows
+        if cols is not None:
+            kwargs["cols"] = cols
     
     # Apply any model_config overrides
     if model_config is not None:
-        # Allow overriding network parameters through model_config
-        for key in ["rows", "cols", "in_channels"]:
-            if key in model_config:
-                kwargs[key] = model_config[key]
+        for key, value in model_config.items():
+            if key in ["rows", "cols", "in_channels", "board_size", 
+                       "trunk_channels", "num_res_blocks", "use_coord_channels",
+                       "head_hidden", "adv_hidden", "val_hidden"]:
+                kwargs[key] = value
     
     return network_class(**kwargs)
 
 
 # ---------------------------------------------------------------------------
-# Auto-register Connect4DQN on import
+# Auto-register game-specific networks on import
 # ---------------------------------------------------------------------------
 
 def _auto_register_networks():
     """Register all known game-specific networks."""
     from .connect4_dqn import Connect4DQN
+    from .othello_dqn import OthelloDQN
     register_network(Connect4DQN)
+    register_network(OthelloDQN)
 
 
 _auto_register_networks()
