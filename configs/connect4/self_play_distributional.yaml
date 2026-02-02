@@ -1,3 +1,5 @@
+# Self-play with Quantile Regression DQN (distributional RL)
+# Optionally enables predicting return distribution instead of scalar Q
 seed: 42
 
 game:
@@ -10,6 +12,8 @@ agent:
   id: dqn
   params:
     dueling: false
+    use_distributional: true
+    n_quantiles: 32
     learning_rate: 1.0e-4
     discount_factor: 0.99
     use_twin_q: false
@@ -17,7 +21,7 @@ agent:
     epsilon_decay: 0.99998
     epsilon_min: 0.05
     batch_size: 64
-    replay_buffer_size: 100000
+    replay_buffer_size: 1000000
     use_per: false
     target_update_freq: 1000
     soft_update: false
@@ -27,6 +31,8 @@ agent:
     metrics_interval: 100
     update_every: 4
     grad_clip_norm: 2
+    target_q_clip: 2.0
+    value_reg_weight: 1.0e-4
 
 train:
   total_steps: 1000000
@@ -52,7 +58,7 @@ train:
   callbacks:
     - type: checkpoint
       params:
-        interval: 5000
+        interval: 10000
         prefix: dqn
     - type: metrics_file
       params:

@@ -1,8 +1,8 @@
 """Model modules."""
 
 from .base_dqn_network import BaseDQNNetwork
-from .connect4_dqn import Connect4DQN
-from .othello_dqn import OthelloDQN
+from .connect4_dqn import Connect4DQN, Connect4QRDQN
+from .othello_dqn import OthelloDQN, OthelloQRDQN
 from .simple_mlp import SimpleMLP
 from .author_critic_network import ActorCriticCNN
 from .q_network_factory import (

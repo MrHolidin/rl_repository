@@ -9,7 +9,7 @@ from .dqn_agent import DQNAgent
 from .ppo_agent import PPOAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels
-from ..models import Connect4DQN, OthelloDQN
+from ..models import Connect4DQN, Connect4QRDQN, OthelloDQN, OthelloQRDQN
 from ..registry import list_agents, register_agent
 
 if "random" not in list_agents():
@@ -64,24 +64,42 @@ if "dqn" not in list_agents():
         dueling = kwargs.pop("dueling", None)
         if dueling is None:
             dueling = network_type == "dueling_dqn"
+        use_distributional = kwargs.pop("use_distributional", False)
+        n_quantiles = kwargs.pop("n_quantiles", 32)
         
-        # Auto-select network based on board shape
-        if rows == 8 and cols == 8 and num_actions == 64:
-            # Othello: 8x8, non-dueling
-            network = OthelloDQN(
-                board_size=8,
-                in_channels=in_channels,
-                num_actions=num_actions,
-            )
+        if use_distributional:
+            if rows == 8 and cols == 8 and num_actions == 64:
+                network = OthelloQRDQN(
+                    board_size=8,
+                    in_channels=in_channels,
+                    num_actions=num_actions,
+                    n_quantiles=n_quantiles,
+                )
+            else:
+                network = Connect4QRDQN(
+                    rows=rows,
+                    cols=cols,
+                    in_channels=in_channels,
+                    num_actions=num_actions,
+                    n_quantiles=n_quantiles,
+                )
+            kwargs["use_distributional"] = True
+            kwargs["n_quantiles"] = n_quantiles
         else:
-            # Connect4 or generic
-            network = Connect4DQN(
-                rows=rows,
-                cols=cols,
-                in_channels=in_channels,
-                num_actions=num_actions,
-                dueling=dueling,
-            )
+            if rows == 8 and cols == 8 and num_actions == 64:
+                network = OthelloDQN(
+                    board_size=8,
+                    in_channels=in_channels,
+                    num_actions=num_actions,
+                )
+            else:
+                network = Connect4DQN(
+                    rows=rows,
+                    cols=cols,
+                    in_channels=in_channels,
+                    num_actions=num_actions,
+                    dueling=dueling,
+                )
         
         return DQNAgent(network=network, **kwargs)
     register_agent("dqn", _dqn_factory)

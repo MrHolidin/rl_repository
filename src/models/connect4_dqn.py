@@ -134,4 +134,65 @@ class Connect4DQN(BaseDQNNetwork):
         }
 
 
+class Connect4QRDQN(Connect4DQN):
+    """
+    Quantile Regression DQN for Connect4.
+    Outputs (B, num_actions, n_quantiles) quantile predictions.
+    Q(s,a) = mean over quantiles for action selection.
+    """
+
+    def __init__(
+        self,
+        rows: int = 6,
+        cols: int = 7,
+        in_channels: int = 2,
+        num_actions: int = 7,
+        n_quantiles: int = 32,
+        trunk_channels: int = 96,
+        num_res_blocks: int = 2,
+        use_coord_channels: bool = True,
+        adv_hidden: int = 64,
+        val_hidden: int = 128,
+    ):
+        super().__init__(
+            rows=rows,
+            cols=cols,
+            in_channels=in_channels,
+            num_actions=num_actions,
+            dueling=False,
+            trunk_channels=trunk_channels,
+            num_res_blocks=num_res_blocks,
+            use_coord_channels=use_coord_channels,
+            adv_hidden=adv_hidden,
+            val_hidden=val_hidden,
+        )
+        self.n_quantiles = n_quantiles
+        self.q2_quantile = nn.Conv1d(adv_hidden, n_quantiles, kernel_size=1)
+
+    def forward(self, x: torch.Tensor, legal_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if self.use_coord_channels:
+            x = self._add_coord(x)
+
+        h = F.relu(self.stem(x))
+        for blk in self.res_blocks:
+            h = blk(h)
+
+        h_col = h.mean(dim=2)
+        q = F.relu(self.q1(h_col))
+        quantiles = self.q2_quantile(q)  # (B, n_quantiles, 7)
+        quantiles = quantiles.permute(0, 2, 1)  # (B, 7, n_quantiles)
+
+        if legal_mask is not None:
+            lm = legal_mask.bool().unsqueeze(-1)
+            quantiles = quantiles.masked_fill(~lm, -1e9)
+
+        return quantiles
+
+    def get_constructor_kwargs(self) -> dict:
+        d = super().get_constructor_kwargs()
+        d.pop("dueling", None)
+        d["n_quantiles"] = self.n_quantiles
+        return d
+
+
 DQN = Connect4DQN

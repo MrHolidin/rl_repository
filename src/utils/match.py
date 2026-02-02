@@ -24,6 +24,8 @@ def _apply_turn_batch(
     turn_mask: List[bool],
     obs_list: List[Optional[np.ndarray]],
     agent,
+    *,
+    deterministic: bool = True,
 ) -> List[Optional[StepResult]]:
     results: List[Optional[StepResult]] = [None] * len(envs)
     indices = [i for i in range(len(envs)) if turn_mask[i]]
@@ -32,7 +34,7 @@ def _apply_turn_batch(
     if hasattr(agent, "act_batch"):
         obs_batch = np.stack([obs_list[i] for i in indices])
         legal_batch = np.stack([envs[i].legal_actions_mask for i in indices])
-        out = agent.act_batch(obs_batch, legal_batch, deterministic=True)
+        out = agent.act_batch(obs_batch, legal_batch, deterministic=deterministic)
         for k, i in enumerate(indices):
             results[i] = envs[i].step(int(out[k]))
     else:
@@ -54,6 +56,7 @@ def play_match_batched(
     collect_episode_lengths: bool = False,
     game_id: str = "connect4",
     env_factory: Optional[Callable[[RewardConfig], TurnBasedEnv]] = None,
+    deterministic: bool = True,
 ) -> Union[Tuple[int, int, int], Tuple[int, int, int, List[int]]]:
     """
     Play num_games between agent1 and agent2 using batch_size parallel envs.
@@ -115,8 +118,8 @@ def play_match_batched(
         ]
         turn_mask1 = [i in agent1_turn for i in range(n)]
         turn_mask2 = [i in agent2_turn for i in range(n)]
-        res1 = _apply_turn_batch(envs, turn_mask1, obs, agent1)
-        res2 = _apply_turn_batch(envs, turn_mask2, obs, agent2)
+        res1 = _apply_turn_batch(envs, turn_mask1, obs, agent1, deterministic=deterministic)
+        res2 = _apply_turn_batch(envs, turn_mask2, obs, agent2, deterministic=deterministic)
 
         for i in range(n):
             res = res1[i] if res1[i] is not None else res2[i]

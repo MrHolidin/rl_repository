@@ -16,6 +16,7 @@ from .base_agent import BaseAgent
 from ..features.action_space import ActionSpace, DiscreteActionSpace
 from ..models.base_dqn_network import BaseDQNNetwork
 from ..models.q_network_factory import create_network_from_checkpoint
+from ..models.quantile_utils import make_tau_hat, quantile_huber_loss
 from ..utils.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
@@ -55,7 +56,10 @@ class DQNAgent(BaseAgent):
         per_eps: float = 1e-6,
         n_step: int = 1,
         use_twin_q: bool = False,
+        use_distributional: bool = False,
+        n_quantiles: int = 32,
         target_q_clip: Optional[float] = None,
+        value_reg_weight: float = 0.0,
         metrics_interval: int = 1,
         update_every: int = 1,
         grad_clip_norm: float = 1.0,
@@ -87,9 +91,13 @@ class DQNAgent(BaseAgent):
             per_eps: Small constant for PER priorities.
             n_step: N-step returns (1 = standard TD).
             use_twin_q: Use Twin Q-networks (Clipped Double Q-Learning from TD3).
+            use_distributional: Use Quantile Regression DQN (predict return distribution).
+            n_quantiles: Number of quantiles for distributional RL (when use_distributional=True).
         """
         self.num_actions = num_actions
         self.use_twin_q = use_twin_q
+        self.use_distributional = use_distributional
+        self.n_quantiles = n_quantiles
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
         self.epsilon = epsilon
@@ -112,6 +120,7 @@ class DQNAgent(BaseAgent):
         self.n_step = max(1, n_step)
         self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
         self.target_q_clip = target_q_clip
+        self.value_reg_weight = float(value_reg_weight)
 
         # Device
         if device is None:
@@ -159,6 +168,11 @@ class DQNAgent(BaseAgent):
                 capacity=replay_buffer_size, seed=seed, device=self.device
             )
         
+        if use_distributional:
+            self._tau = make_tau_hat(n_quantiles, self.device)
+        else:
+            self._tau = None
+
         # Random seed
         if seed is not None:
             random.seed(seed)
@@ -198,7 +212,8 @@ class DQNAgent(BaseAgent):
                 dtype=torch.bool,
                 device=self.device,
             ).unsqueeze(0)
-            q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
+            out = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
+            q_values = out.mean(dim=-1) if out.dim() == 3 else out
             masked_q = q_values.masked_fill(~legal_mask_tensor, float("-inf"))
             best_action = int(masked_q.argmax(dim=1).item())
             return best_action
@@ -209,15 +224,23 @@ class DQNAgent(BaseAgent):
         legal_mask_batch: np.ndarray,
         deterministic: bool = True,
     ) -> np.ndarray:
-        """Select actions for a batch of observations. For eval; no exploration."""
-        B = obs_batch.shape[0]
+        """Select actions for a batch of observations. Uses epsilon-greedy when deterministic=False and epsilon > 0."""
+        B = legal_mask_batch.shape[0]
         with torch.no_grad():
             obs_t = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
             legal_t = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
-            q = self.q_network(obs_t, legal_mask=legal_t)
+            out = self.q_network(obs_t, legal_mask=legal_t)
+            q = out.mean(dim=-1) if out.dim() == 3 else out
             q.masked_fill_(~legal_t, float("-inf"))
-            actions = q.argmax(dim=1)
-        return actions.cpu().numpy().astype(np.int64)
+            actions = q.argmax(dim=1).cpu().numpy().astype(np.int64)
+        if not deterministic and self.epsilon > 0 and B > 0:
+            legal_np = np.asarray(legal_mask_batch, dtype=bool)
+            for i in range(B):
+                if random.random() < self.epsilon:
+                    legal_actions = np.flatnonzero(legal_np[i])
+                    if legal_actions.size > 0:
+                        actions[i] = int(np.random.choice(legal_actions))
+        return actions
 
     def observe(self, transition) -> Dict[str, float]:
         """
@@ -405,50 +428,102 @@ class DQNAgent(BaseAgent):
                 else torch.ones(self.batch_size, dtype=torch.float32, device=self.device)
             )
         
-        q_values = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
-        q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
-        
-        if self.use_twin_q:
+        out = self.q_network(obs_tensor, legal_mask=legal_mask_tensor)
+        is_distributional = out.dim() == 3
+
+        if is_distributional:
+            quantiles = out  # (B, A, N)
+            q_value = quantiles.gather(
+                1, action_tensor.unsqueeze(1).unsqueeze(2).expand(-1, 1, quantiles.size(-1))
+            ).squeeze(1)  # (B, N)
+        else:
+            q_values = out
+            q_value = q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
+
+        if self.use_twin_q and not is_distributional:
             q_values2 = self.q_network2(obs_tensor, legal_mask=legal_mask_tensor)
             q_value2 = q_values2.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
-        
-        # Double DQN (with optional Twin Q / Clipped Double Q-Learning)
+
         with torch.no_grad():
-            next_q_values_main = self.q_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
-            masked_next_q_values = next_q_values_main.masked_fill(~next_legal_mask_tensor, float("-inf"))
-            no_legal_actions = ~next_legal_mask_tensor.any(dim=1)
-            masked_next_q_values[no_legal_actions] = 0.0
-            next_actions_tensor = masked_next_q_values.argmax(dim=1)
+            if is_distributional:
+                next_out_main = self.q_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
+                next_q_mean = next_out_main.mean(dim=-1)
+                masked_next_q = next_q_mean.masked_fill(~next_legal_mask_tensor, float("-inf"))
+                no_legal = ~next_legal_mask_tensor.any(dim=1)
+                masked_next_q[no_legal] = 0.0
+                next_actions_tensor = masked_next_q.argmax(dim=1)
 
-            next_q_values_target = self.target_network(next_obs_tensor, legal_mask=next_legal_mask_tensor)
-            target_next_q = next_q_values_target.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
-            
-            # Twin Q: take minimum of two target networks
+                next_quantiles_target = self.target_network(
+                    next_obs_tensor, legal_mask=next_legal_mask_tensor
+                )
+                target_quantiles = next_quantiles_target.gather(
+                    1,
+                    next_actions_tensor.unsqueeze(1).unsqueeze(2).expand(
+                        -1, 1, next_quantiles_target.size(-1)
+                    ),
+                ).squeeze(1)
+                gamma_bootstrap = (
+                    self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
+                )
+                target_q_value = reward_tensor.unsqueeze(1) + (
+                    1 - done_tensor.float().unsqueeze(1)
+                ) * gamma_bootstrap * target_quantiles
+                if self.target_q_clip is not None:
+                    target_q_value = torch.clamp(
+                        target_q_value, -self.target_q_clip, self.target_q_clip
+                    )
+            else:
+                next_q_values_main = self.q_network(
+                    next_obs_tensor, legal_mask=next_legal_mask_tensor
+                )
+                masked_next_q_values = next_q_values_main.masked_fill(
+                    ~next_legal_mask_tensor, float("-inf")
+                )
+                no_legal_actions = ~next_legal_mask_tensor.any(dim=1)
+                masked_next_q_values[no_legal_actions] = 0.0
+                next_actions_tensor = masked_next_q_values.argmax(dim=1)
+
+                next_q_values_target = self.target_network(
+                    next_obs_tensor, legal_mask=next_legal_mask_tensor
+                )
+                target_next_q = next_q_values_target.gather(
+                    1, next_actions_tensor.unsqueeze(1)
+                ).squeeze(1)
+                if self.use_twin_q:
+                    next_q_values_target2 = self.target_network2(
+                        next_obs_tensor, legal_mask=next_legal_mask_tensor
+                    )
+                    target_next_q2 = next_q_values_target2.gather(
+                        1, next_actions_tensor.unsqueeze(1)
+                    ).squeeze(1)
+                    target_next_q = torch.min(target_next_q, target_next_q2)
+                gamma_bootstrap = (
+                    self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
+                )
+                target_q_value = reward_tensor + (1 - done_tensor.float()) * gamma_bootstrap * target_next_q
+                if self.target_q_clip is not None:
+                    target_q_value = torch.clamp(
+                        target_q_value, -self.target_q_clip, self.target_q_clip
+                    )
+
+        if is_distributional:
+            loss = quantile_huber_loss(q_value, target_q_value, self._tau, kappa=1.0)
+            td_errors_abs = (q_value.mean(dim=1) - target_q_value.mean(dim=1)).abs().detach()
+        else:
+            td_errors = target_q_value - q_value
+            td_errors_abs = td_errors.detach().abs()
+            loss_elements = F.smooth_l1_loss(q_value, target_q_value, reduction="none") * is_weights_tensor
+            loss = loss_elements.mean()
             if self.use_twin_q:
-                next_q_values_target2 = self.target_network2(next_obs_tensor, legal_mask=next_legal_mask_tensor)
-                target_next_q2 = next_q_values_target2.gather(1, next_actions_tensor.unsqueeze(1)).squeeze(1)
-                target_next_q = torch.min(target_next_q, target_next_q2)
-            
-            gamma_bootstrap = self.discount_factor ** self.n_step if self.n_step > 1 else self.discount_factor
-            target_q_value = reward_tensor + (1 - done_tensor.float()) * gamma_bootstrap * target_next_q
-            
-            # Target clipping for adversarial games (prevents Q-value explosion)
-            if self.target_q_clip is not None:
-                target_q_value = torch.clamp(target_q_value, -self.target_q_clip, self.target_q_clip)
-        
-        td_errors = target_q_value - q_value
-        td_errors_abs = td_errors.detach().abs()
+                loss_elements2 = F.smooth_l1_loss(
+                    q_value2, target_q_value, reduction="none"
+                ) * is_weights_tensor
+                loss = loss + loss_elements2.mean()
 
-        # Huber loss (smooth_l1) - more stable than MSE for large TD errors
-        loss_elements = F.smooth_l1_loss(q_value, target_q_value, reduction='none') * is_weights_tensor
-        loss = loss_elements.mean()
-        
-        # Twin Q: add loss for second network
-        if self.use_twin_q:
-            td_errors2 = target_q_value - q_value2
-            loss_elements2 = F.smooth_l1_loss(q_value2, target_q_value, reduction='none') * is_weights_tensor
-            loss = loss + loss_elements2.mean()
-        
+        if self.value_reg_weight > 0:
+            value_reg = self.value_reg_weight * (q_value ** 2).mean()
+            loss = loss + value_reg
+
         self.optimizer.zero_grad()
         loss.backward()
         if self.use_twin_q:
@@ -502,15 +577,15 @@ class DQNAgent(BaseAgent):
                 td_error_p95 = float(np.percentile(td_sorted, 95))
                 td_error_max = float(td_errors_abs.max().item())
 
-                # Q spread over legal: mean(max_a Q - min_a Q) per sample
-                masked_max = q_values.masked_fill(~legal_mask_tensor, float("-inf")).max(dim=1)[0]
-                masked_min = q_values.masked_fill(~legal_mask_tensor, float("inf")).min(dim=1)[0]
+                q_for_metrics = quantiles.mean(dim=-1) if is_distributional else q_values
+                masked_max = q_for_metrics.masked_fill(~legal_mask_tensor, float("-inf")).max(dim=1)[0]
+                masked_min = q_for_metrics.masked_fill(~legal_mask_tensor, float("inf")).min(dim=1)[0]
                 spread = masked_max - masked_min
                 spread = torch.where(torch.isfinite(spread), spread, torch.zeros_like(spread))
                 q_spread = float(spread.mean().item())
 
                 # Top2 gap over legal (ranking quality)
-                masked_q = q_values.masked_fill(~legal_mask_tensor, float("-inf"))
+                masked_q = q_for_metrics.masked_fill(~legal_mask_tensor, float("-inf"))
                 top2 = masked_q.topk(2, dim=1)
                 gap = top2.values[:, 0] - top2.values[:, 1]
                 gap = torch.where(torch.isfinite(gap), gap, torch.zeros_like(gap))
@@ -587,6 +662,10 @@ class DQNAgent(BaseAgent):
             "n_step": self.n_step,
             "update_every": self.update_every,
             "grad_clip_norm": self.grad_clip_norm,
+            "use_distributional": self.use_distributional,
+            "n_quantiles": self.n_quantiles,
+            "target_q_clip": self.target_q_clip,
+            "value_reg_weight": self.value_reg_weight,
         }
         
         if save_epsilon:
@@ -642,6 +721,11 @@ class DQNAgent(BaseAgent):
             "n_step": checkpoint.get("n_step", 1),
             "update_every": checkpoint.get("update_every", 1),
             "grad_clip_norm": checkpoint.get("grad_clip_norm", 1.0),
+            "use_distributional": checkpoint.get("use_distributional", False),
+            "n_quantiles": checkpoint.get("n_quantiles")
+            or checkpoint.get("network_kwargs", {}).get("n_quantiles", 32),
+            "target_q_clip": checkpoint.get("target_q_clip"),
+            "value_reg_weight": checkpoint.get("value_reg_weight", 0.0),
         }
         base_kwargs.update(overrides)
 

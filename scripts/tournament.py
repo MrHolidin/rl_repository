@@ -113,6 +113,7 @@ def main():
     p.add_argument("--runs", nargs="+", type=str, default=[], help="Run names (e.g. connect4_only_self_play connect4_only_self_play_per); used with --manual")
     p.add_argument("--steps", nargs="+", type=int, default=[], help="Checkpoint steps (e.g. 100000 200000 300000); used with --manual")
     p.add_argument("--prefix", type=str, default="dqn", help="Checkpoint prefix (default: dqn)")
+    p.add_argument("--epsilon", type=float, default=0.0, help="DQN epsilon for eval (default: 0.0)")
     args = p.parse_args()
 
     if args.manual:
@@ -132,7 +133,7 @@ def main():
         if hasattr(a, "eval"):
             a.eval()
         if hasattr(a, "epsilon"):
-            setattr(a, "epsilon", 0.0)
+            setattr(a, "epsilon", args.epsilon)
 
     n = len(agents)
     if n < 2:
@@ -154,6 +155,7 @@ def main():
                 seed=match_seed,
                 randomize_first_player=True,
                 reward_config=reward_config,
+                deterministic=args.epsilon == 0,
             )
             total = w1 + draws + w2
             assert total == args.num_games

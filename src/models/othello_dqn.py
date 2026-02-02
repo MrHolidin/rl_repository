@@ -127,4 +127,60 @@ class OthelloDQN(BaseDQNNetwork):
         }
 
 
+class OthelloQRDQN(OthelloDQN):
+    """
+    Quantile Regression DQN for Othello.
+    Outputs (B, 64, n_quantiles). Q(s,a) = mean over quantiles.
+    """
+
+    def __init__(
+        self,
+        board_size: int = 8,
+        in_channels: int = 2,
+        num_actions: int = 64,
+        n_quantiles: int = 32,
+        trunk_channels: int = 96,
+        num_res_blocks: int = 3,
+        use_coord_channels: bool = True,
+        head_hidden: int = 64,
+    ):
+        super().__init__(
+            board_size=board_size,
+            in_channels=in_channels,
+            num_actions=num_actions,
+            trunk_channels=trunk_channels,
+            num_res_blocks=num_res_blocks,
+            use_coord_channels=use_coord_channels,
+            head_hidden=head_hidden,
+        )
+        self.n_quantiles = n_quantiles
+        self.q3 = nn.Conv2d(head_hidden, n_quantiles, kernel_size=1)
+
+    def forward(
+        self, x: torch.Tensor, legal_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        if self.use_coord_channels:
+            x = self._add_coord(x)
+
+        h = F.relu(self.stem(x))
+        for blk in self.res_blocks:
+            h = blk(h)
+
+        q = F.relu(self.q1(h))
+        q = F.relu(self.q2(q))
+        quantiles = self.q3(q)  # (B, n_quantiles, 8, 8)
+        quantiles = quantiles.flatten(2).permute(0, 2, 1)  # (B, 64, n_quantiles)
+
+        if legal_mask is not None:
+            lm = legal_mask.bool().unsqueeze(-1)
+            quantiles = quantiles.masked_fill(~lm, -1e9)
+
+        return quantiles
+
+    def get_constructor_kwargs(self) -> dict:
+        d = super().get_constructor_kwargs()
+        d["n_quantiles"] = self.n_quantiles
+        return d
+
+
 DQN = OthelloDQN

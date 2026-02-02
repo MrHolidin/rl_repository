@@ -332,10 +332,12 @@ def _build_game_specific_network(
 
 def _auto_register_networks():
     """Register all known game-specific networks."""
-    from .connect4_dqn import Connect4DQN
-    from .othello_dqn import OthelloDQN
+    from .connect4_dqn import Connect4DQN, Connect4QRDQN
+    from .othello_dqn import OthelloDQN, OthelloQRDQN
     register_network(Connect4DQN)
+    register_network(Connect4QRDQN)
     register_network(OthelloDQN)
+    register_network(OthelloQRDQN)
 
 
 _auto_register_networks()
