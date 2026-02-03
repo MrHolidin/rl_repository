@@ -34,8 +34,8 @@ def main() -> None:
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=32,
-        help="Parallel envs for batched eval (default: 32). Set 0 for sequential.",
+        default=None,
+        help="Parallel envs for batched eval (default: num_games). Set 0 for sequential.",
     )
     parser.add_argument(
         "--out",
@@ -71,10 +71,9 @@ def main() -> None:
     parser.add_argument(
         "--opponents",
         nargs="+",
-        choices=["random", "heuristic", "smart_heuristic", "othello_heuristic"],
         default=["random", "heuristic"],
         metavar="OPP",
-        help="Opponent types to evaluate against (default: random heuristic)",
+        help="Opponents: random, heuristic, smart_heuristic, othello_heuristic, or minimax_N e.g. minimax_2, minimax_4 (default: random heuristic)",
     )
     parser.add_argument(
         "--game",
@@ -100,15 +99,18 @@ def main() -> None:
     paths = [p for p, _ in found]
     print(f"Found {len(paths)} checkpoints: {[p.name for p in paths]}")
 
+    batch_size = args.num_games if args.batch_size is None else args.batch_size
+
     df = eval_checkpoints_vs_opponents(
         paths,
         opponent_names=args.opponents,
         num_games=args.num_games,
-        batch_size=args.batch_size if args.batch_size > 0 else None,
+        batch_size=batch_size,
         device=args.device,
         seed=args.seed,
         start_policy=args.start_policy,
         game_id=args.game,
+        out_csv=run_dir / "eval_results.csv",
     )
 
     if df.empty:

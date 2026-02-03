@@ -34,6 +34,7 @@ class Connect4Env(TurnBasedEnv):
 
         self._game = Connect4Game(rows=rows, cols=cols)
         self._state: Optional[Connect4State] = None
+        self._rng = np.random.default_rng()
 
         if observation_builder is None:
             observation_builder = BoardChannels(board_shape=(rows, cols))
@@ -50,6 +51,9 @@ class Connect4Env(TurnBasedEnv):
     # ------------------------------------------------------------------
 
     def reset(self, seed: Optional[int] = None) -> np.ndarray:
+        if seed is not None:
+            self._rng = np.random.default_rng(seed)
+
         self._state = self._game.initial_state()
         self._last_move = None
         return self._get_obs()
@@ -103,13 +107,14 @@ class Connect4Env(TurnBasedEnv):
                 reward = self.reward_config.loss
                 info["termination_reason"] = "loss"
         else:
-            if self.reward_config.three_in_row != 0.0:
-                if self._has_any_three(current_token):
-                    reward += self.reward_config.three_in_row
+            three = self.reward_config.three_in_row
+            opp_three = self.reward_config.opponent_three_in_row
+            if three != 0.0 or opp_three != 0.0:
+                if three != 0.0 and self._has_any_three(current_token):
+                    reward += three
                     info["three_in_row"] = True
-            if self.reward_config.opponent_three_in_row != 0.0:
-                if self._has_any_three(-current_token):
-                    reward -= self.reward_config.opponent_three_in_row
+                if opp_three != 0.0 and self._has_any_three(-current_token):
+                    reward -= opp_three
                     info["opponent_three_in_row"] = True
 
         return StepResult(

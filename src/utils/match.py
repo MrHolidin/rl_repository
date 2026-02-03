@@ -39,6 +39,8 @@ def _apply_turn_batch(
             results[i] = envs[i].step(int(out[k]))
     else:
         for i in indices:
+            if hasattr(agent, "set_env"):
+                agent.set_env(envs[i])
             legal = envs[i].get_legal_actions()
             results[i] = envs[i].step(agent.select_action(obs_list[i], legal))
     return results

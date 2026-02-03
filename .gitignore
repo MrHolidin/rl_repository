@@ -108,6 +108,4 @@ logs/
 # But keep example/placeholder files if needed
 !data/checkpoints/.gitkeep
 !data/logs/.gitkeep
-!tests/fixtures/canonical_dqn.pt
-!tests/fixtures/canonical_dqn_probe.json
 
