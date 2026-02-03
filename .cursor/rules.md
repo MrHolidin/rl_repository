@@ -26,4 +26,6 @@ These are optional stabilizers; their absence cannot fully break learning.
  - Do not add unnecessary information to docs, keep it clean and consice
 
  # Instruments
- - use python3 in terminal
+ - use python3 in terminal, NOT JUST 'python'
+    - python -m src.cli.eval_progress ... - WRONG
+    - python3 -m src.cli.eval_progress ... - correct

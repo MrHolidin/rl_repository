@@ -6,7 +6,7 @@ from typing import Optional, Sequence, Tuple
 
 import numpy as np
 
-from src.agents.dqn_agent import DQNAgent
+from src.agents.dqn.agent import DQNAgent
 from src.envs.connect4 import Connect4State, build_state_dict
 from src.features.observation_builder import ObservationBuilder
 from src.games.turn_based_game import Action, TurnBasedGame

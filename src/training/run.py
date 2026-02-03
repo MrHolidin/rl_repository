@@ -26,6 +26,7 @@ from src.training.callbacks import (
 )
 from src.training.random_opening import RandomOpeningConfig
 from src.training.trainer import StartPolicy, Trainer
+from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 
 
 # Global reference for signal handler
@@ -314,6 +315,17 @@ def run(
     ro = getattr(app_cfg.train, "random_opening", None)
     random_opening_config = RandomOpeningConfig(**ro) if ro else None
 
+    data_augment_fn: Optional[Callable] = None
+    if getattr(app_cfg.train, "apply_augmentation", False):
+        game_id = app_cfg.game.id.lower()
+        if game_id == "connect4":
+            num_cols = getattr(env, "cols", 7)
+            data_augment_fn = make_connect4_horizontal_augmenter(num_cols)
+        else:
+            raise ValueError(
+                f"apply_augmentation is True but no augmentations defined for game '{app_cfg.game.id}'"
+            )
+
     trainer = Trainer(
         env,
         agent,
@@ -323,6 +335,7 @@ def run(
         start_policy=start_policy,
         rng=rng,
         random_opening_config=random_opening_config,
+        data_augment_fn=data_augment_fn,
     )
 
     # Install signal handlers for graceful stop

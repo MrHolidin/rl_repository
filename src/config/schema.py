@@ -43,6 +43,7 @@ class TrainConfig:
     callbacks: List[CallbackConfig] = field(default_factory=list)
     start_policy: str = "random"
     random_opening: Optional[Dict[str, Any]] = None
+    apply_augmentation: bool = False
 
 
 @dataclass
@@ -90,6 +91,7 @@ class AppConfig:
             callbacks=callbacks,
             start_policy=str(train_data.get("start_policy", "random")),
             random_opening=train_data.get("random_opening"),
+            apply_augmentation=bool(train_data.get("apply_augmentation", False)),
         )
 
         eval_data = data.get("eval", {})

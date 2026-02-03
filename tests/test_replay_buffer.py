@@ -29,6 +29,8 @@ def test_replay_buffer_push_sample_roundtrip():
         done_batch,
         legal_mask_batch,
         next_legal_mask_batch,
+        indices,
+        weights,
     ) = buffer.sample(batch_size=2)
 
     assert obs_batch.shape == (2, 2, 3)
@@ -38,6 +40,9 @@ def test_replay_buffer_push_sample_roundtrip():
     assert done_batch.shape == (2,)
     assert legal_mask_batch.shape == (2, 3)
     assert next_legal_mask_batch.shape == (2, 3)
+    assert indices is None
+    assert weights.shape == (2,)
+    assert np.allclose(weights, 1.0)
 
 
 def test_prioritized_replay_sample_returns_weights_and_indices():

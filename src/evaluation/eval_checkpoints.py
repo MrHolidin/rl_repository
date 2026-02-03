@@ -10,7 +10,7 @@ import pandas as pd
 
 from src.agents import HeuristicAgent, RandomAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
-from src.agents.dqn_agent import DQNAgent
+from src.agents.dqn.agent import DQNAgent
 from src.envs import Connect4Env, RewardConfig
 from src.envs.othello import OthelloEnv
 from src.utils.match import play_match, play_match_batched

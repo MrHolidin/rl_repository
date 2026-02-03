@@ -100,6 +100,7 @@ class ReplayBuffer:
 
         if self._use_gpu:
             phys_t = torch.from_numpy(phys).to(self.device)
+            weights = torch.ones(batch_size, dtype=torch.float32, device=self.device)
             return (
                 self._obs_buf[phys_t],
                 self._action_buf[phys_t],
@@ -108,8 +109,11 @@ class ReplayBuffer:
                 self._done_buf[phys_t],
                 self._legal_mask_buf[phys_t],
                 self._next_legal_mask_buf[phys_t],
+                None,
+                weights,
             )
         else:
+            weights = np.ones(batch_size, dtype=np.float32)
             return (
                 self._obs_buf[phys],
                 self._action_buf[phys],
@@ -118,6 +122,8 @@ class ReplayBuffer:
                 self._done_buf[phys],
                 self._legal_mask_buf[phys],
                 self._next_legal_mask_buf[phys],
+                None,
+                weights,
             )
 
     def __len__(self) -> int:

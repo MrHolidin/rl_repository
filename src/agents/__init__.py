@@ -5,7 +5,7 @@ from .random_agent import RandomAgent
 from .connect4 import HeuristicAgent, SmartHeuristicAgent
 from .othello import OthelloHeuristicAgent
 from .qlearning_agent import QLearningAgent
-from .dqn_agent import DQNAgent
+from .dqn.agent import DQNAgent
 from .ppo_agent import PPOAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels

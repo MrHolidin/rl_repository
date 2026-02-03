@@ -1,4 +1,4 @@
-"""Minimax search policy with alpha-beta pruning."""
+"""Negamax search policy with optional alpha-beta."""
 
 from __future__ import annotations
 
@@ -18,13 +18,12 @@ StateT = TypeVar("StateT")
 @dataclass
 class MinimaxConfig:
     depth: int = 2
-    use_alpha_beta: bool = True
+    use_alpha_beta: bool = False
     random_tiebreak: bool = True
     value_epsilon: float = 1e-6
 
 
 class MinimaxPolicy(ActionPolicy[StateT], Generic[StateT]):
-    """Negamax-based minimax policy over TurnBasedGame + StateValueFn."""
 
     def __init__(
         self,
@@ -42,28 +41,20 @@ class MinimaxPolicy(ActionPolicy[StateT], Generic[StateT]):
         state: StateT,
         legal_actions: Optional[Sequence[Action]] = None,
     ) -> Action:
-        if self.config.depth <= 0:
-            raise ValueError("Minimax depth must be >= 1")
-
         if legal_actions is None:
             legal_actions = list(game.legal_actions(state))
-
         if not legal_actions:
-            raise ValueError("No legal actions available for minimax")
+            raise ValueError("No legal actions")
 
         best_value = -math.inf
         best_actions: list[Action] = []
-        root_alpha = -math.inf  # Track best value for root-level pruning
 
         for action in legal_actions:
             next_state = game.apply_action(state, action)
-            value = -self._search(
-                game=game,
-                state=next_state,
-                depth=self.config.depth - 1,
-                alpha=-math.inf,
-                beta=-root_alpha,  # Tell child: beat -root_alpha or I don't care
-            )
+            if self.config.use_alpha_beta:
+                value = -self._negamax_ab(game, next_state, self.config.depth - 1, -math.inf, math.inf)
+            else:
+                value = -self._negamax(game, next_state, self.config.depth - 1)
 
             if value > best_value + self.config.value_epsilon:
                 best_value = value
@@ -71,27 +62,31 @@ class MinimaxPolicy(ActionPolicy[StateT], Generic[StateT]):
             elif abs(value - best_value) <= self.config.value_epsilon:
                 best_actions.append(action)
 
-            # Update root_alpha for subsequent iterations
-            if self.config.use_alpha_beta:
-                root_alpha = max(root_alpha, value)
-
-        # Fallback if all values were -inf (edge case)
         if not best_actions:
             return legal_actions[0]
-
         if len(best_actions) == 1 or not self.config.random_tiebreak:
             return best_actions[0]
-
         return self.rng.choice(best_actions)
 
-    def _search(
-        self,
-        game: TurnBasedGame[StateT],
-        state: StateT,
-        depth: int,
-        alpha: float,
-        beta: float,
-    ) -> float:
+    def _negamax(self, game: TurnBasedGame[StateT], state: StateT, depth: int) -> float:
+        """Simple negamax without pruning."""
+        if depth == 0 or game.is_terminal(state):
+            return self.value_fn.evaluate(game, state)
+
+        legal_actions = list(game.legal_actions(state))
+        if not legal_actions:
+            return self.value_fn.evaluate(game, state)
+
+        best = -math.inf
+        for action in legal_actions:
+            next_state = game.apply_action(state, action)
+            val = -self._negamax(game, next_state, depth - 1)
+            if val > best:
+                best = val
+        return best
+
+    def _negamax_ab(self, game: TurnBasedGame[StateT], state: StateT, depth: int, alpha: float, beta: float) -> float:
+        """Negamax with alpha-beta pruning."""
         if depth == 0 or game.is_terminal(state):
             return self.value_fn.evaluate(game, state)
 
@@ -100,24 +95,13 @@ class MinimaxPolicy(ActionPolicy[StateT], Generic[StateT]):
             return self.value_fn.evaluate(game, state)
 
         value = -math.inf
-
         for action in legal_actions:
             next_state = game.apply_action(state, action)
-            child_value = -self._search(
-                game=game,
-                state=next_state,
-                depth=depth - 1,
-                alpha=-beta,
-                beta=-alpha,
-            )
-
-            if child_value > value:
-                value = child_value
-
-            if self.config.use_alpha_beta:
-                if value > alpha:
-                    alpha = value
-                if alpha >= beta:
-                    break
-
+            child_val = -self._negamax_ab(game, next_state, depth - 1, -beta, -alpha)
+            if child_val > value:
+                value = child_val
+            if value > alpha:
+                alpha = value
+            if alpha >= beta:
+                break
         return value

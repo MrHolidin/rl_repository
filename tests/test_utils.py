@@ -32,7 +32,7 @@ def test_replay_buffer():
     
     # Sample batch
     batch = buffer.sample(5)
-    assert len(batch) == 7
+    assert len(batch) == 9
     (
         obs_batch,
         actions,
@@ -41,6 +41,8 @@ def test_replay_buffer():
         dones,
         legal_masks,
         next_legal_masks,
+        indices,
+        weights,
     ) = batch
     assert obs_batch.shape[0] == 5
     assert actions.shape[0] == 5

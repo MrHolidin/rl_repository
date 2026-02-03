@@ -10,7 +10,7 @@ agent:
   id: dqn
   params:
     dueling: false
-    learning_rate: 51.0e-4
+    learning_rate: 1.0e-4
     discount_factor: 0.99
     use_twin_q: false
     epsilon: 1.0

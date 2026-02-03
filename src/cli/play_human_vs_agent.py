@@ -13,7 +13,6 @@ import tyro
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
 from src.features.action_space import DiscreteActionSpace
-from src.features.observation_builder import BoardChannels
 
 
 def play_human_vs_agent(
@@ -48,14 +47,10 @@ def play_human_vs_agent(
         agent.epsilon = 0.0  # Жадная политика для игры с человеком
         agent.eval()
     elif agent_type == "dqn":
-        observation_builder = BoardChannels(board_shape=(6, 7))
         action_space = DiscreteActionSpace(n=7)
         agent = DQNAgent.load(
             agent_path,
             seed=seed,
-            observation_shape=observation_builder.observation_shape,
-            observation_type=observation_builder.observation_type,
-            num_actions=action_space.size,
             action_space=action_space,
         )
         agent.epsilon = 0.0  # Жадная политика для игры с человеком

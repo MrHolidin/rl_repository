@@ -10,16 +10,17 @@ from src.training.trainer import Transition
 def _flip_obs_horizontally(obs: np.ndarray) -> np.ndarray:
     """
     Flip observation along the last axis (columns axis for BoardChannels).
+    Returns a copy so strides are positive (PyTorch / replay buffer compatible).
     """
     if obs.ndim < 2:
         raise ValueError(f"Cannot horizontally flip observation with shape {obs.shape}")
-    return np.flip(obs, axis=-1)
+    return np.flip(obs, axis=-1).copy()
 
 
 def _flip_mask_horizontally(mask: np.ndarray) -> np.ndarray:
-    """Reverse column ordering in action masks."""
+    """Reverse column ordering in action masks. Returns a copy for positive strides."""
     mask_arr = np.asarray(mask, dtype=bool)
-    return mask_arr[::-1]
+    return mask_arr[::-1].copy()
 
 
 def make_connect4_horizontal_augmenter(num_cols: int) -> Callable[[Transition], List[Transition]]:

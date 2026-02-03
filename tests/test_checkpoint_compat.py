@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.agents.dqn_agent import DQNAgent
+from src.agents.dqn.agent import DQNAgent
 from src.training.canonical_checkpoint import train_and_probe
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

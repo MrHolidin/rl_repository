@@ -8,7 +8,7 @@ import numpy as np
 
 from src.envs.connect4 import Connect4Game, Connect4State
 from src.features.observation_builder import ObservationBuilder
-from src.agents.dqn_agent import DQNAgent
+from src.agents.dqn.agent import DQNAgent
 from ..minimax_policy import MinimaxPolicy, MinimaxConfig
 from .dqn_value_fn import Connect4DQNValueFn
 
