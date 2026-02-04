@@ -67,6 +67,7 @@ class DQNAgent(BaseAgent):
         update_every: int = 1,
         updates_per_step: int = 1,
         grad_clip_norm: float = 1.0,
+        use_noisy_nets: bool = False,
     ):
         """
         Initialize DQN agent.
@@ -126,6 +127,7 @@ class DQNAgent(BaseAgent):
         self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
         self.target_q_clip = target_q_clip
         self.value_reg_weight = float(value_reg_weight)
+        self.use_noisy_nets = use_noisy_nets
 
         # Device
         if device is None:
@@ -230,9 +232,15 @@ class DQNAgent(BaseAgent):
         if legal_actions.size == 0:
             raise ValueError("No legal actions available")
 
-        explore = (not deterministic) and self.training and random.random() < self.epsilon
+        # Skip epsilon exploration when using noisy nets (noise handles exploration)
+        effective_epsilon = 0.0 if self.use_noisy_nets else self.epsilon
+        explore = (not deterministic) and self.training and random.random() < effective_epsilon
         if explore:
             return int(np.random.choice(legal_actions))
+
+        # Reset noise before forward pass (only when training and using noisy nets)
+        if self.training and self.use_noisy_nets:
+            self._reset_all_noise()
 
         with torch.no_grad():
             obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
@@ -254,16 +262,24 @@ class DQNAgent(BaseAgent):
     ) -> np.ndarray:
         """Select actions for a batch of observations. Uses epsilon-greedy when deterministic=False and epsilon > 0."""
         B = legal_mask_batch.shape[0]
+
+        # Reset noise before forward pass (only when training and using noisy nets)
+        if self.training and self.use_noisy_nets:
+            self._reset_all_noise()
+
         with torch.no_grad():
             obs_t = torch.as_tensor(obs_batch, dtype=torch.float32, device=self.device)
             legal_t = torch.as_tensor(legal_mask_batch, dtype=torch.bool, device=self.device)
             out = self.q_network(obs_t, legal_mask=legal_t)
             scores = action_scores(out)
             actions = masked_argmax(scores, legal_t).cpu().numpy().astype(np.int64)
-        if not deterministic and self.epsilon > 0 and B > 0:
+
+        # Skip epsilon exploration when using noisy nets
+        effective_epsilon = 0.0 if self.use_noisy_nets else self.epsilon
+        if not deterministic and effective_epsilon > 0 and B > 0:
             legal_np = np.asarray(legal_mask_batch, dtype=bool)
             for i in range(B):
-                if random.random() < self.epsilon:
+                if random.random() < effective_epsilon:
                     legal_actions = np.flatnonzero(legal_np[i])
                     if legal_actions.size > 0:
                         actions[i] = int(np.random.choice(legal_actions))
@@ -302,6 +318,17 @@ class DQNAgent(BaseAgent):
         self.step_count += 1
 
         return {}
+
+    def _reset_all_noise(self) -> None:
+        """Reset noise in all networks that support it (for noisy nets exploration)."""
+        if hasattr(self.q_network, "reset_noise"):
+            self.q_network.reset_noise()
+        if hasattr(self.target_network, "reset_noise"):
+            self.target_network.reset_noise()
+        if self.q_network2 is not None and hasattr(self.q_network2, "reset_noise"):
+            self.q_network2.reset_noise()
+        if self.target_network2 is not None and hasattr(self.target_network2, "reset_noise"):
+            self.target_network2.reset_noise()
 
     def _store_n_step_transition(
         self,
@@ -385,6 +412,9 @@ class DQNAgent(BaseAgent):
             detailed = self.compute_detailed_metrics and (
                 self._train_steps % self.metrics_interval == 0
             )
+            # Reset noise before training forward pass
+            if self.use_noisy_nets:
+                self._reset_all_noise()
             metrics, td_errors_abs = self.learner.train_on_batch(batch, detailed_metrics=detailed)
 
             if self.use_per and batch.indices is not None:

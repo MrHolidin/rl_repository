@@ -66,6 +66,9 @@ if "dqn" not in list_agents():
             dueling = network_type == "dueling_dqn"
         use_distributional = kwargs.pop("use_distributional", False)
         n_quantiles = kwargs.pop("n_quantiles", 32)
+        # Noisy nets: agent's use_noisy_nets controls both network's use_noisy and agent behavior
+        use_noisy_nets = kwargs.get("use_noisy_nets", False)
+        noisy_sigma = kwargs.pop("noisy_sigma", 0.5)
         
         if use_distributional:
             if rows == 8 and cols == 8 and num_actions == 64:
@@ -82,6 +85,8 @@ if "dqn" not in list_agents():
                     in_channels=in_channels,
                     num_actions=num_actions,
                     n_quantiles=n_quantiles,
+                    use_noisy=use_noisy_nets,
+                    noisy_sigma=noisy_sigma,
                 )
             kwargs["use_distributional"] = True
             kwargs["n_quantiles"] = n_quantiles
@@ -99,6 +104,8 @@ if "dqn" not in list_agents():
                     in_channels=in_channels,
                     num_actions=num_actions,
                     dueling=dueling,
+                    use_noisy=use_noisy_nets,
+                    noisy_sigma=noisy_sigma,
                 )
         
         return DQNAgent(network=network, **kwargs)

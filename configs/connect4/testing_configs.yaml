@@ -17,9 +17,11 @@ agent:
     learning_rate: 1.0e-4
     discount_factor: 0.99
     use_twin_q: false
-    epsilon: 1.0
+    epsilon: 0.0
     epsilon_decay: 0.99998
-    epsilon_min: 0.05
+    epsilon_min: 0.0
+    use_noisy_nets: true
+    noisy_sigma: 0.5
     batch_size: 64
     replay_buffer_size: 1000000
     use_per: false
