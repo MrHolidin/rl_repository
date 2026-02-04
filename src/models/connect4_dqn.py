@@ -174,6 +174,7 @@ class Connect4QRDQN(Connect4DQN):
         in_channels: int = 2,
         num_actions: int = 7,
         n_quantiles: int = 32,
+        dueling: bool = False,
         trunk_channels: int = 96,
         num_res_blocks: int = 2,
         use_coord_channels: bool = True,
@@ -187,7 +188,7 @@ class Connect4QRDQN(Connect4DQN):
             cols=cols,
             in_channels=in_channels,
             num_actions=num_actions,
-            dueling=False,
+            dueling=dueling,
             trunk_channels=trunk_channels,
             num_res_blocks=num_res_blocks,
             use_coord_channels=use_coord_channels,
@@ -197,10 +198,18 @@ class Connect4QRDQN(Connect4DQN):
             noisy_sigma=noisy_sigma,
         )
         self.n_quantiles = n_quantiles
-        # q2_quantile is also noisy if use_noisy
+
         Conv1dLayer = NoisyConv1d if use_noisy else nn.Conv1d
-        conv_kwargs = {"sigma_init": noisy_sigma} if use_noisy else {}
-        self.q2_quantile = Conv1dLayer(adv_hidden, n_quantiles, kernel_size=1, **conv_kwargs)
+        LinearLayer = NoisyLinear if use_noisy else nn.Linear
+        conv_kw = {"sigma_init": noisy_sigma} if use_noisy else {}
+        lin_kw = {"sigma_init": noisy_sigma} if use_noisy else {}
+
+        if self._dueling:
+            del self.adv2, self.val2
+            self.adv2_quantile = Conv1dLayer(adv_hidden, n_quantiles, kernel_size=1, **conv_kw)
+            self.val2_quantile = LinearLayer(val_hidden, n_quantiles, **lin_kw)
+        else:
+            self.q2_quantile = Conv1dLayer(adv_hidden, n_quantiles, kernel_size=1, **conv_kw)
 
     def forward(self, x: torch.Tensor, legal_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         if self.use_coord_channels:
@@ -211,19 +220,27 @@ class Connect4QRDQN(Connect4DQN):
             h = blk(h)
 
         h_col = h.mean(dim=2)
-        q = F.relu(self.q1(h_col))
-        quantiles = self.q2_quantile(q)  # (B, n_quantiles, 7)
-        quantiles = quantiles.permute(0, 2, 1)  # (B, 7, n_quantiles)
+
+        if self._dueling:
+            a = F.relu(self.adv1(h_col))
+            a = self.adv2_quantile(a).permute(0, 2, 1)  # (B, 7, n_quantiles)
+
+            h_global = h.mean(dim=(2, 3))
+            v = F.relu(self.val1(h_global))
+            v = self.val2_quantile(v).unsqueeze(1)  # (B, 1, n_quantiles)
+
+            quantiles = v + (a - a.mean(dim=1, keepdim=True))
+        else:
+            q = F.relu(self.q1(h_col))
+            quantiles = self.q2_quantile(q).permute(0, 2, 1)  # (B, 7, n_quantiles)
 
         if legal_mask is not None:
-            lm = legal_mask.bool().unsqueeze(-1)
-            quantiles = quantiles.masked_fill(~lm, -1e9)
+            quantiles = quantiles.masked_fill(~legal_mask.bool().unsqueeze(-1), -1e9)
 
         return quantiles
 
     def get_constructor_kwargs(self) -> dict:
         d = super().get_constructor_kwargs()
-        d.pop("dueling", None)
         d["n_quantiles"] = self.n_quantiles
         return d
 

@@ -11,8 +11,8 @@ game:
 agent:
   id: dqn
   params:
-    dueling: false
-    use_distributional: false
+    dueling: true
+    use_distributional: true
     n_quantiles: 32
     learning_rate: 1.0e-4
     discount_factor: 0.99
@@ -41,7 +41,7 @@ train:
   total_steps: 100000
   deterministic: false
   track_timings: true
-  apply_augmentation: false
+  apply_augmentation: true
   start_policy: random
   random_opening:
     probability: 0.5

@@ -85,6 +85,7 @@ if "dqn" not in list_agents():
                     in_channels=in_channels,
                     num_actions=num_actions,
                     n_quantiles=n_quantiles,
+                    dueling=dueling,
                     use_noisy=use_noisy_nets,
                     noisy_sigma=noisy_sigma,
                 )
