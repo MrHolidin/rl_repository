@@ -16,7 +16,9 @@ from .q_network_factory import (
 __all__ = [
     "BaseDQNNetwork",
     "Connect4DQN",
+    "Connect4QRDQN",
     "OthelloDQN",
+    "OthelloQRDQN",
     "SimpleMLP",
     "ActorCriticCNN",
     "build_q_network",

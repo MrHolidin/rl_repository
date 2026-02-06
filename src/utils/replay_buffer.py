@@ -74,18 +74,18 @@ class ReplayBuffer:
         idx = self.pos
         
         if self._use_gpu:
-            self._obs_buf[idx] = torch.from_numpy(np.asarray(obs, dtype=np.float32)).to(self.device)
-            self._next_obs_buf[idx] = torch.from_numpy(np.asarray(next_obs, dtype=np.float32)).to(self.device)
-            self._legal_mask_buf[idx] = torch.from_numpy(np.asarray(legal_mask, dtype=bool)).to(self.device)
-            self._next_legal_mask_buf[idx] = torch.from_numpy(np.asarray(next_legal_mask, dtype=bool)).to(self.device)
+            self._obs_buf[idx] = torch.as_tensor(obs, dtype=torch.float32, device=self.device)
+            self._next_obs_buf[idx] = torch.as_tensor(next_obs, dtype=torch.float32, device=self.device)
+            self._legal_mask_buf[idx] = torch.as_tensor(legal_mask, dtype=torch.bool, device=self.device)
+            self._next_legal_mask_buf[idx] = torch.as_tensor(next_legal_mask, dtype=torch.bool, device=self.device)
             self._action_buf[idx] = action
             self._reward_buf[idx] = reward
             self._done_buf[idx] = done
         else:
-            np.copyto(self._obs_buf[idx], np.asarray(obs, dtype=np.float32))
-            np.copyto(self._next_obs_buf[idx], np.asarray(next_obs, dtype=np.float32))
-            np.copyto(self._legal_mask_buf[idx], np.asarray(legal_mask, dtype=bool))
-            np.copyto(self._next_legal_mask_buf[idx], np.asarray(next_legal_mask, dtype=bool))
+            self._obs_buf[idx] = obs
+            self._next_obs_buf[idx] = next_obs
+            self._legal_mask_buf[idx] = legal_mask
+            self._next_legal_mask_buf[idx] = next_legal_mask
             self._action_buf[idx] = action
             self._reward_buf[idx] = reward
             self._done_buf[idx] = done

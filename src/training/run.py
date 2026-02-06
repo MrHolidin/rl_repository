@@ -27,6 +27,7 @@ from src.training.callbacks import (
 from src.training.random_opening import RandomOpeningConfig
 from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
+from src.training.othello_augmentations import make_othello_d4_augmenter
 
 
 # Global reference for signal handler
@@ -321,6 +322,9 @@ def run(
         if game_id == "connect4":
             num_cols = getattr(env, "cols", 7)
             data_augment_fn = make_connect4_horizontal_augmenter(num_cols)
+        elif game_id == "othello":
+            board_size = getattr(env, "size", 8)
+            data_augment_fn = make_othello_d4_augmenter(board_size)
         else:
             raise ValueError(
                 f"apply_augmentation is True but no augmentations defined for game '{app_cfg.game.id}'"

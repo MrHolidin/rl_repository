@@ -57,6 +57,7 @@ class DQNAgent(BaseAgent):
         per_beta_start: float = 0.4,
         per_beta_frames: int = 100_000,
         per_eps: float = 1e-6,
+        per_td_clip: Optional[float] = None,
         n_step: int = 1,
         use_twin_q: bool = False,
         use_distributional: bool = False,
@@ -94,6 +95,7 @@ class DQNAgent(BaseAgent):
             per_beta_start: PER beta start value.
             per_beta_frames: PER beta annealing frames.
             per_eps: Small constant for PER priorities.
+            per_td_clip: Max TD-error for priority computation (None = no clip).
             n_step: N-step returns (1 = standard TD).
             use_twin_q: Use Twin Q-networks (Clipped Double Q-Learning from TD3).
             use_distributional: Use Quantile Regression DQN (predict return distribution).
@@ -123,6 +125,7 @@ class DQNAgent(BaseAgent):
         self._train_steps = 0
         self.use_per = use_per
         self.per_eps = float(per_eps)
+        self.per_td_clip = float(per_td_clip) if per_td_clip is not None else None
         self.n_step = max(1, n_step)
         self._n_step_buffer: Optional[Deque[Tuple[Any, ...]]] = deque() if self.n_step > 1 else None
         self.target_q_clip = target_q_clip
@@ -285,12 +288,13 @@ class DQNAgent(BaseAgent):
                         actions[i] = int(np.random.choice(legal_actions))
         return actions
 
-    def observe(self, transition) -> Dict[str, float]:
+    def observe(self, transition, is_augmented: bool = False) -> Dict[str, float]:
         """
         Store transition in replay buffer.
         
         Args:
             transition: Tuple of (obs, action, reward, next_obs, done, ..., legal_mask, next_legal_mask)
+            is_augmented: If True, this is a synthetic (augmented) transition - don't increment step_count
             
         Returns:
             Empty dictionary (metrics returned by update()).
@@ -311,11 +315,14 @@ class DQNAgent(BaseAgent):
                 legal_mask = np.ones(self.num_actions, dtype=bool)
                 next_legal_mask = np.ones(self.num_actions, dtype=bool)
 
-        if self.n_step == 1 or self._n_step_buffer is None:
+        if self.n_step == 1 or self._n_step_buffer is None or is_augmented:
+            # Augmented transitions bypass n-step buffer (no temporal sequence)
             self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
         else:
             self._store_n_step_transition(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
-        self.step_count += 1
+        
+        if not is_augmented:
+            self.step_count += 1
 
         return {}
 
@@ -418,7 +425,10 @@ class DQNAgent(BaseAgent):
             metrics, td_errors_abs = self.learner.train_on_batch(batch, detailed_metrics=detailed)
 
             if self.use_per and batch.indices is not None:
-                new_prios = td_errors_abs.cpu().numpy() + self.per_eps
+                td_for_prio = td_errors_abs.cpu().numpy()
+                if self.per_td_clip is not None:
+                    td_for_prio = np.clip(td_for_prio, 0.0, self.per_td_clip)
+                new_prios = td_for_prio + self.per_eps
                 self.replay_buffer.update_priorities(batch.indices, new_prios)
 
         if self.target_update_freq > 0 and self.step_count % self.target_update_freq == 0:

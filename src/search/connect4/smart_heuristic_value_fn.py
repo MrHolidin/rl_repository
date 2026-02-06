@@ -37,6 +37,8 @@ def _score_window_fast(w0: int, w1: int, w2: int, w3: int, player: int) -> float
         return -50.0
     if opp_count == 2 and empty_count == 2:
         return -5.0
+    if opp_count == 1 and empty_count == 3:
+        return -1.0
 
     return 0.0
 

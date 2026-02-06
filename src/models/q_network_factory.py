@@ -296,11 +296,12 @@ def _build_game_specific_network(
     
     # Build kwargs based on network type
     if class_name == "OthelloDQN":
-        # OthelloDQN: non-dueling, uses board_size instead of rows/cols
+        # OthelloDQN: uses board_size instead of rows/cols
         kwargs = {
             "board_size": rows if rows is not None else 8,
             "in_channels": in_channels if in_channels is not None else 2,
             "num_actions": num_actions,
+            "dueling": dueling,
         }
     else:
         # Connect4DQN and others: use rows/cols

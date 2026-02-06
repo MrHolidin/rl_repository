@@ -1,12 +1,10 @@
 # Self-play with Quantile Regression DQN (distributional RL)
-# Optionally enables predicting return distribution instead of scalar Q
 seed: 42
 
 game:
-  id: connect4
+  id: othello
   params:
-    rows: 6
-    cols: 7
+    size: 8
 
 agent:
   id: dqn
@@ -18,16 +16,13 @@ agent:
     discount_factor: 0.99
     use_twin_q: false
     epsilon: 0.0
+    epsilon_decay: 0.99998
     epsilon_min: 0.0
     use_noisy_nets: true
     noisy_sigma: 0.5
     batch_size: 64
     replay_buffer_size: 1000000
     use_per: false
-    per_alpha: 0.5
-    per_beta_start: 0.4
-    per_beta_frames: 400_000  # should match total_steps for beta to reach 1.0
-    per_td_clip: 1.0  # clip TD-error for priority to avoid domination by outliers   
     target_update_freq: 1000
     soft_update: false
     tau: 0.001
@@ -41,7 +36,7 @@ agent:
     value_reg_weight: 1.0e-4
 
 train:
-  total_steps: 100000
+  total_steps: 50000
   deterministic: false
   track_timings: true
   apply_augmentation: true
@@ -55,7 +50,7 @@ train:
     params:
       heuristic_distribution:
         random: 0.2
-        heuristic: 0.8
+        othello_heuristic: 0.8
       self_play:
         start_episode: 100000
         current_self_fraction: 0.6
@@ -65,7 +60,7 @@ train:
   callbacks:
     - type: checkpoint
       params:
-        interval: 10000
+        interval: 5000
         prefix: dqn
     - type: metrics_file
       params:

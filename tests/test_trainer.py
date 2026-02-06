@@ -71,7 +71,7 @@ class DummyAgent(BaseAgent):
         self.actions.append(action)
         return action
 
-    def observe(self, transition: Transition) -> dict:
+    def observe(self, transition: Transition, is_augmented: bool = False) -> dict:
         self.observe_calls += 1
         return {}
 

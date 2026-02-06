@@ -34,7 +34,7 @@ class BaseAgent(ABC):
             legal_mask[legal_actions] = True
         return self.act(obs, legal_mask=legal_mask, deterministic=False)
 
-    def observe(self, transition: Any) -> Dict[str, float]:
+    def observe(self, transition: Any, is_augmented: bool = False) -> Dict[str, float]:
         """Observe a transition and optionally return training metrics."""
         return {}
 

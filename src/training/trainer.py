@@ -226,8 +226,9 @@ class Trainer:
                 else:
                     transitions.extend(list(extra))
 
-        for t in transitions:
-            observe_metrics = self.agent.observe(t) or {}
+        for i, t in enumerate(transitions):
+            is_augmented = i > 0  # First is original, rest are augmented
+            observe_metrics = self.agent.observe(t, is_augmented=is_augmented) or {}
             for key, value in observe_metrics.items():
                 if (
                     key in metrics
