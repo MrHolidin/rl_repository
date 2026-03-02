@@ -11,22 +11,27 @@ game:
 agent:
   id: dqn
   params:
-    dueling: false
-    use_distributional: false
+    dueling: true
+    use_distributional: true
     n_quantiles: 32
     learning_rate: 1.0e-4
-    discount_factor: 0.99
+    discount_factor: 0.997
     use_twin_q: false
-    epsilon: 1.0
-    epsilon_decay: 0.99998
-    epsilon_min: 0.05
+    epsilon: 0.0
+    epsilon_min: 0.0
+    use_noisy_nets: true
+    noisy_sigma: 0.5
     batch_size: 64
-    replay_buffer_size: 1000000
+    replay_buffer_size: 2000000
     use_per: false
+    per_alpha: 0.5
+    per_beta_start: 0.4
+    per_beta_frames: 400_000  # should match total_steps for beta to reach 1.0
+    per_td_clip: 1.0  # clip TD-error for priority to avoid domination by outliers   
     target_update_freq: 1000
     soft_update: false
     tau: 0.001
-    n_step: 1
+    n_step: 5
     device: cuda:0
     metrics_interval: 100
     update_every: 16

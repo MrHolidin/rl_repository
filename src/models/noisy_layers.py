@@ -11,7 +11,9 @@ import torch.nn.functional as F
 def _factorised_noise(size: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
     """Sample factorised noise: f(x) = sign(x) * sqrt(|x|)."""
     x = torch.randn(size, device=device, dtype=dtype)
-    return x.sign() * x.abs().sqrt()
+    s = x.sign()
+    x.abs_().sqrt_()
+    return s.mul_(x)
 
 
 class NoisyLinear(nn.Module):
@@ -57,13 +59,12 @@ class NoisyLinear(nn.Module):
         self.bias_sigma.data.fill_(sigma_val)
 
     def reset_noise(self) -> None:
-        """Resample factorised noise."""
-        self.noise_in = _factorised_noise(
+        self.noise_in.copy_(_factorised_noise(
             self.in_features, self.weight_mu.device, self.weight_mu.dtype
-        )
-        self.noise_out = _factorised_noise(
+        ))
+        self.noise_out.copy_(_factorised_noise(
             self.out_features, self.weight_mu.device, self.weight_mu.dtype
-        )
+        ))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:
@@ -130,13 +131,12 @@ class NoisyConv1d(nn.Module):
         self.bias_sigma.data.fill_(sigma_val)
 
     def reset_noise(self) -> None:
-        """Resample factorised noise."""
-        self.noise_in = _factorised_noise(
+        self.noise_in.copy_(_factorised_noise(
             self.in_channels, self.weight_mu.device, self.weight_mu.dtype
-        )
-        self.noise_out = _factorised_noise(
+        ))
+        self.noise_out.copy_(_factorised_noise(
             self.out_channels, self.weight_mu.device, self.weight_mu.dtype
-        )
+        ))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:
@@ -203,14 +203,13 @@ class NoisyConv2d(nn.Module):
         self.bias_sigma.data.fill_(sigma_val)
 
     def reset_noise(self) -> None:
-        """Resample factorised noise."""
         fan_in = self.in_channels * self.kernel_size * self.kernel_size
-        self.noise_in = _factorised_noise(
+        self.noise_in.copy_(_factorised_noise(
             fan_in, self.weight_mu.device, self.weight_mu.dtype
-        )
-        self.noise_out = _factorised_noise(
+        ))
+        self.noise_out.copy_(_factorised_noise(
             self.out_channels, self.weight_mu.device, self.weight_mu.dtype
-        )
+        ))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:

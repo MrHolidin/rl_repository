@@ -241,10 +241,6 @@ class DQNAgent(BaseAgent):
         if explore:
             return int(np.random.choice(legal_actions))
 
-        # Reset noise before forward pass (only when training and using noisy nets)
-        if self.training and self.use_noisy_nets:
-            self._reset_all_noise()
-
         with torch.no_grad():
             obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
             legal_mask_tensor = torch.as_tensor(
@@ -320,9 +316,11 @@ class DQNAgent(BaseAgent):
             self.replay_buffer.push(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
         else:
             self._store_n_step_transition(obs, action, reward, next_obs, done, legal_mask, next_legal_mask)
-        
+
         if not is_augmented:
             self.step_count += 1
+            if done and self.training and self.use_noisy_nets:
+                self._reset_all_noise()
 
         return {}
 
