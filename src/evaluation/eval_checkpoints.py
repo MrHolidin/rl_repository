@@ -13,6 +13,7 @@ import re as _re
 import numpy as np
 
 from src.agents import HeuristicAgent, RandomAgent, SmartHeuristicAgent
+from src.utils import freeze_agent
 from src.agents.othello import OthelloHeuristicAgent
 from src.agents.dqn.agent import DQNAgent
 from src.envs import Connect4Env, RewardConfig
@@ -67,8 +68,7 @@ def load_dqn_checkpoint(
         seed=seed,
         load_optimizer=False,
     )
-    agent.eval()
-    agent.epsilon = 0.0
+    freeze_agent(agent)
     return agent
 
 

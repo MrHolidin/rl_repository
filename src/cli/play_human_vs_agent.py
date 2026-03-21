@@ -13,6 +13,7 @@ import tyro
 from src.envs import Connect4Env
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent, QLearningAgent, DQNAgent
 from src.features.action_space import DiscreteActionSpace
+from src.utils import freeze_agent
 
 
 def play_human_vs_agent(
@@ -44,8 +45,7 @@ def play_human_vs_agent(
         agent = SmartHeuristicAgent(seed=seed)
     elif agent_type == "qlearning":
         agent = QLearningAgent.load(agent_path, seed=seed)
-        agent.epsilon = 0.0  # Жадная политика для игры с человеком
-        agent.eval()
+        freeze_agent(agent)
     elif agent_type == "dqn":
         action_space = DiscreteActionSpace(n=7)
         agent = DQNAgent.load(
@@ -53,8 +53,7 @@ def play_human_vs_agent(
             seed=seed,
             action_space=action_space,
         )
-        agent.epsilon = 0.0  # Жадная политика для игры с человеком
-        agent.eval()
+        freeze_agent(agent)
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
     

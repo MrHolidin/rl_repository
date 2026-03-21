@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
 from src.agents.base_agent import BaseAgent
+from src.utils import freeze_agent
 
 
 @dataclass
@@ -244,9 +245,7 @@ class OpponentPool:
             info.checkpoint_path,
             device=self.device,
         )
-        agent.eval()
-        agent.epsilon = 0.0  # Ensure pure exploitation
-        
+        freeze_agent(agent)
         info.loaded_agent = agent
         info.last_used = step
         
