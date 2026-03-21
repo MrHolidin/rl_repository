@@ -6,10 +6,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from .base_network import BaseAlphaZeroNetwork
-from .connect4_network import ResidualBlock
+from .base_network import BaseAlphaZeroNetwork, ResidualBlock
 
 
 class TicTacToeAlphaZeroNetwork(BaseAlphaZeroNetwork):
@@ -67,18 +65,6 @@ class TicTacToeAlphaZeroNetwork(BaseAlphaZeroNetwork):
         )
 
         self._init_weights()
-
-    def _init_weights(self) -> None:
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.ones_(m.weight)
-                nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
 
     def forward(
         self,

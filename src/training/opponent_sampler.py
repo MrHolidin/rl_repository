@@ -6,6 +6,7 @@ from typing import Optional
 
 from src.agents.base_agent import BaseAgent
 from src.agents import RandomAgent
+from src.utils.agent_utils import freeze_agent
 
 try:
     from src.training.selfplay import OpponentPool  # type: ignore
@@ -65,10 +66,7 @@ class OpponentPoolSampler(OpponentSampler):
         episode = self._next_episode
         opponent = self.opponent_pool.sample_opponent(episode)  # type: ignore[operator]
         self._current_opponent = opponent
-        if hasattr(opponent, "eval"):
-            opponent.eval()
-        if hasattr(opponent, "epsilon"):
-            setattr(opponent, "epsilon", 0.0)
+        freeze_agent(opponent)
         return opponent
 
     def on_episode_end(self, episode_index: int, info: Optional[dict] = None) -> None:

@@ -8,18 +8,7 @@ from typing import Optional
 from .base_dqn_network import BaseDQNNetwork
 from .dueling_utils import dueling_aggregate
 from .noisy_layers import NoisyLinear, NoisyConv2d
-
-
-class ResidBlock(nn.Module):
-    def __init__(self, channels: int):
-        super().__init__()
-        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = F.relu(self.conv1(x))
-        h = self.conv2(h)
-        return F.relu(x + h)
+from .resid_block import ResidBlock
 
 
 class OthelloDQN(BaseDQNNetwork):
