@@ -2,18 +2,17 @@
 """CLI for training AlphaZero on Connect4."""
 
 import argparse
-from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
 from src.envs.connect4 import Connect4Game, build_state_dict, CONNECT4_ROWS, CONNECT4_COLS
 from src.features.observation_builder import BoardChannels
 from src.models.alphazero import Connect4AlphaZeroNetwork
-from src.agents.alphazero import AlphaZeroAgent, AlphaZeroSample
+from src.agents.alphazero import AlphaZeroAgent
 from src.training.alphazero import AlphaZeroTrainer, AlphaZeroConfig, AlphaZeroTrainerCallback
 from src.search.mcts import MCTSConfig, OptimizedMCTS, make_batched_evaluator
 from src.agents.connect4.heuristic_agent import HeuristicAgent
+from src.training.alphazero_augmentations import horizontal_flip_augment
 
 
 def eval_vs_opponent(agent, game, opponent, num_games: int = 100, evaluator=None,
@@ -123,21 +122,6 @@ class PrintCallback(AlphaZeroTrainerCallback):
                 f"{sp_t:.2f},{tr_t:.2f},{fmt(wr_heuristic)}\n"
             )
 
-
-def horizontal_flip_augment(sample: AlphaZeroSample):
-    """Augment sample by horizontal flip."""
-    flipped_obs = np.flip(sample.observation, axis=-1).copy()
-    flipped_mask = np.flip(sample.legal_mask).copy()
-    flipped_policy = np.flip(sample.target_policy).copy()
-
-    return [
-        AlphaZeroSample(
-            observation=flipped_obs,
-            legal_mask=flipped_mask,
-            target_policy=flipped_policy,
-            target_value=sample.target_value,
-        )
-    ]
 
 
 def main():

@@ -7,12 +7,8 @@ from typing import Sequence
 import numpy as np
 import torch
 
-from src.envs.connect4 import (
-    Connect4Game,
-    Connect4State,
-    connect4_terminal_evaluator,
-    build_state_dict,
-)
+from src.envs.connect4 import Connect4Game, Connect4State, build_state_dict
+from src.games.state_evaluator import terminal_value
 from src.games.turn_based_game import TurnBasedGame
 from src.features.observation_builder import ObservationBuilder
 from src.agents.dqn.agent import DQNAgent
@@ -41,7 +37,7 @@ class Connect4DQNValueFn(StateValueFn[Connect4State]):
         # Handle terminal states using existing evaluator
         if game.is_terminal(state):
             current_token = game.current_player(state)
-            return connect4_terminal_evaluator(game, state, root_player=current_token)
+            return terminal_value(game, state, root_player=current_token)
 
         legal_actions: Sequence[int] = game.legal_actions(state)
         if not legal_actions:

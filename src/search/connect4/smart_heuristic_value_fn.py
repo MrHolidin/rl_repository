@@ -6,7 +6,8 @@ import math
 
 import numpy as np
 
-from src.envs.connect4 import Connect4State, connect4_terminal_evaluator
+from src.envs.connect4 import Connect4State
+from src.games.state_evaluator import terminal_value
 from src.games.turn_based_game import TurnBasedGame
 from ..value_fn import StateValueFn
 
@@ -107,7 +108,7 @@ class Connect4SmartHeuristicValueFn(StateValueFn[Connect4State]):
         current_token = game.current_player(state)
 
         if game.is_terminal(state):
-            return connect4_terminal_evaluator(game, state, root_player=current_token)
+            return terminal_value(game, state, root_player=current_token)
 
         raw_score = evaluate_board_fast(state.board, current_token)
 
