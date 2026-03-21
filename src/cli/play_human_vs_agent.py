@@ -72,10 +72,10 @@ def play_human_vs_agent(
     while not done:
         env.render()
         
-        legal_actions = env.get_legal_actions()
-        
+        legal_mask = env.legal_actions_mask
+        legal_actions = [i for i, ok in enumerate(legal_mask) if ok]
+
         if current_player == 0:
-            # Human's turn
             print(f"Your turn! Legal columns: {legal_actions}")
             while True:
                 try:
@@ -87,16 +87,17 @@ def play_human_vs_agent(
                 except ValueError:
                     print("Please enter a valid number!")
         else:
-            # Agent's turn
             print("Agent's turn...")
-            action = agent.select_action(obs, legal_actions)
+            action = agent.act(obs, legal_mask=legal_mask, deterministic=True)
             print(f"Agent chose column: {action}")
-        
-        next_obs, reward, done, info = env.step(action)
-        
+
+        step = env.step(action)
+        obs = step.obs
+        done = step.done
+
         if done:
             env.render()
-            winner = info.get("winner")
+            winner = step.info.get("winner")
             if winner == 1:
                 if human_first:
                     print("You win! 🎉")
@@ -111,7 +112,6 @@ def play_human_vs_agent(
                 print("It's a draw! 🤝")
             break
         
-        obs = next_obs
         current_player = 1 - current_player
         print()
 

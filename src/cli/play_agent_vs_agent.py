@@ -119,20 +119,18 @@ def play_agent_vs_agent(
             print("-" * 50)
         
         while not done:
-            legal_actions = env.get_legal_actions()
-            
-            if current_player == 0:
-                action = agent1.select_action(obs, legal_actions)
-            else:
-                action = agent2.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
-            
+            actor = agent1 if current_player == 0 else agent2
+            action = actor.act(obs, legal_mask=env.legal_actions_mask, deterministic=True)
+
+            step = env.step(action)
+            obs = step.obs
+            done = step.done
+
             if render:
                 env.render()
-            
+
             if done:
-                winner = info.get("winner")
+                winner = step.info.get("winner")
                 if winner == 1:  # Agent1 is player 1
                     agent1_wins += 1
                     if render:
@@ -147,7 +145,6 @@ def play_agent_vs_agent(
                         print("Draw!")
                 break
             
-            obs = next_obs
             current_player = 1 - current_player
         
         if render:

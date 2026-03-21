@@ -173,37 +173,34 @@ def visualize_game(
         
         env.render()
         
-        legal_actions = env.get_legal_actions()
+        legal_mask = env.legal_actions_mask
+        legal_actions = [i for i, ok in enumerate(legal_mask) if ok]
         move_count += 1
-        
+
         if current_player == 0:
-            # Model's turn
             player_name = "Model"
             player_symbol = "X" if model_first else "O"
             print(f"\nMove {move_count}: {player_name} ({player_symbol})")
             print(f"Legal columns: {legal_actions}")
-            
-            action = model.select_action(obs, legal_actions)
+            action = model.act(obs, legal_mask=legal_mask, deterministic=True)
             print(f"→ {player_name} chose column: {action}")
         else:
-            # Opponent's turn
             player_name = opponent_type.capitalize()
             player_symbol = "O" if model_first else "X"
             print(f"\nMove {move_count}: {player_name} ({player_symbol})")
             print(f"Legal columns: {legal_actions}")
-            
-            action = opponent.select_action(obs, legal_actions)
+            action = opponent.act(obs, legal_mask=legal_mask, deterministic=True)
             print(f"→ {player_name} chose column: {action}")
-        
-        next_obs, reward, done, info = env.step(action)
-        
+
+        step = env.step(action)
+        obs = step.obs
+        done = step.done
+
         if done:
             time.sleep(delay)
-            # Clear and show final board
-            # print("\033[2J\033[H")  # Uncomment for screen clearing
             env.render()
-            
-            winner = info.get("winner")
+
+            winner = step.info.get("winner")
             print("\n" + "=" * 60)
             print("GAME OVER")
             print("=" * 60)
@@ -225,7 +222,6 @@ def visualize_game(
             print("=" * 60)
             break
         
-        obs = next_obs
         current_player = 1 - current_player
         
         # Delay between moves
