@@ -7,6 +7,7 @@ from .othello import OthelloHeuristicAgent
 from .qlearning_agent import QLearningAgent
 from .dqn.agent import DQNAgent
 from .ppo_agent import PPOAgent
+from .alphazero.agent import AlphaZeroAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels
 from ..models import Connect4DQN, Connect4QRDQN, OthelloDQN, OthelloQRDQN
@@ -153,4 +154,5 @@ __all__ = [
     "QLearningAgent",
     "DQNAgent",
     "PPOAgent",
+    "AlphaZeroAgent",
 ]
