@@ -2,13 +2,100 @@
 
 import random
 import numpy as np
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from src.agents.base_agent import BaseAgent
 from src.envs import Connect4Env, RewardConfig
 from src.envs.base import TurnBasedEnv, StepResult
 from src.envs.connect4 import CONNECT4_COLS, CONNECT4_ROWS
 from src.envs.othello import OthelloEnv
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
+from src.training.trainer import StartPolicy
+
+
+def play_single_game(
+    env: TurnBasedEnv,
+    agent: BaseAgent,
+    opponent: BaseAgent,
+    *,
+    start_policy: StartPolicy = StartPolicy.RANDOM,
+    random_opening_config: Optional[RandomOpeningConfig] = None,
+    deterministic_agent: bool = True,
+    deterministic_opponent: bool = True,
+    seed: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Play a single game between ``agent`` and ``opponent`` on ``env``.
+
+    Returns a dict with keys ``winner`` (1/-1/0), ``steps``, ``agent_token``,
+    ``reward`` (+1/-1/0 from agent's perspective) and raw ``info`` from env.
+    """
+    rng = random.Random(seed) if seed is not None else None
+    obs = env.reset()
+
+    if random_opening_config is not None:
+        opener_rng = rng if rng is not None else random
+        obs, _, prologue_done = maybe_apply_random_opening(
+            env=env, initial_obs=obs, config=random_opening_config, rng=opener_rng,
+        )
+        if prologue_done:
+            obs = env.reset()
+
+    agent_token = _resolve_agent_token(start_policy, rng)
+    steps = 0
+    done = False
+
+    while not done:
+        current_token = _current_player_token(env)
+        is_agent_turn = current_token == agent_token
+        actor = agent if is_agent_turn else opponent
+        deterministic = deterministic_agent if is_agent_turn else deterministic_opponent
+
+        action = actor.act(obs, legal_mask=env.legal_actions_mask, deterministic=deterministic)
+        step = env.step(action)
+        steps += 1
+
+        if step.done:
+            winner = step.info.get("winner")
+            return {
+                "winner": winner,
+                "steps": steps,
+                "agent_token": agent_token,
+                "reward": _result_to_reward(winner, agent_token),
+                "info": step.info,
+            }
+
+        obs = step.obs
+
+    raise RuntimeError("Game loop exited without reaching a terminal state.")
+
+
+def _resolve_agent_token(start_policy: StartPolicy, rng: Optional[random.Random]) -> int:
+    if start_policy == StartPolicy.AGENT_FIRST:
+        return 1
+    if start_policy == StartPolicy.OPPONENT_FIRST:
+        return -1
+    coin = rng.random() if rng is not None else random.random()
+    return 1 if coin < 0.5 else -1
+
+
+def _current_player_token(env: TurnBasedEnv) -> int:
+    """Return +1 for the first player, -1 for the second.
+
+    Falls back to ``current_player()`` (0/1 index) for envs that don't expose
+    ``current_player_token`` (e.g. toy environments).
+    """
+    if hasattr(env, "current_player_token"):
+        return int(getattr(env, "current_player_token"))
+    if hasattr(env, "current_player"):
+        return 1 if env.current_player() == 0 else -1
+    raise AttributeError("Environment must expose current_player_token or current_player().")
+
+
+def _result_to_reward(winner: Optional[int], agent_token: int) -> int:
+    if winner is None or winner == 0:
+        return 0
+    return 1 if winner == agent_token else -1
 
 
 def _default_env_factory(game_id: str, reward_config: RewardConfig) -> TurnBasedEnv:
@@ -107,17 +194,11 @@ def play_match_batched(
     while agent1_wins + draws + agent2_wins < num_games:
         agent1_turn = [
             i for i in range(n)
-            if not done[i] and (
-                (envs[i].current_player_token == 1 and agent1_is_player_1[i])
-                or (envs[i].current_player_token == -1 and not agent1_is_player_1[i])
-            )
+            if not done[i] and (_current_player_token(envs[i]) == 1) == agent1_is_player_1[i]
         ]
         agent2_turn = [
             i for i in range(n)
-            if not done[i] and (
-                (envs[i].current_player_token == 1 and not agent1_is_player_1[i])
-                or (envs[i].current_player_token == -1 and agent1_is_player_1[i])
-            )
+            if not done[i] and (_current_player_token(envs[i]) == 1) != agent1_is_player_1[i]
         ]
         turn_mask1 = [i in agent1_turn for i in range(n)]
         turn_mask2 = [i in agent2_turn for i in range(n)]
@@ -197,50 +278,29 @@ def play_match(
         if hasattr(agent, "set_env"):
             agent.set_env(env)
 
+    start_policy = StartPolicy.RANDOM if randomize_first_player else StartPolicy.AGENT_FIRST
     agent1_wins = draws = agent2_wins = 0
     episode_lengths: List[int] | None = [] if collect_episode_lengths else None
 
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
-
     for game_idx in range(num_games):
-        if seed is not None:
-            random.seed(seed + game_idx)
-            np.random.seed(seed + game_idx)
-
-        obs = env.reset()
-        if random_opening_config is not None:
-            obs, _, prologue_done = maybe_apply_random_opening(
-                env=env, initial_obs=obs, config=random_opening_config, rng=random,
-            )
-            if prologue_done:
-                obs = env.reset()
-
-        agent1_is_player_1 = (random.random() < 0.5) if randomize_first_player else True
-
-        moves = 0
-        while True:
-            legal_mask = env.legal_actions_mask
-            current_token = env.current_player_token
-            actor = agent1 if (current_token == 1) == agent1_is_player_1 else agent2
-            action = actor.act(obs, legal_mask=legal_mask, deterministic=False)
-
-            step = env.step(action)
-            moves += 1
-            obs = step.obs
-
-            if step.done:
-                winner = step.info.get("winner")
-                if winner == 0:
-                    draws += 1
-                elif (winner == 1) == agent1_is_player_1:
-                    agent1_wins += 1
-                else:
-                    agent2_wins += 1
-                if episode_lengths is not None:
-                    episode_lengths.append(moves)
-                break
+        game_seed = (seed + game_idx) if seed is not None else None
+        result = play_single_game(
+            env, agent1, agent2,
+            start_policy=start_policy,
+            random_opening_config=random_opening_config,
+            deterministic_agent=False,
+            deterministic_opponent=False,
+            seed=game_seed,
+        )
+        winner = result["winner"]
+        if winner == 0:
+            draws += 1
+        elif winner == result["agent_token"]:
+            agent1_wins += 1
+        else:
+            agent2_wins += 1
+        if episode_lengths is not None:
+            episode_lengths.append(result["steps"])
 
     if episode_lengths is not None:
         return agent1_wins, draws, agent2_wins, episode_lengths
