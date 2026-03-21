@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import random
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional
 
 from src.agents.base_agent import BaseAgent
 from src.envs.base import TurnBasedEnv
 from src.training.opponent_sampler import OpponentSampler
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
 from src.training.trainer import StartPolicy
+from src.utils.agent_utils import freeze_agent
 
 
 def play_single_game(
@@ -62,10 +63,8 @@ def play_single_game(
         is_agent_turn = current_token == agent_token
         actor = agent if is_agent_turn else opponent
         deterministic = deterministic_agent if is_agent_turn else deterministic_opponent
-        legal_mask = getattr(env, "legal_actions_mask", None)
-        legal_actions = _legal_actions_list(env, legal_mask)
 
-        action = _choose_action(actor, obs, legal_mask, legal_actions, deterministic)
+        action = actor.act(obs, legal_mask=env.legal_actions_mask, deterministic=deterministic)
         step = env.step(action)
         steps += 1
 
@@ -122,10 +121,7 @@ def play_series_vs_sampler(
         env = env_factory()
         opponent_sampler.prepare(game_idx)
         opponent = opponent_sampler.sample()
-        if hasattr(opponent, "eval"):
-            opponent.eval()
-        if hasattr(opponent, "epsilon"):
-            setattr(opponent, "epsilon", 0.0)
+        freeze_agent(opponent)
 
         per_game_seed = (rng.randrange(0, 2**32 - 1) if rng is not None else None)
         result = play_single_game(
@@ -180,34 +176,9 @@ def _current_player_token(env: TurnBasedEnv) -> int:
     raise AttributeError("Environment must expose current_player_token or current_player().")
 
 
-def _choose_action(
-    agent: BaseAgent,
-    obs: Any,
-    legal_mask: Optional[Any],
-    legal_actions: Optional[Sequence[int]],
-    deterministic: bool,
-) -> int:
-    if hasattr(agent, "act"):
-        return agent.act(obs, legal_mask=legal_mask, deterministic=deterministic)
-    if hasattr(agent, "select_action"):
-        if legal_actions is None:
-            raise ValueError("select_action requires explicit legal_actions list.")
-        return agent.select_action(obs, list(legal_actions))
-    raise AttributeError("Agent must implement act() or select_action().")
-
-
 def _result_to_reward(winner: Optional[int], agent_token: int) -> int:
     if winner is None or winner == 0:
         return 0
     return 1 if winner == agent_token else -1
 
-
-def _legal_actions_list(env: TurnBasedEnv, legal_mask: Optional[Any]) -> Optional[Sequence[int]]:
-    if legal_mask is not None:
-        return [idx for idx, allowed in enumerate(legal_mask) if allowed]
-    if hasattr(env, "get_legal_actions"):
-        actions = env.get_legal_actions()
-        if actions is not None:
-            return list(actions)
-    return None
 

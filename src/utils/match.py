@@ -41,8 +41,9 @@ def _apply_turn_batch(
         for i in indices:
             if hasattr(agent, "set_env"):
                 agent.set_env(envs[i])
-            legal = envs[i].get_legal_actions()
-            results[i] = envs[i].step(agent.select_action(obs_list[i], legal))
+            results[i] = envs[i].step(
+                agent.act(obs_list[i], legal_mask=envs[i].legal_actions_mask, deterministic=False)
+            )
     return results
 
 
@@ -192,89 +193,55 @@ def play_match(
             reward_config=reward_config,
         )
     
-    # Allow policy-based agents to access the env for state queries
     for agent in (agent1, agent2):
         if hasattr(agent, "set_env"):
             agent.set_env(env)
-    
-    agent1_wins = 0
-    draws = 0
-    agent2_wins = 0
+
+    agent1_wins = draws = agent2_wins = 0
     episode_lengths: List[int] | None = [] if collect_episode_lengths else None
-    
+
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
-    
+
     for game_idx in range(num_games):
-        # Set seed for each game for reproducibility
         if seed is not None:
             random.seed(seed + game_idx)
             np.random.seed(seed + game_idx)
-        
+
         obs = env.reset()
         if random_opening_config is not None:
             obs, _, prologue_done = maybe_apply_random_opening(
-                env=env,
-                initial_obs=obs,
-                config=random_opening_config,
-                rng=random,
+                env=env, initial_obs=obs, config=random_opening_config, rng=random,
             )
             if prologue_done:
-                # Rare case: random prologue finished the game. Restart without prologue.
                 obs = env.reset()
-        
-        done = False
-        
-        # Determine who goes first
-        if randomize_first_player:
-            agent1_is_player_1 = random.random() < 0.5
-        else:
-            agent1_is_player_1 = True  # agent1 always goes first
-        
+
+        agent1_is_player_1 = (random.random() < 0.5) if randomize_first_player else True
+
         moves = 0
-        while not done:
-            legal_actions = env.get_legal_actions()
-            
-            # Determine which agent should move based on env.current_player_token
-            # current_player_token == 1 means player 1
-            # current_player_token == -1 means player -1
+        while True:
+            legal_mask = env.legal_actions_mask
             current_token = env.current_player_token
-            if current_token == 1:
-                # Player 1's turn
-                if agent1_is_player_1:
-                    action = agent1.select_action(obs, legal_actions)
-                else:
-                    action = agent2.select_action(obs, legal_actions)
-            else:
-                # Player -1's turn
-                if agent1_is_player_1:
-                    action = agent2.select_action(obs, legal_actions)
-                else:
-                    action = agent1.select_action(obs, legal_actions)
-            
-            next_obs, reward, done, info = env.step(action)
+            actor = agent1 if (current_token == 1) == agent1_is_player_1 else agent2
+            action = actor.act(obs, legal_mask=legal_mask, deterministic=False)
+
+            step = env.step(action)
             moves += 1
-            
-            if done:
-                winner = info.get("winner")
-                # winner == 1 means player 1 won
-                # winner == -1 means player -1 won
-                # winner == 0 means draw
+            obs = step.obs
+
+            if step.done:
+                winner = step.info.get("winner")
                 if winner == 0:
                     draws += 1
-                elif (winner == 1 and agent1_is_player_1) or (winner == -1 and not agent1_is_player_1):
-                    # Agent1 won
+                elif (winner == 1) == agent1_is_player_1:
                     agent1_wins += 1
                 else:
-                    # Agent2 won
                     agent2_wins += 1
                 if episode_lengths is not None:
                     episode_lengths.append(moves)
                 break
-            
-            obs = next_obs
-    
+
     if episode_lengths is not None:
         return agent1_wins, draws, agent2_wins, episode_lengths
     return agent1_wins, draws, agent2_wins
