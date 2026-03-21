@@ -14,7 +14,7 @@ from src.games.turn_based_game import TurnBasedGame
 
 S = TypeVar("S")
 Action = int
-StateToDictFn = Callable[[S, TurnBasedGame], dict]
+StateToDictFn = Callable[[S, "TurnBasedGame"], dict]
 ObsBuildFn = Callable[[dict], np.ndarray]
 
 

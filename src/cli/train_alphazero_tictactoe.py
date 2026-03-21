@@ -2,31 +2,15 @@
 """Train AlphaZero on TicTacToe and evaluate vs random."""
 
 import argparse
-from typing import Dict, Any, Optional
 
 import numpy as np
-import torch
 
-from src.envs.tictactoe import TicTacToeGame, TicTacToeState
+from src.envs.tictactoe import TicTacToeGame, build_state_dict
 from src.features.observation_builder import BoardChannels
 from src.models.alphazero import TicTacToeAlphaZeroNetwork
 from src.agents.alphazero import AlphaZeroAgent
 from src.training.alphazero import AlphaZeroTrainer, AlphaZeroConfig, AlphaZeroTrainerCallback
 from src.search.mcts import MCTSConfig, OptimizedMCTS, make_batched_evaluator
-
-
-def build_state_dict(state: TicTacToeState, game: TicTacToeGame, legal_mask=None):
-    if legal_mask is None:
-        legal = list(game.legal_actions(state))
-        legal_mask = np.zeros(9, dtype=bool)
-        for a in legal:
-            legal_mask[a] = True
-    return {
-        "board": state.board,
-        "current_player_token": game.current_player(state),
-        "last_move": None,
-        "legal_actions_mask": legal_mask,
-    }
 
 
 def eval_vs_random(agent: AlphaZeroAgent, game: TicTacToeGame, num_games: int = 100,
@@ -143,7 +127,6 @@ def main():
         mcts_simulations=args.mcts_sims,
         mcts_batch_size=args.mcts_batch,
         train_steps_per_iteration=args.train_steps,
-        batch_size=args.batch_size,
         num_iterations=args.iterations,
         checkpoint_interval=0,  # no checkpoints
         dirichlet_alpha=1.0,  # 10/num_actions for TicTacToe

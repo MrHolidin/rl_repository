@@ -123,29 +123,6 @@ class AlphaZeroAgent(BaseAgent):
         }
         return policy_dict, value
 
-    def compile_network(self, mode: str = "reduce-overhead", warmup_batch_sizes: list = None) -> None:
-        """
-        Compile network with torch.compile for faster inference.
-        
-        Args:
-            mode: Compilation mode ('reduce-overhead' recommended for inference)
-            warmup_batch_sizes: List of batch sizes to warmup (triggers JIT for each)
-        """
-        if not hasattr(torch, "compile"):
-            return
-            
-        self.network = torch.compile(self.network, mode=mode)
-        
-        if warmup_batch_sizes:
-            print(f"Warming up torch.compile for batch sizes: {warmup_batch_sizes}")
-            for bs in warmup_batch_sizes:
-                dummy_obs = torch.randn(bs, 2, 6, 7, device=self.device)
-                dummy_mask = torch.ones(bs, 7, dtype=torch.bool, device=self.device)
-                with torch.inference_mode():
-                    _ = self.network.predict(dummy_obs, dummy_mask)
-            torch.cuda.synchronize()
-            print("Warmup complete")
-
     def train_on_batch(self, batch: AlphaZeroBatch) -> Dict[str, float]:
         """Train on a batch of samples."""
         self.network.train()
@@ -226,7 +203,12 @@ class AlphaZeroAgent(BaseAgent):
     def load(
         cls, path: str, *, device: Optional[str] = None, **overrides
     ) -> "AlphaZeroAgent":
-        from src.models.alphazero import Connect4AlphaZeroNetwork
+        from src.models.alphazero import Connect4AlphaZeroNetwork, TicTacToeAlphaZeroNetwork
+
+        _REGISTRY = {
+            "Connect4AlphaZeroNetwork": Connect4AlphaZeroNetwork,
+            "TicTacToeAlphaZeroNetwork": TicTacToeAlphaZeroNetwork,
+        }
 
         map_location = device or ("cuda" if torch.cuda.is_available() else "cpu")
         checkpoint = torch.load(path, map_location=map_location, weights_only=False)
@@ -234,10 +216,9 @@ class AlphaZeroAgent(BaseAgent):
         network_class = checkpoint["network_class"]
         network_kwargs = checkpoint["network_kwargs"]
 
-        if network_class == "Connect4AlphaZeroNetwork":
-            network = Connect4AlphaZeroNetwork(**network_kwargs)
-        else:
-            raise ValueError(f"Unknown network class: {network_class}")
+        if network_class not in _REGISTRY:
+            raise ValueError(f"Unknown network class: {network_class}. Known: {list(_REGISTRY)}")
+        network = _REGISTRY[network_class](**network_kwargs)
 
         agent = cls(
             network=network,

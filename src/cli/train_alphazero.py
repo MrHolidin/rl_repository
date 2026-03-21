@@ -14,7 +14,6 @@ from src.agents.alphazero import AlphaZeroAgent, AlphaZeroSample
 from src.training.alphazero import AlphaZeroTrainer, AlphaZeroConfig, AlphaZeroTrainerCallback
 from src.search.mcts import MCTSConfig, OptimizedMCTS, make_batched_evaluator
 from src.agents.connect4.heuristic_agent import HeuristicAgent
-from src.agents.connect4.smart_heuristic_agent import SmartHeuristicAgent
 
 
 def eval_vs_opponent(agent, game, opponent, num_games: int = 100, evaluator=None,
@@ -78,7 +77,6 @@ class PrintCallback(AlphaZeroTrainerCallback):
         self.num_eval_games = num_eval_games
         self._evaluator = None
         self._heuristic = HeuristicAgent(seed=0)
-        self._smart_heuristic = SmartHeuristicAgent(seed=0)
         self._log_f = None
         if log_file:
             import os
@@ -197,7 +195,6 @@ def main():
         mcts_simulations=args.mcts_sims,
         mcts_batch_size=args.mcts_batch,
         train_steps_per_iteration=args.train_steps,
-        batch_size=args.batch_size,
         num_iterations=args.iterations,
         checkpoint_dir=args.checkpoint_dir,
         checkpoint_interval=args.checkpoint_interval,

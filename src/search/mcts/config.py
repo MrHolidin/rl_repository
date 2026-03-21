@@ -14,10 +14,7 @@ class MCTSConfig:
     dirichlet_frac: float = 0.25
 
     temperature: float = 1.0
-    temperature_threshold: int = 30
-
-    min_value: float = -1.0
-    max_value: float = 1.0
+    temperature_threshold: int = 15
 
     def get_temperature(self, move_number: int) -> float:
         if move_number < self.temperature_threshold:

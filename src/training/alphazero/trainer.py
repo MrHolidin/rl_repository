@@ -36,16 +36,12 @@ class AlphaZeroConfig:
 
     num_iterations: int = 10
     train_steps_per_iteration: int = 100
-    batch_size: int = 256
     learning_rate: float = 0.002
     weight_decay: float = 1e-4
 
     checkpoint_interval: int = 5
     checkpoint_dir: str = "checkpoints"
 
-    eval_interval: int = 5
-    eval_games: int = 10
-    
     use_cuda_graph: bool = False
 
 
@@ -286,8 +282,7 @@ class AlphaZeroTrainer:
 
     def _state_to_obs(self, state) -> np.ndarray:
         """Convert game state to observation."""
-        legal_mask = self._get_legal_mask(state)
-        state_dict = self.state_to_dict_fn(state, self.game, legal_mask=legal_mask)
+        state_dict = self.state_to_dict_fn(state, self.game)
         return self.observation_builder.build(state_dict)
 
     def _get_legal_mask(self, state) -> np.ndarray:

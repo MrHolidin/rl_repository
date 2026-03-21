@@ -11,7 +11,7 @@ from src.games.turn_based_game import Action, TurnBasedGame
 
 S = TypeVar("S")
 
-StateToDictFn = Callable[[S, TurnBasedGame[S], np.ndarray], dict]
+StateToDictFn = Callable[[S, TurnBasedGame], dict]
 ObsBuildFn = Callable[[dict], np.ndarray]
 
 
@@ -39,27 +39,11 @@ class BatchedNNEvaluator:
         self.num_actions = num_actions
         self.device = device
 
-        self._obs_buffer: np.ndarray | None = None
-        self._mask_buffer: np.ndarray | None = None
-        self._max_batch = 64
-
-    def _ensure_buffers(self, obs_shape: tuple, batch_size: int) -> None:
-        """Allocate/resize buffers if needed."""
-        if self._obs_buffer is None or self._obs_buffer.shape[0] < batch_size:
-            alloc_size = max(batch_size, self._max_batch)
-            self._obs_buffer = np.zeros((alloc_size, *obs_shape), dtype=np.float32)
-            self._mask_buffer = np.zeros(
-                (alloc_size, self.num_actions), dtype=np.bool_
-            )
-
     def __call__(
         self, states: List[S]
     ) -> Tuple[List[Dict[Action, float]], List[float]]:
-        """Evaluate a batch of states."""
         if not states:
             return [], []
-
-        batch_size = len(states)
 
         obs_list = []
         mask_list = []
@@ -70,10 +54,8 @@ class BatchedNNEvaluator:
             for a in legal_actions:
                 legal_mask[a] = True
 
-            state_dict = self.state_to_dict_fn(state, self.game, legal_mask)
-            obs = self.obs_build_fn(state_dict)
-
-            obs_list.append(obs)
+            state_dict = self.state_to_dict_fn(state, self.game)
+            obs_list.append(self.obs_build_fn(state_dict))
             mask_list.append(legal_mask)
 
         obs_batch = np.stack(obs_list, axis=0)
@@ -82,22 +64,16 @@ class BatchedNNEvaluator:
         with torch.inference_mode():
             obs_t = torch.from_numpy(obs_batch).to(self.device, non_blocking=True)
             mask_t = torch.from_numpy(mask_batch).to(self.device, non_blocking=True)
-
             policy_probs, values = self.network.predict(obs_t, mask_t)
-
             policy_np = policy_probs.cpu().numpy()
             values_np = values.squeeze(-1).cpu().numpy()
 
         all_priors = []
-        all_values = values_np.tolist()
-
-        for i in range(batch_size):
-            mask = mask_list[i]
+        for i, mask in enumerate(mask_list):
             policy_row = policy_np[i]
-            priors = {a: policy_row[a] for a in range(self.num_actions) if mask[a]}
-            all_priors.append(priors)
+            all_priors.append({a: policy_row[a] for a in range(self.num_actions) if mask[a]})
 
-        return all_priors, all_values
+        return all_priors, values_np.tolist()
 
 
 def make_batched_evaluator(
