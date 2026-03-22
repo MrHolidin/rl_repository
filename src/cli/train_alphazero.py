@@ -129,7 +129,7 @@ def main():
     parser.add_argument("--iterations", type=int, default=10, help="Number of iterations")
     parser.add_argument("--games-per-iter", type=int, default=25, help="Games per iteration")
     parser.add_argument("--mcts-sims", type=int, default=100, help="MCTS simulations per move")
-    parser.add_argument("--mcts-batch", type=int, default=48, help="MCTS leaf batch size")
+    parser.add_argument("--mcts-batch", type=int, default=256, help="MCTS leaf batch size")
     parser.add_argument("--train-steps", type=int, default=100, help="Training steps per iteration")
     parser.add_argument("--batch-size", type=int, default=256, help="Training batch size")
     parser.add_argument("--lr", type=float, default=0.002, help="Learning rate")
@@ -140,6 +140,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--no-augment", action="store_true", help="Disable augmentation")
     parser.add_argument("--cuda-graph", action="store_true", help="Use CUDA Graphs for ~1.5x faster inference")
+    parser.add_argument("--game-pool", type=int, default=1, help="Number of concurrent self-play games (game pool size, default=1)")
     parser.add_argument("--device", type=str, default=None, help="Device (cuda/cpu)")
     parser.add_argument("--eval-every", type=int, default=5, help="Evaluate vs random every N iterations (0=off)")
     parser.add_argument("--log-file", type=str, default=None, help="CSV log file path (e.g. runs/run1/log.csv)")
@@ -183,6 +184,7 @@ def main():
         checkpoint_dir=args.checkpoint_dir,
         checkpoint_interval=args.checkpoint_interval,
         use_cuda_graph=args.cuda_graph,
+        game_pool_size=args.game_pool,
     )
 
     augment_fn = None if args.no_augment else horizontal_flip_augment
@@ -203,7 +205,7 @@ def main():
 
     print(f"AlphaZero Connect4 | {args.iterations} iters | {args.games_per_iter} games/iter | {args.mcts_sims} MCTS sims", flush=True)
     print(f"Network: {args.trunk_channels}ch x {args.res_blocks} res blocks | device={agent.device}", flush=True)
-    print(f"Augmentation: {'off' if args.no_augment else 'on'} | CUDA Graphs: {'on' if args.cuda_graph else 'off'}", flush=True)
+    print(f"Augmentation: {'off' if args.no_augment else 'on'} | CUDA Graphs: {'on' if args.cuda_graph else 'off'} | game_pool={args.game_pool}", flush=True)
     print(flush=True)
 
     trainer.train()

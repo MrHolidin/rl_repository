@@ -14,7 +14,7 @@ from src.agents.alphazero.replay_buffer import AlphaZeroSample
 from src.features.observation_builder import ObservationBuilder
 from src.games.turn_based_game import Action, TurnBasedGame
 from src.search.mcts.config import MCTSConfig
-from src.search.mcts.optimized_tree import OptimizedMCTS
+from src.search.mcts.optimized_tree import MCTSSearchHandle, OptimizedMCTS
 from src.search.mcts.batched_evaluator import make_batched_evaluator
 from src.search.mcts.cuda_graph_evaluator import make_cuda_graph_evaluator
 
@@ -28,7 +28,7 @@ class AlphaZeroConfig:
     num_games_per_iteration: int = 25
     mcts_simulations: int = 100
     mcts_c_puct: float = 1.4
-    mcts_batch_size: int = 48
+    mcts_batch_size: int = 256
     dirichlet_alpha: float = 0.3
     dirichlet_frac: float = 0.25
     temperature: float = 1.0
@@ -43,6 +43,7 @@ class AlphaZeroConfig:
     checkpoint_dir: str = "checkpoints"
 
     use_cuda_graph: bool = False
+    game_pool_size: int = 1
 
 
 class AlphaZeroTrainerCallback:
@@ -88,6 +89,17 @@ class GameSample:
     player_token: int
 
 
+@dataclass
+class _GameSlot:
+    """Active game context in the game pool."""
+
+    state: Any
+    mcts: OptimizedMCTS
+    handle: MCTSSearchHandle
+    game_samples: List[GameSample]
+    move_number: int
+
+
 class AlphaZeroTrainer:
     """
     AlphaZero training loop.
@@ -95,6 +107,9 @@ class AlphaZeroTrainer:
     Training cycle:
     1. Self-play: Generate games using MCTS + current network
     2. Training: Update network on collected samples
+
+    When config.game_pool_size > 1, self-play runs K games concurrently,
+    batching NN evaluations across all active games for better GPU utilisation.
     """
 
     def __init__(
@@ -130,15 +145,27 @@ class AlphaZeroTrainer:
             temperature_threshold=config.temperature_threshold,
         )
 
+        # CUDA graph batch covers all K games simultaneously for leaf evaluation.
+        # Root evaluations (single state per begin_search) use a separate small
+        # evaluator so they don't go through a batch=K*N CUDA graph.
+        effective_batch = config.mcts_batch_size * config.game_pool_size
         if config.use_cuda_graph and str(agent.device) != "cpu":
             self._batched_evaluator = make_cuda_graph_evaluator(
                 agent, game, state_to_dict_fn, observation_builder,
-                fixed_batch_size=config.mcts_batch_size,
+                fixed_batch_size=effective_batch,
             )
+            if config.game_pool_size > 1:
+                # Small evaluator for single-state root evals in begin_search
+                self._root_evaluator = make_batched_evaluator(
+                    agent, game, state_to_dict_fn, observation_builder
+                )
+            else:
+                self._root_evaluator = self._batched_evaluator
         else:
             self._batched_evaluator = make_batched_evaluator(
                 agent, game, state_to_dict_fn, observation_builder
             )
+            self._root_evaluator = self._batched_evaluator
 
         self.iteration = 0
         self.total_games = 0
@@ -152,7 +179,6 @@ class AlphaZeroTrainer:
             self._run_iteration()
 
     def _run_iteration(self) -> None:
-        """Run a single training iteration."""
         self.iteration += 1
         iter_start = perf_counter()
 
@@ -203,15 +229,144 @@ class AlphaZeroTrainer:
             cb.on_iteration_end(self, self.iteration, iteration_metrics)
 
     def _self_play_phase(self) -> List[AlphaZeroSample]:
-        """Generate self-play games and collect samples."""
         self.agent.eval()
 
-        all_samples: List[AlphaZeroSample] = []
+        if self.config.game_pool_size > 1:
+            return self._self_play_phase_pooled()
 
+        all_samples: List[AlphaZeroSample] = []
         for _ in range(self.config.num_games_per_iteration):
             samples = self._play_one_game()
             all_samples.extend(samples)
             self.total_games += 1
+
+        self.total_samples += len(all_samples)
+        return all_samples
+
+    def _self_play_phase_pooled(self) -> List[AlphaZeroSample]:
+        """
+        Run config.game_pool_size games concurrently.
+
+        Each loop iteration:
+          1. Collect leaves from all active MCTS searches.
+          2. Single evaluator call for all non-terminal leaves combined.
+          3. Apply results back to each game's search handle.
+          4. For completed searches: take action, advance game state,
+             and start the next search (or finalise if terminal).
+        """
+        K = self.config.game_pool_size
+        total_needed = self.config.num_games_per_iteration
+        games_started = 0
+        games_completed = 0
+        all_samples: List[AlphaZeroSample] = []
+
+        def _make_slot() -> Optional[_GameSlot]:
+            nonlocal games_started
+            if games_started >= total_needed:
+                return None
+            state = self.initial_state_fn()
+            # Root evaluator is small (no large CUDA graph overhead for batch=1).
+            # Leaf evaluations are batched across all K games by the pool loop directly.
+            mcts = OptimizedMCTS(
+                self.game,
+                self._root_evaluator,
+                self._mcts_config,
+                self.rng,
+                batch_size=self.config.mcts_batch_size,
+            )
+            handle = mcts.begin_search(state, add_dirichlet_noise=True)
+            games_started += 1
+            return _GameSlot(
+                state=state,
+                mcts=mcts,
+                handle=handle,
+                game_samples=[],
+                move_number=0,
+            )
+
+        slots: List[Optional[_GameSlot]] = [_make_slot() for _ in range(K)]
+
+        while games_completed < total_needed:
+            # --- 1. Collect leaves from all active slots ---
+            all_leaves: List = []
+            slot_leaf_counts: List[int] = []
+
+            for slot in slots:
+                if slot is None or slot.handle.is_done:
+                    slot_leaf_counts.append(0)
+                    continue
+                leaves = slot.mcts.collect_leaves(slot.handle)
+                all_leaves.extend(leaves)
+                slot_leaf_counts.append(len(leaves))
+
+            # --- 2. Single batched NN evaluation ---
+            if all_leaves:
+                states = [leaf.state for leaf in all_leaves]
+                all_priors, all_values = self._batched_evaluator(states)
+
+                # --- 3. Distribute results back to each slot ---
+                offset = 0
+                for slot, count in zip(slots, slot_leaf_counts):
+                    if count > 0:
+                        slot.mcts.apply_evaluations(
+                            slot.handle,
+                            all_leaves[offset : offset + count],
+                            all_priors[offset : offset + count],
+                            all_values[offset : offset + count],
+                        )
+                        offset += count
+
+            # --- 4. Advance slots where MCTS search is complete ---
+            for i, slot in enumerate(slots):
+                if slot is None or not slot.handle.is_done:
+                    continue
+
+                temperature = self._mcts_config.get_temperature(slot.move_number)
+                action, policy_dict = slot.mcts.get_action_probs(
+                    slot.handle.root, temperature
+                )
+
+                policy_array = np.zeros(self.agent.num_actions, dtype=np.float32)
+                for a, p in policy_dict.items():
+                    policy_array[a] = p
+
+                slot.game_samples.append(
+                    GameSample(
+                        observation=self._state_to_obs(slot.state),
+                        legal_mask=self._get_legal_mask(slot.state),
+                        mcts_policy=policy_array,
+                        player_token=self.game.current_player(slot.state),
+                    )
+                )
+
+                new_state = self.game.apply_action(slot.state, action)
+
+                if self.game.is_terminal(new_state):
+                    winner = self.game.winner(new_state)
+                    for gs in slot.game_samples:
+                        if winner == 0:
+                            value = 0.0
+                        elif winner == gs.player_token:
+                            value = 1.0
+                        else:
+                            value = -1.0
+                        all_samples.append(
+                            AlphaZeroSample(
+                                observation=gs.observation,
+                                legal_mask=gs.legal_mask,
+                                target_policy=gs.mcts_policy,
+                                target_value=value,
+                            )
+                        )
+                    games_completed += 1
+                    self.total_games += 1
+                    slots[i] = _make_slot()
+                else:
+                    slot.state = new_state
+                    slot.move_number += 1
+                    slot.handle = slot.mcts.begin_search(
+                        new_state, add_dirichlet_noise=True
+                    )
 
         self.total_samples += len(all_samples)
         return all_samples
@@ -281,12 +436,10 @@ class AlphaZeroTrainer:
         return final_samples
 
     def _state_to_obs(self, state) -> np.ndarray:
-        """Convert game state to observation."""
         state_dict = self.state_to_dict_fn(state, self.game)
         return self.observation_builder.build(state_dict)
 
     def _get_legal_mask(self, state) -> np.ndarray:
-        """Get legal action mask for state."""
         legal_actions = list(self.game.legal_actions(state))
         mask = np.zeros(self.agent.num_actions, dtype=bool)
         for a in legal_actions:
@@ -294,7 +447,6 @@ class AlphaZeroTrainer:
         return mask
 
     def _training_phase(self) -> Dict[str, float]:
-        """Train the network on collected samples."""
         self.agent.train()
 
         total_loss = 0.0
@@ -325,7 +477,6 @@ class AlphaZeroTrainer:
         }
 
     def _save_checkpoint(self) -> None:
-        """Save checkpoint."""
         checkpoint_dir = Path(self.config.checkpoint_dir)
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
 

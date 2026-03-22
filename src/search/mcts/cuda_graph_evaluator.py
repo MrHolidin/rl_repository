@@ -35,6 +35,7 @@ class CUDAGraphEvaluator:
         num_actions: int,
         device: torch.device,
         fixed_batch_size: int = 48,
+        direct_forward_threshold: int = 0,
     ):
         self.network = network
         self.game = game
@@ -43,6 +44,10 @@ class CUDAGraphEvaluator:
         self.num_actions = num_actions
         self.device = device
         self.fixed_batch_size = fixed_batch_size
+        # Batches at or below this size skip the CUDA graph and use a direct
+        # inference_mode forward, which is faster for small batches because the
+        # CUDA graph pads to fixed_batch_size (often wasting most of the capacity).
+        self.direct_forward_threshold = direct_forward_threshold
 
         # Infer observation shape from a dummy state
         dummy_state = game.initial_state()
@@ -98,39 +103,54 @@ class CUDAGraphEvaluator:
                 f"Batch size {n} exceeds fixed_batch_size {self.fixed_batch_size}"
             )
 
-        # Build observations on CPU
-        obs_np = np.zeros(
-            (self.fixed_batch_size, *self.obs_shape), dtype=np.float32
-        )
-        mask_np = np.ones(
-            (self.fixed_batch_size, self.num_actions), dtype=np.float32
-        )
-
+        # Compute legal actions once per state and pass the pre-built mask to
+        # state_to_dict_fn so it does not call game.legal_actions a second time.
         legal_actions_list = []
-        for i, state in enumerate(states):
-            state_dict = self.state_to_dict_fn(state, self.game)
-            obs_np[i] = self.obs_build_fn(state_dict)
-            legal = self.game.legal_actions(state)
-            legal_actions_list.append(legal)
-            mask_np[i] = 0
-            mask_np[i, legal] = 1
+        if n <= self.direct_forward_threshold:
+            obs_np = np.zeros((n, *self.obs_shape), dtype=np.float32)
+            mask_np = np.zeros((n, self.num_actions), dtype=np.float32)
+            for i, state in enumerate(states):
+                legal = list(self.game.legal_actions(state))
+                legal_actions_list.append(legal)
+                legal_mask_arr = np.zeros(self.num_actions, dtype=bool)
+                legal_mask_arr[legal] = True
+                state_dict = self.state_to_dict_fn(state, self.game, legal_mask=legal_mask_arr)
+                obs_np[i] = self.obs_build_fn(state_dict)
+                mask_np[i, legal] = 1
 
-        # Copy to static GPU buffers (non-blocking for overlap)
-        self.static_input.copy_(
-            torch.from_numpy(obs_np).to(self.device, non_blocking=True)
-        )
-        self.static_mask.copy_(
-            torch.from_numpy(mask_np).bool().to(self.device, non_blocking=True)
-        )
+            obs_t = torch.from_numpy(obs_np).to(self.device, non_blocking=True)
+            mask_t = torch.from_numpy(mask_np).bool().to(self.device, non_blocking=True)
+            with torch.inference_mode():
+                policy_t, value_t = self.network.predict(obs_t, mask_t)
+            policy_np = policy_t.cpu().numpy()
+            values_np = value_t.cpu().numpy()
+        else:
+            obs_np = np.zeros(
+                (self.fixed_batch_size, *self.obs_shape), dtype=np.float32
+            )
+            mask_np = np.zeros(
+                (self.fixed_batch_size, self.num_actions), dtype=np.float32
+            )
+            for i, state in enumerate(states):
+                legal = list(self.game.legal_actions(state))
+                legal_actions_list.append(legal)
+                legal_mask_arr = np.zeros(self.num_actions, dtype=bool)
+                legal_mask_arr[legal] = True
+                state_dict = self.state_to_dict_fn(state, self.game, legal_mask=legal_mask_arr)
+                obs_np[i] = self.obs_build_fn(state_dict)
+                mask_np[i, legal] = 1
 
-        # Replay captured graph
-        self.graph.replay()
+            self.static_input.copy_(
+                torch.from_numpy(obs_np).to(self.device, non_blocking=True)
+            )
+            self.static_mask.copy_(
+                torch.from_numpy(mask_np).bool().to(self.device, non_blocking=True)
+            )
+            self.graph.replay()
 
-        # Copy results back (only first n elements)
-        policy_np = self.static_policy[:n].cpu().numpy()
-        values_np = self.static_value[:n].cpu().numpy()
+            policy_np = self.static_policy[:n].cpu().numpy()
+            values_np = self.static_value[:n].cpu().numpy()
 
-        # Build result dictionaries
         result_policies = []
         result_values = []
         for i, legal in enumerate(legal_actions_list):

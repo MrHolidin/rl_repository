@@ -57,17 +57,23 @@ class LazyMCTSNode(Generic[S]):
         best_action = None
         best_is_pending = False
 
+        # sqrt(parent_visits) is identical for every child — compute once
+        sqrt_visits = math.sqrt(self.visit_count)
+
         for action, child in self.children.items():
-            score = child.ucb_score(c_puct, self.visit_count)
+            vc = child.visit_count
+            # inlined: -q_value + exploration  (avoids two extra function calls per child)
+            q = -(child.total_value / vc) if vc else 0.0
+            score = q + c_puct * child.prior * sqrt_visits / (1 + vc)
             if score > best_score:
                 best_score = score
                 best_action = action
                 best_is_pending = False
 
         if self._pending_actions:
+            explore = c_puct * sqrt_visits
             for action in self._pending_actions:
-                prior = self._priors.get(action, 0.0)
-                score = c_puct * prior * math.sqrt(self.visit_count)
+                score = explore * self._priors.get(action, 0.0)
                 if score > best_score:
                     best_score = score
                     best_action = action
