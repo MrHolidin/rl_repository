@@ -81,7 +81,7 @@ class PrintCallback(AlphaZeroTrainerCallback):
             import os
             os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
             self._log_f = open(log_file, "w", buffering=1)
-            self._log_f.write("iter,total_games,loss,policy_loss,value_loss,sp_time,train_time,wr_heuristic\n")
+            self._log_f.write("iter,total_games,loss,policy_loss,value_loss,sp_time,train_time,fresh_frac,avg_age_iters,policy_kl,train_steps,kl_stopped,wr_heuristic\n")
 
     def _get_evaluator(self, trainer):
         if self._evaluator is None:
@@ -103,7 +103,22 @@ class PrintCallback(AlphaZeroTrainerCallback):
         vl = metrics.get('avg_value_loss', 0)
         sp_t = metrics.get('self_play_time', 0)
         tr_t = metrics.get('train_time', 0)
-        print(f"  loss={loss:.4f} (p={pl:.4f} v={vl:.4f})  sp={sp_t:.1f}s train={tr_t:.1f}s", flush=True)
+        fresh = metrics.get('fresh_fraction', 0)
+        age   = metrics.get('avg_age_iters', 0)
+        kl    = metrics.get('policy_kl', None)
+        train_steps = metrics.get('train_steps', 0)
+        kl_stopped  = metrics.get('kl_stopped', False)
+        kl_trace    = metrics.get('kl_trace', [])
+        kl_str = f"  kl={kl:.4f}" if kl is not None else ""
+        stop_str = " [kl_stop]" if kl_stopped else ""
+        print(f"  loss={loss:.4f} (p={pl:.4f} v={vl:.4f})  sp={sp_t:.1f}s train={tr_t:.1f}s  "
+              f"fresh={fresh:.1%} age={age:.1f}iters  steps={train_steps}{stop_str}{kl_str}", flush=True)
+
+        if kl_trace:
+            trace_str = " → ".join(f"{v:.3f}" for v in kl_trace)
+            if kl_stopped:
+                trace_str += " [STOP]"
+            print(f"  kl_trace: {trace_str}", flush=True)
 
         wr_heuristic = None
         if self.eval_every > 0 and iteration % self.eval_every == 0:
@@ -119,7 +134,7 @@ class PrintCallback(AlphaZeroTrainerCallback):
             def fmt(v): return f"{v:.4f}" if v is not None else ""
             self._log_f.write(
                 f"{iteration},{trainer.total_games},{loss:.6f},{pl:.6f},{vl:.6f},"
-                f"{sp_t:.2f},{tr_t:.2f},{fmt(wr_heuristic)}\n"
+                f"{sp_t:.2f},{tr_t:.2f},{fresh:.4f},{age:.2f},{fmt(kl)},{train_steps},{int(kl_stopped)},{fmt(wr_heuristic)}\n"
             )
 
 
@@ -130,7 +145,10 @@ def main():
     parser.add_argument("--games-per-iter", type=int, default=25, help="Games per iteration")
     parser.add_argument("--mcts-sims", type=int, default=100, help="MCTS simulations per move")
     parser.add_argument("--mcts-batch", type=int, default=256, help="MCTS leaf batch size")
-    parser.add_argument("--train-steps", type=int, default=100, help="Training steps per iteration")
+    parser.add_argument("--max-train-steps", type=int, default=100, help="Max training steps per iteration")
+    parser.add_argument("--max-kl", type=float, default=None, help="Stop training steps early if policy KL exceeds this (e.g. 0.4)")
+    parser.add_argument("--kl-warmup", type=int, default=3, help="Number of initial iterations without KL early stop")
+    parser.add_argument("--replay-buffer-size", type=int, default=100_000, help="Replay buffer capacity")
     parser.add_argument("--batch-size", type=int, default=256, help="Training batch size")
     parser.add_argument("--lr", type=float, default=0.002, help="Learning rate")
     parser.add_argument("--trunk-channels", type=int, default=64, help="Network trunk channels")
@@ -171,6 +189,7 @@ def main():
         num_actions=CONNECT4_COLS,
         learning_rate=args.lr,
         batch_size=args.batch_size,
+        replay_buffer_size=args.replay_buffer_size,
         device=args.device,
         seed=args.seed,
     )
@@ -179,7 +198,9 @@ def main():
         num_games_per_iteration=args.games_per_iter,
         mcts_simulations=args.mcts_sims,
         mcts_batch_size=args.mcts_batch,
-        train_steps_per_iteration=args.train_steps,
+        max_train_steps_per_iteration=args.max_train_steps,
+        max_kl_divergence=args.max_kl,
+        kl_warmup_iterations=args.kl_warmup,
         num_iterations=args.iterations,
         checkpoint_dir=args.checkpoint_dir,
         checkpoint_interval=args.checkpoint_interval,

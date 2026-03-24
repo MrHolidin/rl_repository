@@ -83,8 +83,8 @@ class BaseAlphaZeroNetwork(nn.Module, ABC):
         x: torch.Tensor,
         legal_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Get policy probabilities and value."""
-        policy_logits, value = self.forward(x, legal_mask)
+        """Get policy probabilities and value. Masking is applied here, not in forward()."""
+        policy_logits, value = self.forward(x)
 
         if legal_mask is not None:
             policy_logits = policy_logits.masked_fill(~legal_mask, float("-inf"))

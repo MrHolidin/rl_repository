@@ -84,11 +84,8 @@ class Connect4AlphaZeroNetwork(BaseAlphaZeroNetwork):
         h = self.res_tower(h)
 
         p = self.policy_conv(h)
-        p = p.mean(dim=2)
-        p = self.policy_fc(p).squeeze(1)
-
-        if legal_mask is not None:
-            p = p.masked_fill(~legal_mask, float("-inf"))
+        p = p.mean(dim=2)          # collapse rows → (B, policy_channels, cols)
+        p = self.policy_fc(p).squeeze(1)  # (B, cols)
 
         v = self.value_conv(h)
         v = v.flatten(1)

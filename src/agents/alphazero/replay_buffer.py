@@ -48,6 +48,7 @@ class AlphaZeroReplayBuffer:
         self._legal_mask_buf: Optional[np.ndarray] = None
         self._policy_buf: Optional[np.ndarray] = None
         self._value_buf: Optional[np.ndarray] = None
+        self._iter_buf: Optional[np.ndarray] = None
 
         self._pos = 0
         self._size = 0
@@ -60,8 +61,9 @@ class AlphaZeroReplayBuffer:
         self._legal_mask_buf = np.zeros((self.capacity, num_actions), dtype=bool)
         self._policy_buf = np.zeros((self.capacity, num_actions), dtype=np.float32)
         self._value_buf = np.zeros(self.capacity, dtype=np.float32)
+        self._iter_buf = np.zeros(self.capacity, dtype=np.int32)
 
-    def push(self, sample: AlphaZeroSample) -> None:
+    def push(self, sample: AlphaZeroSample, iteration: int = 0) -> None:
         if self._obs_buf is None:
             self._allocate(sample)
 
@@ -70,13 +72,14 @@ class AlphaZeroReplayBuffer:
         self._legal_mask_buf[idx] = sample.legal_mask
         self._policy_buf[idx] = sample.target_policy
         self._value_buf[idx] = sample.target_value
+        self._iter_buf[idx] = iteration
 
         self._pos = (self._pos + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
 
-    def push_game(self, samples: List[AlphaZeroSample]) -> None:
+    def push_game(self, samples: List[AlphaZeroSample], iteration: int = 0) -> None:
         for sample in samples:
-            self.push(sample)
+            self.push(sample, iteration=iteration)
 
     def sample(self, batch_size: int, device: torch.device) -> AlphaZeroBatch:
         if self._size == 0:
@@ -93,6 +96,16 @@ class AlphaZeroReplayBuffer:
                 self._value_buf[indices], device=device
             ).unsqueeze(-1),
         )
+
+    def age_stats(self, current_iter: int, new_samples: int = 0) -> dict:
+        """Return fresh_fraction and avg_age_iters for the current buffer state."""
+        if self._size == 0 or self._iter_buf is None:
+            return {"fresh_fraction": 0.0, "avg_age_iters": 0.0}
+        ages = current_iter - self._iter_buf[: self._size]
+        return {
+            "fresh_fraction": new_samples / self._size if new_samples else 0.0,
+            "avg_age_iters": float(ages.mean()),
+        }
 
     def __len__(self) -> int:
         return self._size

@@ -78,9 +78,6 @@ class TicTacToeAlphaZeroNetwork(BaseAlphaZeroNetwork):
         p = p.flatten(1)
         p = self.policy_fc(p)
 
-        if legal_mask is not None:
-            p = p.masked_fill(~legal_mask, float("-inf"))
-
         v = self.value_conv(h)
         v = v.flatten(1)
         v = self.value_fc(v)

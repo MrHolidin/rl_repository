@@ -92,7 +92,8 @@ def main():
     parser.add_argument("--games-per-iter", type=int, default=50)
     parser.add_argument("--mcts-sims", type=int, default=100)
     parser.add_argument("--mcts-batch", type=int, default=9)
-    parser.add_argument("--train-steps", type=int, default=100)
+    parser.add_argument("--max-train-steps", type=int, default=100)
+    parser.add_argument("--max-kl", type=float, default=None, help="KL early stop threshold")
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=0.002)
     parser.add_argument("--trunk-channels", type=int, default=64)
@@ -126,7 +127,8 @@ def main():
         num_games_per_iteration=args.games_per_iter,
         mcts_simulations=args.mcts_sims,
         mcts_batch_size=args.mcts_batch,
-        train_steps_per_iteration=args.train_steps,
+        max_train_steps_per_iteration=args.max_train_steps,
+        max_kl_divergence=args.max_kl,
         num_iterations=args.iterations,
         checkpoint_interval=0,  # no checkpoints
         dirichlet_alpha=1.0,  # 10/num_actions for TicTacToe

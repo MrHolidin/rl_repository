@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar
 
 import numpy as np
+import torch
 
 from src.agents.alphazero.agent import AlphaZeroAgent
 from src.agents.alphazero.replay_buffer import AlphaZeroSample
@@ -35,7 +36,9 @@ class AlphaZeroConfig:
     temperature_threshold: int = 15
 
     num_iterations: int = 10
-    train_steps_per_iteration: int = 100
+    max_train_steps_per_iteration: int = 100
+    max_kl_divergence: Optional[float] = None
+    kl_warmup_iterations: int = 3
     learning_rate: float = 0.002
     weight_decay: float = 1e-4
 
@@ -171,6 +174,9 @@ class AlphaZeroTrainer:
         self.total_games = 0
         self.total_samples = 0
 
+        self._kl_probe_obs: Optional[np.ndarray] = None
+        self._kl_probe_masks: Optional[np.ndarray] = None
+
     def train(self, num_iterations: Optional[int] = None) -> None:
         """Run the training loop."""
         num_iters = num_iterations or self.config.num_iterations
@@ -198,14 +204,32 @@ class AlphaZeroTrainer:
             )
 
         for sample in samples:
-            self.agent.replay_buffer.push(sample)
+            self.agent.replay_buffer.push(sample, iteration=self.iteration)
             if self.augment_fn is not None:
                 for aug_sample in self.augment_fn(sample):
-                    self.agent.replay_buffer.push(aug_sample)
+                    self.agent.replay_buffer.push(aug_sample, iteration=self.iteration)
+
+        self.agent.eval()
+        policy_before = self._get_probe_policy()
+        bn_stats_before = self._snapshot_bn_stats()
 
         train_start = perf_counter()
-        train_metrics = self._training_phase()
+        train_metrics = self._training_phase(new_samples=len(samples), policy_before=policy_before)
         train_time = perf_counter() - train_start
+
+        if policy_before is not None:
+            # Restore S₀ so policy_after uses the same BN normalization as policy_before.
+            current_bn = self._snapshot_bn_stats()
+            self._restore_bn_stats(bn_stats_before)
+            self.agent.eval()
+            policy_after = self._get_probe_policy()
+            self.agent.train()
+            self._restore_bn_stats(current_bn)
+            self.agent.eval()
+            kl = (policy_after * (
+                np.log(policy_after + 1e-8) - np.log(policy_before + 1e-8)
+            )).sum(axis=-1).mean()
+            train_metrics["policy_kl"] = float(kl)
 
         if (
             self.config.checkpoint_interval > 0
@@ -446,15 +470,84 @@ class AlphaZeroTrainer:
             mask[a] = True
         return mask
 
-    def _training_phase(self) -> Dict[str, float]:
+    _KL_PROBE_SIZE = 512
+
+    def _get_probe_policy(self) -> Optional[np.ndarray]:
+        """Return policy probabilities on fixed probe positions. Initialises probes on first call."""
+        buf = self.agent.replay_buffer
+        if self._kl_probe_obs is None:
+            if len(buf) < self._KL_PROBE_SIZE:
+                return None
+            batch = buf.sample(self._KL_PROBE_SIZE, torch.device("cpu"))
+            self._kl_probe_obs = batch.observations.numpy()
+            self._kl_probe_masks = batch.legal_masks.numpy()
+
+        obs_t  = torch.as_tensor(self._kl_probe_obs,   device=self.agent.device)
+        mask_t = torch.as_tensor(self._kl_probe_masks, device=self.agent.device)
+        with torch.inference_mode():
+            policy, _ = self.agent.network.predict(obs_t, mask_t)
+        return policy.cpu().numpy()
+
+    def _snapshot_bn_stats(self) -> dict:
+        """Save BatchNorm running_mean/running_var for all BN layers."""
+        snapshot = {}
+        for name, module in self.agent.network.named_modules():
+            if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+                snapshot[name] = (module.running_mean.clone(), module.running_var.clone())
+        return snapshot
+
+    def _restore_bn_stats(self, snapshot: dict) -> None:
+        """Restore previously snapshotted BatchNorm running stats."""
+        for name, module in self.agent.network.named_modules():
+            if name in snapshot:
+                module.running_mean.copy_(snapshot[name][0])
+                module.running_var.copy_(snapshot[name][1])
+
+    def _training_phase(
+        self,
+        new_samples: int = 0,
+        policy_before: Optional[np.ndarray] = None,
+    ) -> Dict[str, Any]:
         self.agent.train()
 
         total_loss = 0.0
         total_policy_loss = 0.0
         total_value_loss = 0.0
         steps = 0
+        kl_stopped = False
+        kl_trace: List[float] = []
+        max_kl = self.config.max_kl_divergence
+        kl_active = (
+            max_kl is not None
+            and self.iteration > self.config.kl_warmup_iterations
+        )
 
-        for step in range(self.config.train_steps_per_iteration):
+        # Snapshot BN running stats from before training starts.
+        # KL probes always use these stats so we measure weight-only change,
+        # not the conflated (weight + BN running stats drift) artifact.
+        bn_stats_before = self._snapshot_bn_stats() if kl_active else {}
+
+        for step in range(self.config.max_train_steps_per_iteration):
+            if kl_active and policy_before is not None:
+                # Temporarily restore pre-training BN stats so the probe sees
+                # the same normalization as policy_before was computed under.
+                current_bn = self._snapshot_bn_stats()
+                self._restore_bn_stats(bn_stats_before)
+                self.agent.eval()
+                policy_now = self._get_probe_policy()
+                self.agent.train()
+                self._restore_bn_stats(current_bn)
+                if policy_now is not None:
+                    kl = float(
+                        (policy_now * (
+                            np.log(policy_now + 1e-8) - np.log(policy_before + 1e-8)
+                        )).sum(axis=-1).mean()
+                    )
+                    kl_trace.append(kl)
+                    if kl > max_kl:
+                        kl_stopped = True
+                        break
+
             metrics = self.agent.update()
 
             if metrics:
@@ -467,13 +560,17 @@ class AlphaZeroTrainer:
                     cb.on_training_step(self, self.iteration, step, metrics)
 
         if steps == 0:
-            return {}
+            return {"kl_stopped": kl_stopped, "kl_trace": kl_trace}
 
+        age = self.agent.replay_buffer.age_stats(self.iteration, new_samples)
         return {
             "avg_loss": total_loss / steps,
             "avg_policy_loss": total_policy_loss / steps,
             "avg_value_loss": total_value_loss / steps,
             "train_steps": steps,
+            "kl_stopped": kl_stopped,
+            "kl_trace": kl_trace,
+            **age,
         }
 
     def _save_checkpoint(self) -> None:
