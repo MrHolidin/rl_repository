@@ -11,7 +11,7 @@ from src.games.turn_based_game import Action, TurnBasedGame
 S = TypeVar("S")
 
 
-@dataclass
+@dataclass(slots=True)
 class LazyMCTSNode(Generic[S]):
     """
     MCTS node with lazy child state creation.

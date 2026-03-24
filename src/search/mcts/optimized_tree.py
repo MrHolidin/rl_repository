@@ -207,8 +207,6 @@ class OptimizedMCTS(Generic[S]):
         priors: Dict[Action, float],
         legal_actions: List[Action],
     ) -> Dict[Action, float]:
-        # priors from the evaluator already has exactly the legal action keys,
-        # so we skip the filter pass and normalize in-place.
         if not priors:
             n = len(legal_actions)
             return {a: 1.0 / n for a in legal_actions}

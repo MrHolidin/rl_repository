@@ -151,7 +151,7 @@ class AlphaZeroTrainer:
         # CUDA graph batch covers all K games simultaneously for leaf evaluation.
         # Root evaluations (single state per begin_search) use a separate small
         # evaluator so they don't go through a batch=K*N CUDA graph.
-        effective_batch = config.mcts_batch_size * config.game_pool_size
+        effective_batch = config.mcts_batch_size * min(config.game_pool_size, config.num_games_per_iteration)
         if config.use_cuda_graph and str(agent.device) != "cpu":
             self._batched_evaluator = make_cuda_graph_evaluator(
                 agent, game, state_to_dict_fn, observation_builder,
@@ -308,7 +308,8 @@ class AlphaZeroTrainer:
                 move_number=0,
             )
 
-        slots: List[Optional[_GameSlot]] = [_make_slot() for _ in range(K)]
+        effective_K = min(K, total_needed)
+        slots: List[Optional[_GameSlot]] = [_make_slot() for _ in range(effective_K)]
 
         while games_completed < total_needed:
             # --- 1. Collect leaves from all active slots ---
