@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Callable, Dict, List, Optional, Sequence, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 import numpy as np
 import torch
@@ -47,6 +48,25 @@ class AlphaZeroConfig:
 
     use_cuda_graph: bool = False
     game_pool_size: int = 1
+
+    # Fraction of fresh self-play samples withheld from replay buffer for
+    # validation loss tracking.  0.0 disables the val split.
+    val_split_fraction: float = 0.0
+
+    # Re-search stability: run MCTS twice (independent RNG + Dirichlet) on a few
+    # root states from self-play; 0 disables. Low counts keep overhead small.
+    re_search_stability_positions: int = 0
+    # If set, overrides num simulations for these diagnostic searches only.
+    re_search_stability_num_sims: Optional[int] = None
+
+
+_RESEARCH_STABILITY_POOL_CAP = 256
+
+
+def _symmetric_kl_discrete(p: np.ndarray, q: np.ndarray, eps: float = 1e-8) -> float:
+    kl_pq = np.sum(np.where(p > 0, p * (np.log(p + eps) - np.log(q + eps)), 0.0))
+    kl_qp = np.sum(np.where(q > 0, q * (np.log(q + eps) - np.log(p + eps)), 0.0))
+    return 0.5 * (float(kl_pq) + float(kl_qp))
 
 
 class AlphaZeroTrainerCallback:
@@ -177,6 +197,11 @@ class AlphaZeroTrainer:
         self._kl_probe_obs: Optional[np.ndarray] = None
         self._kl_probe_masks: Optional[np.ndarray] = None
 
+        # Held-out samples from the most recent self-play phase (not in replay buffer).
+        self._val_samples: Optional[List[AlphaZeroSample]] = None
+
+        self._stability_state_pool: List[Any] = []
+
     def train(self, num_iterations: Optional[int] = None) -> None:
         """Run the training loop."""
         num_iters = num_iterations or self.config.num_iterations
@@ -195,6 +220,10 @@ class AlphaZeroTrainer:
         samples = self._self_play_phase()
         self_play_time = perf_counter() - self_play_start
 
+        # Compute search quality on fresh samples while network is in eval mode.
+        search_metrics = self._compute_search_quality(samples)
+        research_metrics = self._compute_re_search_stability()
+
         for cb in self.callbacks:
             cb.on_self_play_end(
                 self,
@@ -203,7 +232,19 @@ class AlphaZeroTrainer:
                 len(samples),
             )
 
-        for sample in samples:
+        # Optionally withhold a fraction of fresh samples for validation (RNG indices).
+        if self.config.val_split_fraction > 0.0 and samples:
+            n_val = max(1, int(len(samples) * self.config.val_split_fraction))
+            n_val = min(n_val, len(samples))
+            val_indices = self.rng.choice(len(samples), size=n_val, replace=False)
+            val_set = set(int(i) for i in val_indices)
+            self._val_samples = [samples[i] for i in val_indices]
+            train_samples = [samples[i] for i in range(len(samples)) if i not in val_set]
+        else:
+            self._val_samples = None
+            train_samples = samples
+
+        for sample in train_samples:
             self.agent.replay_buffer.push(sample, iteration=self.iteration)
             if self.augment_fn is not None:
                 for aug_sample in self.augment_fn(sample):
@@ -231,6 +272,9 @@ class AlphaZeroTrainer:
             )).sum(axis=-1).mean()
             train_metrics["policy_kl"] = float(kl)
 
+        # Val losses: network is in eval mode at this point.
+        val_metrics = self._compute_val_losses()
+
         if (
             self.config.checkpoint_interval > 0
             and self.iteration % self.config.checkpoint_interval == 0
@@ -247,6 +291,9 @@ class AlphaZeroTrainer:
             "train_time": train_time,
             "iteration_time": iter_time,
             **train_metrics,
+            **search_metrics,
+            **research_metrics,
+            **val_metrics,
         }
 
         for cb in self.callbacks:
@@ -254,6 +301,7 @@ class AlphaZeroTrainer:
 
     def _self_play_phase(self) -> List[AlphaZeroSample]:
         self.agent.eval()
+        self._stability_state_pool.clear()
 
         if self.config.game_pool_size > 1:
             return self._self_play_phase_pooled()
@@ -346,6 +394,8 @@ class AlphaZeroTrainer:
                 if slot is None or not slot.handle.is_done:
                     continue
 
+                self._maybe_record_re_search_root_state(slot.state)
+
                 temperature = self._mcts_config.get_temperature(slot.move_number)
                 action, policy_dict = slot.mcts.get_action_probs(
                     slot.handle.root, temperature
@@ -413,6 +463,7 @@ class AlphaZeroTrainer:
         while not self.game.is_terminal(state):
             current_player = self.game.current_player(state)
 
+            self._maybe_record_re_search_root_state(state)
             root = mcts.search(state, add_dirichlet_noise=True)
 
             temperature = self._mcts_config.get_temperature(move_number)
@@ -517,6 +568,8 @@ class AlphaZeroTrainer:
         steps = 0
         kl_stopped = False
         kl_trace: List[float] = []
+        policy_loss_trace: List[float] = []
+        value_loss_trace: List[float] = []
         max_kl = self.config.max_kl_divergence
         kl_active = (
             max_kl is not None
@@ -527,6 +580,15 @@ class AlphaZeroTrainer:
         # KL probes always use these stats so we measure weight-only change,
         # not the conflated (weight + BN running stats drift) artifact.
         bn_stats_before = self._snapshot_bn_stats() if kl_active else {}
+
+        # Fixed probe batch for per-step loss traces.  Sampled once so all
+        # steps see the same positions, making the trace directly comparable.
+        _PROBE_SIZE = 512
+        probe_batch = (
+            self.agent.replay_buffer.sample(_PROBE_SIZE, self.agent.device)
+            if len(self.agent.replay_buffer) >= _PROBE_SIZE
+            else None
+        )
 
         for step in range(self.config.max_train_steps_per_iteration):
             if kl_active and policy_before is not None:
@@ -560,8 +622,20 @@ class AlphaZeroTrainer:
                 for cb in self.callbacks:
                     cb.on_training_step(self, self.iteration, step, metrics)
 
+            # Per-step probe losses (after weight update so trace[t] = post-step t+1).
+            if probe_batch is not None:
+                p_l, v_l = self._eval_probe_losses(probe_batch)
+                policy_loss_trace.append(p_l)
+                value_loss_trace.append(v_l)
+                self.agent.train()
+
         if steps == 0:
-            return {"kl_stopped": kl_stopped, "kl_trace": kl_trace}
+            return {
+                "kl_stopped": kl_stopped,
+                "kl_trace": kl_trace,
+                "policy_loss_trace": policy_loss_trace,
+                "value_loss_trace": value_loss_trace,
+            }
 
         age = self.agent.replay_buffer.age_stats(self.iteration, new_samples)
         return {
@@ -571,8 +645,197 @@ class AlphaZeroTrainer:
             "train_steps": steps,
             "kl_stopped": kl_stopped,
             "kl_trace": kl_trace,
+            "policy_loss_trace": policy_loss_trace,
+            "value_loss_trace": value_loss_trace,
             **age,
         }
+
+    def _maybe_record_re_search_root_state(self, state: Any) -> None:
+        if self.config.re_search_stability_positions <= 0:
+            return
+        if len(self._stability_state_pool) >= _RESEARCH_STABILITY_POOL_CAP:
+            return
+        self._stability_state_pool.append(copy.deepcopy(state))
+
+    def _root_visit_policy_array(self, root: Any) -> np.ndarray:
+        dist = root.get_policy_distribution(1.0)
+        p = np.zeros(self.agent.num_actions, dtype=np.float64)
+        for a, prob in dist.items():
+            p[int(a)] = float(prob)
+        tot = float(p.sum())
+        if tot > 0:
+            p /= tot
+        return p
+
+    def _compute_re_search_stability(self) -> Dict[str, Any]:
+        """
+        Two full MCTS runs (independent RNG / Dirichlet) per sampled root from self-play.
+        Measures search noise: symmetric KL of visit policies, top-1 agreement, |ΔQ_root|.
+        """
+        npos = self.config.re_search_stability_positions
+        if npos <= 0 or not self._stability_state_pool:
+            return {}
+
+        pool = self._stability_state_pool
+        k = min(npos, len(pool))
+        pick = self.rng.choice(len(pool), size=k, replace=False)
+
+        num_sims = self.config.re_search_stability_num_sims
+        if num_sims is None:
+            num_sims = self.config.mcts_simulations
+
+        sym_kls: List[float] = []
+        top1s: List[float] = []
+        vdiffs: List[float] = []
+
+        for j in pick:
+            state_snapshot = pool[int(j)]
+            rng1 = np.random.default_rng(int(self.rng.integers(1 << 63)))
+            rng2 = np.random.default_rng(int(self.rng.integers(1 << 63)))
+            m1 = OptimizedMCTS(
+                self.game,
+                self._batched_evaluator,
+                self._mcts_config,
+                rng=rng1,
+                batch_size=self.config.mcts_batch_size,
+            )
+            m2 = OptimizedMCTS(
+                self.game,
+                self._batched_evaluator,
+                self._mcts_config,
+                rng=rng2,
+                batch_size=self.config.mcts_batch_size,
+            )
+            r1 = m1.search(
+                copy.deepcopy(state_snapshot),
+                num_simulations=num_sims,
+                add_dirichlet_noise=True,
+            )
+            r2 = m2.search(
+                copy.deepcopy(state_snapshot),
+                num_simulations=num_sims,
+                add_dirichlet_noise=True,
+            )
+            p1 = self._root_visit_policy_array(r1)
+            p2 = self._root_visit_policy_array(r2)
+            sym_kls.append(_symmetric_kl_discrete(p1, p2))
+            top1s.append(1.0 if int(np.argmax(p1)) == int(np.argmax(p2)) else 0.0)
+            vdiffs.append(abs(float(r1.q_value) - float(r2.q_value)))
+
+        return {
+            "policy_research_kl": float(np.mean(sym_kls)),
+            "policy_research_top1": float(np.mean(top1s)),
+            "value_research_absdiff": float(np.mean(vdiffs)),
+            "re_search_n": k,
+        }
+
+    def _compute_search_quality(self, samples: List[AlphaZeroSample]) -> Dict[str, Any]:
+        """
+        KL and agreement metrics between the MCTS policy and the network prior.
+
+        All positions in *samples* are evaluated together.  Metrics:
+            search_kl            - KL(π_mcts || p_net)  average over positions
+            top1_agreement       - fraction where argmax(p_net) == argmax(π_mcts)
+            mass_on_best         - p_net probability assigned to MCTS best move
+            target_entropy       - H(π_mcts) average over positions
+            target_entropy_norm  - H(π_mcts) / log(|A_legal|), average
+        """
+        if not samples:
+            return {}
+
+        obs_np = np.stack([s.observation for s in samples])
+        mask_np = np.stack([s.legal_mask for s in samples]).astype(bool)
+        pi_np = np.stack([s.target_policy for s in samples])
+
+        obs_t = torch.as_tensor(obs_np, device=self.agent.device)
+        mask_t = torch.as_tensor(mask_np, device=self.agent.device)
+
+        with torch.inference_mode():
+            p_net_t, _ = self.agent.network.predict(obs_t, mask_t)
+
+        p_net = p_net_t.cpu().numpy()
+
+        eps = 1e-8
+        # KL(π || p_net) — only over actions where π > 0
+        kl_per = np.where(
+            pi_np > 0,
+            pi_np * (np.log(np.clip(pi_np, eps, None)) - np.log(np.clip(p_net, eps, None))),
+            0.0,
+        ).sum(axis=-1)
+        search_kl = float(kl_per.mean())
+
+        best_mcts = np.argmax(pi_np, axis=-1)
+        best_net = np.argmax(p_net, axis=-1)
+        top1_agreement = float((best_net == best_mcts).mean())
+
+        n = len(samples)
+        mass_on_best = float(p_net[np.arange(n), best_mcts].mean())
+
+        h_per = -np.where(
+            pi_np > 0,
+            pi_np * np.log(np.clip(pi_np, eps, None)),
+            0.0,
+        ).sum(axis=-1)
+        target_entropy = float(h_per.mean())
+
+        n_legal = mask_np.sum(axis=-1).astype(float)
+        max_h = np.log(np.maximum(n_legal, 1.0))
+        # Positions with one legal move have max_h=0 and h_per=0; normalized entropy = 0.
+        target_entropy_norm = float(
+            np.divide(h_per, max_h, out=np.zeros_like(h_per), where=max_h > 0).mean()
+        )
+
+        return {
+            "search_kl": search_kl,
+            "top1_agreement": top1_agreement,
+            "mass_on_best": mass_on_best,
+            "target_entropy": target_entropy,
+            "target_entropy_norm": target_entropy_norm,
+        }
+
+    def _compute_val_losses(self) -> Dict[str, Any]:
+        """
+        Cross-entropy policy loss and MSE value loss on the held-out val set.
+        Returns an empty dict when val_split_fraction == 0 or no val samples exist.
+        """
+        if not self._val_samples:
+            return {}
+
+        obs_np = np.stack([s.observation for s in self._val_samples])
+        mask_np = np.stack([s.legal_mask for s in self._val_samples]).astype(bool)
+        pi_np = np.stack([s.target_policy for s in self._val_samples]).astype(np.float32)
+        z_np = np.array([s.target_value for s in self._val_samples], dtype=np.float32)
+
+        dev = self.agent.device
+        obs_t = torch.as_tensor(obs_np, device=dev)
+        mask_t = torch.as_tensor(mask_np, device=dev)
+        pi_t = torch.as_tensor(pi_np, device=dev)
+        z_t = torch.as_tensor(z_np, device=dev).unsqueeze(-1)
+
+        with torch.inference_mode():
+            policy_logits, value_pred = self.agent.network(obs_t, legal_mask=None)
+            masked_logits = policy_logits.masked_fill(~mask_t, -1e9)
+            log_probs = torch.log_softmax(masked_logits, dim=-1)
+            val_policy_loss = -(pi_t * log_probs).clamp(min=-100.0).sum(dim=-1).mean()
+            val_value_loss = torch.nn.functional.mse_loss(value_pred, z_t)
+
+        return {
+            "val_policy_loss": float(val_policy_loss),
+            "val_value_loss": float(val_value_loss),
+        }
+
+    def _eval_probe_losses(self, probe_batch) -> Tuple[float, float]:
+        """Policy cross-entropy and value MSE on a fixed probe batch."""
+        self.agent.eval()
+        with torch.inference_mode():
+            policy_logits, value_pred = self.agent.network(
+                probe_batch.observations, legal_mask=None
+            )
+            masked_logits = policy_logits.masked_fill(~probe_batch.legal_masks, -1e9)
+            log_probs = torch.log_softmax(masked_logits, dim=-1)
+            p_loss = -(probe_batch.target_policies * log_probs).clamp(min=-100.0).sum(dim=-1).mean()
+            v_loss = torch.nn.functional.mse_loss(value_pred, probe_batch.target_values)
+        return float(p_loss), float(v_loss)
 
     def _save_checkpoint(self) -> None:
         checkpoint_dir = Path(self.config.checkpoint_dir)

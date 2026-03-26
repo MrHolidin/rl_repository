@@ -68,6 +68,27 @@ def eval_vs_random(agent, game, num_games: int = 100, evaluator=None) -> float:
     return result["wins"] / num_games
 
 
+_CSV_HEADER = (
+    "iter,total_games,loss,policy_loss,value_loss,sp_time,train_time,"
+    "fresh_frac,avg_age_iters,policy_kl,train_steps,kl_stopped,wr_heuristic,"
+    "search_kl,top1_agreement,mass_on_best,target_entropy_norm,"
+    "val_policy_loss,val_value_loss,"
+    "probe_p_start,probe_p_end,probe_v_start,probe_v_end,"
+    "policy_research_kl,policy_research_top1,value_research_absdiff,re_search_n\n"
+)
+
+
+def _compact_trace(values: list, max_shown: int = 10) -> str:
+    """Return a compact string representation of a loss trace."""
+    if not values:
+        return ""
+    if len(values) <= max_shown:
+        return " ".join(f"{v:.3f}" for v in values)
+    step = len(values) / max_shown
+    indices = sorted({int(i * step) for i in range(max_shown - 1)} | {len(values) - 1})
+    return " ".join(f"{values[i]:.3f}" for i in indices) + f" ({len(values)} steps)"
+
+
 class PrintCallback(AlphaZeroTrainerCallback):
 
     def __init__(self, game, eval_every: int = 5, num_eval_games: int = 50, log_file: str = None):
@@ -81,7 +102,7 @@ class PrintCallback(AlphaZeroTrainerCallback):
             import os
             os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
             self._log_f = open(log_file, "w", buffering=1)
-            self._log_f.write("iter,total_games,loss,policy_loss,value_loss,sp_time,train_time,fresh_frac,avg_age_iters,policy_kl,train_steps,kl_stopped,wr_heuristic\n")
+            self._log_f.write(_CSV_HEADER)
 
     def _get_evaluator(self, trainer):
         if self._evaluator is None:
@@ -98,27 +119,72 @@ class PrintCallback(AlphaZeroTrainerCallback):
         print(f"  self-play: {games_played} games, {samples_collected} samples, buf={len(trainer.agent.replay_buffer)}", flush=True)
 
     def on_iteration_end(self, trainer, iteration, metrics):
-        loss = metrics.get('avg_loss', 0)
-        pl = metrics.get('avg_policy_loss', 0)
-        vl = metrics.get('avg_value_loss', 0)
-        sp_t = metrics.get('self_play_time', 0)
-        tr_t = metrics.get('train_time', 0)
-        fresh = metrics.get('fresh_fraction', 0)
-        age   = metrics.get('avg_age_iters', 0)
-        kl    = metrics.get('policy_kl', None)
-        train_steps = metrics.get('train_steps', 0)
-        kl_stopped  = metrics.get('kl_stopped', False)
-        kl_trace    = metrics.get('kl_trace', [])
-        kl_str = f"  kl={kl:.4f}" if kl is not None else ""
+        loss        = metrics.get("avg_loss", 0)
+        pl          = metrics.get("avg_policy_loss", 0)
+        vl          = metrics.get("avg_value_loss", 0)
+        sp_t        = metrics.get("self_play_time", 0)
+        tr_t        = metrics.get("train_time", 0)
+        fresh       = metrics.get("fresh_fraction", 0)
+        age         = metrics.get("avg_age_iters", 0)
+        kl          = metrics.get("policy_kl", None)
+        train_steps = metrics.get("train_steps", 0)
+        kl_stopped  = metrics.get("kl_stopped", False)
+        kl_trace    = metrics.get("kl_trace", [])
+
+        # Search quality
+        s_kl        = metrics.get("search_kl", None)
+        top1        = metrics.get("top1_agreement", None)
+        mass_best   = metrics.get("mass_on_best", None)
+        ent_norm    = metrics.get("target_entropy_norm", None)
+
+        # Val losses
+        val_pl      = metrics.get("val_policy_loss", None)
+        val_vl      = metrics.get("val_value_loss", None)
+
+        # Per-step traces
+        p_trace     = metrics.get("policy_loss_trace", [])
+        v_trace     = metrics.get("value_loss_trace", [])
+
+        # Re-search stability (optional)
+        pr_kl       = metrics.get("policy_research_kl", None)
+        pr_top1     = metrics.get("policy_research_top1", None)
+        v_rd        = metrics.get("value_research_absdiff", None)
+        re_n        = metrics.get("re_search_n", None)
+
+        kl_str   = f"  kl={kl:.4f}" if kl is not None else ""
         stop_str = " [kl_stop]" if kl_stopped else ""
-        print(f"  loss={loss:.4f} (p={pl:.4f} v={vl:.4f})  sp={sp_t:.1f}s train={tr_t:.1f}s  "
-              f"fresh={fresh:.1%} age={age:.1f}iters  steps={train_steps}{stop_str}{kl_str}", flush=True)
+        print(
+            f"  loss={loss:.4f} (p={pl:.4f} v={vl:.4f})  sp={sp_t:.1f}s train={tr_t:.1f}s  "
+            f"fresh={fresh:.1%} age={age:.1f}iters  steps={train_steps}{stop_str}{kl_str}",
+            flush=True,
+        )
 
         if kl_trace:
             trace_str = " → ".join(f"{v:.3f}" for v in kl_trace)
             if kl_stopped:
                 trace_str += " [STOP]"
             print(f"  kl_trace: {trace_str}", flush=True)
+
+        if s_kl is not None:
+            print(
+                f"  search: kl={s_kl:.4f}  top1={top1:.3f}  mass_best={mass_best:.3f}  "
+                f"ent_norm={ent_norm:.3f}",
+                flush=True,
+            )
+
+        if val_pl is not None:
+            print(f"  val:    p_loss={val_pl:.4f}  v_loss={val_vl:.4f}", flush=True)
+
+        if p_trace:
+            print(f"  probe_p: {_compact_trace(p_trace)}", flush=True)
+        if v_trace:
+            print(f"  probe_v: {_compact_trace(v_trace)}", flush=True)
+
+        if pr_kl is not None:
+            print(
+                f"  re-search: sym_kl={pr_kl:.4f}  top1={pr_top1:.3f}  |dv|={v_rd:.4f}  (n={re_n})",
+                flush=True,
+            )
 
         wr_heuristic = None
         if self.eval_every > 0 and iteration % self.eval_every == 0:
@@ -131,10 +197,19 @@ class PrintCallback(AlphaZeroTrainerCallback):
             print(f"  >> vs heuristic: {wr_heuristic:.1%}  ({r_heur['wins']}W {r_heur['draws']}D {r_heur['losses']}L)", flush=True)
 
         if self._log_f:
-            def fmt(v): return f"{v:.4f}" if v is not None else ""
+            def fmt(v): return f"{v:.6f}" if v is not None else ""
+            probe_p_start = fmt(p_trace[0]) if p_trace else ""
+            probe_p_end   = fmt(p_trace[-1]) if p_trace else ""
+            probe_v_start = fmt(v_trace[0]) if v_trace else ""
+            probe_v_end   = fmt(v_trace[-1]) if v_trace else ""
+            rsn = str(int(re_n)) if re_n is not None else ""
             self._log_f.write(
                 f"{iteration},{trainer.total_games},{loss:.6f},{pl:.6f},{vl:.6f},"
-                f"{sp_t:.2f},{tr_t:.2f},{fresh:.4f},{age:.2f},{fmt(kl)},{train_steps},{int(kl_stopped)},{fmt(wr_heuristic)}\n"
+                f"{sp_t:.2f},{tr_t:.2f},{fresh:.4f},{age:.2f},{fmt(kl)},{train_steps},{int(kl_stopped)},{fmt(wr_heuristic)},"
+                f"{fmt(s_kl)},{fmt(top1)},{fmt(mass_best)},{fmt(ent_norm)},"
+                f"{fmt(val_pl)},{fmt(val_vl)},"
+                f"{probe_p_start},{probe_p_end},{probe_v_start},{probe_v_end},"
+                f"{fmt(pr_kl)},{fmt(pr_top1)},{fmt(v_rd)},{rsn}\n"
             )
 
 
@@ -145,6 +220,12 @@ def main():
     parser.add_argument("--games-per-iter", type=int, default=25, help="Games per iteration")
     parser.add_argument("--mcts-sims", type=int, default=100, help="MCTS simulations per move")
     parser.add_argument("--mcts-batch", type=int, default=256, help="MCTS leaf batch size")
+    parser.add_argument(
+        "--temperature-threshold",
+        type=int,
+        default=15,
+        help="Self-play: use temperature=1 on visit policy for the first N plies, then 0 (greedy). E.g. 8.",
+    )
     parser.add_argument("--max-train-steps", type=int, default=100, help="Max training steps per iteration")
     parser.add_argument("--max-kl", type=float, default=None, help="Stop training steps early if policy KL exceeds this (e.g. 0.4)")
     parser.add_argument("--kl-warmup", type=int, default=3, help="Number of initial iterations without KL early stop")
@@ -162,6 +243,19 @@ def main():
     parser.add_argument("--device", type=str, default=None, help="Device (cuda/cpu)")
     parser.add_argument("--eval-every", type=int, default=5, help="Evaluate vs random every N iterations (0=off)")
     parser.add_argument("--log-file", type=str, default=None, help="CSV log file path (e.g. runs/run1/log.csv)")
+    parser.add_argument("--val-split", type=float, default=0.0, help="Fraction of self-play samples held out for val loss (0=off, e.g. 0.1)")
+    parser.add_argument(
+        "--re-search-stability",
+        type=int,
+        default=0,
+        help="Re-search stability: sample this many roots from self-play, run MCTS twice each (0=off). Try 4–8.",
+    )
+    parser.add_argument(
+        "--re-search-stability-sims",
+        type=int,
+        default=None,
+        help="Sims per diagnostic MCTS (default: same as --mcts-sims). Lower for cheaper logging.",
+    )
 
     args = parser.parse_args()
 
@@ -198,6 +292,7 @@ def main():
         num_games_per_iteration=args.games_per_iter,
         mcts_simulations=args.mcts_sims,
         mcts_batch_size=args.mcts_batch,
+        temperature_threshold=args.temperature_threshold,
         max_train_steps_per_iteration=args.max_train_steps,
         max_kl_divergence=args.max_kl,
         kl_warmup_iterations=args.kl_warmup,
@@ -206,6 +301,9 @@ def main():
         checkpoint_interval=args.checkpoint_interval,
         use_cuda_graph=args.cuda_graph,
         game_pool_size=args.game_pool,
+        val_split_fraction=args.val_split,
+        re_search_stability_positions=args.re_search_stability,
+        re_search_stability_num_sims=args.re_search_stability_sims,
     )
 
     augment_fn = None if args.no_augment else horizontal_flip_augment
@@ -226,7 +324,11 @@ def main():
 
     print(f"AlphaZero Connect4 | {args.iterations} iters | {args.games_per_iter} games/iter | {args.mcts_sims} MCTS sims", flush=True)
     print(f"Network: {args.trunk_channels}ch x {args.res_blocks} res blocks | device={agent.device}", flush=True)
-    print(f"Augmentation: {'off' if args.no_augment else 'on'} | CUDA Graphs: {'on' if args.cuda_graph else 'off'} | game_pool={args.game_pool}", flush=True)
+    print(
+        f"Augmentation: {'off' if args.no_augment else 'on'} | CUDA Graphs: {'on' if args.cuda_graph else 'off'} "
+        f"| game_pool={args.game_pool} | temp_thresh_plies={args.temperature_threshold}",
+        flush=True,
+    )
     print(flush=True)
 
     trainer.train()
