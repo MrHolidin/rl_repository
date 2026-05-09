@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
@@ -44,6 +44,7 @@ class AlphaZeroConfig:
     weight_decay: float = 1e-4
 
     checkpoint_interval: int = 5
+    # Working/run directory: checkpoints, opponent-pool scan (alphazero_iter_*.pt).
     checkpoint_dir: str = "checkpoints"
 
     use_cuda_graph: bool = False
@@ -58,6 +59,13 @@ class AlphaZeroConfig:
     re_search_stability_positions: int = 0
     # If set, overrides num simulations for these diagnostic searches only.
     re_search_stability_num_sims: Optional[int] = None
+
+    # League / opponent pool: fraction of games where the learning agent (current
+    # net) plays against a frozen checkpoint.  Opponents are the last
+    # opponent_pool_size saves under checkpoint_dir (alphazero_iter_*.pt), refreshed
+    # after each checkpoint write.  Only with game_pool_size == 1.
+    opponent_pool_frac: float = 0.0
+    opponent_pool_size: int = 5
 
 
 _RESEARCH_STABILITY_POOL_CAP = 256
@@ -202,6 +210,21 @@ class AlphaZeroTrainer:
 
         self._stability_state_pool: List[Any] = []
 
+        self._opponent_evaluators: List[Any] = []
+        self._opponent_pool_paths: List[str] = []
+        self._opponent_pool_games_this_iter = 0
+
+        if config.opponent_pool_frac > 0.0:
+            if config.game_pool_size != 1:
+                raise ValueError(
+                    "opponent_pool_frac > 0 requires game_pool_size=1 (sequential self-play); "
+                    "pooled multi-game batching is not supported for checkpoint opponents."
+                )
+            if config.opponent_pool_size < 1:
+                raise ValueError("opponent_pool_size must be >= 1 when opponent_pool_frac > 0")
+            self._refresh_opponent_pool_from_disk()
+            self._rebuild_opponent_evaluators()
+
     def train(self, num_iterations: Optional[int] = None) -> None:
         """Run the training loop."""
         num_iters = num_iterations or self.config.num_iterations
@@ -290,6 +313,7 @@ class AlphaZeroTrainer:
             "self_play_time": self_play_time,
             "train_time": train_time,
             "iteration_time": iter_time,
+            "opponent_pool_games": self._opponent_pool_games_this_iter,
             **train_metrics,
             **search_metrics,
             **research_metrics,
@@ -302,6 +326,7 @@ class AlphaZeroTrainer:
     def _self_play_phase(self) -> List[AlphaZeroSample]:
         self.agent.eval()
         self._stability_state_pool.clear()
+        self._opponent_pool_games_this_iter = 0
 
         if self.config.game_pool_size > 1:
             return self._self_play_phase_pooled()
@@ -447,7 +472,78 @@ class AlphaZeroTrainer:
         return all_samples
 
     def _play_one_game(self) -> List[AlphaZeroSample]:
-        """Play a single self-play game and return samples."""
+        """Self-play or (with probability opponent_pool_frac) vs frozen checkpoint MCTS."""
+        if (
+            self._opponent_evaluators
+            and self.config.opponent_pool_frac > 0.0
+            and self.rng.random() < self.config.opponent_pool_frac
+        ):
+            self._opponent_pool_games_this_iter += 1
+            opp_eval = self._opponent_evaluators[
+                int(self.rng.integers(len(self._opponent_evaluators)))
+            ]
+            return self._play_one_game_vs_opponent(opp_eval)
+        return self._play_one_game_selfplay()
+
+    def _initial_state_random_first_player(self) -> Any:
+        state = self.initial_state_fn()
+        if self.rng.random() < 0.5:
+            state = replace(state, current_player_index=1)
+        return state
+
+    def _play_one_game_vs_opponent(self, opponent_evaluator: Any) -> List[AlphaZeroSample]:
+        """Current net + MCTS vs checkpoint net + MCTS; buffer only records learning agent moves."""
+        state = self._initial_state_random_first_player()
+        game_samples: List[GameSample] = []
+        az_move_number = 0
+        az_token = int(self.rng.choice([-1, 1]))
+
+        mcts_curr = OptimizedMCTS(
+            self.game,
+            self._batched_evaluator,
+            self._mcts_config,
+            self.rng,
+            batch_size=self.config.mcts_batch_size,
+        )
+        mcts_opp = OptimizedMCTS(
+            self.game,
+            opponent_evaluator,
+            self._mcts_config,
+            self.rng,
+            batch_size=self.config.mcts_batch_size,
+        )
+
+        while not self.game.is_terminal(state):
+            to_move = self.game.current_player(state)
+            if to_move == az_token:
+                self._maybe_record_re_search_root_state(state)
+                root = mcts_curr.search(state, add_dirichlet_noise=True)
+                temperature = self._mcts_config.get_temperature(az_move_number)
+                action, policy_dict = mcts_curr.get_action_probs(root, temperature)
+                az_move_number += 1
+
+                policy_array = np.zeros(self.agent.num_actions, dtype=np.float32)
+                for a, p in policy_dict.items():
+                    policy_array[a] = p
+
+                game_samples.append(
+                    GameSample(
+                        observation=self._state_to_obs(state),
+                        legal_mask=self._get_legal_mask(state),
+                        mcts_policy=policy_array,
+                        player_token=to_move,
+                    )
+                )
+            else:
+                root = mcts_opp.search(state, add_dirichlet_noise=False)
+                action, _ = mcts_opp.get_action_probs(root, temperature=0.0)
+
+            state = self.game.apply_action(state, action)
+
+        return self._game_samples_to_alpha_zero(state, game_samples)
+
+    def _play_one_game_selfplay(self) -> List[AlphaZeroSample]:
+        """Standard self-play; both sides use the current network."""
         state = self.initial_state_fn()
         game_samples: List[GameSample] = []
         move_number = 0
@@ -488,8 +584,10 @@ class AlphaZeroTrainer:
             state = self.game.apply_action(state, action)
             move_number += 1
 
-        winner = self.game.winner(state)
+        return self._game_samples_to_alpha_zero(state, game_samples)
 
+    def _game_samples_to_alpha_zero(self, terminal_state: Any, game_samples: List[GameSample]) -> List[AlphaZeroSample]:
+        winner = self.game.winner(terminal_state)
         final_samples: List[AlphaZeroSample] = []
 
         for gs in game_samples:
@@ -837,6 +935,43 @@ class AlphaZeroTrainer:
             v_loss = torch.nn.functional.mse_loss(value_pred, probe_batch.target_values)
         return float(p_loss), float(v_loss)
 
+    def _sorted_checkpoint_paths_in_dir(self) -> List[Path]:
+        ckdir = Path(self.config.checkpoint_dir)
+        if not ckdir.is_dir():
+            return []
+        paths: List[Path] = []
+        for p in ckdir.glob("alphazero_iter_*.pt"):
+            try:
+                int(p.stem.split("_")[-1])
+            except ValueError:
+                continue
+            paths.append(p)
+        paths.sort(key=lambda x: int(x.stem.split("_")[-1]))
+        return paths
+
+    def _refresh_opponent_pool_from_disk(self) -> None:
+        """Keep paths for the last opponent_pool_size checkpoints in checkpoint_dir."""
+        all_paths = self._sorted_checkpoint_paths_in_dir()
+        k = self.config.opponent_pool_size
+        self._opponent_pool_paths = [str(p) for p in all_paths[-k:]]
+
+    def _rebuild_opponent_evaluators(self) -> None:
+        self._opponent_evaluators.clear()
+        if not self._opponent_pool_paths:
+            return
+        dev = str(self.agent.device)
+        for ckpt_path in self._opponent_pool_paths:
+            opp_agent = AlphaZeroAgent.load(ckpt_path, device=dev)
+            opp_agent.eval()
+            self._opponent_evaluators.append(
+                make_batched_evaluator(
+                    opp_agent,
+                    self.game,
+                    self.state_to_dict_fn,
+                    self.observation_builder,
+                )
+            )
+
     def _save_checkpoint(self) -> None:
         checkpoint_dir = Path(self.config.checkpoint_dir)
         checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -844,3 +979,7 @@ class AlphaZeroTrainer:
         path = checkpoint_dir / f"alphazero_iter_{self.iteration:06d}.pt"
         self.agent.save(str(path))
         print(f"Saved checkpoint: {path}")
+
+        if self.config.opponent_pool_frac > 0.0 and self.config.game_pool_size == 1:
+            self._refresh_opponent_pool_from_disk()
+            self._rebuild_opponent_evaluators()

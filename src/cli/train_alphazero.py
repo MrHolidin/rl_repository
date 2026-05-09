@@ -2,6 +2,7 @@
 """CLI for training AlphaZero on Connect4."""
 
 import argparse
+from pathlib import Path
 
 import numpy as np
 
@@ -74,7 +75,8 @@ _CSV_HEADER = (
     "search_kl,top1_agreement,mass_on_best,target_entropy_norm,"
     "val_policy_loss,val_value_loss,"
     "probe_p_start,probe_p_end,probe_v_start,probe_v_end,"
-    "policy_research_kl,policy_research_top1,value_research_absdiff,re_search_n\n"
+    "policy_research_kl,policy_research_top1,value_research_absdiff,re_search_n,"
+    "opponent_pool_games\n"
 )
 
 
@@ -150,6 +152,7 @@ class PrintCallback(AlphaZeroTrainerCallback):
         pr_top1     = metrics.get("policy_research_top1", None)
         v_rd        = metrics.get("value_research_absdiff", None)
         re_n        = metrics.get("re_search_n", None)
+        opp_pool_n  = metrics.get("opponent_pool_games", 0)
 
         kl_str   = f"  kl={kl:.4f}" if kl is not None else ""
         stop_str = " [kl_stop]" if kl_stopped else ""
@@ -186,6 +189,9 @@ class PrintCallback(AlphaZeroTrainerCallback):
                 flush=True,
             )
 
+        if opp_pool_n:
+            print(f"  opponent_pool_games: {opp_pool_n}/{metrics.get('games_played', 0)}", flush=True)
+
         wr_heuristic = None
         if self.eval_every > 0 and iteration % self.eval_every == 0:
             ev = self._get_evaluator(trainer)
@@ -209,7 +215,7 @@ class PrintCallback(AlphaZeroTrainerCallback):
                 f"{fmt(s_kl)},{fmt(top1)},{fmt(mass_best)},{fmt(ent_norm)},"
                 f"{fmt(val_pl)},{fmt(val_vl)},"
                 f"{probe_p_start},{probe_p_end},{probe_v_start},{probe_v_end},"
-                f"{fmt(pr_kl)},{fmt(pr_top1)},{fmt(v_rd)},{rsn}\n"
+                f"{fmt(pr_kl)},{fmt(pr_top1)},{fmt(v_rd)},{rsn},{opp_pool_n}\n"
             )
 
 
@@ -234,15 +240,32 @@ def main():
     parser.add_argument("--lr", type=float, default=0.002, help="Learning rate")
     parser.add_argument("--trunk-channels", type=int, default=64, help="Network trunk channels")
     parser.add_argument("--res-blocks", type=int, default=4, help="Number of residual blocks")
-    parser.add_argument("--checkpoint-dir", type=str, default="runs/alphazero_connect4", help="Checkpoint directory")
-    parser.add_argument("--checkpoint-interval", type=int, default=5, help="Save checkpoint every N iterations")
+    parser.add_argument(
+        "--run-dir",
+        type=str,
+        default="runs/alphazero_connect4",
+        help="Working directory: checkpoints, opponent-pool .pt scan, default log at <run-dir>/log.csv",
+    )
+    parser.add_argument("--checkpoint-dir", type=str, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Save alphazero_iter_*.pt every N training iterations (0 = never; opponent pool updates on each save).",
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--no-augment", action="store_true", help="Disable augmentation")
     parser.add_argument("--cuda-graph", action="store_true", help="Use CUDA Graphs for ~1.5x faster inference")
     parser.add_argument("--game-pool", type=int, default=1, help="Number of concurrent self-play games (game pool size, default=1)")
     parser.add_argument("--device", type=str, default=None, help="Device (cuda/cpu)")
     parser.add_argument("--eval-every", type=int, default=5, help="Evaluate vs random every N iterations (0=off)")
-    parser.add_argument("--log-file", type=str, default=None, help="CSV log file path (e.g. runs/run1/log.csv)")
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="CSV log path (default: <run-dir>/log.csv if omitted)",
+    )
     parser.add_argument("--val-split", type=float, default=0.0, help="Fraction of self-play samples held out for val loss (0=off, e.g. 0.1)")
     parser.add_argument(
         "--re-search-stability",
@@ -256,8 +279,29 @@ def main():
         default=None,
         help="Sims per diagnostic MCTS (default: same as --mcts-sims). Lower for cheaper logging.",
     )
+    parser.add_argument(
+        "--opponent-pool-frac",
+        type=float,
+        default=0.0,
+        help="Fraction of games vs MCTS opponents from last X own checkpoints in run-dir (requires --game-pool 1).",
+    )
+    parser.add_argument(
+        "--opponent-pool-size",
+        type=int,
+        default=5,
+        help="Most recent alphazero_iter_*.pt files in run-dir used as opponents (default 5).",
+    )
 
     args = parser.parse_args()
+
+    if args.checkpoint_dir is not None:
+        if args.run_dir != "runs/alphazero_connect4" and Path(
+            args.run_dir
+        ) != Path(args.checkpoint_dir):
+            parser.error("--run-dir and --checkpoint-dir disagree; pass one path only.")
+        run_dir = args.checkpoint_dir
+    else:
+        run_dir = args.run_dir
 
     np.random.seed(args.seed)
 
@@ -297,18 +341,20 @@ def main():
         max_kl_divergence=args.max_kl,
         kl_warmup_iterations=args.kl_warmup,
         num_iterations=args.iterations,
-        checkpoint_dir=args.checkpoint_dir,
+        checkpoint_dir=run_dir,
         checkpoint_interval=args.checkpoint_interval,
         use_cuda_graph=args.cuda_graph,
         game_pool_size=args.game_pool,
         val_split_fraction=args.val_split,
         re_search_stability_positions=args.re_search_stability,
         re_search_stability_num_sims=args.re_search_stability_sims,
+        opponent_pool_frac=args.opponent_pool_frac,
+        opponent_pool_size=args.opponent_pool_size,
     )
 
     augment_fn = None if args.no_augment else horizontal_flip_augment
 
-    log_file = args.log_file or f"{args.checkpoint_dir}/log.csv"
+    log_file = args.log_file or str(Path(run_dir) / "log.csv")
 
     trainer = AlphaZeroTrainer(
         game=game,
@@ -322,11 +368,26 @@ def main():
         rng=np.random.default_rng(args.seed),
     )
 
-    print(f"AlphaZero Connect4 | {args.iterations} iters | {args.games_per_iter} games/iter | {args.mcts_sims} MCTS sims", flush=True)
+    ckpt_msg = (
+        f"checkpoint every {args.checkpoint_interval} iter(s)"
+        if args.checkpoint_interval > 0
+        else "checkpoints off"
+    )
+    print(
+        f"AlphaZero Connect4 | run_dir={run_dir} | {args.iterations} iters | "
+        f"{args.games_per_iter} games/iter | {args.mcts_sims} MCTS sims | {ckpt_msg}",
+        flush=True,
+    )
+    print(f"Log: {log_file}", flush=True)
     print(f"Network: {args.trunk_channels}ch x {args.res_blocks} res blocks | device={agent.device}", flush=True)
     print(
         f"Augmentation: {'off' if args.no_augment else 'on'} | CUDA Graphs: {'on' if args.cuda_graph else 'off'} "
-        f"| game_pool={args.game_pool} | temp_thresh_plies={args.temperature_threshold}",
+        f"| game_pool={args.game_pool} | temp_thresh_plies={args.temperature_threshold}"
+        + (
+            f" | opponent_pool: last {args.opponent_pool_size} ckpt, frac={args.opponent_pool_frac}"
+            if args.opponent_pool_frac > 0
+            else ""
+        ),
         flush=True,
     )
     print(flush=True)
