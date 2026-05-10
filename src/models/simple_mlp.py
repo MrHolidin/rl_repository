@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base_dqn_network import BaseDQNNetwork
+from .dueling_utils import dueling_aggregate
 
 
 class SimpleMLP(BaseDQNNetwork):
@@ -77,19 +78,14 @@ class SimpleMLP(BaseDQNNetwork):
         x = F.relu(self.fc2(x))
         
         if self._dueling:
-            # Value stream
             v = F.relu(self.value_fc(x))
             value = self.value_out(v)
-            
-            # Advantage stream
             a = F.relu(self.adv_fc(x))
             advantage = self.adv_out(a)
-            
-            # Combine: Q = V + (A - mean(A))
-            q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
+            q_values = dueling_aggregate(value, advantage, legal_mask)
         else:
             q_values = self.fc3(x)
-        
+
         return q_values
     
     def get_constructor_kwargs(self) -> Dict[str, Any]:

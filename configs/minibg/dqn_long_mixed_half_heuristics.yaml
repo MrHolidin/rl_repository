@@ -1,0 +1,70 @@
+# Long MiniBG DQN: ~50% episodes vs RandomAgent, ~50% vs a fixed mix of six bots (uniform).
+# Stops at total_steps (raise cap if you want episode-only runs).
+# Run (pick a fresh name per run): python -m src.cli.train --config configs/minibg/dqn_long_mixed_half_heuristics.yaml --run_dir runs/minibg/dqn_long_mixed
+seed: 11
+
+game:
+  id: minibg
+  params:
+    seed: 11
+    battle_damage_shaping: 0.06
+
+agent:
+  id: dqn
+  params:
+    network_type: minibg_mlp
+    observation_shape: [286]
+    mlp_hidden_size: 256
+    dueling: true
+    learning_rate: 0.0003
+    discount_factor: 0.99
+    epsilon: 1.0
+    epsilon_decay: 0.999995
+    epsilon_min: 0.08
+    batch_size: 64
+    replay_buffer_size: 100000
+    target_update_freq: 500
+    soft_update: false
+    tau: 0.01
+    # Use cuda if available; set explicitly to cpu for a portable default.
+    device: cpu
+    metrics_interval: 500
+    update_every: 4
+    grad_clip_norm: 5.0
+    n_step: 1
+    use_twin_q: false
+
+train:
+  max_episodes: 10000000
+  total_steps: 5000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: minibg_mixed
+    params:
+      seed: 101
+      random_fraction: 0.5
+      bots:
+        - tempo
+        - buffer_t2
+        - balanced
+        - early_t2_pressure
+        - wide_t1
+        - fast_t3
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 100000
+        prefix: minibg_dqn
+    - type: metrics_file
+      params:
+        interval: 20000
+    - type: epsilon_decay
+      params:
+        every: step
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true

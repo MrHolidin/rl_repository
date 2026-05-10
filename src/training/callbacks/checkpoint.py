@@ -29,3 +29,9 @@ class CheckpointCallback(TrainerCallback):
             metrics["checkpoint_saved"] = step
             if trainer.opponent_sampler is not None:
                 trainer.opponent_sampler.on_checkpoint(path, trainer.episode_index)
+
+    def on_train_end(self, trainer: Trainer) -> None:
+        path = self.output_dir / f"{self.prefix}_final.pt"
+        trainer.agent.save(str(path))
+        if trainer.opponent_sampler is not None:
+            trainer.opponent_sampler.on_checkpoint(path, trainer.episode_index)

@@ -15,7 +15,11 @@ from src.config import AppConfig, CallbackConfig, load_config
 from src.features.action_space import DiscreteActionSpace
 from src.registry import make_agent, make_game
 from src.training.meta import collect_meta, write_meta_json
-from src.training.opponent_sampler import OpponentSampler, RandomOpponentSampler
+from src.training.opponent_sampler import (
+    MiniBGMixedOpponentSampler,
+    OpponentSampler,
+    RandomOpponentSampler,
+)
 from src.training.callbacks import (
     CheckpointCallback,
     EpsilonDecayCallback,
@@ -25,7 +29,10 @@ from src.training.callbacks import (
     TrainerCallback,
 )
 from src.training.random_opening import RandomOpeningConfig
-from src.training.control_flow import make_control_driver
+from src.training.agent_perspective_env import (
+    AgentPerspectiveEnv,
+    make_minibg_shaping_fn,
+)
 from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 from src.training.othello_augmentations import make_othello_d4_augmenter
@@ -177,6 +184,14 @@ def _resolve_start_policy(s: str) -> StartPolicy:
     return StartPolicy.RANDOM
 
 
+def _start_policy_to_probability(policy: StartPolicy) -> float:
+    if policy == StartPolicy.AGENT_FIRST:
+        return 1.0
+    if policy == StartPolicy.OPPONENT_FIRST:
+        return 0.0
+    return 0.5
+
+
 def _build_opponent_sampler(
     app_cfg: AppConfig,
     agent: Any,
@@ -193,6 +208,20 @@ def _build_opponent_sampler(
         if use_seed is None:
             use_seed = seed
         return RandomOpponentSampler(seed=use_seed)
+
+    if cfg.type.lower() == "minibg_mixed":
+        if (app_cfg.game.id or "").strip().lower() != "minibg":
+            raise ValueError("opponent_sampler type 'minibg_mixed' requires game.id: minibg")
+        p = dict(cfg.params or {})
+        use_seed = p.get("seed")
+        if use_seed is None:
+            use_seed = seed
+        return MiniBGMixedOpponentSampler(
+            seed=use_seed,
+            bots=list(p.get("bots") or ()),
+            random_fraction=p.get("random_fraction"),
+            equal_opponent_mass=bool(p.get("equal_opponent_mass", False)),
+        )
 
     if cfg.type.lower() == "pool":
         if seed is None:
@@ -264,9 +293,10 @@ def run(
     rng = random.Random(app_cfg.seed) if app_cfg.seed is not None else None
 
     game_params = dict(app_cfg.game.params or {})
-    driver_id = game_params.pop("control_driver", None)
-    env = make_game(app_cfg.game.id, **game_params)
-    legal_mask = getattr(env, "legal_actions_mask", None)
+    # Legacy/no-op param: control flow is handled by AgentPerspectiveEnv now.
+    game_params.pop("control_driver", None)
+    base_env = make_game(app_cfg.game.id, **game_params)
+    legal_mask = getattr(base_env, "legal_actions_mask", None)
     if legal_mask is None:
         raise ValueError("Environment must expose legal_actions_mask.")
     num_actions = int(len(legal_mask))
@@ -274,7 +304,7 @@ def run(
     agent_params: Dict[str, Any] = dict(app_cfg.agent.params)
     agent_params.setdefault("num_actions", num_actions)
     agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-    obs_builder = getattr(env, "observation_builder", None)
+    obs_builder = getattr(base_env, "observation_builder", None)
     if obs_builder is not None:
         agent_params.setdefault("observation_shape", obs_builder.observation_shape)
         agent_params.setdefault("observation_type", getattr(obs_builder, "observation_type", "board"))
@@ -319,21 +349,34 @@ def run(
     ro = getattr(app_cfg.train, "random_opening", None)
     random_opening_config = RandomOpeningConfig(**ro) if ro else None
 
+    game_id = app_cfg.game.id.lower()
     data_augment_fn: Optional[Callable] = None
     if getattr(app_cfg.train, "apply_augmentation", False):
-        game_id = app_cfg.game.id.lower()
         if game_id == "connect4":
-            num_cols = getattr(env, "cols", 7)
+            num_cols = getattr(base_env, "cols", 7)
             data_augment_fn = make_connect4_horizontal_augmenter(num_cols)
         elif game_id == "othello":
-            board_size = getattr(env, "size", 8)
+            board_size = getattr(base_env, "size", 8)
             data_augment_fn = make_othello_d4_augmenter(board_size)
         else:
             raise ValueError(
                 f"apply_augmentation is True but no augmentations defined for game '{app_cfg.game.id}'"
             )
 
-    control_driver = make_control_driver(app_cfg.game.id, driver_id)
+    shaping_fn = None
+    if game_id == "minibg":
+        shaping_fn = make_minibg_shaping_fn(
+            float(game_params.get("battle_damage_shaping", 0.0))
+        )
+
+    env = AgentPerspectiveEnv(
+        base_env=base_env,
+        opponent_sampler=opponent_sampler,
+        agent_first_probability=_start_policy_to_probability(start_policy),
+        rng=rng,
+        random_opening_config=random_opening_config,
+        shaping_fn=shaping_fn,
+    )
 
     trainer = Trainer(
         env,
@@ -341,11 +384,8 @@ def run(
         callbacks=callbacks,
         track_timings=app_cfg.train.track_timings,
         opponent_sampler=opponent_sampler,
-        start_policy=start_policy,
-        rng=rng,
-        random_opening_config=random_opening_config,
         data_augment_fn=data_augment_fn,
-        control_driver=control_driver,
+        max_episodes=app_cfg.train.max_episodes,
     )
 
     # Install signal handlers for graceful stop

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import pandas as pd
 
@@ -21,7 +21,8 @@ from src.envs.othello import OthelloEnv
 from src.envs.connect4 import Connect4Game
 from src.search.connect4.heuristic_minimax import make_connect4_heuristic_minimax_policy
 from src.search.connect4.minimax_env_adapter import Connect4MinimaxEnvAdapter
-from src.utils.match import play_match, play_match_batched
+from src.training.trainer import StartPolicy
+from src.utils.match import play_match, play_match_batched, play_single_game
 
 if TYPE_CHECKING:
     from src.envs.base import TurnBasedEnv
@@ -30,7 +31,11 @@ if TYPE_CHECKING:
 def _step_from_filename(name: str) -> Optional[int]:
     """Extract step number from checkpoint filename (e.g. dqn_2000.pt -> 2000)."""
     m = re.search(r"_(\d+)\.pt$", name, re.IGNORECASE)
-    return int(m.group(1)) if m else None
+    if m:
+        return int(m.group(1))
+    if re.search(r"_final\.pt$", name, re.IGNORECASE):
+        return 2**31 - 1
+    return None
 
 
 def find_checkpoints(
@@ -100,13 +105,29 @@ def build_opponents_from_names(
     seed: int = 42,
     game_id: str = "connect4",
 ) -> Dict[str, "BaseAgent"]:
-    """Build opponent agents from names (random, heuristic, smart_heuristic, othello_heuristic, minimax_N)."""
+    """Build opponent agents from names (Connect4/Othello or MiniBG heuristic keys)."""
     from src.agents.base_agent import BaseAgent
 
     result: Dict[str, "BaseAgent"] = {}
+    gid = (game_id or "connect4").strip().lower()
+
+    if gid == "minibg":
+        from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
+        from src.envs.minibg.heuristic_bots.tournament import make_bot
+        from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+
+        valid = frozenset(default_bot_constructors().keys())
+        for i, name in enumerate(names):
+            if name not in valid:
+                raise ValueError(
+                    f"Unknown minibg opponent: {name!r}. Valid: {sorted(valid)}"
+                )
+            result[name] = MiniBGHeuristicAgent(make_bot(name, seed + i + 1))
+        return result
+
     for i, name in enumerate(names):
         if _is_minimax_opponent(name):
-            if game_id != "connect4":
+            if gid != "connect4":
                 raise ValueError(f"minimax_N opponents only supported for connect4, got game_id={game_id}")
             depth = _minimax_depth(name)
             game = Connect4Game(rows=6, cols=7)
@@ -127,10 +148,15 @@ def _create_env(game_id: str, reward_config: Optional[RewardConfig] = None) -> "
     """Create environment by game_id."""
     if reward_config is None:
         reward_config = RewardConfig()
-    if game_id == "othello":
+    gid = (game_id or "connect4").strip().lower()
+    if gid == "othello":
         return OthelloEnv(size=8, reward_config=reward_config)
-    else:
-        return Connect4Env(rows=6, cols=7, reward_config=reward_config)
+    if gid == "minibg":
+        import src.envs  # noqa: F401
+        from src.registry import make_game
+
+        return make_game("minibg", reward_config=reward_config)
+    return Connect4Env(rows=6, cols=7, reward_config=reward_config)
 
 
 def eval_checkpoints_vs_opponents(
@@ -146,6 +172,8 @@ def eval_checkpoints_vs_opponents(
     start_policy: str = "random",
     game_id: str = "connect4",
     out_csv: Optional[Path] = None,
+    replay_dir: Optional[Path] = None,
+    minibg_params: Optional[Dict[str, Any]] = None,
 ) -> pd.DataFrame:
     """
     Evaluate each checkpoint against each opponent.
@@ -160,20 +188,37 @@ def eval_checkpoints_vs_opponents(
         seed: Random seed.
         reward_config: Environment reward config.
         start_policy: Who goes first: 'random', 'agent_first', or 'opponent_first'.
-        game_id: Game identifier ('connect4' or 'othello').
+        game_id: ``connect4``, ``othello``, or ``minibg`` (MiniBG opponents: heuristic bot names).
         out_csv: If set, save DataFrame with exact wins/draws/losses to this path.
+        replay_dir: If set with ``game_id=minibg``, write one JSONL replay per game under this directory
+            (sequential eval; batched eval is not used). Typical size is well under 1 MB per dozen short games.
+        minibg_params: Extra kwargs for ``make_game("minibg", ...)`` (e.g. ``battle_damage_shaping``).
 
     Returns:
         DataFrame with columns: step, checkpoint, win_rate_*, draw_rate_*, loss_rate_*, wins_*, draws_*, losses_*, games_*.
     """
     from src.agents.base_agent import BaseAgent
+    from src.registry import make_game
 
     if batch_size is None:
         batch_size = num_games
 
     if reward_config is None:
         reward_config = RewardConfig()
-    env = _create_env(game_id, reward_config)
+
+    gid = str(game_id).strip().lower()
+    use_replay = replay_dir is not None and gid == "minibg"
+    if replay_dir is not None and not use_replay:
+        raise ValueError("replay_dir is only supported when game_id=minibg")
+
+    env: Optional["TurnBasedEnv"] = None
+    if not use_replay:
+        if gid == "minibg" and minibg_params:
+            import src.envs  # noqa: F401
+
+            env = make_game("minibg", reward_config=reward_config, **minibg_params)
+        else:
+            env = _create_env(game_id, reward_config)
 
     if opponent_names is not None:
         opponents = build_opponents_from_names(opponent_names, seed=seed, game_id=game_id)
@@ -185,6 +230,7 @@ def eval_checkpoints_vs_opponents(
 
     rows: List[Dict] = []
     n_checkpoints = len(checkpoint_paths)
+
     for i, path in enumerate(checkpoint_paths, 1):
         step = _step_from_filename(path.name)
         if step is None:
@@ -211,7 +257,61 @@ def eval_checkpoints_vs_opponents(
                 a1, a2 = opponent, agent
 
             match_seed = seed + hash(path.stem) % (2**16) + hash(opp_name) % (2**16)
-            if batch_size > 0:
+            if use_replay:
+                replay_dir.mkdir(parents=True, exist_ok=True)
+                w1 = draws = w2 = 0
+                mg_base = dict(minibg_params or {})
+                for g in range(num_games):
+                    rpath = replay_dir / f"{path.stem}__{opp_name}__{g:04d}.jsonl"
+                    meta = {
+                        "checkpoint": path.stem,
+                        "opponent": opp_name,
+                        "game_index": g,
+                        "match_seed": match_seed,
+                    }
+                    env_g = make_game(
+                        "minibg",
+                        reward_config=reward_config,
+                        replay_path=rpath,
+                        replay_meta=meta,
+                        **mg_base,
+                    )
+                    for a in (agent, opponent):
+                        if hasattr(a, "set_env"):
+                            a.set_env(env_g)
+                    a1x, a2x = (agent, opponent) if agent_first_in_call else (opponent, agent)
+                    game_seed = (match_seed + g) if match_seed is not None else None
+                    inner_start = (
+                        StartPolicy.RANDOM if randomize_first else StartPolicy.AGENT_FIRST
+                    )
+                    result = play_single_game(
+                        env_g,
+                        a1x,
+                        a2x,
+                        start_policy=inner_start,
+                        random_opening_config=None,
+                        deterministic_agent=True,
+                        deterministic_opponent=True,
+                        seed=game_seed,
+                    )
+                    if hasattr(env_g, "close_replay"):
+                        env_g.close_replay()
+                    winner = result["winner"]
+                    if winner == 0:
+                        draws += 1
+                    elif winner == result["agent_token"]:
+                        w1 += 1
+                    else:
+                        w2 += 1
+            elif batch_size > 0:
+                env_factory = None
+                if gid == "minibg" and minibg_params:
+                    mg = dict(minibg_params)
+
+                    def _minibg_env_factory(rc: RewardConfig) -> "TurnBasedEnv":
+                        return make_game("minibg", reward_config=rc, **mg)
+
+                    env_factory = _minibg_env_factory
                 w1, draws, w2 = play_match_batched(
                     a1, a2,
                     num_games=num_games,
@@ -220,6 +320,7 @@ def eval_checkpoints_vs_opponents(
                     randomize_first_player=randomize_first,
                     reward_config=reward_config,
                     game_id=game_id,
+                    env_factory=env_factory,
                 )
             else:
                 w1, draws, w2 = play_match(
@@ -229,6 +330,7 @@ def eval_checkpoints_vs_opponents(
                     randomize_first_player=randomize_first,
                     reward_config=reward_config,
                     env=env,
+                    game_id=game_id,
                 )
             wins = w1 if agent_first_in_call else w2
             losses = w2 if agent_first_in_call else w1

@@ -334,11 +334,15 @@ def _build_game_specific_network(
 def _auto_register_networks():
     """Register all known game-specific networks."""
     from .connect4_dqn import Connect4DQN, Connect4QRDQN
+    from .minibg_slot_net import MiniBGSlotEncoderNet
     from .othello_dqn import OthelloDQN, OthelloQRDQN
+    from .simple_mlp import SimpleMLP
     register_network(Connect4DQN)
     register_network(Connect4QRDQN)
     register_network(OthelloDQN)
     register_network(OthelloQRDQN)
+    register_network(SimpleMLP)
+    register_network(MiniBGSlotEncoderNet)
 
 
 _auto_register_networks()

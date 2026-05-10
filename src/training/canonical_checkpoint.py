@@ -13,8 +13,9 @@ from src.agents import DQNAgent
 from src.envs import Connect4Env
 from src.features.action_space import DiscreteActionSpace
 from src.models import Connect4DQN
+from src.training.agent_perspective_env import AgentPerspectiveEnv
 from src.training.opponent_sampler import RandomOpponentSampler
-from src.training.trainer import Trainer, StartPolicy
+from src.training.trainer import Trainer
 
 PROBE_SEED = 99
 PROBE_ACTIONS = [(3, 3), (4, 2), (1, 0)]
@@ -30,7 +31,7 @@ def train_and_probe(seed: int, steps: int = 300) -> Tuple[DQNAgent, List[int]]:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-    env = Connect4Env(rows=6, cols=7)
+    base_env = Connect4Env(rows=6, cols=7)
     network = Connect4DQN(rows=6, cols=7, in_channels=2, num_actions=7)
     agent = DQNAgent(
         network=network,
@@ -43,13 +44,14 @@ def train_and_probe(seed: int, steps: int = 300) -> Tuple[DQNAgent, List[int]]:
     )
     agent.train()
 
-    trainer = Trainer(
-        env,
-        agent,
-        opponent_sampler=RandomOpponentSampler(seed=seed),
-        start_policy=StartPolicy.AGENT_FIRST,
-        rng=np.random.default_rng(seed),
+    sampler = RandomOpponentSampler(seed=seed)
+    env = AgentPerspectiveEnv(
+        base_env,
+        sampler,
+        agent_first_probability=1.0,
+        rng=random.Random(seed),
     )
+    trainer = Trainer(env, agent, opponent_sampler=sampler)
     trainer.train(total_steps=steps, deterministic=False)
 
     agent.eval()

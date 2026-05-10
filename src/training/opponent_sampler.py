@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Sequence
+
+import random as py_random
 
 from src.agents.base_agent import BaseAgent
 from src.agents import RandomAgent
@@ -47,6 +49,62 @@ class RandomOpponentSampler(OpponentSampler):
         # Episode-varying seed gives diverse opponents each episode (match OpponentPool)
         opp_seed = (self.seed + 100000 + episode) if self.seed is not None else None
         return RandomAgent(seed=opp_seed)
+
+
+class MiniBGMixedOpponentSampler(OpponentSampler):
+    """``RandomAgent`` share ``random_fraction``; else uniform over ``bots`` (MiniBG heuristics)."""
+
+    def __init__(
+        self,
+        *,
+        seed: Optional[int],
+        bots: Sequence[str],
+        random_fraction: Optional[float] = None,
+        equal_opponent_mass: bool = False,
+    ) -> None:
+        from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+        from src.envs.minibg.heuristic_bots.tournament import make_bot
+
+        self.seed = seed
+        if not bots:
+            raise ValueError("minibg_mixed: non-empty bots list is required")
+        valid = frozenset(default_bot_constructors().keys())
+        cleaned: List[str] = []
+        for b in bots:
+            key = str(b).strip()
+            if key == "random":
+                raise ValueError(
+                    "minibg_mixed: use random_fraction for random; do not list 'random' in bots"
+                )
+            if key not in valid:
+                raise ValueError(f"minibg_mixed: unknown bot {key!r}; valid: {sorted(valid)}")
+            cleaned.append(key)
+        self._bots = cleaned
+        self._make_bot = make_bot
+        self._episode_index = 0
+
+        if equal_opponent_mass:
+            self.random_fraction = 1.0 / (1.0 + float(len(self._bots)))
+        elif random_fraction is not None:
+            self.random_fraction = min(1.0, max(0.0, float(random_fraction)))
+        else:
+            self.random_fraction = 0.5
+
+    def prepare(self, episode_index: int) -> None:
+        self._episode_index = episode_index
+
+    def sample(self) -> BaseAgent:
+        from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
+
+        episode = self._episode_index
+        self._episode_index += 1
+        rng_ep = (self.seed + 100000 + episode) if self.seed is not None else episode
+        rnd = py_random.Random(rng_ep + 17)
+        if rnd.random() < self.random_fraction:
+            opp_seed = (self.seed + 200000 + episode) if self.seed is not None else None
+            return RandomAgent(seed=opp_seed)
+        name = rnd.choice(self._bots)
+        return MiniBGHeuristicAgent(self._make_bot(name, rng_ep + 31))
 
 
 class OpponentPoolSampler(OpponentSampler):
@@ -100,5 +158,6 @@ class OpponentPoolSampler(OpponentSampler):
 __all__ = [
     "OpponentSampler",
     "RandomOpponentSampler",
+    "MiniBGMixedOpponentSampler",
     "OpponentPoolSampler",
 ]

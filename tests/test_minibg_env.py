@@ -13,8 +13,10 @@ from src.envs.minibg.action_map import (
 )
 from src.envs.minibg.actions import BOARD_SIZE, MAX_SHOP_ACTIONS
 from src.envs.minibg.cards import make_minion
+from src.envs.reward_config import RewardConfig
 from src.envs.minibg.env import INVALID_ACTION_REWARD, MiniBGEnv
 from src.envs.minibg.obs import OBS_DIM
+from src.registry import make_game
 
 
 def _set_shop(env: MiniBGEnv, idx: int, *card_ids):
@@ -222,3 +224,24 @@ def test_action_cap_forces_finish_via_finish_action():
         env.step(A_ROLL)
     assert env._state.players[0].shopping_finished is True
     assert env._state.current_player_index == 1
+
+
+def test_make_game_passes_battle_damage_shaping():
+    env = make_game("minibg", seed=0, battle_damage_shaping=0.2)
+    assert env._battle_damage_shaping == pytest.approx(0.2)
+
+
+def test_reward_config_invalid_action_override():
+    rc = RewardConfig(invalid_action=-2.0)
+    env = MiniBGEnv(seed=0, reward_config=rc)
+    env.reset(seed=0)
+    r = env.step(NUM_ENV_ACTIONS)
+    assert r.info.get("invalid_action") is True
+    assert r.reward == -2.0
+
+
+def test_step_info_includes_zero_battle_shaping_when_no_battle():
+    env = MiniBGEnv(seed=0, battle_damage_shaping=0.5)
+    env.reset(seed=0)
+    r = env.step(A_SELECT_ORDER_BASE)
+    assert r.info.get("battle_damage_shaping", None) == 0.0

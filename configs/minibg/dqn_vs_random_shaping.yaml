@@ -1,0 +1,57 @@
+seed: 7
+
+game:
+  id: minibg
+  params:
+    seed: 7
+    battle_damage_shaping: 0.06
+
+agent:
+  id: dqn
+  params:
+    network_type: minibg_mlp
+    observation_shape: [286]
+    mlp_hidden_size: 256
+    dueling: true
+    learning_rate: 0.0003
+    discount_factor: 0.99
+    epsilon: 1.0
+    epsilon_decay: 0.9995
+    epsilon_min: 0.08
+    batch_size: 64
+    replay_buffer_size: 50000
+    target_update_freq: 500
+    soft_update: false
+    tau: 0.01
+    device: cpu
+    metrics_interval: 50
+    update_every: 4
+    grad_clip_norm: 5.0
+    n_step: 1
+    use_twin_q: false
+
+train:
+  total_steps: 3500
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: random
+    params:
+      seed: 99
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 1750
+        prefix: minibg_dqn
+    - type: metrics_file
+      params:
+        interval: 250
+    - type: epsilon_decay
+      params:
+        every: step
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true

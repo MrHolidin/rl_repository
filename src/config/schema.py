@@ -38,6 +38,8 @@ class OpponentSamplerConfig:
 class TrainConfig:
     opponent_sampler: OpponentSamplerConfig  # required
     total_steps: int = 10000
+    # Stop after this many completed episodes (whichever hits first: this or total_steps).
+    max_episodes: Optional[int] = None
     deterministic: bool = False
     track_timings: bool = False
     callbacks: List[CallbackConfig] = field(default_factory=list)
@@ -83,9 +85,13 @@ class AppConfig:
             params=os_cfg.get("params", {}),
         )
 
+        me = train_data.get("max_episodes")
+        max_episodes = int(me) if me is not None else None
+
         train = TrainConfig(
             opponent_sampler=opponent_sampler,
             total_steps=train_data.get("total_steps", 10000),
+            max_episodes=max_episodes,
             deterministic=train_data.get("deterministic", False),
             track_timings=train_data.get("track_timings", False),
             callbacks=callbacks,

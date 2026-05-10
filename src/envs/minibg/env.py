@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 
 from ..base import StepResult, TurnBasedEnv
+from ..reward_config import RewardConfig
 from .action_map import (
     A_BUY_BASE,
     A_LEVEL_UP,
@@ -37,15 +39,44 @@ class MiniBGEnv(TurnBasedEnv):
     """RL wrapper around MiniBGGame.
 
     Observation: self-centric, fixed-length vector (see obs.py).
-    Reward: terminal-only (+1 win / -1 loss / 0 draw); -1 on illegal action.
+    Terminal reward: +1 / -1 / 0 from the acting player's perspective.
+    Illegal actions use ``reward_config.invalid_action``.
+    On each battle, ``info["battle_signed"] = (signed_p0, signed_p1)`` is emitted
+    so symmetric per-player shaping can be applied externally (see
+    ``src.training.agent_perspective_env``). The constructor still accepts
+    ``battle_damage_shaping`` for backward compatibility but does NOT add shaping
+    to ``step().reward`` -- shaping is the wrapper's responsibility.
+    Optional ``replay_path`` / ``replay_meta``: append JSONL frames per step (see ``replay.py``).
     """
 
-    def __init__(self, seed: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        seed: Optional[int] = None,
+        *,
+        battle_damage_shaping: float = 0.0,
+        reward_config: Optional[RewardConfig] = None,
+        replay_path: Optional[Union[str, Path]] = None,
+        replay_meta: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self._seed = seed
+        # Stored for backward compatibility / introspection only.
+        self._battle_damage_shaping = float(battle_damage_shaping)
+        self.reward_config = reward_config or RewardConfig(
+            invalid_action=INVALID_ACTION_REWARD
+        )
         self._game: MiniBGGame = MiniBGGame(seed=seed)
         self._state: Optional[MiniBGState] = None
         self._last_seen_enemy_board: List[List[Minion]] = [[], []]
         self._last_battle_signed: List[float] = [0.0, 0.0]
+        self._replay_sink: Any = None
+        self._replay_episode = -1
+        self._replay_frame = 0
+        if replay_path is not None:
+            from .replay import ReplayJsonlSink
+
+            self._replay_sink = ReplayJsonlSink(
+                replay_path, {"format": 1, "game": "minibg", **(replay_meta or {})}
+            )
         self.reset(seed=seed)
 
     # ------------------------------------------------------------------
@@ -61,7 +92,16 @@ class MiniBGEnv(TurnBasedEnv):
         self._state = self._game.initial_state()
         self._last_seen_enemy_board = [[], []]
         self._last_battle_signed = [0.0, 0.0]
+        if self._replay_sink is not None:
+            self._replay_episode += 1
+            self._replay_sink.episode_break(self._replay_episode)
+            self._replay_frame = 0
         return self._get_obs()
+
+    def close_replay(self) -> None:
+        if self._replay_sink is not None:
+            self._replay_sink.close()
+            self._replay_sink = None
 
     def step(self, action: int) -> StepResult:
         if self._state is None:
@@ -70,6 +110,7 @@ class MiniBGEnv(TurnBasedEnv):
             raise ValueError("Episode is done. Call reset() first.")
 
         action_int = int(action)
+        acting_idx_before = self._state.current_player_index
         legal_mask = self.legal_actions_mask
         if (
             action_int < 0
@@ -81,9 +122,21 @@ class MiniBGEnv(TurnBasedEnv):
                 "termination_reason": "illegal",
                 "invalid_action": True,
             }
+            if self._replay_sink is not None:
+                assert self._state is not None
+                self._replay_frame += 1
+                self._replay_sink.frame(
+                    episode=self._replay_episode,
+                    frame=self._replay_frame,
+                    acting_idx=acting_idx_before,
+                    action=action_int,
+                    illegal=True,
+                    state=self._state,
+                    info=info,
+                )
             return StepResult(
                 obs=self._get_obs(),
-                reward=INVALID_ACTION_REWARD,
+                reward=float(self.reward_config.invalid_action),
                 terminated=False,
                 truncated=False,
                 info=info,
@@ -118,11 +171,19 @@ class MiniBGEnv(TurnBasedEnv):
 
         reward = 0.0
         terminated = False
-        info = {
+        info: Dict[str, Any] = {
             "winner": self._state.winner,
             "termination_reason": None,
             "invalid_action": False,
+            # `battle_damage_shaping` kept as a 0.0 placeholder for replay schema
+            # backward compatibility; actual shaping is computed by the trainer wrapper.
+            "battle_damage_shaping": 0.0,
         }
+        if battle_happened:
+            info["battle_signed"] = (
+                float(self._last_battle_signed[0]),
+                float(self._last_battle_signed[1]),
+            )
         if self._state.done:
             terminated = True
             if self._state.winner == acting_token:
@@ -134,6 +195,19 @@ class MiniBGEnv(TurnBasedEnv):
             else:
                 reward = 0.0
                 info["termination_reason"] = "draw"
+
+        if self._replay_sink is not None:
+            assert self._state is not None
+            self._replay_frame += 1
+            self._replay_sink.frame(
+                episode=self._replay_episode,
+                frame=self._replay_frame,
+                acting_idx=acting_idx,
+                action=action_int,
+                illegal=False,
+                state=self._state,
+                info=info,
+            )
 
         return StepResult(
             obs=self._get_obs(),
@@ -198,6 +272,10 @@ class MiniBGEnv(TurnBasedEnv):
     @property
     def game(self) -> MiniBGGame:
         return self._game
+
+    def get_legal_actions(self) -> Sequence[int]:
+        """Integer env actions (for ``maybe_apply_random_opening`` / generic eval)."""
+        return [int(i) for i in np.flatnonzero(self.legal_actions_mask)]
 
     def render(self, mode: str = "human") -> Optional[str]:
         if mode != "human" or self._state is None:

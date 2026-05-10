@@ -58,6 +58,46 @@ if "dqn" not in list_agents():
             action_space = DiscreteActionSpace(num_actions)
             kwargs["action_space"] = action_space
 
+        if network_type == "minibg_mlp":
+            from ..models.simple_mlp import SimpleMLP
+
+            if obs_shape is None or len(obs_shape) != 1:
+                raise ValueError(
+                    "network_type 'minibg_mlp' requires agent.params.observation_shape: [D] "
+                    "(flat vector, e.g. [286] for MiniBG)."
+                )
+            dueling = kwargs.pop("dueling", None)
+            if dueling is None:
+                dueling = True
+            hidden_size = int(kwargs.pop("mlp_hidden_size", 256))
+            network = SimpleMLP(
+                input_size=int(obs_shape[0]),
+                num_actions=num_actions,
+                hidden_size=hidden_size,
+                dueling=dueling,
+            )
+            return DQNAgent(network=network, **kwargs)
+
+        if network_type == "minibg_slot":
+            from ..models.minibg_slot_net import MiniBGSlotEncoderNet, _OBS_DIM
+
+            if obs_shape is None or len(obs_shape) != 1 or int(obs_shape[0]) != _OBS_DIM:
+                raise ValueError(
+                    "network_type 'minibg_slot' requires observation_shape [286] (MiniBG flat obs)."
+                )
+            dueling = kwargs.pop("dueling", None)
+            if dueling is None:
+                dueling = True
+            slot_hidden = int(kwargs.pop("slot_hidden_channels", 64))
+            trunk_hidden = int(kwargs.pop("trunk_hidden_size", 256))
+            network = MiniBGSlotEncoderNet(
+                num_actions=num_actions,
+                slot_hidden=slot_hidden,
+                trunk_hidden=trunk_hidden,
+                dueling=dueling,
+            )
+            return DQNAgent(network=network, **kwargs)
+
         # Create network based on board size
         in_channels = obs_shape[0] if len(obs_shape) == 3 else 3
         rows = obs_shape[1] if len(obs_shape) == 3 else 6

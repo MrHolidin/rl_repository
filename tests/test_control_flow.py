@@ -1,30 +1,25 @@
 from src.agents.random_agent import RandomAgent
 from src.envs.minibg import MiniBGEnv
 from src.registry import make_game
-from src.training.control_flow import (
-    AlternatingDriver,
-    MiniBGDriver,
-    make_control_driver,
-)
+from src.training.agent_perspective_env import AgentPerspectiveEnv
+from src.training.control_flow import active_role
+from src.training.opponent_sampler import RandomOpponentSampler
 from src.training.trainer import Trainer
 
 
-def test_make_control_driver_defaults():
-    assert isinstance(make_control_driver("connect4", None), AlternatingDriver)
-    assert isinstance(make_control_driver("minibg", None), MiniBGDriver)
-    assert isinstance(make_control_driver("connect4", "alternating"), AlternatingDriver)
-    assert isinstance(make_control_driver("minibg", "minibg"), MiniBGDriver)
-
-
-def test_minibg_immediate_trainer_smoke():
+def test_active_role_predicate_minibg():
     env = MiniBGEnv(seed=0)
-    agent = RandomAgent(seed=1)
-    trainer = Trainer(
-        env,
-        agent,
-        control_driver=MiniBGDriver(),
-        opponent_sampler=None,
-    )
+    env.reset(seed=0)
+    role_p1 = active_role(env, agent_token=1)
+    role_p_neg1 = active_role(env, agent_token=-1)
+    assert {role_p1, role_p_neg1} == {"agent", "opponent"}
+
+
+def test_minibg_trainer_smoke_with_perspective_env():
+    base = MiniBGEnv(seed=0)
+    sampler = RandomOpponentSampler(seed=2)
+    env = AgentPerspectiveEnv(base, sampler, agent_first_probability=0.5)
+    trainer = Trainer(env, RandomAgent(seed=1), opponent_sampler=sampler)
     trainer.train(total_steps=8)
     assert trainer.global_step == 8
 

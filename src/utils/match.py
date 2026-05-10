@@ -100,10 +100,15 @@ def _result_to_reward(winner: Optional[int], agent_token: int) -> int:
 
 def _default_env_factory(game_id: str, reward_config: RewardConfig) -> TurnBasedEnv:
     """Create environment by game_id."""
-    if game_id == "othello":
+    gid = (game_id or "connect4").strip().lower()
+    if gid == "othello":
         return OthelloEnv(size=8, reward_config=reward_config)
-    else:
-        return Connect4Env(rows=CONNECT4_ROWS, cols=CONNECT4_COLS, reward_config=reward_config)
+    if gid == "minibg":
+        import src.envs  # noqa: F401 — register games
+        from src.registry import make_game
+
+        return make_game("minibg", reward_config=reward_config)
+    return Connect4Env(rows=CONNECT4_ROWS, cols=CONNECT4_COLS, reward_config=reward_config)
 
 
 def _apply_turn_batch(
@@ -158,14 +163,16 @@ def play_match_batched(
     if env_factory is not None:
         envs = [env_factory(reward_config) for _ in range(batch_size)]
     else:
-        envs = [_default_env_factory(game_id, reward_config) for _ in range(batch_size)]
+        envs = [
+            _default_env_factory(str(game_id), reward_config) for _ in range(batch_size)
+        ]
     n = len(envs)
 
     obs: List[Optional[np.ndarray]] = [None] * n
     done = [True] * n
     agent1_is_player_1: List[bool] = [True] * n
     moves_count: List[int] = [0] * n
-    game_id: List[Optional[int]] = [None] * n
+    active_game_ids: List[Optional[int]] = [None] * n
     next_game_id = 0
     agent1_wins = draws = agent2_wins = 0
     episode_lengths: List[int] = [] if collect_episode_lengths else []
@@ -185,7 +192,7 @@ def play_match_batched(
         done[slot] = False
         agent1_is_player_1[slot] = (game_rng.random() < 0.5) if randomize_first_player else True
         moves_count[slot] = 0
-        game_id[slot] = gid
+        active_game_ids[slot] = gid
         next_game_id += 1
 
     for i in range(min(batch_size, num_games)):
@@ -223,11 +230,10 @@ def play_match_batched(
                     agent2_wins += 1
                 if collect_episode_lengths:
                     episode_lengths.append(moves_count[i])
-                gid = game_id[i]
                 if next_game_id < num_games:
                     start_game(i, next_game_id)
                 else:
-                    game_id[i] = None
+                    active_game_ids[i] = None
 
     if collect_episode_lengths:
         return agent1_wins, draws, agent2_wins, episode_lengths
@@ -244,6 +250,8 @@ def play_match(
     random_opening_config: Optional[RandomOpeningConfig] = None,
     collect_episode_lengths: bool = False,
     env: Optional[TurnBasedEnv] = None,
+    *,
+    game_id: str = "connect4",
 ) -> Union[Tuple[int, int, int], Tuple[int, int, int, List[int]]]:
     """
     Play a match between two agents.
@@ -258,7 +266,8 @@ def play_match(
         reward_config: RewardConfig object (default: RewardConfig with default values)
         random_opening_config: Optional configuration for randomized opening prologues.
         collect_episode_lengths: If True, also return episode lengths.
-        env: Optional environment to use. If None, creates a default Connect4Env.
+        env: Optional environment to use. If None, creates env from ``game_id``.
+        game_id: When ``env`` is None: ``connect4``, ``othello``, or ``minibg``.
         
     Returns:
         Tuple of (agent1_wins, draws, agent2_wins). If ``collect_episode_lengths`` is True,
@@ -268,12 +277,8 @@ def play_match(
     if env is None:
         if reward_config is None:
             reward_config = RewardConfig()
-        env = Connect4Env(
-            rows=CONNECT4_ROWS,
-            cols=CONNECT4_COLS,
-            reward_config=reward_config,
-        )
-    
+        env = _default_env_factory(game_id, reward_config)
+
     for agent in (agent1, agent2):
         if hasattr(agent, "set_env"):
             agent.set_env(env)

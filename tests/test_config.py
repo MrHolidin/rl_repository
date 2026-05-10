@@ -58,6 +58,33 @@ def test_opponent_sampler_required():
         AppConfig.from_dict(data)
 
 
+def test_train_max_episodes_in_yaml():
+    yaml_content = """
+game:
+  id: connect4
+  params: {}
+agent:
+  id: dqn
+  params: {}
+train:
+  total_steps: 999
+  max_episodes: 500
+  opponent_sampler:
+    type: random
+    params: {}
+  callbacks: []
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(yaml_content)
+        path = Path(f.name)
+    try:
+        cfg = load_config(path)
+        assert cfg.train.max_episodes == 500
+        assert cfg.train.total_steps == 999
+    finally:
+        path.unlink()
+
+
 def test_load_config():
     yaml_content = """
 seed: 123

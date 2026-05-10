@@ -9,31 +9,41 @@ from typing import Optional
 import numpy as np
 
 from src.agents.base_agent import BaseAgent
-from src.envs.base import StepResult, TurnBasedEnv
+from src.agents.random_agent import RandomAgent
+from src.envs.base import SingleAgentEnv, StepResult, TurnBasedEnv
+from src.envs.minibg import MiniBGEnv
+from src.training.agent_perspective_env import AgentPerspectiveEnv
 from src.training.callbacks import (
     CheckpointCallback,
     EarlyStopCallback,
     EvalCallback,
     TrainerCallback,
 )
-from src.training.trainer import StartPolicy, Trainer, Transition
+from src.training.opponent_sampler import RandomOpponentSampler
+from src.training.trainer import Trainer, Transition
 
 
-class DummyEnv(TurnBasedEnv):
+class DummySingleAgentEnv(SingleAgentEnv):
+    """Single-agent env with fixed-length episodes and constant reward."""
+
     def __init__(self, episode_length: int = 5):
         self.episode_length = episode_length
         self._legal_mask = np.ones(2, dtype=bool)
-        self.reset()
-
-    def reset(self, seed: int | None = None) -> np.ndarray:
         self._state = 0
         self._steps = 0
+        self._done = False
+
+    def reset(self) -> np.ndarray:
+        self._state = 0
+        self._steps = 0
+        self._done = False
         return self._obs()
 
     def step(self, action: int) -> StepResult:
         self._steps += 1
         self._state += action
         terminated = self._steps >= self.episode_length
+        self._done = terminated
         return StepResult(
             obs=self._obs(),
             reward=1.0,
@@ -47,17 +57,34 @@ class DummyEnv(TurnBasedEnv):
         return self._legal_mask
 
     @property
-    def current_player_token(self) -> int:
-        return 1 if self._steps % 2 == 0 else -1
-
-    def current_player(self) -> int:
-        return 0
-
-    def render(self) -> None:
-        pass
+    def done(self) -> bool:
+        return self._done
 
     def _obs(self) -> np.ndarray:
         return np.array([self._state], dtype=np.float32)
+
+
+class FixedWinnerSingleAgentEnv(DummySingleAgentEnv):
+    """One-step env with predefined ``winner`` token in info."""
+
+    def __init__(self, winner: int, agent_token: int = 1):
+        super().__init__(episode_length=1)
+        self._winner = winner
+        self._agent_token = agent_token
+
+    @property
+    def agent_token(self) -> int:
+        return self._agent_token
+
+    def step(self, action: int) -> StepResult:
+        result = super().step(action)
+        return StepResult(
+            obs=result.obs,
+            reward=result.reward,
+            terminated=result.terminated,
+            truncated=result.truncated,
+            info={"winner": self._winner},
+        )
 
 
 class DummyAgent(BaseAgent):
@@ -105,26 +132,8 @@ class CaptureAgentResultCallback(TrainerCallback):
         self.results.append(episode_info.get("agent_result"))
 
 
-class FixedWinnerEnv(DummyEnv):
-    """Single-step environment that reports predefined winner token."""
-
-    def __init__(self, winner: int):
-        super().__init__(episode_length=1)
-        self._winner = winner
-
-    def step(self, action: int) -> StepResult:
-        result = super().step(action)
-        return StepResult(
-            obs=result.obs,
-            reward=result.reward,
-            terminated=result.terminated,
-            truncated=result.truncated,
-            info={"winner": self._winner},
-        )
-
-
 def test_trainer_runs_and_records_metrics():
-    env = DummyEnv()
+    env = DummySingleAgentEnv()
     agent = DummyAgent()
 
     eval_results: list[dict] = []
@@ -140,7 +149,6 @@ def test_trainer_runs_and_records_metrics():
     assert trainer.global_step == 5
     assert agent.observe_calls == 5
     assert agent.update_calls == 5
-    # Eval should have run at steps 2 and 4
     assert len(eval_results) == 2
     assert trainer.timing_report is not None
     report = trainer.timing_report
@@ -148,7 +156,7 @@ def test_trainer_runs_and_records_metrics():
 
 
 def test_trainer_checkpoint_and_early_stop():
-    env = DummyEnv()
+    env = DummySingleAgentEnv()
     agent = DummyAgent()
     with tempfile.TemporaryDirectory() as tmpdir:
         checkpoint_cb = CheckpointCallback(tmpdir, interval=2)
@@ -156,27 +164,45 @@ def test_trainer_checkpoint_and_early_stop():
         trainer = Trainer(env, agent, callbacks=[checkpoint_cb, early_stop_cb])
         trainer.train(total_steps=10)
 
-        # Early stop should trigger after loss stops improving
         assert trainer.stop_training is True
-        # Step 1 loss=1.0 (best), step2 loss=0.9 (best), step3 loss=0.9 (no improvement) -> stop
         assert trainer.global_step == 3
-
         checkpoint_files = list(Path(tmpdir).glob("checkpoint_*.pt"))
         assert checkpoint_files, "Checkpoint callback should persist model files."
 
 
 def test_trainer_agent_result_respects_player_order():
     agent = DummyAgent()
-    env = FixedWinnerEnv(winner=1)
+    env = FixedWinnerSingleAgentEnv(winner=1, agent_token=1)
     cb = CaptureAgentResultCallback()
-    trainer = Trainer(env, agent, callbacks=[cb], start_policy=StartPolicy.AGENT_FIRST)
+    trainer = Trainer(env, agent, callbacks=[cb])
     trainer.train(total_steps=1)
     assert cb.results == [1]
 
     agent2 = DummyAgent()
-    env2 = FixedWinnerEnv(winner=-1)
+    env2 = FixedWinnerSingleAgentEnv(winner=-1, agent_token=-1)
     cb2 = CaptureAgentResultCallback()
-    trainer2 = Trainer(env2, agent2, callbacks=[cb2], start_policy=StartPolicy.OPPONENT_FIRST)
+    trainer2 = Trainer(env2, agent2, callbacks=[cb2])
     trainer2.train(total_steps=1)
     assert cb2.results == [1]
 
+
+def test_should_continue_training_respects_episode_and_step_caps():
+    env = DummySingleAgentEnv()
+    agent = DummyAgent()
+    t = Trainer(env, agent, max_episodes=5)
+    t.global_step = 0
+    t.episode_index = 5
+    assert not t._should_continue_training(10**9)
+    t.episode_index = 4
+    assert t._should_continue_training(10**9)
+    t.global_step = 10**9
+    assert not t._should_continue_training(10**9)
+
+
+def test_agent_perspective_env_terminal_reward_is_agent_centric():
+    base = MiniBGEnv(seed=0)
+    sampler = RandomOpponentSampler(seed=2)
+    env = AgentPerspectiveEnv(base, sampler, agent_first_probability=0.5)
+    trainer = Trainer(env, RandomAgent(seed=1), opponent_sampler=sampler)
+    trainer.train(total_steps=200)
+    assert trainer.global_step == 200
