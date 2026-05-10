@@ -1,7 +1,8 @@
 # Mini BG 1v1 — module architecture
 
-This module ships only **game rules** for Mini BG 1v1; no env / RL bindings.
-It mirrors the layout of `src/envs/tictactoe/` (state + game) and adds card-game-specific layers.
+Two layers:
+- **Game core** (`actions.py`, `state.py`, `effects.py`, `cards.py`, `battle.py`, `game.py`) — pure rules.
+- **RL wrapper** (`action_map.py`, `obs.py`, `env.py`) — fixed-size action space, self-centric vector observation, terminal-only reward.
 
 ## Files
 
@@ -10,7 +11,10 @@ It mirrors the layout of `src/envs/tictactoe/` (state + game) and adds card-game
 - `cards.py` — `CARD_TEMPLATES` declarative pool, `make_minion(card_id)`, `shop_pool_for_tier(tier)`.
 - `actions.py` — `Action` IntEnum (10 discrete shop actions) and gameplay constants.
 - `battle.py` — pure battle simulator: `simulate_battle(p0_board, p1_board, p0_has_initiative, rng) -> (dmg_to_p0, dmg_to_p1)`.
-- `game.py` — `MiniBGGame(TurnBasedGame[MiniBGState])`: shop loop, ON_BUY dispatch, round orchestration, battle invocation.
+- `game.py` — `MiniBGGame(TurnBasedGame[MiniBGState])`: shop loop, ON_BUY / ON_TURN_END dispatch, round orchestration, battle invocation, free `reorder_board` primitive.
+- `action_map.py` — 33-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SHOP_*` / `SELL_BOARD_*` / `SELECT_FINAL_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
+- `obs.py` — fixed-size vector observation (10 globals + 4·25 own board + 3·25 shop + 4·25 last-seen enemy board + 1 last-battle scalar).
+- `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, fuses reorder + finish on `SELECT_FINAL_ORDER_*`, tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs.
 
 ## Effect pattern
 
@@ -59,7 +63,7 @@ After `simulate_battle` returns, `MiniBGGame` only applies `(dmg_to_p0, dmg_to_p
 - Sell: list element removed at the chosen position; remaining minions shift left.
 - Battle summons: appended to the rightmost end of the battle side, only if `alive_count < 4`.
 
-## Action space
+## Action space (game core)
 
 10 discrete actions (`Action` IntEnum). `legal_actions(state)` filters down to the currently valid subset:
 
@@ -69,4 +73,34 @@ After `simulate_battle` returns, `MiniBGGame` only applies `(dmg_to_p0, dmg_to_p
 - `LEVEL_UP` requires tier < 3 and gold ≥ cost(tier), shop_actions_used < 10.
 - `FINISH` is always legal during shop phase.
 
-After 10 BUY/SELL/ROLL/LEVEL_UP actions, only `FINISH` is legal; once consumed, `apply_action` auto-finishes the player.
+After 10 BUY/SELL/ROLL/LEVEL_UP actions, only `FINISH` is legal; once consumed, `apply_action` auto-finishes the player. `MiniBGGame.reorder_board(state, idx, perm)` is a free primitive (no action cost) used by the env to fuse reorder + finish.
+
+## Action space (RL env)
+
+33 discrete actions (`action_map.py`):
+
+| Index range | Meaning                                                |
+|-------------|--------------------------------------------------------|
+| 0           | `ROLL`                                                 |
+| 1           | `LEVEL_UP`                                             |
+| 2..4        | `BUY_SHOP_0/1/2`                                       |
+| 5..8        | `SELL_BOARD_0/1/2/3`                                   |
+| 9..32       | `SELECT_FINAL_ORDER_0..23`: apply permutation **and** end shop phase. |
+
+`PERMUTATIONS_4` is the 24-element list of permutations of `(0,1,2,3)` in lexicographic order (`itertools.permutations`); index 0 is the identity. For a board of size `k < 4`, only permutations whose tail beyond `k` is identity are legal (`legal_order_indices(k)`): `k=0` → 1, `k=1` → 1, `k=2` → 2, `k=3` → 6, `k=4` → 24. Empty board → only the identity `SELECT_FINAL_ORDER_0` ends the turn.
+
+`MiniBGEnv.legal_actions_mask` projects `MiniBGGame.legal_actions(state)` onto this 33-slot vector and additionally enables the legal `SELECT_FINAL_ORDER_*` indices iff `FINISH` is legal in the game core.
+
+## Observation (RL env)
+
+Fixed-size float32 vector, **self-centric** (the current player is always "me"):
+
+- 10 globals: `round/15`, `my_hp/15`, `enemy_hp/15`, `gold/8`, `gold_cap/8`, `my_tier/3`, `enemy_tier/3`, `actions_left/10`, `my_board_count/4`, `has_initiative_if_equal_board_size`.
+- 4 × 25 own board slots, 3 × 25 shop slots, 4 × 25 last-seen enemy board slots. Each 25-D slot vector encodes: presence, card_id one-hot (10 cards), tier one-hot (3), 4 stat scalars (base/bonus attack/health), `Taunt`, `Shield`, runtime `has_shield`, and one flag per ability trigger (`ON_BUY`, `ON_DEATH`, `AURA`, `ON_TURN_END`).
+- 1 last-battle scalar = `(damage_dealt − damage_taken) / 7` from the previous round, from this player's perspective.
+
+The enemy's board is **only** updated post-battle (last-seen snapshot). The enemy's hp and tier are read live from current state — those are public.
+
+## Reward (RL env)
+
+Terminal-only: +1 win, −1 loss, 0 draw, all from the perspective of the player whose action just produced the terminal state. Illegal actions return reward `INVALID_ACTION_REWARD = -1.0` and do not mutate state.

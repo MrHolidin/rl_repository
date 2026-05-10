@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -142,6 +142,35 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             else:
                 self._resolve_battle_and_advance(new_state)
 
+        return new_state
+
+    def reorder_board(
+        self,
+        state: MiniBGState,
+        player_idx: int,
+        perm: Sequence[int],
+    ) -> MiniBGState:
+        if state.done:
+            raise ValueError("Cannot reorder in terminal state")
+        if len(perm) != BOARD_SIZE:
+            raise ValueError(f"perm must have length {BOARD_SIZE}, got {len(perm)}")
+
+        new_state = self._copy_state(state)
+        player = new_state.players[player_idx]
+        k = len(player.board)
+
+        for j in range(k, BOARD_SIZE):
+            if perm[j] != j:
+                raise ValueError(
+                    f"perm tail must be identity beyond k={k}: got perm={tuple(perm)}"
+                )
+        head = tuple(perm[i] for i in range(k))
+        if sorted(head) != list(range(k)):
+            raise ValueError(
+                f"perm head is not a permutation of 0..{k - 1}: got {head}"
+            )
+
+        player.board = [player.board[head[i]] for i in range(k)]
         return new_state
 
     def _do_buy(self, player: PlayerState, slot: int) -> None:

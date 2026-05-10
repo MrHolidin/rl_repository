@@ -24,6 +24,8 @@ Available actions (max 10 BUY/SELL/ROLL/LEVEL_UP per round):
 
 After 10 actions, FINISH is forced automatically. FINISH itself is not counted in the 10.
 
+**Board reordering** is free: the player can rearrange minions on their own board any number of times during their shop phase, at no cost and not counted against the 10-action limit. In the RL wrapper, reorder + finish is fused into a single `SELECT_FINAL_ORDER_*` action.
+
 At round start, gold restores to round cap and **shops auto-reroll for free** for both players:
 
 | Round | Gold cap |
