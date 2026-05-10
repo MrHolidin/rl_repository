@@ -189,6 +189,16 @@ class MiniBGEnv(TurnBasedEnv):
     def done(self) -> bool:
         return False if self._state is None else self._state.done
 
+    @property
+    def state(self) -> MiniBGState:
+        if self._state is None:
+            raise RuntimeError("Environment not initialized; call reset() first.")
+        return self._state
+
+    @property
+    def game(self) -> MiniBGGame:
+        return self._game
+
     def render(self, mode: str = "human") -> Optional[str]:
         if mode != "human" or self._state is None:
             return None
