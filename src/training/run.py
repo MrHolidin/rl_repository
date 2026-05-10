@@ -25,6 +25,7 @@ from src.training.callbacks import (
     TrainerCallback,
 )
 from src.training.random_opening import RandomOpeningConfig
+from src.training.control_flow import make_control_driver
 from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 from src.training.othello_augmentations import make_othello_d4_augmenter
@@ -262,7 +263,9 @@ def run(
 
     rng = random.Random(app_cfg.seed) if app_cfg.seed is not None else None
 
-    env = make_game(app_cfg.game.id, **app_cfg.game.params)
+    game_params = dict(app_cfg.game.params or {})
+    driver_id = game_params.pop("control_driver", None)
+    env = make_game(app_cfg.game.id, **game_params)
     legal_mask = getattr(env, "legal_actions_mask", None)
     if legal_mask is None:
         raise ValueError("Environment must expose legal_actions_mask.")
@@ -330,6 +333,8 @@ def run(
                 f"apply_augmentation is True but no augmentations defined for game '{app_cfg.game.id}'"
             )
 
+    control_driver = make_control_driver(app_cfg.game.id, driver_id)
+
     trainer = Trainer(
         env,
         agent,
@@ -340,6 +345,7 @@ def run(
         rng=rng,
         random_opening_config=random_opening_config,
         data_augment_fn=data_augment_fn,
+        control_driver=control_driver,
     )
 
     # Install signal handlers for graceful stop

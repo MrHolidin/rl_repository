@@ -13,6 +13,7 @@ import numpy as np
 
 from src.agents.base_agent import BaseAgent
 from src.envs.base import StepResult, TurnBasedEnv
+from src.training.control_flow import AlternatingDriver, ControlDriver
 from src.training.opponent_sampler import OpponentSampler, RandomOpponentSampler
 from src.training.random_opening import RandomOpeningConfig
 
@@ -95,6 +96,7 @@ class Trainer:
         rng: Optional[Union[random.Random, np.random.Generator]] = None,
         random_opening_config: Optional["RandomOpeningConfig"] = None,
         data_augment_fn: Optional[Callable[[Transition], Sequence[Transition]]] = None,
+        control_driver: Optional[ControlDriver] = None,
     ) -> None:
         self.env = env
         self.agent = agent
@@ -115,12 +117,39 @@ class Trainer:
         self._agent_token = 1  # +1 when agent moves first, -1 otherwise
         self.random_opening_config = random_opening_config
         self.data_augment_fn = data_augment_fn
+        self._control: ControlDriver = (
+            control_driver if control_driver is not None else AlternatingDriver()
+        )
+        self._pending_immediate: Optional[PendingTransition] = None
+        self._episode_start_obs: Optional[np.ndarray] = None
 
     def train(self, total_steps: int, *, deterministic: bool = False) -> None:
         """Run the training loop for the specified number of agent updates."""
         self._target_total_steps = total_steps
         reward_config = getattr(self.env, "reward_config", None)
 
+        for callback in self.callbacks:
+            callback.on_train_begin(self)
+
+        self._prepare_opponent()
+
+        if self._control.uses_paired_credit:
+            self._train_paired_loop(total_steps, deterministic, reward_config)
+        else:
+            self._train_immediate_loop(total_steps, deterministic, reward_config)
+
+        for callback in self.callbacks:
+            callback.on_train_end(self)
+
+        if self.track_timings:
+            self._finalize_timings()
+
+    def _train_paired_loop(
+        self,
+        total_steps: int,
+        deterministic: bool,
+        reward_config: Any,
+    ) -> None:
         obs = self.env.reset()
         obs, prologue_done = self._apply_random_opening(obs)
         if prologue_done:
@@ -128,11 +157,6 @@ class Trainer:
         episode_reward = 0.0
         episode_length = 0
         pending: Optional[PendingTransition] = None
-
-        for callback in self.callbacks:
-            callback.on_train_begin(self)
-
-        self._prepare_opponent()
 
         current_player_is_agent = self._resolve_whose_turn_after_episode_start()
 
@@ -145,12 +169,10 @@ class Trainer:
             iteration_start = perf_counter() if self.track_timings else None
 
             if current_player_is_agent:
-                # Agent's turn
                 agent_step, pending = self._agent_turn(obs, deterministic)
                 episode_length += 1
 
                 if agent_step.done:
-                    # Agent won or drew
                     transition = Transition(
                         obs=obs,
                         action=pending.action,
@@ -171,22 +193,21 @@ class Trainer:
                         episode_reward, episode_length, agent_step.info
                     )
                     iteration_start = perf_counter() if self.track_timings else None
-                    episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
+                    episode_reward = self._process_maybe_opening_transition(
+                        transition, episode_reward, iteration_start
+                    )
                     current_player_is_agent = self._resolve_whose_turn_after_episode_start()
                     continue
 
-                # Game continues, wait for opponent
                 obs = agent_step.obs
                 current_player_is_agent = False
             else:
-                # Opponent's turn
                 if pending is None:
                     obs, episode_reward, episode_length, current_player_is_agent = self._handle_opponent_start(
                         obs, episode_reward, episode_length, reward_config, iteration_start
                     )
                     continue
                 else:
-                    # Normal opponent turn after agent's move
                     opponent_step, transition = self._opponent_turn_and_credit(obs, pending, reward_config)
                     episode_length += 1
                     metrics = self._process_agent_transition(transition)
@@ -202,17 +223,303 @@ class Trainer:
                             episode_reward, episode_length, opponent_step.info
                         )
                         iteration_start = perf_counter() if self.track_timings else None
-                        episode_reward = self._process_maybe_opening_transition(transition, episode_reward, iteration_start)
+                        episode_reward = self._process_maybe_opening_transition(
+                            transition, episode_reward, iteration_start
+                        )
                         current_player_is_agent = self._resolve_whose_turn_after_episode_start()
                         continue
 
-                    current_player_is_agent = True  # Switch back to agent
+                    current_player_is_agent = True
 
-        for callback in self.callbacks:
-            callback.on_train_end(self)
+    def _train_immediate_loop(
+        self,
+        total_steps: int,
+        deterministic: bool,
+        reward_config: Any,
+    ) -> None:
+        obs = self.env.reset()
+        obs, prologue_done = self._apply_random_opening(obs)
+        if prologue_done:
+            obs = self.env.reset()
+        episode_reward = 0.0
+        episode_length = 0
+        self._pending_immediate = None
+        self._episode_start_obs = obs
 
-        if self.track_timings:
-            self._finalize_timings()
+        self._should_agent_go_first()
+        if not self._is_agent_turn():
+            obs, episode_reward, episode_length = self._immediate_drain_opponent_opening(
+                obs, episode_reward, episode_length, reward_config, None
+            )
+            if self.global_step >= total_steps or self.stop_training:
+                return
+
+        while self.global_step < total_steps and not self.stop_training:
+            iteration_start = perf_counter() if self.track_timings else None
+
+            if self._pending_immediate is not None:
+                episode_reward = self._flush_pending_immediate_nonterminal(
+                    obs, episode_reward, iteration_start
+                )
+
+            _opp_moves = 0
+            while (
+                not self.env.done
+                and self._control.active_role(self.env, self._agent_token) == "opponent"
+                and self.global_step < total_steps
+                and _opp_moves < 10_000
+            ):
+                _opp_moves += 1
+                opp = self._current_opponent or self._prepare_opponent()
+                opp_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+                opp_action = opp.act(obs, legal_mask=opp_mask, deterministic=False)
+                opp_step = self.env.step(opp_action)
+                episode_length += 1
+                obs = opp_step.obs
+                core_done = perf_counter() if self.track_timings else None
+                if opp_step.done:
+                    if self._pending_immediate is not None:
+                        episode_reward = self._flush_pending_immediate_terminal(
+                            self._pending_immediate,
+                            opp_step,
+                            reward_config,
+                            iteration_start,
+                            episode_reward,
+                            core_done,
+                        )
+                        self._pending_immediate = None
+                    else:
+                        start_obs = (
+                            self._episode_start_obs
+                            if self._episode_start_obs is not None
+                            else obs
+                        )
+                        transition = self._dummy_loss_transition_from_opener(
+                            start_obs, opp_step, reward_config
+                        )
+                        metrics = self._process_agent_transition(transition)
+                        episode_reward += transition.reward
+                        self._after_transition(transition, metrics, iteration_start, core_done)
+
+                    obs, episode_reward, episode_length, _, _, _ = self._handle_episode_end(
+                        episode_reward, episode_length, opp_step.info
+                    )
+                    episode_reward = self._process_maybe_opening_transition(
+                        None, episode_reward, perf_counter() if self.track_timings else None
+                    )
+                    obs = self.env.reset()
+                    self._episode_start_obs = obs
+                    obs, prologue_done = self._apply_random_opening(obs)
+                    if prologue_done:
+                        obs = self.env.reset()
+                        self._episode_start_obs = obs
+                    self._pending_immediate = None
+                    self._should_agent_go_first()
+                    if not self._is_agent_turn():
+                        obs, episode_reward, episode_length = self._immediate_drain_opponent_opening(
+                            obs, episode_reward, episode_length, reward_config, iteration_start
+                        )
+                    break
+
+            if self.global_step >= total_steps or self.stop_training:
+                break
+            if self.env.done:
+                continue
+
+            legal = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+            action = self.agent.act(obs, legal_mask=legal, deterministic=deterministic)
+            agent_step = self.env.step(action)
+            episode_length += 1
+            pending_cur = PendingTransition(
+                obs=obs, action=action, reward=agent_step.reward, legal_mask=legal
+            )
+
+            if agent_step.done:
+                transition = Transition(
+                    obs=obs,
+                    action=pending_cur.action,
+                    reward=agent_step.reward,
+                    next_obs=agent_step.obs,
+                    terminated=agent_step.terminated,
+                    truncated=agent_step.truncated,
+                    info=agent_step.info,
+                    legal_mask=pending_cur.legal_mask,
+                    next_legal_mask=self._zero_mask_like(pending_cur.legal_mask),
+                )
+                metrics = self._process_agent_transition(transition)
+                episode_reward += transition.reward
+                core_done = perf_counter() if self.track_timings else None
+                self._after_transition(transition, metrics, iteration_start, core_done)
+
+                obs, episode_reward, episode_length, _, _, _ = self._handle_episode_end(
+                    episode_reward, episode_length, agent_step.info
+                )
+                episode_reward = self._process_maybe_opening_transition(
+                    None, episode_reward, perf_counter() if self.track_timings else None
+                )
+                obs = self.env.reset()
+                self._episode_start_obs = obs
+                obs, prologue_done = self._apply_random_opening(obs)
+                if prologue_done:
+                    obs = self.env.reset()
+                    self._episode_start_obs = obs
+                self._pending_immediate = None
+                self._should_agent_go_first()
+                if not self._is_agent_turn():
+                    obs, episode_reward, episode_length = self._immediate_drain_opponent_opening(
+                        obs, episode_reward, episode_length, reward_config, iteration_start
+                    )
+            else:
+                self._pending_immediate = pending_cur
+                obs = agent_step.obs
+
+    def _flush_pending_immediate_nonterminal(
+        self,
+        obs: np.ndarray,
+        episode_reward: float,
+        iteration_start: Optional[float],
+    ) -> float:
+        assert self._pending_immediate is not None
+        p = self._pending_immediate
+        next_lm = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        if next_lm is None:
+            next_lm = self._zero_mask_like(p.legal_mask)
+        transition = Transition(
+            obs=p.obs,
+            action=p.action,
+            reward=p.reward,
+            next_obs=obs,
+            terminated=False,
+            truncated=False,
+            info={},
+            legal_mask=p.legal_mask,
+            next_legal_mask=next_lm,
+        )
+        metrics = self._process_agent_transition(transition)
+        episode_reward += transition.reward
+        core_done = perf_counter() if self.track_timings else None
+        self._after_transition(transition, metrics, iteration_start, core_done)
+        self._pending_immediate = None
+        return episode_reward
+
+    def _flush_pending_immediate_terminal(
+        self,
+        pending: PendingTransition,
+        opp_step: StepResult,
+        reward_config: Any,
+        iteration_start: Optional[float],
+        episode_reward: float,
+        core_done: Optional[float],
+    ) -> float:
+        final_r = self._compute_agent_reward(pending.reward, opp_step, reward_config)
+        transition = Transition(
+            obs=pending.obs,
+            action=pending.action,
+            reward=final_r,
+            next_obs=opp_step.obs,
+            terminated=opp_step.terminated,
+            truncated=opp_step.truncated,
+            info=opp_step.info,
+            legal_mask=pending.legal_mask,
+            next_legal_mask=self._zero_mask_like(pending.legal_mask),
+        )
+        metrics = self._process_agent_transition(transition)
+        episode_reward += transition.reward
+        self._after_transition(transition, metrics, iteration_start, core_done)
+        return episode_reward
+
+    def _dummy_loss_transition_from_opener(
+        self,
+        obs: np.ndarray,
+        opp_step: StepResult,
+        reward_config: Any,
+    ) -> Transition:
+        winner = opp_step.info.get("winner")
+        if reward_config is not None:
+            final_reward = (
+                getattr(reward_config, "draw", 0.0)
+                if winner == 0
+                else getattr(reward_config, "loss", -1.0)
+            )
+        else:
+            final_reward = 0.0 if winner == 0 else -1.0
+        legal_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+        dim = self._get_action_dim()
+        if legal_mask is None:
+            legal_mask = np.zeros(dim, dtype=bool)
+        return Transition(
+            obs=obs,
+            action=0,
+            reward=final_reward,
+            next_obs=opp_step.obs,
+            terminated=opp_step.terminated,
+            truncated=opp_step.truncated,
+            info=opp_step.info,
+            legal_mask=legal_mask,
+            next_legal_mask=self._zero_mask_like(legal_mask),
+        )
+
+    def _immediate_drain_opponent_opening(
+        self,
+        obs: np.ndarray,
+        episode_reward: float,
+        episode_length: int,
+        reward_config: Any,
+        iteration_start: Optional[float],
+    ) -> Tuple[np.ndarray, float, int]:
+        """Opponent moves first (possibly multiple steps); episode may end without agent acting."""
+        self._episode_start_obs = obs
+        _open_moves = 0
+        while (
+            not self.env.done
+            and self._control.active_role(self.env, self._agent_token) == "opponent"
+            and self.global_step < self._target_total_steps
+            and _open_moves < 10_000
+        ):
+            _open_moves += 1
+            opp = self._current_opponent or self._prepare_opponent()
+            opp_mask = self._as_bool_mask(getattr(self.env, "legal_actions_mask", None))
+            opp_action = opp.act(obs, legal_mask=opp_mask, deterministic=False)
+            opp_step = self.env.step(opp_action)
+            episode_length += 1
+            obs = opp_step.obs
+            core_done = perf_counter() if self.track_timings else None
+            if opp_step.done:
+                if self._pending_immediate is not None:
+                    episode_reward = self._flush_pending_immediate_terminal(
+                        self._pending_immediate,
+                        opp_step,
+                        reward_config,
+                        iteration_start,
+                        episode_reward,
+                        core_done,
+                    )
+                    self._pending_immediate = None
+                else:
+                    transition = self._dummy_loss_transition_from_opener(
+                        self._episode_start_obs, opp_step, reward_config
+                    )
+                    metrics = self._process_agent_transition(transition)
+                    episode_reward += transition.reward
+                    self._after_transition(transition, metrics, iteration_start, core_done)
+
+                obs, episode_reward, episode_length, _, _, _ = self._handle_episode_end(
+                    episode_reward, episode_length, opp_step.info
+                )
+                episode_reward = self._process_maybe_opening_transition(
+                    None, episode_reward, perf_counter() if self.track_timings else None
+                )
+                obs = self.env.reset()
+                self._episode_start_obs = obs
+                obs, prologue_done = self._apply_random_opening(obs)
+                if prologue_done:
+                    obs = self.env.reset()
+                    self._episode_start_obs = obs
+                self._pending_immediate = None
+                self._should_agent_go_first()
+                return obs, episode_reward, episode_length
+
+        return obs, episode_reward, episode_length
 
     def _process_agent_transition(self, transition: Transition) -> Dict[str, float]:
         metrics: Dict[str, float] = {}

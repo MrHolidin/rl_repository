@@ -70,6 +70,7 @@ def test_registry_lists_include_defaults():
     agents = list_agents()
 
     assert "connect4" in games
+    assert "minibg" in games
     assert {"random", "heuristic", "smart_heuristic", "qlearning", "dqn"}.issubset(set(agents))
 
 

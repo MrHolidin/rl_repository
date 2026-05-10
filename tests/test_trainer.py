@@ -46,6 +46,10 @@ class DummyEnv(TurnBasedEnv):
     def legal_actions_mask(self) -> np.ndarray:
         return self._legal_mask
 
+    @property
+    def current_player_token(self) -> int:
+        return 1 if self._steps % 2 == 0 else -1
+
     def current_player(self) -> int:
         return 0
 

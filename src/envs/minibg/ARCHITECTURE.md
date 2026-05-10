@@ -14,7 +14,7 @@ Two layers:
 - `game.py` — `MiniBGGame(TurnBasedGame[MiniBGState])`: shop loop, ON_BUY / ON_TURN_END dispatch, round orchestration, battle invocation, free `reorder_board` primitive.
 - `action_map.py` — 33-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SHOP_*` / `SELL_BOARD_*` / `SELECT_FINAL_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
 - `obs.py` — fixed-size vector observation (10 globals + 4·25 own board + 3·25 shop + 4·25 last-seen enemy board + 1 last-battle scalar).
-- `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, fuses reorder + finish on `SELECT_FINAL_ORDER_*`, tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs. Read-only `state` / `game` for scripted opponents.
+- `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, fuses reorder + finish on `SELECT_FINAL_ORDER_*`, tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs. Read-only `state` / `game` for scripted opponents. Training: `game.params.control_driver: minibg` (default when `game.id: minibg`) selects `MiniBGDriver` in `src/training/control_flow.py` so `Trainer` runs multi-step shop phases per player before switching.
 - `heuristic_bots/` — scripted opponents (`RandomBot`, `TempoBot`, …) + `tournament.run_tournament`. CLI: `python -m src.envs.minibg.heuristic_bots` or `python scripts/minibg_tournament.py`.
 
 ## Effect pattern
