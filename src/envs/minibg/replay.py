@@ -45,11 +45,15 @@ def player_to_dict(p: PlayerState) -> Dict[str, Any]:
         "hp": p.health,
         "gold": p.gold,
         "tier": p.tavern_tier,
+        "phase": p.phase.name,
         "shop_done": p.shopping_finished,
         "shop_acts": p.shop_actions_used,
         "board": [minion_to_dict(m) for m in p.board],
         "shop": [
             None if x is None else minion_to_dict(x) for x in p.shop
+        ],
+        "hand": [
+            None if x is None else minion_to_dict(x) for x in p.hand
         ],
     }
 

@@ -6,13 +6,21 @@ import numpy as np
 
 from ..action_map import (
     A_BUY_BASE,
+    A_FINISH,
+    A_PLACE_BASE,
     A_SELECT_ORDER_BASE,
     A_SELL_BASE,
     NUM_ENV_ACTIONS,
     PERMUTATIONS_4,
-    legal_order_indices,
 )
-from ..actions import BOARD_SIZE, BUY_COST, LEVEL_UP_COSTS, MAX_TIER, SHOP_SIZE
+from ..actions import (
+    BOARD_SIZE,
+    BUY_COST,
+    HAND_SIZE,
+    LEVEL_UP_COSTS,
+    MAX_TIER,
+    SHOP_SIZE,
+)
 from ..effects import Keyword, Trigger
 from ..state import Minion, PlayerState
 
@@ -178,35 +186,40 @@ def order_key_token(old_idx: int, board: Sequence[Minion]) -> Tuple[float, int]:
 
 
 def order_key_default(old_idx: int, board: Sequence[Minion]) -> Tuple[float, int]:
+    """Highest raw_attack first (left-most attacks first in battle).
+
+    Position only affects attack order (target-selection is random / random-
+    among-taunts and is position-independent).  Putting high-attack minions
+    leftmost maximizes alpha-strike damage in short battles.
+    """
     m = board[old_idx]
-    w = 0.0
-    if Keyword.TAUNT in m.keywords:
-        w -= 30.0
-    if m.card_id in ("commander", "mentor"):
-        w += 20.0
-    return (w, old_idx)
+    return (-float(m.raw_attack), old_idx)
 
 
 def perm_from_desired_order(k: int, order: Sequence[int]) -> Tuple[int, int, int, int]:
+    """Build a length-BOARD_SIZE perm whose first k entries equal ``order``.
+
+    Tail positions (>= k) get filled with the unused indices in identity
+    order; under ``reorder_board``'s compact-after-permute semantics any
+    such tail is fine, since positions >= k are dropped.
+    """
     if len(order) != k:
         raise ValueError("order length mismatch")
-    perm_list = list(order) + list(range(k, BOARD_SIZE))
+    used = set(order)
+    tail = [j for j in range(BOARD_SIZE) if j not in used]
+    perm_list = list(order) + tail
     return (perm_list[0], perm_list[1], perm_list[2], perm_list[3])
 
 
 def find_select_action_for_perm(
-    k: int, desired_perm: Tuple[int, int, int, int], mask: np.ndarray
+    desired_perm: Tuple[int, int, int, int], mask: np.ndarray
 ) -> Optional[int]:
-    legal = legal_order_indices(k)
-    for j in legal:
+    for j in range(len(PERMUTATIONS_4)):
         if PERMUTATIONS_4[j] == desired_perm:
             a = A_SELECT_ORDER_BASE + j
             if a < NUM_ENV_ACTIONS and bool(mask[a]):
                 return a
-    for j in legal:
-        a = A_SELECT_ORDER_BASE + j
-        if bool(mask[a]):
-            return a
+            return None
     return None
 
 
@@ -215,15 +228,38 @@ def choose_final_order(
     mask: np.ndarray,
     key_fn: Callable[[int, Sequence[Minion]], Tuple[float, int]],
 ) -> int:
+    """Pick a SELECT_ORDER env action for the current board.
+
+    Only ``k!`` canonical perms (those whose tail >= k is identity) are
+    legal. ``perm_from_desired_order`` always emits one of those — head =
+    desired ordering of the first ``k`` board positions, tail = unused
+    indices in identity order — so it lines up with the env's legal mask.
+    """
     k = len(board)
     if k == 0:
         return A_SELECT_ORDER_BASE
     order = sorted(range(k), key=lambda oi: key_fn(oi, board))
     desired = perm_from_desired_order(k, order)
-    a = find_select_action_for_perm(k, desired, mask)
+    a = find_select_action_for_perm(desired, mask)
     if a is not None:
         return a
+    # Fallback: identity permutation is always legal in order phase.
     return A_SELECT_ORDER_BASE
+
+
+def hand_size(p: PlayerState) -> int:
+    return sum(1 for m in p.hand if m is not None)
+
+
+def hand_full(p: PlayerState) -> bool:
+    return hand_size(p) >= HAND_SIZE
+
+
+def first_filled_hand_slot(p: PlayerState) -> Optional[int]:
+    for i in range(HAND_SIZE):
+        if p.hand[i] is not None:
+            return i
+    return None
 
 
 def best_buy_slot(

@@ -15,12 +15,12 @@ agent:
   id: dqn
   params:
     network_type: minibg_slot
-    observation_shape: [286]
-    slot_hidden_channels: 64
+    observation_shape: [362]
+    slot_hidden_channels: 16
     trunk_hidden_size: 256
     dueling: true
     learning_rate: 0.0001
-    discount_factor: 0.99
+    discount_factor: 1.0
     epsilon: 1.0
     epsilon_decay: 0.999995
     epsilon_min: 0.08
@@ -34,7 +34,7 @@ agent:
     update_every: 4
     grad_clip_norm: 5.0
     n_step: 1
-    use_twin_q: false
+    use_twin_q: true
 
 train:
   max_episodes: 10000000

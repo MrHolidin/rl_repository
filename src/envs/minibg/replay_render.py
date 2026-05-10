@@ -4,21 +4,26 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional, TextIO, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Union
 
 from .action_map import (
     A_BUY_BASE,
+    A_FINISH,
     A_LEVEL_UP,
+    A_PLACE_BASE,
     A_ROLL,
     A_SELECT_ORDER_BASE,
     A_SELL_BASE,
     NUM_ENV_ACTIONS,
     PERMUTATIONS_4,
+    buy_slot,
     is_buy,
+    is_finish,
+    is_place,
     is_select_order,
     is_sell,
-    buy_slot,
     order_index,
+    place_slot,
     sell_pos,
 )
 
@@ -56,10 +61,14 @@ def decode_env_action(a: int) -> str:
         return f"BUY_SHOP_{buy_slot(a)}"
     if is_sell(a):
         return f"SELL_BOARD_{sell_pos(a)}"
+    if is_place(a):
+        return f"PLACE_HAND_{place_slot(a)}"
+    if is_finish(a):
+        return "FINISH"
     if is_select_order(a):
         j = order_index(a)
         perm = PERMUTATIONS_4[j] if 0 <= j < len(PERMUTATIONS_4) else ()
-        return f"END_SHOP perm#{j} {perm}"
+        return f"SELECT_ORDER perm#{j} {perm}"
     if 0 <= a < NUM_ENV_ACTIONS:
         return f"UNKNOWN_{a}"
     return f"OUT_OF_RANGE_{a}"

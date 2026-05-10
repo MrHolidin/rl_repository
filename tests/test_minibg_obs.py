@@ -3,6 +3,7 @@ import numpy as np
 from src.envs.minibg.actions import (
     BOARD_SIZE,
     GOLD_AT_CAP,
+    HAND_SIZE,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
     MAX_TIER,
@@ -15,14 +16,17 @@ from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     CARD_ID_TO_INDEX,
     GLOBAL_DIM,
+    HAND_LEN,
     LAST_BATTLE_DIM,
     OBS_DIM,
+    PHASE_DIM,
     SLOT_DIM,
     build_observation,
     encode_minion,
     encode_slots,
     i_have_round_initiative,
 )
+from src.envs.minibg.state import PlayerPhase
 
 
 def test_obs_dim_matches_layout():
@@ -30,13 +34,17 @@ def test_obs_dim_matches_layout():
         GLOBAL_DIM
         + BOARD_SIZE * SLOT_DIM
         + SHOP_SIZE * SLOT_DIM
+        + HAND_LEN * SLOT_DIM
         + BOARD_SIZE * SLOT_DIM
         + LAST_BATTLE_DIM
+        + PHASE_DIM
     )
     assert OBS_DIM == expected
     assert SLOT_DIM == 25
     assert GLOBAL_DIM == 10
     assert LAST_BATTLE_DIM == 1
+    assert HAND_LEN == HAND_SIZE
+    assert PHASE_DIM == 1
 
 
 def test_encode_minion_none_is_zero_vector():
@@ -181,17 +189,40 @@ def test_build_observation_self_centric():
     assert obs1[1] == 7 / STARTING_HEALTH
     assert obs1[2] == 10 / STARTING_HEALTH
 
-    assert obs0[-1] == np.float32(0.5)
-    assert obs1[-1] == np.float32(-0.3)
+    # last_battle is 2nd-to-last; PHASE indicator is last.
+    assert obs0[-2] == np.float32(0.5)
+    assert obs1[-2] == np.float32(-0.3)
 
 
 def test_build_observation_empty_enemy_board_zero_block():
     g = MiniBGGame(seed=0)
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
-    enemy_block_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + SHOP_SIZE * SLOT_DIM
+    enemy_block_start = (
+        GLOBAL_DIM
+        + BOARD_SIZE * SLOT_DIM
+        + SHOP_SIZE * SLOT_DIM
+        + HAND_LEN * SLOT_DIM
+    )
     enemy_block = obs[enemy_block_start : enemy_block_start + BOARD_SIZE * SLOT_DIM]
     assert np.all(enemy_block == 0.0)
+
+
+def test_build_observation_hand_block_and_phase_indicator():
+    g = MiniBGGame(seed=0)
+    s = g.initial_state()
+    s.players[0].hand[1] = make_minion("guard")
+    obs = build_observation(s, 0, 0.0, [])
+
+    hand_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + SHOP_SIZE * SLOT_DIM
+    hand_block = obs[hand_start : hand_start + HAND_LEN * SLOT_DIM].reshape(
+        HAND_LEN, SLOT_DIM
+    )
+    assert hand_block[0, 0] == 0.0 and hand_block[1, 0] == 1.0 and hand_block[2, 0] == 0.0
+
+    assert obs[-1] == 0.0  # SHOP phase
+    s.players[0].phase = PlayerPhase.ORDER
+    assert build_observation(s, 0, 0.0, [])[-1] == 1.0
 
 
 def test_build_observation_own_board_block_layout():

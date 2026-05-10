@@ -13,7 +13,7 @@ agent:
   id: dqn
   params:
     network_type: minibg_mlp
-    observation_shape: [286]
+    observation_shape: [362]
     mlp_hidden_size: 256
     dueling: true
     learning_rate: 0.0003

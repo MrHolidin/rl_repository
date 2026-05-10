@@ -1,6 +1,7 @@
+from src.envs.minibg.actions import HAND_SIZE
 from src.envs.minibg.battle import BattleMinion, BattleSide, attack_with_auras
 from src.envs.minibg.cards import make_minion
-from src.envs.minibg.state import PlayerState
+from src.envs.minibg.state import PlayerPhase, PlayerState
 from src.envs.minibg.game import MiniBGGame
 
 
@@ -11,7 +12,8 @@ def _player(board=None, gold=10, tier=1):
         tavern_tier=tier,
         board=list(board or []),
         shop=[None, None, None],
-        shopping_finished=False,
+        hand=[None for _ in range(HAND_SIZE)],
+        phase=PlayerPhase.SHOP,
         shop_actions_used=0,
     )
 

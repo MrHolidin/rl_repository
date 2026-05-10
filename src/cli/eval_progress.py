@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from src.envs import RewardConfig
 from src.evaluation.eval_checkpoints import (
     eval_checkpoints_vs_opponents,
     find_checkpoints,
@@ -53,7 +55,15 @@ def main() -> None:
         "--prefix",
         type=str,
         default=None,
-        help="Checkpoint prefix filter (e.g. dqn to match dqn_2000.pt)",
+        help="Checkpoint prefix filter (e.g. dqn to match dqn_2000.pt). "
+        "For game=minibg defaults to minibg_dqn if omitted.",
+    )
+    parser.add_argument(
+        "--checkpoint-stems",
+        nargs="*",
+        default=None,
+        metavar="STEM",
+        help="If set, only these stems (e.g. minibg_dqn_300000). Order preserved.",
     )
     parser.add_argument(
         "--seed",
@@ -78,9 +88,26 @@ def main() -> None:
     parser.add_argument(
         "--game",
         type=str,
-        choices=["connect4", "othello"],
+        choices=["connect4", "othello", "minibg"],
         default="connect4",
         help="Game type (default: connect4)",
+    )
+    parser.add_argument(
+        "--minibg-battle-damage-shaping",
+        type=float,
+        default=0.06,
+        help="Forward to make_game(minibg, ...) when game=minibg (default: 0.06)",
+    )
+    parser.add_argument(
+        "--out-csv",
+        type=Path,
+        default=None,
+        help="Eval table CSV (default: run_dir/eval_results.csv)",
+    )
+    parser.add_argument(
+        "--no-plot",
+        action="store_true",
+        help="Skip progress.png (eval CSV only)",
     )
     args = parser.parse_args()
 
@@ -91,15 +118,39 @@ def main() -> None:
         print(f"Checkpoints dir not found: {checkpoints_dir}", file=sys.stderr)
         sys.exit(1)
 
-    found = find_checkpoints(checkpoints_dir, prefix=args.prefix)
+    prefix = args.prefix
+    if args.game == "minibg" and prefix is None:
+        prefix = "minibg_dqn"
+
+    found = find_checkpoints(checkpoints_dir, prefix=prefix)
     if not found:
         print(f"No checkpoints found in {checkpoints_dir}", file=sys.stderr)
         sys.exit(1)
 
-    paths = [p for p, _ in found]
-    print(f"Found {len(paths)} checkpoints: {[p.name for p in paths]}")
+    by_stem = {p.stem: p for p, _ in found}
+    if args.checkpoint_stems:
+        paths = []
+        for stem in args.checkpoint_stems:
+            p = by_stem.get(stem)
+            if p is None:
+                avail = ", ".join(sorted(by_stem))
+                print(f"Checkpoint stem not found: {stem!r}. Available: {avail}", file=sys.stderr)
+                sys.exit(1)
+            paths.append(p)
+    else:
+        paths = [p for p, _ in found]
+
+    print(f"Evaluating {len(paths)} checkpoints: {[p.name for p in paths]}")
 
     batch_size = args.num_games if args.batch_size is None else args.batch_size
+
+    minibg_params: Optional[dict] = None
+    reward_config: Optional[RewardConfig] = None
+    if args.game == "minibg":
+        minibg_params = {"battle_damage_shaping": float(args.minibg_battle_damage_shaping)}
+        reward_config = RewardConfig()
+
+    out_csv = args.out_csv.resolve() if args.out_csv else (run_dir / "eval_results.csv")
 
     df = eval_checkpoints_vs_opponents(
         paths,
@@ -108,9 +159,11 @@ def main() -> None:
         batch_size=batch_size,
         device=args.device,
         seed=args.seed,
+        reward_config=reward_config,
         start_policy=args.start_policy,
         game_id=args.game,
-        out_csv=run_dir / "eval_results.csv",
+        out_csv=out_csv,
+        minibg_params=minibg_params,
     )
 
     if df.empty:
@@ -122,23 +175,24 @@ def main() -> None:
         print("No win rate columns.", file=sys.stderr)
         sys.exit(1)
 
-    out_path = args.out or (run_dir / "progress.png")
-    out_path = out_path.resolve()
+    if not args.no_plot:
+        out_path = args.out or (run_dir / "progress.png")
+        out_path = out_path.resolve()
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for col in win_cols:
-        opp_name = col.replace("win_rate_", "")
-        ax.plot(df["step"], df[col], "o-", label=f"vs {opp_name}", markersize=6)
-    ax.set_xlabel("Training step")
-    ax.set_ylabel("Win rate")
-    ax.set_title(f"Checkpoint progress: {run_dir.name}")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    ax.set_ylim(-0.05, 1.05)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=150)
-    plt.close()
-    print(f"Saved plot to {out_path}")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for col in win_cols:
+            opp_name = col.replace("win_rate_", "")
+            ax.plot(df["step"], df[col], "o-", label=f"vs {opp_name}", markersize=6)
+        ax.set_xlabel("Training step")
+        ax.set_ylabel("Win rate")
+        ax.set_title(f"Checkpoint progress: {run_dir.name}")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(-0.05, 1.05)
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=150)
+        plt.close()
+        print(f"Saved plot to {out_path}")
 
     # Print summary
     print("\nSummary:")

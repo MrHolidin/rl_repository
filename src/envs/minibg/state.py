@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import List, Optional, Tuple
 
 from .effects import Ability, Keyword
+
+
+class PlayerPhase(IntEnum):
+    SHOP = 0
+    ORDER = 1
+    DONE = 2
 
 
 @dataclass
@@ -35,8 +42,14 @@ class PlayerState:
     tavern_tier: int
     board: List[Minion]
     shop: List[Optional[Minion]]
-    shopping_finished: bool
+    hand: List[Optional[Minion]]
+    phase: PlayerPhase
     shop_actions_used: int
+
+    @property
+    def shopping_finished(self) -> bool:
+        """``True`` once the player submitted SELECT_ORDER for this round."""
+        return self.phase == PlayerPhase.DONE
 
 
 @dataclass
@@ -49,4 +62,4 @@ class MiniBGState:
     done: bool
 
 
-__all__ = ["Minion", "PlayerState", "MiniBGState"]
+__all__ = ["Minion", "PlayerState", "MiniBGState", "PlayerPhase"]

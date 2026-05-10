@@ -25,6 +25,8 @@ def test_minibg_trainer_smoke_with_perspective_env():
 
 
 def test_minibg_make_game_registered():
+    from src.envs.minibg import NUM_ENV_ACTIONS
+
     env = make_game("minibg", seed=0)
     assert isinstance(env, MiniBGEnv)
-    assert len(env.legal_actions_mask) == 33
+    assert len(env.legal_actions_mask) == NUM_ENV_ACTIONS

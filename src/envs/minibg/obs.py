@@ -7,6 +7,7 @@ import numpy as np
 from .actions import (
     BOARD_SIZE,
     GOLD_AT_CAP,
+    HAND_SIZE,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
     MAX_TIER,
@@ -15,7 +16,7 @@ from .actions import (
     gold_for_round,
 )
 from .effects import Keyword, Trigger
-from .state import MiniBGState, Minion
+from .state import MiniBGState, Minion, PlayerPhase
 
 
 CARD_IDS_FOR_ENCODING: tuple[str, ...] = (
@@ -51,12 +52,16 @@ CARD_ID_TO_INDEX = {cid: i for i, cid in enumerate(CARD_IDS_FOR_ENCODING)}
 SLOT_DIM = 25
 GLOBAL_DIM = 10
 LAST_BATTLE_DIM = 1
+HAND_LEN = HAND_SIZE
+PHASE_DIM = 1
 OBS_DIM = (
     GLOBAL_DIM
     + BOARD_SIZE * SLOT_DIM
     + SHOP_SIZE * SLOT_DIM
+    + HAND_LEN * SLOT_DIM
     + BOARD_SIZE * SLOT_DIM
     + LAST_BATTLE_DIM
+    + PHASE_DIM
 )
 
 _STAT_NORM = 5.0
@@ -134,19 +139,27 @@ def build_observation(
 
     own_board = encode_slots(list(me.board), BOARD_SIZE)
     shop = encode_slots(list(me.shop), SHOP_SIZE)
+    hand = encode_slots(list(me.hand), HAND_LEN)
     enemy_board = encode_slots(
         list(enemy_last_seen_board) if enemy_last_seen_board else [],
         BOARD_SIZE,
     )
     last_battle = np.array([last_battle_signed], dtype=np.float32)
+    # Phase indicator: 0.0 in shop, 1.0 in order. The DONE phase only appears
+    # transiently inside ``apply_action`` (turn passes / battle resolves) and
+    # the env never produces an obs with phase==DONE for the acting player.
+    phase_val = 1.0 if me.phase == PlayerPhase.ORDER else 0.0
+    phase_arr = np.array([phase_val], dtype=np.float32)
 
     return np.concatenate(
         [
             globals_arr,
             own_board.flatten(),
             shop.flatten(),
+            hand.flatten(),
             enemy_board.flatten(),
             last_battle,
+            phase_arr,
         ]
     )
 
@@ -158,6 +171,8 @@ __all__ = [
     "SLOT_DIM",
     "GLOBAL_DIM",
     "LAST_BATTLE_DIM",
+    "HAND_LEN",
+    "PHASE_DIM",
     "OBS_DIM",
     "encode_minion",
     "encode_slots",

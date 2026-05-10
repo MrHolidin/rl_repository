@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence
 
 import numpy as np
 
@@ -11,6 +11,7 @@ from src.games.turn_based_game import TurnBasedGame
 from .actions import (
     BOARD_SIZE,
     BUY_COST,
+    HAND_SIZE,
     LEVEL_UP_COSTS,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
@@ -26,7 +27,7 @@ from .actions import (
 from .battle import simulate_battle
 from .cards import make_minion, shop_pool_for_tier
 from .effects import BuffRandomFriendly, Trigger
-from .state import MiniBGState, Minion, PlayerState
+from .state import MiniBGState, Minion, PlayerPhase, PlayerState
 
 
 PLAYER_TOKENS = (1, -1)
@@ -64,26 +65,41 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         if state.done:
             return []
         player = state.players[state.current_player_index]
-        if player.shopping_finished:
+        if player.phase == PlayerPhase.DONE:
             return []
 
         actions: List[int] = []
 
+        if player.phase == PlayerPhase.ORDER:
+            # Order phase: a permutation must be submitted. The reorder is
+            # produced by the env layer (`reorder_board(...)`) and immediately
+            # followed by ``apply_action(FINISH)``; the only "game-level"
+            # action emitted from the order phase is ``FINISH``.
+            actions.append(int(Action.FINISH))
+            return actions
+
+        # Shop phase.
         can_act = player.shop_actions_used < MAX_SHOP_ACTIONS
+        hand_full = sum(1 for m in player.hand if m is not None) >= HAND_SIZE
         board_full = len(player.board) >= BOARD_SIZE
 
         if can_act:
-            for slot in range(SHOP_SIZE):
-                if (
-                    not board_full
-                    and player.shop[slot] is not None
-                    and player.gold >= BUY_COST
-                ):
-                    actions.append(int(Action.BUY_SLOT_0) + slot)
+            if not hand_full:
+                for slot in range(SHOP_SIZE):
+                    if (
+                        player.shop[slot] is not None
+                        and player.gold >= BUY_COST
+                    ):
+                        actions.append(int(Action.BUY_SLOT_0) + slot)
 
             for pos in range(BOARD_SIZE):
                 if pos < len(player.board):
                     actions.append(int(Action.SELL_BOARD_0) + pos)
+
+            if not board_full:
+                for h in range(HAND_SIZE):
+                    if player.hand[h] is not None:
+                        actions.append(int(Action.PLACE_HAND_0) + h)
 
             if player.gold >= ROLL_COST:
                 actions.append(int(Action.ROLL))
@@ -107,6 +123,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             raise ValueError(
                 f"Illegal action {action_int} in current state "
                 f"(player={state.current_player_index}, "
+                f"phase={state.players[state.current_player_index].phase.name}, "
                 f"gold={state.players[state.current_player_index].gold})"
             )
 
@@ -114,33 +131,38 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         idx = new_state.current_player_index
         player = new_state.players[idx]
 
+        if player.phase == PlayerPhase.ORDER:
+            # FINISH from order phase finalizes the round for this player.
+            assert action_int == int(Action.FINISH)
+            self._submit_order(player)
+            self._after_player_finished(new_state, idx)
+            return new_state
+
+        # Shop phase.
+        if action_int == int(Action.FINISH):
+            # Phase flip only — same player keeps the turn to submit order.
+            self._enter_order_phase(player)
+            return new_state
+
+        # Shop actions cost a budget slot.
         if Action.BUY_SLOT_0 <= action_int <= Action.BUY_SLOT_2:
-            slot = action_int - int(Action.BUY_SLOT_0)
-            self._do_buy(player, slot)
+            self._do_buy(player, action_int - int(Action.BUY_SLOT_0))
         elif Action.SELL_BOARD_0 <= action_int <= Action.SELL_BOARD_3:
-            pos = action_int - int(Action.SELL_BOARD_0)
-            self._do_sell(player, pos)
+            self._do_sell(player, action_int - int(Action.SELL_BOARD_0))
         elif action_int == int(Action.ROLL):
             self._do_roll(player)
         elif action_int == int(Action.LEVEL_UP):
             self._do_level_up(player)
-        elif action_int == int(Action.FINISH):
-            player.shopping_finished = True
+        elif Action.PLACE_HAND_0 <= action_int <= Action.PLACE_HAND_2:
+            self._do_place(player, action_int - int(Action.PLACE_HAND_0))
         else:
             raise ValueError(f"Unknown action {action_int}")
 
-        if action_int != int(Action.FINISH):
-            player.shop_actions_used += 1
-            if player.shop_actions_used >= MAX_SHOP_ACTIONS:
-                player.shopping_finished = True
-
-        if player.shopping_finished:
-            self._fire_on_turn_end(player)
-            other_idx = 1 - idx
-            if not new_state.players[other_idx].shopping_finished:
-                new_state.current_player_index = other_idx
-            else:
-                self._resolve_battle_and_advance(new_state)
+        player.shop_actions_used += 1
+        if player.shop_actions_used >= MAX_SHOP_ACTIONS:
+            # Budget exhausted -> auto-flip to order phase. Player still
+            # owes a SELECT_ORDER on their next turn.
+            self._enter_order_phase(player)
 
         return new_state
 
@@ -154,32 +176,66 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             raise ValueError("Cannot reorder in terminal state")
         if len(perm) != BOARD_SIZE:
             raise ValueError(f"perm must have length {BOARD_SIZE}, got {len(perm)}")
+        if sorted(perm) != list(range(BOARD_SIZE)):
+            raise ValueError(
+                f"perm must be a permutation of 0..{BOARD_SIZE - 1}: got {tuple(perm)}"
+            )
 
         new_state = self._copy_state(state)
         player = new_state.players[player_idx]
         k = len(player.board)
-
-        for j in range(k, BOARD_SIZE):
-            if perm[j] != j:
-                raise ValueError(
-                    f"perm tail must be identity beyond k={k}: got perm={tuple(perm)}"
-                )
-        head = tuple(perm[i] for i in range(k))
-        if sorted(head) != list(range(k)):
-            raise ValueError(
-                f"perm head is not a permutation of 0..{k - 1}: got {head}"
-            )
-
-        player.board = [player.board[head[i]] for i in range(k)]
+        # Compact-after-permute: only old positions < k correspond to real
+        # minions. Take their target positions in order, drop empties.
+        # For k = BOARD_SIZE this is a normal reorder; for k < BOARD_SIZE
+        # all 24 perms collapse into k! distinct outcomes.
+        player.board = [player.board[p] for p in perm if p < k]
         return new_state
+
+    # ------------------------------------------------------------------
+    # Phase helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _enter_order_phase(player: PlayerState) -> None:
+        if player.phase == PlayerPhase.SHOP:
+            player.phase = PlayerPhase.ORDER
+
+    @staticmethod
+    def _submit_order(player: PlayerState) -> None:
+        player.phase = PlayerPhase.DONE
+
+    def _after_player_finished(self, state: MiniBGState, idx: int) -> None:
+        """Called after a player transitions to DONE."""
+        self._fire_on_turn_end(state.players[idx])
+        other_idx = 1 - idx
+        if state.players[other_idx].phase != PlayerPhase.DONE:
+            state.current_player_index = other_idx
+        else:
+            self._resolve_battle_and_advance(state)
+
+    # ------------------------------------------------------------------
+    # Shop primitives
+    # ------------------------------------------------------------------
 
     def _do_buy(self, player: PlayerState, slot: int) -> None:
         minion = player.shop[slot]
         assert minion is not None
         player.gold -= BUY_COST
         player.shop[slot] = None
-        player.board.append(minion)
+        # First empty hand slot.
+        h = next(
+            (i for i in range(HAND_SIZE) if player.hand[i] is None), None
+        )
+        assert h is not None, "BUY illegal when hand is full (legal mask bug)"
+        player.hand[h] = minion
         self._fire_on_buy(minion, player)
+
+    def _do_place(self, player: PlayerState, hand_slot: int) -> None:
+        minion = player.hand[hand_slot]
+        assert minion is not None
+        assert len(player.board) < BOARD_SIZE
+        player.hand[hand_slot] = None
+        player.board.append(minion)
 
     def _do_sell(self, player: PlayerState, pos: int) -> None:
         del player.board[pos]
@@ -193,6 +249,10 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         cost = LEVEL_UP_COSTS[player.tavern_tier]
         player.gold -= cost
         player.tavern_tier += 1
+
+    # ------------------------------------------------------------------
+    # Effects
+    # ------------------------------------------------------------------
 
     def _apply_buff_random(
         self,
@@ -212,6 +272,9 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         target.bonus_health += effect.health
 
     def _fire_on_buy(self, minion: Minion, player: PlayerState) -> None:
+        # ON_BUY targets the board only; hand cards are not buffable. The
+        # bought minion sits in hand at trigger time, so it cannot be its own
+        # target either. Empty board -> no-op.
         for ab in minion.abilities:
             if ab.trigger == Trigger.ON_BUY and isinstance(ab.effect, BuffRandomFriendly):
                 self._apply_buff_random(minion, ab.effect, player.board)
@@ -229,6 +292,10 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             card_id = pool[int(self._rng.integers(0, len(pool)))]
             new_shop.append(make_minion(card_id))
         player.shop = new_shop
+
+    # ------------------------------------------------------------------
+    # Round resolution
+    # ------------------------------------------------------------------
 
     def _resolve_battle_and_advance(self, state: MiniBGState) -> None:
         p0_has_initiative = (state.round_number % 2 == 1) == (state.initiative_player == 0)
@@ -262,8 +329,9 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         state.round_number += 1
         for p in state.players:
             p.gold = gold_for_round(state.round_number)
-            p.shopping_finished = False
+            p.phase = PlayerPhase.SHOP
             p.shop_actions_used = 0
+            # Hand persists between rounds; only the shop is refreshed.
             self._refresh_shop(p)
         state.current_player_index = 0
 
@@ -273,8 +341,9 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             gold=gold_for_round(round_number),
             tavern_tier=STARTING_TIER,
             board=[],
-            shop=[None, None, None],
-            shopping_finished=False,
+            shop=[None for _ in range(SHOP_SIZE)],
+            hand=[None for _ in range(HAND_SIZE)],
+            phase=PlayerPhase.SHOP,
             shop_actions_used=0,
         )
         self._refresh_shop(player)
@@ -303,7 +372,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             tavern_tier=p.tavern_tier,
             board=[copy(m) for m in p.board],
             shop=[copy(m) if m is not None else None for m in p.shop],
-            shopping_finished=p.shopping_finished,
+            hand=[copy(m) if m is not None else None for m in p.hand],
+            phase=p.phase,
             shop_actions_used=p.shop_actions_used,
         )
 

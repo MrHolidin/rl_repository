@@ -64,7 +64,7 @@ if "dqn" not in list_agents():
             if obs_shape is None or len(obs_shape) != 1:
                 raise ValueError(
                     "network_type 'minibg_mlp' requires agent.params.observation_shape: [D] "
-                    "(flat vector, e.g. [286] for MiniBG)."
+                    "(flat vector, currently [362] for MiniBG; see src/envs/minibg/obs.py:OBS_DIM)."
                 )
             dueling = kwargs.pop("dueling", None)
             if dueling is None:
@@ -83,7 +83,7 @@ if "dqn" not in list_agents():
 
             if obs_shape is None or len(obs_shape) != 1 or int(obs_shape[0]) != _OBS_DIM:
                 raise ValueError(
-                    "network_type 'minibg_slot' requires observation_shape [286] (MiniBG flat obs)."
+                    f"network_type 'minibg_slot' requires observation_shape [{_OBS_DIM}] (MiniBG flat obs)."
                 )
             dueling = kwargs.pop("dueling", None)
             if dueling is None:

@@ -10,7 +10,9 @@ from ..base import StepResult, TurnBasedEnv
 from ..reward_config import RewardConfig
 from .action_map import (
     A_BUY_BASE,
+    A_FINISH,
     A_LEVEL_UP,
+    A_PLACE_BASE,
     A_ROLL,
     A_SELECT_ORDER_BASE,
     A_SELL_BASE,
@@ -24,12 +26,13 @@ from .action_map import (
 from .actions import (
     BOARD_SIZE,
     DAMAGE_CAP,
+    HAND_SIZE,
     SHOP_SIZE,
     Action as GameAction,
 )
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
-from .state import MiniBGState, Minion
+from .state import MiniBGState, Minion, PlayerPhase
 
 
 INVALID_ACTION_REWARD = -1.0
@@ -75,7 +78,7 @@ class MiniBGEnv(TurnBasedEnv):
             from .replay import ReplayJsonlSink
 
             self._replay_sink = ReplayJsonlSink(
-                replay_path, {"format": 1, "game": "minibg", **(replay_meta or {})}
+                replay_path, {"format": 2, "game": "minibg", **(replay_meta or {})}
             )
         self.reset(seed=seed)
 
@@ -225,6 +228,19 @@ class MiniBGEnv(TurnBasedEnv):
         if self._state.done:
             return mask
 
+        player = self._state.players[self._state.current_player_index]
+
+        # Order phase: SELECT_ORDER_* are the only legal env actions. Only
+        # ``k!`` canonical perms are legal (one representative per equivalence
+        # class under compact-after-permute) — exposing the redundant 24
+        # outputs to DQN washes out the gradient signal in this phase.
+        if player.phase == PlayerPhase.ORDER:
+            k = len(player.board)
+            for j in legal_order_indices(k):
+                mask[A_SELECT_ORDER_BASE + j] = True
+            return mask
+
+        # Shop phase: bridge from game's legal_actions.
         legal_game = set(int(a) for a in self._game.legal_actions(self._state))
 
         if int(GameAction.ROLL) in legal_game:
@@ -240,10 +256,12 @@ class MiniBGEnv(TurnBasedEnv):
             if (int(GameAction.SELL_BOARD_0) + pos) in legal_game:
                 mask[A_SELL_BASE + pos] = True
 
+        for h in range(HAND_SIZE):
+            if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
+                mask[A_PLACE_BASE + h] = True
+
         if int(GameAction.FINISH) in legal_game:
-            k = len(self._state.players[self._state.current_player_index].board)
-            for j in legal_order_indices(k):
-                mask[A_SELECT_ORDER_BASE + j] = True
+            mask[A_FINISH] = True
 
         return mask
 

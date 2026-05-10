@@ -17,6 +17,8 @@ def make_bot(name: str, run_seed: int) -> HeuristicBot:
     cls = ctors[name]
     if name == "random":
         return cls(seed=run_seed)  # type: ignore[misc]
+    if name == "lookahead":
+        return cls(seed=run_seed)  # type: ignore[misc]
     return cls()
 
 

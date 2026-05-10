@@ -23,6 +23,20 @@ from ...utils.batch import Batch, to_device
 from ...utils.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 
+def _reinit_module_weights(module: nn.Module) -> None:
+    """Recursively call ``reset_parameters`` on every submodule that exposes it.
+
+    Used to give Twin-Q's second network an independent random init after
+    the deepcopy. Standard PyTorch layers (``Linear``, ``Conv*d``, ``LSTM``,
+    norm layers, etc.) all implement ``reset_parameters``; modules without it
+    are typically containers or activations and are silently skipped.
+    """
+    for sub in module.modules():
+        reset = getattr(sub, "reset_parameters", None)
+        if callable(reset):
+            reset()
+
+
 class DQNAgent(BaseAgent):
     """
     Deep Q-Network agent.
@@ -147,8 +161,13 @@ class DQNAgent(BaseAgent):
         # Twin Q-networks (for Clipped Double Q-Learning)
         if self.use_twin_q:
             self.q_network2 = copy.deepcopy(network).to(self.device)
-            self.target_network2 = copy.deepcopy(network).to(self.device)
-            self.target_network2.load_state_dict(self.q_network2.state_dict())
+            # Re-init q_network2 with independent weights. Without this, the
+            # deepcopy gives identical params; deterministic forwards then
+            # produce identical gradients and the two nets stay bit-equal,
+            # so min(Q1, Q2) collapses to a single Q and the variance-reduction
+            # benefit of clipped double Q is lost.
+            _reinit_module_weights(self.q_network2)
+            self.target_network2 = copy.deepcopy(self.q_network2).to(self.device)
             self.target_network2.eval()
         else:
             self.q_network2 = None

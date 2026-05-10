@@ -8,9 +8,11 @@ from src.training.trainer import StartPolicy
 
 
 def test_default_env_factory_minibg():
+    from src.envs.minibg import OBS_DIM
+
     env = _default_env_factory("minibg", RewardConfig())
     obs = env.reset(seed=0)
-    assert obs.shape == (286,)
+    assert obs.shape == (OBS_DIM,)
     assert obs.dtype == np.float32
 
 

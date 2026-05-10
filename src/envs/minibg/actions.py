@@ -14,12 +14,16 @@ class Action(IntEnum):
     ROLL = 7
     LEVEL_UP = 8
     FINISH = 9
+    PLACE_HAND_0 = 10
+    PLACE_HAND_1 = 11
+    PLACE_HAND_2 = 12
 
 
-NUM_ACTIONS = 10
+NUM_ACTIONS = 13
 MAX_SHOP_ACTIONS = 10
 SHOP_SIZE = 3
 BOARD_SIZE = 4
+HAND_SIZE = 3
 
 STARTING_HEALTH = 15
 STARTING_GOLD = 3
@@ -50,12 +54,17 @@ def sell_board_action(pos: int) -> Action:
     return Action(Action.SELL_BOARD_0 + pos)
 
 
+def place_hand_action(slot: int) -> Action:
+    return Action(Action.PLACE_HAND_0 + slot)
+
+
 __all__ = [
     "Action",
     "NUM_ACTIONS",
     "MAX_SHOP_ACTIONS",
     "SHOP_SIZE",
     "BOARD_SIZE",
+    "HAND_SIZE",
     "STARTING_HEALTH",
     "STARTING_GOLD",
     "STARTING_TIER",
@@ -71,4 +80,5 @@ __all__ = [
     "gold_for_round",
     "buy_slot_action",
     "sell_board_action",
+    "place_hand_action",
 ]

@@ -24,11 +24,16 @@ def qrdqn_loss(
     weights: torch.Tensor,
     kappa: float = 1.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    td = target_quantiles - pred_quantiles
+    # Pairwise TD: td[b, i, j] = target_j - pred_i. Required for QR-DQN
+    # (Dabney+ 2017). Element-wise diagonal is degenerate — each prediction
+    # would only chase its own slot in the (unsorted) target distribution.
+    td = target_quantiles.unsqueeze(1) - pred_quantiles.unsqueeze(2)
     abs_td = td.abs()
     huber = torch.where(abs_td <= kappa, 0.5 * td.pow(2), kappa * (abs_td - 0.5 * kappa))
-    weight = (tau.view(1, -1) - (td < 0).float()).abs()
-    per_sample = (weight * huber).mean(dim=1)
+    weight = (tau.view(1, -1, 1) - (td < 0).float()).abs()
+    # Sum over pred quantiles i, mean over target quantiles j (Dabney+ 2017,
+    # also the SB3 default `sum_over_quantiles=True`).
+    per_sample = (weight * huber).mean(dim=2).sum(dim=1)
     w = weights.squeeze(-1) if weights.dim() > 1 else weights
     loss = (per_sample * w).mean()
     td_abs = (pred_quantiles.mean(dim=1) - target_quantiles.mean(dim=1)).abs().detach()

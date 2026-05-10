@@ -8,12 +8,20 @@ _PL = (
 
 
 def test_decode_env_action():
+    from src.envs.minibg.action_map import (
+        A_FINISH,
+        A_PLACE_BASE,
+        A_SELECT_ORDER_BASE,
+    )
+
     assert decode_env_action(0) == "ROLL"
     assert decode_env_action(1) == "LEVEL_UP"
     assert decode_env_action(2) == "BUY_SHOP_0"
     assert decode_env_action(4) == "BUY_SHOP_2"
     assert decode_env_action(5) == "SELL_BOARD_0"
-    assert decode_env_action(9).startswith("END_SHOP perm#0")
+    assert decode_env_action(A_PLACE_BASE) == "PLACE_HAND_0"
+    assert decode_env_action(A_FINISH) == "FINISH"
+    assert decode_env_action(A_SELECT_ORDER_BASE).startswith("SELECT_ORDER perm#0")
 
 
 def test_render_battle_block_on_round_increment():
