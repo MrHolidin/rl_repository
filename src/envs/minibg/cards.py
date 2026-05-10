@@ -77,6 +77,15 @@ CARD_TEMPLATES: Dict[str, Minion] = {
         tier=3,
         abilities=(Ability(Trigger.ON_DEATH, SummonEffect(token_id="summoned_token")),),
     ),
+    "mentor": Minion(
+        card_id="mentor",
+        base_attack=1,
+        base_health=3,
+        tier=3,
+        abilities=(
+            Ability(Trigger.ON_TURN_END, BuffRandomFriendly(attack=2, health=1, exclude_self=True)),
+        ),
+    ),
     "rat_token": Minion(
         card_id="rat_token",
         base_attack=1,

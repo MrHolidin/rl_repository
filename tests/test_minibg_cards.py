@@ -7,7 +7,7 @@ def test_all_expected_cards_present():
     expected = {
         "recruit", "guard", "buffer",
         "bruiser", "shield_bot", "pack_rat",
-        "big_guy", "commander", "summoner",
+        "big_guy", "commander", "summoner", "mentor",
         "rat_token", "summoned_token",
     }
     assert expected.issubset(CARD_TEMPLATES.keys())
@@ -37,7 +37,7 @@ def test_shop_pool_per_tier():
     t3 = set(shop_pool_for_tier(3))
     assert t1 == {"recruit", "guard", "buffer"}
     assert t2 == t1 | {"bruiser", "shield_bot", "pack_rat"}
-    assert t3 == t2 | {"big_guy", "commander", "summoner"}
+    assert t3 == t2 | {"big_guy", "commander", "summoner", "mentor"}
 
 
 def test_make_minion_returns_distinct_instances():

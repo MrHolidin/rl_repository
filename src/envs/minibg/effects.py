@@ -13,6 +13,7 @@ class Keyword(Enum):
 class Trigger(Enum):
     ON_BUY = auto()
     ON_DEATH = auto()
+    ON_TURN_END = auto()
     AURA = auto()
 
 

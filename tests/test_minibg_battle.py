@@ -26,7 +26,7 @@ def test_empty_vs_filled_loses():
     dmg_p0, dmg_p1 = simulate_battle(
         [], _board("recruit"), p0_has_initiative=True, rng=_rng()
     )
-    assert dmg_p0 == 1
+    assert dmg_p0 == 2
     assert dmg_p1 == 0
 
 
@@ -66,7 +66,7 @@ def test_shield_blocks_first_hit_and_breaks():
     p1 = _board("recruit")
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert dmg_p0 == 0
-    assert dmg_p1 == 2
+    assert dmg_p1 == 3
 
 
 def test_pack_rat_deathrattle_summons_token():
@@ -74,7 +74,7 @@ def test_pack_rat_deathrattle_summons_token():
     p1 = _board("recruit")
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert dmg_p0 == 0
-    assert dmg_p1 == 1
+    assert dmg_p1 == 2
 
 
 def test_commander_aura_buffs_kill():
@@ -82,7 +82,7 @@ def test_commander_aura_buffs_kill():
     p1 = _board("guard")
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert dmg_p0 == 0
-    assert dmg_p1 == 4
+    assert dmg_p1 == 5
 
 
 def test_damage_cap_at_seven():
@@ -118,4 +118,4 @@ def test_shield_resets_between_battles():
     simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert p0[0].has_shield is True
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
-    assert dmg_p1 == 2
+    assert dmg_p1 == 3

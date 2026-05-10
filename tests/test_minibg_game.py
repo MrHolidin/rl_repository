@@ -179,6 +179,29 @@ def test_buffer_buffs_existing_friendly():
     assert recruit.bonus_health == 1
 
 
+def test_mentor_fires_on_finish():
+    g = MiniBGGame(seed=0)
+    s = g.initial_state()
+    s.players[0].board = [make_minion("mentor"), make_minion("recruit")]
+    s2 = g.apply_action(s, int(Action.FINISH))
+    recruit = s2.players[0].board[1]
+    assert recruit.bonus_attack == 2
+    assert recruit.bonus_health == 1
+
+
+def test_mentor_fires_on_auto_finish_at_action_cap():
+    g = MiniBGGame(seed=0)
+    s = g.initial_state()
+    s.players[0].board = [make_minion("mentor"), make_minion("recruit")]
+    s.players[0].gold = 1000
+    state = s
+    for _ in range(MAX_SHOP_ACTIONS):
+        state = g.apply_action(state, int(Action.ROLL))
+    recruit = state.players[0].board[1]
+    assert recruit.bonus_attack == 2
+    assert recruit.bonus_health == 1
+
+
 def test_buffer_no_others_is_noop():
     g = MiniBGGame(seed=1)
     s = g.initial_state()

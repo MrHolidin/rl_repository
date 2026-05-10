@@ -3,7 +3,7 @@
 This file documents the gameplay-level rules implemented by this module. Source of truth for ambiguities resolved during implementation.
 
 ## Setup
-- Two players, both starting at 20 HP, 3 gold, Tavern Tier 1, empty board, freshly rolled shop (3 minions).
+- Two players, both starting at 15 HP, 3 gold, Tavern Tier 1, empty board, freshly rolled shop (3 minions).
 - At game start, one player is randomly chosen as the **odd-round initiative holder**. The other holds even-round initiative.
 
 ## Round structure
@@ -64,7 +64,7 @@ Auras are **continuous**. `attack_with_auras(minion)` recomputes a minion's effe
 When one or both sides have no alive minions left.
 
 #### Damage to losing player
-`damage = min(7, sum(tier of surviving winner's minions))`. Battle draw (both sides empty) deals 0 damage.
+`damage = min(7, 1 + sum(tier of surviving winner's minions))`. Battle draw (both sides empty) deals 0 damage. The constant +1 means even a single Tier 1 survivor inflicts 2 damage.
 
 ## Persistence between rounds
 Permanent (kept):
@@ -91,6 +91,7 @@ Transient (battle-only, reset each Battle Phase):
 | Big Guy        | 3    | 5/5   | —          | —                                                    |
 | Commander      | 3    | 3/4   | —          | AURA: other friendly minions get +1 attack.          |
 | Summoner       | 3    | 4/3   | —          | ON_DEATH: summon `summoned_token` (2/2).             |
+| Mentor         | 3    | 1/3   | —          | ON_TURN_END: +2/+1 to a random other friendly minion (permanent). |
 | rat_token      | 1    | 1/1   | —          | token, never appears in shop.                        |
 | summoned_token | 1    | 2/2   | —          | token, never appears in shop.                        |
 

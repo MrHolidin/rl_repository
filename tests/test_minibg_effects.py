@@ -37,6 +37,40 @@ def test_buff_random_friendly_picks_only_other_minion():
     assert buffer_card.bonus_health == 0
 
 
+def test_mentor_on_turn_end_buffs_other_friendly():
+    g = MiniBGGame(seed=0)
+    mentor = make_minion("mentor")
+    recruit = make_minion("recruit")
+    p = _player(board=[mentor, recruit])
+    g._fire_on_turn_end(p)
+    assert recruit.bonus_attack == 2
+    assert recruit.bonus_health == 1
+    assert mentor.bonus_attack == 0
+    assert mentor.bonus_health == 0
+
+
+def test_mentor_on_turn_end_no_others_is_noop():
+    g = MiniBGGame(seed=0)
+    mentor = make_minion("mentor")
+    p = _player(board=[mentor])
+    g._fire_on_turn_end(p)
+    assert mentor.bonus_attack == 0
+    assert mentor.bonus_health == 0
+
+
+def test_two_mentors_both_fire():
+    g = MiniBGGame(seed=0)
+    m1 = make_minion("mentor")
+    m2 = make_minion("mentor")
+    rec = make_minion("recruit")
+    p = _player(board=[m1, m2, rec])
+    g._fire_on_turn_end(p)
+    total_atk = m1.bonus_attack + m2.bonus_attack + rec.bonus_attack
+    total_hp = m1.bonus_health + m2.bonus_health + rec.bonus_health
+    assert total_atk == 4
+    assert total_hp == 2
+
+
 def test_summon_effect_on_death_appends_token():
     pack_rat = make_minion("pack_rat")
     bm = BattleMinion.from_minion(pack_rat)

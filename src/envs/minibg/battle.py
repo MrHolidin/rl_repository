@@ -141,7 +141,7 @@ def _decide_first_side(
 
 
 def _winner_damage(side: BattleSide) -> int:
-    raw = sum(m.tier for m in side.minions if m.alive)
+    raw = 1 + sum(m.tier for m in side.minions if m.alive)
     return min(DAMAGE_CAP, raw)
 
 

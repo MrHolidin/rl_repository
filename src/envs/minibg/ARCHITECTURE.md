@@ -17,16 +17,17 @@ It mirrors the layout of `src/envs/tictactoe/` (state + game) and adds card-game
 Static keywords (`Taunt`, `Shield`) live on `Minion.keywords: frozenset[Keyword]`. The battle code reads them directly during target selection and damage application — these keywords are not "abilities".
 
 Triggered and continuous effects live on `Minion.abilities: tuple[Ability, ...]`. Each `Ability` carries:
-- a `Trigger` (`ON_BUY`, `ON_DEATH`, `AURA`),
+- a `Trigger` (`ON_BUY`, `ON_DEATH`, `ON_TURN_END`, `AURA`),
 - a typed `Effect` dataclass.
 
-Dispatch happens in three places:
+Dispatch happens in four places:
 
-| Trigger    | Where                                | Resolver                                                    |
-|------------|--------------------------------------|-------------------------------------------------------------|
-| `ON_BUY`   | `MiniBGGame._fire_on_buy`            | match on `effect` type, mutate buyer's board.               |
-| `ON_DEATH` | `battle._apply_on_death`             | match on `effect`; for `SummonEffect`, append to right end. |
-| `AURA`     | `battle.attack_with_auras`           | sum `StatAura.attack` from other alive friendlies.          |
+| Trigger        | Where                                | Resolver                                                    |
+|----------------|--------------------------------------|-------------------------------------------------------------|
+| `ON_BUY`       | `MiniBGGame._fire_on_buy`            | match on `effect` type, mutate buyer's board.               |
+| `ON_DEATH`     | `battle._apply_on_death`             | match on `effect`; for `SummonEffect`, append to right end. |
+| `ON_TURN_END`  | `MiniBGGame._fire_on_turn_end`       | left-to-right scan over finishing player's board.           |
+| `AURA`         | `battle.attack_with_auras`           | sum `StatAura.attack` from other alive friendlies.          |
 
 Adding a new card = one entry in `CARD_TEMPLATES` (data only).
 Adding a new effect *type* = one frozen dataclass in `effects.py` + one branch in the matching dispatcher.

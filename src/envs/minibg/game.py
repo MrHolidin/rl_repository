@@ -135,6 +135,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 player.shopping_finished = True
 
         if player.shopping_finished:
+            self._fire_on_turn_end(player)
             other_idx = 1 - idx
             if not new_state.players[other_idx].shopping_finished:
                 new_state.current_player_index = other_idx
@@ -164,22 +165,33 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player.gold -= cost
         player.tavern_tier += 1
 
+    def _apply_buff_random(
+        self,
+        source: Minion,
+        effect: BuffRandomFriendly,
+        board: List[Minion],
+    ) -> None:
+        pool = (
+            [m for m in board if m is not source]
+            if effect.exclude_self
+            else list(board)
+        )
+        if not pool:
+            return
+        target = pool[int(self._rng.integers(0, len(pool)))]
+        target.bonus_attack += effect.attack
+        target.bonus_health += effect.health
+
     def _fire_on_buy(self, minion: Minion, player: PlayerState) -> None:
         for ab in minion.abilities:
-            if ab.trigger != Trigger.ON_BUY:
-                continue
-            effect = ab.effect
-            if isinstance(effect, BuffRandomFriendly):
-                if effect.exclude_self:
-                    pool = [m for m in player.board if m is not minion]
-                else:
-                    pool = list(player.board)
-                if not pool:
-                    continue
-                target_idx = int(self._rng.integers(0, len(pool)))
-                target = pool[target_idx]
-                target.bonus_attack += effect.attack
-                target.bonus_health += effect.health
+            if ab.trigger == Trigger.ON_BUY and isinstance(ab.effect, BuffRandomFriendly):
+                self._apply_buff_random(minion, ab.effect, player.board)
+
+    def _fire_on_turn_end(self, player: PlayerState) -> None:
+        for source in list(player.board):
+            for ab in source.abilities:
+                if ab.trigger == Trigger.ON_TURN_END and isinstance(ab.effect, BuffRandomFriendly):
+                    self._apply_buff_random(source, ab.effect, player.board)
 
     def _refresh_shop(self, player: PlayerState) -> None:
         pool = shop_pool_for_tier(player.tavern_tier)
