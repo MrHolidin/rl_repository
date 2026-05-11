@@ -37,7 +37,6 @@ from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 from src.training.othello_augmentations import make_othello_d4_augmenter
 
-
 # Global reference for signal handler
 _current_trainer: Optional[Trainer] = None
 _original_sigterm_handler: Optional[Callable] = None
@@ -146,13 +145,35 @@ def _build_epsilon_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallbac
 def _build_metrics_file_callback(
     run_dir: Path,
     cb: CallbackConfig,
+    *,
+    agent_id: str,
 ) -> Optional[TrainerCallback]:
     if not cb.enabled or cb.type.lower() != "metrics_file":
         return None
     p = cb.params
     interval = int(p.get("interval", 100))
     filename = str(p.get("filename", "metrics.csv"))
-    return MetricsFileCallback(run_dir=run_dir, interval=interval, filename=filename)
+    preset = str(p.get("preset", "auto")).strip().lower()
+    raw_columns = p.get("columns")
+
+    columns: Optional[list[str]] = None
+    if raw_columns is not None:
+        if not isinstance(raw_columns, (list, tuple)):
+            raise TypeError(
+                "metrics_file callback 'columns' must be a list of column names "
+                f"(got {type(raw_columns).__name__})"
+            )
+        columns = [str(x).strip() for x in raw_columns if str(x).strip()]
+
+    from src.training.metrics_presets import resolve_metrics_csv_fieldnames
+
+    fieldnames = resolve_metrics_csv_fieldnames(agent_id, preset=preset, columns=columns)
+    return MetricsFileCallback(
+        run_dir=run_dir,
+        interval=interval,
+        filename=filename,
+        fieldnames=fieldnames,
+    )
 
 
 def _build_lr_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallback]:
@@ -228,9 +249,17 @@ def _build_opponent_sampler(
         )
 
     if cfg.type.lower() == "pool":
-        if seed is None:
-            raise ValueError("opponent_sampler type 'pool' requires config seed.")
-        sp = cfg.params.get("self_play", {})
+        p = dict(cfg.params or {})
+        use_seed = p.get("seed")
+        if use_seed is None:
+            use_seed = seed
+        if use_seed is None:
+            raise ValueError(
+                "opponent_sampler type 'pool' requires app seed or opponent_sampler.params.seed"
+            )
+        use_seed = int(use_seed)
+        game_id = (app_cfg.game.id or "").strip().lower()
+        sp = p.get("self_play", {})
         save_every = int(sp.get("save_every", 1000))
         self_play_config = SelfPlayConfig(
             start_episode=int(sp.get("start_episode", 0)),
@@ -240,14 +269,19 @@ def _build_opponent_sampler(
             save_every=max(1, save_every),
         )
         heuristic_distribution = dict(cfg.params.get("heuristic_distribution") or {})
-        if not heuristic_distribution:
+        minibg_fb = [str(x).strip() for x in (cfg.params.get("minibg_fallback_bots") or []) if str(x).strip()]
+        if game_id == "minibg":
+            if not minibg_fb:
+                minibg_fb = ["tempo"]
+        elif not heuristic_distribution:
             heuristic_distribution = {"random": 0.2, "heuristic": 0.5, "smart_heuristic": 0.3}
         pool = OpponentPool(
             device=device,
-            seed=seed,
+            seed=use_seed,
             self_play_config=self_play_config,
             heuristic_distribution=heuristic_distribution,
             current_agent=agent,
+            minibg_fallback_bots=minibg_fb if game_id == "minibg" else None,
         )
         return OpponentPoolSampler(opponent_pool=pool)
     raise ValueError(f"Unknown opponent_sampler type: {cfg.type}")
@@ -338,7 +372,7 @@ def run(
         _build_checkpoint_callback(run_dir, app_cfg.train.callbacks),
     ]
     for cb_cfg in app_cfg.train.callbacks:
-        built = _build_metrics_file_callback(run_dir, cb_cfg)
+        built = _build_metrics_file_callback(run_dir, cb_cfg, agent_id=app_cfg.agent.id)
         if built is not None:
             callbacks.append(built)
             continue
@@ -347,6 +381,7 @@ def run(
             if built is not None:
                 callbacks.append(built)
                 break
+
 
     opponent_sampler = _build_opponent_sampler(app_cfg, agent, device)
     start_policy = _resolve_start_policy(app_cfg.train.start_policy)

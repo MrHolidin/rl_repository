@@ -4,34 +4,25 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Tuple, Union
 
+from src.training.metrics_presets import LEGACY_DQN_METRICS_FIELDS
 from src.training.trainer import TrainerCallback, Transition
 
 if TYPE_CHECKING:
     from src.training.trainer import Trainer
 
+FieldNames = Union[Sequence[str], Tuple[str, ...]]
+
 
 class MetricsFileCallback(TrainerCallback):
-    """Log training metrics to CSV."""
+    """Log training metrics to CSV.
 
-    FIELDS = (
-        "step",
-        "episode",
-        "epsilon",
-        "learning_rate",
-        "avg_q",
-        "avg_target_q",
-        "target_q_p95",
-        "target_q_max",
-        "td_error",
-        "td_error_p95",
-        "td_error_max",
-        "q_spread",
-        "top2_gap",
-        "grad_norm",
-        "update_magnitude",
-    )
+    ``fieldnames`` defaults to the legacy DQN column set for backward compatibility.
+    Training ``run`` resolves columns from ``agent.id`` (use ``preset: auto`` in yaml).
+    """
+
+    FIELDS = LEGACY_DQN_METRICS_FIELDS
 
     def __init__(
         self,
@@ -39,10 +30,14 @@ class MetricsFileCallback(TrainerCallback):
         interval: int = 100,
         *,
         filename: str = "metrics.csv",
+        fieldnames: Optional[FieldNames] = None,
     ):
         self.run_dir = Path(run_dir)
         self.interval = max(1, interval)
         self.path = self.run_dir / filename
+        self._fieldnames: Tuple[str, ...] = tuple(
+            fieldnames if fieldnames is not None else LEGACY_DQN_METRICS_FIELDS
+        )
         self._file = None
         self._writer = None
         self._last: Dict[str, Any] = {}
@@ -50,7 +45,9 @@ class MetricsFileCallback(TrainerCallback):
     def on_train_begin(self, trainer: "Trainer") -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = open(self.path, "w", newline="")
-        self._writer = csv.DictWriter(self._file, fieldnames=list(self.FIELDS), extrasaction="ignore")
+        self._writer = csv.DictWriter(
+            self._file, fieldnames=list(self._fieldnames), extrasaction="ignore"
+        )
         self._writer.writeheader()
         self._file.flush()
         self._last.clear()
@@ -74,7 +71,7 @@ class MetricsFileCallback(TrainerCallback):
         self._last["epsilon"] = epsilon
         self._last["learning_rate"] = lr
         if metrics:
-            for key in self.FIELDS:
+            for key in self._fieldnames:
                 if key not in ("step", "episode") and key in metrics:
                     self._last[key] = metrics[key]
 
@@ -82,7 +79,7 @@ class MetricsFileCallback(TrainerCallback):
             return
 
         row = {"step": step, "episode": trainer.episode_index}
-        for key in self.FIELDS:
+        for key in self._fieldnames:
             if key not in row:
                 row[key] = self._format(self._last.get(key))
         self._writer.writerow(row)

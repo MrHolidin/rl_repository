@@ -11,7 +11,46 @@ from .alphazero.agent import AlphaZeroAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels
 from ..models import Connect4DQN, Connect4QRDQN, OthelloDQN, OthelloQRDQN
+from ..models.ppo_policy_factory import (
+    PPO_NETWORK_MINIBG_SLOT,
+    build_ppo_actor_critic,
+    default_ppo_network_kwargs,
+    ppo_network_type_for_save,
+)
 from ..registry import list_agents, register_agent
+
+_PPO_AGENT_KWARGS = frozenset(
+    {
+        "observation_shape",
+        "observation_type",
+        "num_actions",
+        "network",
+        "ppo_network_type",
+        "ppo_network_kwargs",
+        "learning_rate",
+        "discount_factor",
+        "gae_lambda",
+        "ppo_clip_eps",
+        "clip_value_loss",
+        "value_clip_eps",
+        "entropy_coef",
+        "value_coef",
+        "max_grad_norm",
+        "rollout_steps",
+        "ppo_epochs",
+        "minibatch_size",
+        "device",
+        "seed",
+        "model_config",
+        "action_space",
+        "compute_detailed_metrics",
+    }
+)
+
+
+def _filter_ppo_agent_kwargs(kwargs: dict) -> dict:
+    return {k: v for k, v in kwargs.items() if k in _PPO_AGENT_KWARGS}
+
 
 if "random" not in list_agents():
     register_agent("random", RandomAgent)
@@ -164,30 +203,87 @@ if "dqn" not in list_agents():
     register_agent("dqn", _dqn_factory)
 if "ppo" not in list_agents():
     def _ppo_factory(**kwargs):
-        obs_shape = kwargs.get("observation_shape")
-        obs_type = kwargs.get("observation_type")
+        if kwargs.get("network") is not None:
+            kwargs.setdefault("ppo_network_type", "actor_critic_cnn")
+            if kwargs.get("ppo_network_kwargs") is None:
+                kwargs["ppo_network_kwargs"] = default_ppo_network_kwargs(
+                    str(kwargs["ppo_network_type"]),
+                    kwargs["network"],
+                )
+            return PPOAgent(**_filter_ppo_agent_kwargs(kwargs))
+
+        network_type = str(kwargs.pop("network_type", "board_cnn")).strip().lower()
         action_space = kwargs.get("action_space")
         num_actions = kwargs.get("num_actions")
 
         if action_space is None and num_actions is not None:
-            action_space = DiscreteActionSpace(num_actions)
-            kwargs["action_space"] = action_space
+            kwargs["action_space"] = DiscreteActionSpace(num_actions)
+            action_space = kwargs["action_space"]
 
-        if obs_shape is None or obs_type is None or num_actions is None:
-            builder = BoardChannels(board_shape=(6, 7))
-            default_action_space = action_space or DiscreteActionSpace(n=7)
-            kwargs.setdefault("observation_shape", builder.observation_shape)
-            kwargs.setdefault("observation_type", builder.observation_type)
-            kwargs.setdefault("action_space", default_action_space)
-            kwargs.setdefault("num_actions", default_action_space.size)
+        is_minibg = network_type == PPO_NETWORK_MINIBG_SLOT
+        obs_shape = kwargs.get("observation_shape")
+        obs_type = kwargs.get("observation_type")
+
+        if is_minibg:
+            if obs_shape is None or num_actions is None:
+                raise ValueError(
+                    "PPO network_type minibg_slot requires observation_shape (e.g. [362]) "
+                    "and num_actions from the environment config."
+                )
+            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))
+            trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
+            region_conv2_kernel = int(kwargs.pop("region_conv2_kernel", 1))
+            net = build_ppo_actor_critic(
+                PPO_NETWORK_MINIBG_SLOT,
+                tuple(obs_shape),
+                int(num_actions),
+                slot_hidden_channels=slot_hidden_channels,
+                trunk_hidden_size=trunk_hidden_size,
+                region_conv2_kernel=region_conv2_kernel,
+            )
+            kwargs["observation_type"] = obs_type or "vector"
+            ppo_kw = {
+                "slot_hidden": slot_hidden_channels,
+                "trunk_hidden": trunk_hidden_size,
+                "region_conv2_kernel": region_conv2_kernel,
+            }
         else:
-            kwargs.setdefault("observation_shape", obs_shape)
-            kwargs.setdefault("observation_type", obs_type)
-            if action_space is None:
-                kwargs.setdefault("action_space", DiscreteActionSpace(num_actions))
-            kwargs.setdefault("num_actions", num_actions)
+            if obs_shape is None or obs_type is None or num_actions is None:
+                builder = BoardChannels(board_shape=(6, 7))
+                default_action_space = action_space or DiscreteActionSpace(n=7)
+                kwargs.setdefault("observation_shape", builder.observation_shape)
+                kwargs.setdefault("observation_type", builder.observation_type)
+                kwargs.setdefault("action_space", default_action_space)
+                kwargs.setdefault("num_actions", default_action_space.size)
+            else:
+                kwargs.setdefault("observation_shape", obs_shape)
+                kwargs.setdefault("observation_type", obs_type)
+                if action_space is None:
+                    kwargs.setdefault("action_space", DiscreteActionSpace(num_actions))
+                kwargs.setdefault("num_actions", num_actions)
 
-        return PPOAgent(**kwargs)
+            obs_shape = kwargs["observation_shape"]
+            num_actions = kwargs["num_actions"]
+            if len(obs_shape) != 3:
+                builder = BoardChannels(board_shape=(6, 7))
+                kwargs["observation_shape"] = builder.observation_shape
+                kwargs.setdefault("observation_type", builder.observation_type)
+                obs_shape = kwargs["observation_shape"]
+            net = build_ppo_actor_critic(
+                network_type,
+                tuple(obs_shape),
+                int(num_actions),
+            )
+            ppo_kw = default_ppo_network_kwargs(
+                ppo_network_type_for_save(network_type),
+                net,
+            )
+
+        kwargs["network"] = net
+        kwargs["ppo_network_type"] = ppo_network_type_for_save(network_type)
+        kwargs["ppo_network_kwargs"] = ppo_kw
+        return PPOAgent(**_filter_ppo_agent_kwargs(kwargs))
+
     register_agent("ppo", _ppo_factory)
 
 __all__ = [

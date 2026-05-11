@@ -1,0 +1,67 @@
+# MiniBG PPO with slot encoder (`minibg_slot` actor-critic). Same obs as DQN (362-dim vector).
+seed: 13
+
+game:
+  id: minibg
+  params:
+    seed: 13
+    battle_damage_shaping: 0.06
+
+agent:
+  id: ppo
+  params:
+    network_type: minibg_slot
+    observation_shape: [362]
+    observation_type: vector
+    slot_hidden_channels: 16
+    trunk_hidden_size: 256
+    region_conv2_kernel: 1
+    learning_rate: 0.0003
+    discount_factor: 1.0
+    gae_lambda: 0.95
+    ppo_clip_eps: 0.2
+    clip_value_loss: true
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 1.0
+    max_grad_norm: 1.0
+    rollout_steps: 2048
+    ppo_epochs: 4
+    minibatch_size: 256
+    device: gpu
+
+train:
+  max_episodes: 10000000
+  total_steps: 500000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: minibg_mixed
+    params:
+      seed: 103
+      equal_opponent_mass: false
+      self_play:
+        current_self_fraction: 0.2
+        start_episode: 0
+      bots:
+        - tempo
+        - buffer_t2
+        - balanced
+        - early_t2_pressure
+        - wide_t1
+        - fast_t3
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 50000
+        prefix: minibg_ppo
+    - type: metrics_file
+      params:
+        interval: 5000
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+

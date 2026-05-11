@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.envs import RewardConfig
 from src.evaluation.eval_checkpoints import (
+    _step_from_filename,
     eval_checkpoints_vs_opponents,
     find_checkpoints,
 )
@@ -55,8 +56,8 @@ def main() -> None:
         "--prefix",
         type=str,
         default=None,
-        help="Checkpoint prefix filter (e.g. dqn to match dqn_2000.pt). "
-        "For game=minibg defaults to minibg_dqn if omitted.",
+        help="Checkpoint stem prefix (e.g. minibg_ppo matches minibg_ppo_100000.pt). "
+        "For game=minibg defaults to minibg_dqn if omitted; use minibg_ppo for PPO runs.",
     )
     parser.add_argument(
         "--checkpoint-stems",
@@ -110,6 +111,20 @@ def main() -> None:
         help="Skip progress.png (eval CSV only)",
     )
     parser.add_argument(
+        "--checkpoint-step-multiple",
+        type=int,
+        default=None,
+        metavar="M",
+        help="Only evaluate checkpoints whose training step divides by M (e.g. 100000 "
+        "keeps minibg_ppo_100000.pt, drops 25000). Ignores *_final.pt unless "
+        "--include-final-checkpoint is set.",
+    )
+    parser.add_argument(
+        "--include-final-checkpoint",
+        action="store_true",
+        help="With --checkpoint-step-multiple, also evaluate * _final.pt (if present).",
+    )
+    parser.add_argument(
         "--replay-dir",
         type=Path,
         default=None,
@@ -134,18 +149,47 @@ def main() -> None:
         print(f"No checkpoints found in {checkpoints_dir}", file=sys.stderr)
         sys.exit(1)
 
-    by_stem = {p.stem: p for p, _ in found}
+    by_stem = {p.stem: (p, s) for p, s in found}
     if args.checkpoint_stems:
-        paths = []
+        sel: list[tuple[Path, Optional[int]]] = []
         for stem in args.checkpoint_stems:
-            p = by_stem.get(stem)
-            if p is None:
+            hit = by_stem.get(stem)
+            if hit is None:
                 avail = ", ".join(sorted(by_stem))
                 print(f"Checkpoint stem not found: {stem!r}. Available: {avail}", file=sys.stderr)
                 sys.exit(1)
-            paths.append(p)
+            sel.append(hit)
+        found = sel
+        paths_only = [p for p, _ in found]
     else:
-        paths = [p for p, _ in found]
+        paths_only = [p for p, _ in found]
+
+    if args.checkpoint_step_multiple is not None:
+        mult = int(args.checkpoint_step_multiple)
+        if mult <= 0:
+            print("--checkpoint-step-multiple must be positive", file=sys.stderr)
+            sys.exit(1)
+        sentinel = (2**31) - 1
+        filt: list[Path] = []
+        for p in paths_only:
+            st_opt = _step_from_filename(p.name)
+            if st_opt is None:
+                continue
+            if st_opt == sentinel:
+                if args.include_final_checkpoint:
+                    filt.append(p)
+                continue
+            if st_opt % mult == 0:
+                filt.append(p)
+        paths_only = filt
+        if not paths_only:
+            print(
+                f"No checkpoints left after --checkpoint-step-multiple {mult}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    paths = paths_only
 
     print(f"Evaluating {len(paths)} checkpoints: {[p.name for p in paths]}")
 

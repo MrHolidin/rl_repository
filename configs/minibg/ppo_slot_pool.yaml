@@ -1,0 +1,65 @@
+seed: 13
+
+game:
+  id: minibg
+  params:
+    seed: 13
+    battle_damage_shaping: 0.06
+
+agent:
+  id: ppo
+  params:
+    network_type: minibg_slot
+    observation_shape: [362]
+    observation_type: vector
+    slot_hidden_channels: 16
+    trunk_hidden_size: 256
+    region_conv2_kernel: 1
+    learning_rate: 0.0003
+    discount_factor: 1.0
+    gae_lambda: 0.95
+    ppo_clip_eps: 0.2
+    clip_value_loss: true
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 1.0
+    max_grad_norm: 1.0
+    rollout_steps: 2048
+    ppo_epochs: 4
+    minibatch_size: 256
+    device: gpu
+
+train:
+  max_episodes: 10000000
+  total_steps: 2000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      # Optional: only used if current_self_fraction + past_self_fraction < 1.0
+      minibg_fallback_bots:
+        - tempo
+      self_play:
+        start_episode: 0
+        # Pure league mix: no heuristic branch when pool is non-empty (see OpponentPool.sample_opponent).
+        current_self_fraction: 0.5
+        past_self_fraction: 0.5
+        # Max frozen checkpoints kept **loaded** in GPU/CPU memory (LRU spills the rest).
+        max_frozen_agents: 20
+        save_every: 1000
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 50000
+        prefix: minibg_ppo
+    - type: metrics_file
+      params:
+        interval: 5000
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true

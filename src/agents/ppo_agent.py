@@ -13,7 +13,13 @@ from torch.distributions import Categorical
 from .base_agent import BaseAgent
 from ..features.action_space import ActionSpace, DiscreteActionSpace
 from ..features.observation_builder import ObservationType
-from ..models.author_critic_network import ActorCriticCNN  # путь поправь под свой проект
+from ..models.author_critic_network import ActorCriticCNN
+from ..models.ppo_policy_factory import (
+    PPO_NETWORK_ACTOR_CRITIC_CNN,
+    default_ppo_network_kwargs,
+    ppo_network_type_for_save,
+    restore_ppo_actor_critic,
+)
 
 
 class RolloutBuffer:
@@ -26,7 +32,9 @@ class RolloutBuffer:
         self.dones: List[bool] = []
         self.values: List[float] = []
         self.log_probs: List[float] = []
-        self.legal_masks: List[np.ndarray] = []
+        self.legal_masks: List[Optional[np.ndarray]] = []
+        self.next_obs: List[np.ndarray] = []
+        self.next_legal_masks: List[np.ndarray] = []
 
     def add(
         self,
@@ -37,6 +45,8 @@ class RolloutBuffer:
         value: float,
         log_prob: float,
         legal_mask: Optional[np.ndarray],
+        next_obs: np.ndarray,
+        next_legal_mask: np.ndarray,
     ) -> None:
         self.obs.append(obs)
         self.actions.append(int(action))
@@ -48,6 +58,8 @@ class RolloutBuffer:
             self.legal_masks.append(None)
         else:
             self.legal_masks.append(np.asarray(legal_mask, dtype=bool))
+        self.next_obs.append(np.asarray(next_obs, copy=True, dtype=np.float32))
+        self.next_legal_masks.append(np.asarray(next_legal_mask, dtype=bool))
 
     def __len__(self) -> int:
         return len(self.obs)
@@ -60,11 +72,13 @@ class RolloutBuffer:
         self.values.clear()
         self.log_probs.clear()
         self.legal_masks.clear()
+        self.next_obs.clear()
+        self.next_legal_masks.clear()
 
 
 class PPOAgent(BaseAgent):
     """
-    PPO агент для Connect Four.
+    PPO: board CNN (Connect Four / Othello-style), or injected actor-critic (e.g. MiniBG slot net).
 
     Интерфейс максимально совместим с DQNAgent:
     - act(...)
@@ -79,10 +93,15 @@ class PPOAgent(BaseAgent):
         observation_shape: Tuple[int, ...],
         observation_type: ObservationType,
         num_actions: int,
+        network: Optional[nn.Module] = None,
+        ppo_network_type: str = PPO_NETWORK_ACTOR_CRITIC_CNN,
+        ppo_network_kwargs: Optional[Dict[str, Any]] = None,
         learning_rate: float = 3e-4,
         discount_factor: float = 0.99,
         gae_lambda: float = 0.95,
         ppo_clip_eps: float = 0.2,
+        clip_value_loss: bool = True,
+        value_clip_eps: Optional[float] = None,
         entropy_coef: float = 0.01,
         value_coef: float = 0.5,
         max_grad_norm: float = 1.0,
@@ -91,7 +110,7 @@ class PPOAgent(BaseAgent):
         minibatch_size: int = 256,
         device: Optional[str] = None,
         seed: Optional[int] = None,
-        model_config: Optional[Dict] = None,  # на будущее, как в DQN
+        model_config: Optional[Dict] = None,
         action_space: Optional[ActionSpace] = None,
         compute_detailed_metrics: bool = True,
     ):
@@ -103,6 +122,8 @@ class PPOAgent(BaseAgent):
         self.discount_factor = discount_factor
         self.gae_lambda = gae_lambda
         self.ppo_clip_eps = ppo_clip_eps
+        self.clip_value_loss = clip_value_loss
+        self.value_clip_eps = value_clip_eps
         self.entropy_coef = entropy_coef
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
@@ -128,18 +149,34 @@ class PPOAgent(BaseAgent):
         else:
             self.device = torch.device(device)
 
-        # Сеть: сейчас реализуем только board-наблюдения
-        obs_kind = getattr(self.observation_type, "value", self.observation_type)
-        if obs_kind != "board":
-            raise NotImplementedError("PPOAgent пока реализован только для board-типов наблюдений")
-
-        in_channels, rows, cols = observation_shape
-        self.policy_net = ActorCriticCNN(
-            rows=rows,
-            cols=cols,
-            in_channels=in_channels,
-            num_actions=num_actions,
-        ).to(self.device)
+        if network is None:
+            if len(observation_shape) != 3:
+                raise ValueError(
+                    "PPOAgent: pass `network=...` for non-(C,H,W) observations, "
+                    "or build via make_agent('ppo', network_type='minibg_slot', ...)."
+                )
+            in_channels, rows, cols = observation_shape
+            self.policy_net = ActorCriticCNN(
+                rows=int(rows),
+                cols=int(cols),
+                in_channels=int(in_channels),
+                num_actions=num_actions,
+            ).to(self.device)
+            self._ppo_network_type = ppo_network_type_for_save(PPO_NETWORK_ACTOR_CRITIC_CNN)
+            self._ppo_network_kwargs = {
+                "rows": int(rows),
+                "cols": int(cols),
+                "in_channels": int(in_channels),
+            }
+        else:
+            self.policy_net = network.to(self.device)
+            self._ppo_network_type = ppo_network_type_for_save(ppo_network_type)
+            if ppo_network_kwargs is not None:
+                self._ppo_network_kwargs = dict(ppo_network_kwargs)
+            else:
+                self._ppo_network_kwargs = dict(
+                    default_ppo_network_kwargs(ppo_network_type, self.policy_net)
+                )
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=learning_rate)
 
@@ -216,12 +253,19 @@ class PPOAgent(BaseAgent):
 
         return action
 
-    def observe(self, transition) -> Dict[str, float]:
+    def observe(
+        self, transition, is_augmented: bool = False
+    ) -> Dict[str, float]:
         """
         Получаем кредиты за наш ход (через Trainer).
         Сохраняем шаг в rollout_buffer.
         """
         if not self.training:
+            return {}
+
+        # On-policy: synthetic augmentations (see Trainer.data_augment_fn) must
+        # not pollute rollouts—they do not correspond to act() logits stored in cache.
+        if is_augmented:
             return {}
 
         # Разбираем Transition, как в DQNAgent
@@ -248,6 +292,11 @@ class PPOAgent(BaseAgent):
             self.step_count += 1
             return {}
 
+        if next_legal_mask is None:
+            next_legal_mask = np.ones(self.num_actions, dtype=bool)
+        else:
+            next_legal_mask = np.asarray(next_legal_mask, dtype=bool)
+
         self.rollout_buffer.add(
             obs=cache["obs"],
             action=cache["action"],
@@ -256,6 +305,8 @@ class PPOAgent(BaseAgent):
             value=cache["value"],
             log_prob=cache["log_prob"],
             legal_mask=legal_mask,
+            next_obs=np.asarray(next_obs, dtype=np.float32),
+            next_legal_mask=next_legal_mask,
         )
         self._last_action_cache = None
         self.step_count += 1
@@ -287,7 +338,9 @@ class PPOAgent(BaseAgent):
     def _ppo_update(self) -> Dict[str, float]:
         device = self.device
 
-        obs_arr = np.stack(self.rollout_buffer.obs, axis=0)  # (N, C, H, W)
+        obs_arr = np.stack(self.rollout_buffer.obs, axis=0)
+        next_obs_arr = np.stack(self.rollout_buffer.next_obs, axis=0)
+        next_legal_arr = np.stack(self.rollout_buffer.next_legal_masks, axis=0)
         actions_arr = np.array(self.rollout_buffer.actions, dtype=np.int64)
         rewards_arr = np.array(self.rollout_buffer.rewards, dtype=np.float32)
         dones_arr = np.array(self.rollout_buffer.dones, dtype=np.bool_)
@@ -303,6 +356,8 @@ class PPOAgent(BaseAgent):
         N = obs_arr.shape[0]
 
         obs_tensor = torch.as_tensor(obs_arr, dtype=torch.float32, device=device)
+        next_obs_tensor = torch.as_tensor(next_obs_arr, dtype=torch.float32, device=device)
+        next_legal_tensor = torch.as_tensor(next_legal_arr, dtype=torch.bool, device=device)
         actions_tensor = torch.as_tensor(actions_arr, dtype=torch.long, device=device)
         rewards_tensor = torch.as_tensor(rewards_arr, dtype=torch.float32, device=device)
         dones_tensor = torch.as_tensor(dones_arr, dtype=torch.bool, device=device)
@@ -316,17 +371,36 @@ class PPOAgent(BaseAgent):
 
         # ---------- GAE ----------
         advantages = torch.zeros_like(rewards_tensor, device=device)
-        gae = 0.0
+        gae = torch.zeros((), device=device, dtype=torch.float32)
 
         for t in reversed(range(N)):
             if t == N - 1:
-                next_value = 0.0
-                next_non_terminal = 0.0 if dones_tensor[t] else 1.0
+                if bool(dones_tensor[t].item()):
+                    next_value = torch.zeros((), device=device, dtype=torch.float32)
+                else:
+                    no = next_obs_tensor[t : t + 1]
+                    nlm = next_legal_tensor[t : t + 1]
+                    with torch.no_grad():
+                        _, v_next = self.policy_net(no, legal_mask=nlm)
+                    next_value = v_next.reshape(())
+                next_non_terminal = (
+                    torch.zeros((), device=device, dtype=torch.float32)
+                    if bool(dones_tensor[t].item())
+                    else torch.ones((), device=device, dtype=torch.float32)
+                )
             else:
                 next_value = values_tensor[t + 1]
-                next_non_terminal = 0.0 if dones_tensor[t] else 1.0
+                next_non_terminal = (
+                    torch.zeros((), device=device, dtype=torch.float32)
+                    if bool(dones_tensor[t].item())
+                    else torch.ones((), device=device, dtype=torch.float32)
+                )
 
-            delta = rewards_tensor[t] + self.discount_factor * next_value * next_non_terminal - values_tensor[t]
+            delta = (
+                rewards_tensor[t]
+                + self.discount_factor * next_value * next_non_terminal
+                - values_tensor[t]
+            )
             gae = delta + self.discount_factor * self.gae_lambda * next_non_terminal * gae
             advantages[t] = gae
 
@@ -384,7 +458,25 @@ class PPOAgent(BaseAgent):
                 surr2 = torch.clamp(ratio, 1.0 - self.ppo_clip_eps, 1.0 + self.ppo_clip_eps) * advantages_mb
                 policy_loss = -torch.min(surr1, surr2).mean()
 
-                value_loss = (values_mb - returns_mb).pow(2).mean()
+                # Value loss: like CleanRL / OpenAI-style — clip delta to old V from buffer,
+                # take max(unclipped, clipped) squared error, then 1/2 (same as SB3/CleanRL).
+                values_old_mb = values_tensor[mb_idx_t].reshape(-1)
+                values_new_mb = values_mb.reshape(-1)
+                returns_flat = returns_mb.reshape(-1)
+                if self.clip_value_loss:
+                    eps_v = (
+                        float(self.value_clip_eps)
+                        if self.value_clip_eps is not None
+                        else float(self.ppo_clip_eps)
+                    )
+                    v_err_u = values_new_mb - returns_flat
+                    v_clipped = values_old_mb + torch.clamp(
+                        values_new_mb - values_old_mb, -eps_v, eps_v
+                    )
+                    v_err_c = v_clipped - returns_flat
+                    value_loss = 0.5 * torch.maximum(v_err_u.pow(2), v_err_c.pow(2)).mean()
+                else:
+                    value_loss = 0.5 * (values_new_mb - returns_flat).pow(2).mean()
 
                 approx_kl = 0.5 * (log_probs_old_mb - log_probs_mb).pow(2).mean()
 
@@ -448,12 +540,16 @@ class PPOAgent(BaseAgent):
             "discount_factor": self.discount_factor,
             "gae_lambda": self.gae_lambda,
             "ppo_clip_eps": self.ppo_clip_eps,
+            "clip_value_loss": self.clip_value_loss,
+            "value_clip_eps": self.value_clip_eps,
             "entropy_coef": self.entropy_coef,
             "value_coef": self.value_coef,
             "max_grad_norm": self.max_grad_norm,
             "rollout_steps": self.rollout_steps,
             "ppo_epochs": self.ppo_epochs,
             "minibatch_size": self.minibatch_size,
+            "ppo_network_type": self._ppo_network_type,
+            "ppo_network_kwargs": dict(self._ppo_network_kwargs),
         }
 
         if save_epsilon:
@@ -475,15 +571,30 @@ class PPOAgent(BaseAgent):
         observation_shape = tuple(checkpoint["observation_shape"])
         observation_type = checkpoint.get("observation_type", "board")
         num_actions = checkpoint["num_actions"]
+        ppo_network_type = checkpoint.get("ppo_network_type", PPO_NETWORK_ACTOR_CRITIC_CNN)
+        ppo_network_kwargs = dict(checkpoint.get("ppo_network_kwargs") or {})
+
+        policy_net = restore_ppo_actor_critic(
+            ppo_network_type,
+            observation_shape,
+            num_actions,
+            ppo_network_kwargs,
+        )
+        policy_net.load_state_dict(checkpoint["policy_state_dict"])
 
         base_kwargs: Dict[str, Any] = {
             "observation_shape": observation_shape,
             "observation_type": observation_type,
             "num_actions": num_actions,
+            "network": policy_net,
+            "ppo_network_type": ppo_network_type,
+            "ppo_network_kwargs": ppo_network_kwargs,
             "learning_rate": checkpoint.get("learning_rate", 3e-4),
             "discount_factor": checkpoint.get("discount_factor", 0.99),
             "gae_lambda": checkpoint.get("gae_lambda", 0.95),
             "ppo_clip_eps": checkpoint.get("ppo_clip_eps", 0.2),
+            "clip_value_loss": checkpoint.get("clip_value_loss", True),
+            "value_clip_eps": checkpoint.get("value_clip_eps"),
             "entropy_coef": checkpoint.get("entropy_coef", 0.01),
             "value_coef": checkpoint.get("value_coef", 0.5),
             "max_grad_norm": checkpoint.get("max_grad_norm", 1.0),
@@ -496,7 +607,6 @@ class PPOAgent(BaseAgent):
         base_kwargs.update(overrides)
 
         agent = cls(**base_kwargs)
-        agent.policy_net.load_state_dict(checkpoint["policy_state_dict"])
         agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         agent.step_count = checkpoint.get("step_count", 0)
         agent.epsilon = checkpoint.get("epsilon", 0.0)

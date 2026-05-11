@@ -3,9 +3,10 @@
 import os
 import random
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence
 
-from src.agents import DQNAgent, RandomAgent, HeuristicAgent, SmartHeuristicAgent
+from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
 from src.agents.base_agent import BaseAgent
 from src.utils import freeze_agent
@@ -16,7 +17,7 @@ class FrozenAgentInfo:
     """Information about a frozen agent checkpoint."""
     checkpoint_path: str
     episode: int
-    loaded_agent: Optional[DQNAgent] = None  # lazy loading
+    loaded_agent: Optional[BaseAgent] = None  # lazy loading (DQN / PPO / …)
     last_used: int = 0  # шаг/эпизод последнего использования
     games: int = 0
     wins: int = 0
@@ -101,8 +102,11 @@ class OpponentPool:
     """
     Pool of opponents for self-play training.
     
-    Manages both heuristic opponents and frozen DQN agents from previous checkpoints.
+    Manages heuristic opponents and frozen agents from checkpoints (DQN or PPO).
     Supports lazy loading to avoid keeping all models in memory.
+
+    For MiniBG, pass ``minibg_fallback_bots`` so rare heuristic fallback uses
+    scripted bots instead of Connect4 heuristics.
     """
     
     def __init__(
@@ -112,18 +116,25 @@ class OpponentPool:
         self_play_config: Optional[SelfPlayConfig],
         heuristic_distribution: Dict[str, float],
         current_agent: Optional[BaseAgent] = None,
+        minibg_fallback_bots: Optional[Sequence[str]] = None,
     ):
         """
         Initialize opponent pool.
         
         Args:
-            device: Device to use for DQN agents ('cuda' or 'cpu')
+            device: Device for loading frozen checkpoints ('cuda' or 'cpu')
             seed: Random seed
             self_play_config: Optional self-play configuration. If None, only heuristic opponents are used.
-            heuristic_distribution: Distribution of heuristic opponents (will be normalized)
+            heuristic_distribution: Distribution of Connect4-style heuristics (ignored when ``minibg_fallback_bots`` set).
+            minibg_fallback_bots: If set, ``_create_heuristic_agent`` picks a uniform MiniBG bot (fallback only).
         """
         self.device = device
         self.seed = seed
+        self._minibg_fallback_bots: List[str] = (
+            [str(b).strip() for b in minibg_fallback_bots if str(b).strip()]
+            if minibg_fallback_bots
+            else []
+        )
         
         # Self-play settings
         self.self_play_config = self_play_config
@@ -132,14 +143,14 @@ class OpponentPool:
         )
         self.current_agent = current_agent
         
-        # Normalize heuristic distribution
         total = sum(heuristic_distribution.values())
         if total > 0:
             self.heuristic_distribution = {
                 k: v / total for k, v in heuristic_distribution.items()
             }
+        elif self._minibg_fallback_bots:
+            self.heuristic_distribution = {}
         else:
-            # Default distribution if empty
             self.heuristic_distribution = {
                 "random": 0.2,
                 "heuristic": 0.5,
@@ -163,7 +174,7 @@ class OpponentPool:
     
     def _create_heuristic_agent(self, episode: int):
         """
-        Create a new heuristic agent with seed depending on episode.
+        Create a new heuristic opponent with seed depending on episode.
         
         Args:
             episode: Current episode number (for seed variation)
@@ -171,6 +182,14 @@ class OpponentPool:
         Returns:
             Heuristic agent instance
         """
+        if self._minibg_fallback_bots:
+            from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
+            from src.envs.minibg.heuristic_bots.tournament import make_bot
+
+            rng_ep = self.seed + 100000 + episode
+            name = random.choice(self._minibg_fallback_bots)
+            return MiniBGHeuristicAgent(make_bot(name, rng_ep + 31))
+
         opp_type = self._sample_heuristic_type()
         opp_seed = self.seed + 100000 + episode  # Avoid seed collisions
         
@@ -185,7 +204,7 @@ class OpponentPool:
         else:
             raise ValueError(f"Unknown heuristic opponent type: {opp_type}")
     
-    # ---------- FROZEN DQN AGENTS ----------
+    # ---------- FROZEN CHECKPOINT AGENTS (DQN / PPO) ----------
     
     def add_frozen_agent(self, checkpoint_path: str, episode: int):
         """
@@ -228,39 +247,32 @@ class OpponentPool:
         return self.frozen_agents[-1]
 
     
-    def _get_loaded_frozen_agent(self, info: FrozenAgentInfo, step: int) -> DQNAgent:
+    def _get_loaded_frozen_agent(self, info: FrozenAgentInfo, step: int) -> BaseAgent:
         """
         Lazy loading с ограничением числа моделей в памяти (LRU).
-        
-        Args:
-            info: Frozen agent info
-            step: Current episode/step number (for LRU tracking)
-            
-        Returns:
-            Loaded DQN agent in eval mode
+
+        Loads DQN or PPO via ``load_training_agent_checkpoint`` (same as offline eval).
         """
-        # Если агент уже загружен – просто вернуть и обновить last_used
         if info.loaded_agent is not None:
             info.last_used = step
             return info.loaded_agent
-        
-        # Сколько уже загружено
+
         loaded_infos = [fa for fa in self.frozen_agents if fa.loaded_agent is not None]
         if self.max_loaded_agents > 0 and len(loaded_infos) >= self.max_loaded_agents:
-            # Выберем жертву: самый давно использованный
             victim = min(loaded_infos, key=lambda fa: fa.last_used)
-            # Выгружаем из памяти
             victim.loaded_agent = None
-        
-        # Load agent from checkpoint (network is restored automatically)
-        agent = DQNAgent.load(
-            info.checkpoint_path,
+
+        from src.evaluation.eval_checkpoints import load_training_agent_checkpoint
+
+        agent = load_training_agent_checkpoint(
+            Path(info.checkpoint_path),
             device=self.device,
+            seed=self.seed + step,
         )
         freeze_agent(agent)
         info.loaded_agent = agent
         info.last_used = step
-        
+
         return agent
     
     # ---------- PUBLIC INTERFACE ----------
