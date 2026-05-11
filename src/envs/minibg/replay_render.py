@@ -52,6 +52,16 @@ def format_board_line(label: str, board: List[Optional[Dict[str, Any]]]) -> str:
     return f"  {label}: {body}"
 
 
+def format_hand_line(label: str, hand: Optional[List[Optional[Dict[str, Any]]]]) -> str:
+    """Pretty-print hand slots; ``hand is None`` means the replay record has no hand field."""
+    if hand is None:
+        return f"  {label}: (нет данных о руке в реплее)"
+    parts = [format_minion_slot(x) for x in hand]
+    any_card = any(x is not None for x in hand)
+    body = " ".join(parts) if any_card else "(пусто)"
+    return f"  {label}: {body}"
+
+
 def decode_env_action(a: int) -> str:
     if a == A_ROLL:
         return "ROLL"
@@ -78,10 +88,20 @@ def _player(state: Dict[str, Any], idx: int) -> Dict[str, Any]:
     return state.get(f"p{idx}", {}) or {}
 
 
+def _hand_slot_sig(hand_list: List[Optional[Dict[str, Any]]]) -> Tuple[Any, ...]:
+    return tuple(
+        None
+        if x is None
+        else (x.get("card_id"), x.get("atk"), x.get("hp"))
+        for x in hand_list
+    )
+
+
 def render_jsonl_records(lines: Iterator[str]) -> str:
     out: List[str] = []
     prev_round: Optional[int] = None
     prev_hp: Optional[Tuple[int, int]] = None
+    last_shop_finish_hand: Optional[Tuple[int, int, Tuple[Any, ...]]] = None
 
     for raw in lines:
         raw = raw.strip()
@@ -100,6 +120,7 @@ def render_jsonl_records(lines: Iterator[str]) -> str:
             out.append("")
             prev_round = None
             prev_hp = None
+            last_shop_finish_hand = None
             continue
         if t != "frame":
             continue
@@ -123,6 +144,36 @@ def render_jsonl_records(lines: Iterator[str]) -> str:
             f"(gold {p0.get('gold')}/{p1.get('gold')}, tier {p0.get('tier')}/{p1.get('tier')}, "
             f"hp {hp0}/{hp1})"
         )
+
+        if act == "FINISH" or act.startswith("SELECT_ORDER"):
+            acted = _player(st, p_act)
+            if "hand" not in acted:
+                out.append(
+                    format_hand_line(
+                        f"P{p_act} рука (на конец хода; в снимке нет поля hand)",
+                        None,
+                    )
+                )
+                last_shop_finish_hand = None
+            else:
+                raw = acted.get("hand")
+                hand_list: List[Optional[Dict[str, Any]]] = (
+                    [] if raw is None else list(raw)
+                )
+                sig = _hand_slot_sig(hand_list)
+                if act.startswith("SELECT_ORDER"):
+                    if last_shop_finish_hand == (p_act, rnd, sig):
+                        last_shop_finish_hand = None
+                    else:
+                        out.append(
+                            format_hand_line(f"P{p_act} рука (на конец хода)", hand_list)
+                        )
+                        last_shop_finish_hand = None
+                else:
+                    out.append(
+                        format_hand_line(f"P{p_act} рука (на конец хода)", hand_list)
+                    )
+                    last_shop_finish_hand = (p_act, rnd, sig)
 
         if prev_round is not None and rnd > prev_round:
             out.append("")
@@ -165,6 +216,7 @@ def render_jsonl_to_stream(path: Union[str, Path], stream: TextIO) -> None:
 __all__ = [
     "decode_env_action",
     "format_board_line",
+    "format_hand_line",
     "format_minion_slot",
     "render_jsonl_file",
     "render_jsonl_records",

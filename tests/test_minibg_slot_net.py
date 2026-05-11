@@ -23,6 +23,31 @@ def test_minibg_slot_forward_shape():
     assert q.shape == (5, NUM_ENV_ACTIONS)
 
 
+def test_minibg_slot_noisy_forward_and_reset_noise():
+    from src.envs.minibg import NUM_ENV_ACTIONS
+
+    net = MiniBGSlotEncoderNet(
+        num_actions=NUM_ENV_ACTIONS,
+        slot_hidden=16,
+        trunk_hidden=64,
+        dueling=True,
+        use_noisy=True,
+        noisy_sigma=0.5,
+    )
+    x = torch.randn(3, _OBS_DIM)
+    net.train()
+    net.reset_noise()
+    q0 = net(x)
+    net.reset_noise()
+    q1 = net(x)
+    assert q0.shape == (3, NUM_ENV_ACTIONS)
+    assert not torch.allclose(q0, q1)
+    net.eval()
+    qa = net(x)
+    qb = net(x)
+    assert torch.allclose(qa, qb)
+
+
 def test_minibg_slot_distinguishes_slot_permutations():
     """Same regional contents in different slot order must produce
     different Q-values. With mean-pool this would silently pass; we want

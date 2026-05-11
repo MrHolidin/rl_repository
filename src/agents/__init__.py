@@ -90,11 +90,15 @@ if "dqn" not in list_agents():
                 dueling = True
             slot_hidden = int(kwargs.pop("slot_hidden_channels", 64))
             trunk_hidden = int(kwargs.pop("trunk_hidden_size", 256))
+            use_noisy_nets = bool(kwargs.get("use_noisy_nets", False))
+            noisy_sigma = float(kwargs.pop("noisy_sigma", 0.5))
             network = MiniBGSlotEncoderNet(
                 num_actions=num_actions,
                 slot_hidden=slot_hidden,
                 trunk_hidden=trunk_hidden,
                 dueling=dueling,
+                use_noisy=use_noisy_nets,
+                noisy_sigma=noisy_sigma,
             )
             return DQNAgent(network=network, **kwargs)
 

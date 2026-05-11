@@ -24,6 +24,40 @@ def test_decode_env_action():
     assert decode_env_action(A_SELECT_ORDER_BASE).startswith("SELECT_ORDER perm#0")
 
 
+def test_render_hand_finish_then_select_order_deduped():
+    pl = (
+        '"hp":15,"gold":0,"tier":1,"phase":"ORDER","shop_done":false,"shop_acts":3,'
+        '"board":[],"shop":[],"hand":[{"card_id":"x","atk":2,"hp":3,"tier":1,"kw":[],"shield":false,"token":false,"abilities":[]},null,null]'
+    )
+    fin = (
+        '{"type":"frame","p":0,"a":12,"illegal":false,'
+        f'"state":{{"round":1,"cur":0,"p0":{{{pl}}},"p1":{{{_PL}}}}}}}'
+    )
+    sel = (
+        '{"type":"frame","p":0,"a":13,"illegal":false,'
+        f'"state":{{"round":1,"cur":0,"p0":{{{pl}}},"p1":{{{_PL}}}}}}}'
+    )
+    text = render_jsonl_records(
+        ['{"type":"header","game":"minibg"}', fin, sel]
+    )
+    assert text.count("рука (на конец хода)") == 1
+    assert "[x 2/3]" in text
+
+
+def test_render_hand_on_finish():
+    pl = (
+        '"hp":15,"gold":0,"tier":1,"shop_done":false,"shop_acts":2,'
+        '"board":[],"shop":[],"hand":[{"card_id":"x","atk":2,"hp":3,"tier":1,"kw":[],"shield":false,"token":false,"abilities":[]},null,null]'
+    )
+    frame = (
+        '{"type":"frame","p":0,"a":12,"illegal":false,'
+        f'"state":{{"round":1,"cur":0,"p0":{{{pl}}},"p1":{{{_PL}}}}}}}'
+    )
+    text = render_jsonl_records(['{"type":"header","game":"minibg"}', frame])
+    assert "рука (на конец хода)" in text
+    assert "[x 2/3]" in text
+
+
 def test_render_battle_block_on_round_increment():
     s0 = (
         '{"type":"frame","p":0,"a":2,"illegal":false,'

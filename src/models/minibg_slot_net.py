@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from .base_dqn_network import BaseDQNNetwork
 from .dueling_utils import dueling_aggregate
+from .noisy_layers import NoisyLinear
 
 # Must match src/envs/minibg/obs.py layout (flat concat order).
 _GLOBAL_DIM = 10
@@ -37,8 +38,8 @@ _TOTAL_SLOTS = _OWN_LEN + _SHOP_LEN + _HAND_LEN + _ENEMY_LEN
 class MiniBGSlotEncoderNet(BaseDQNNetwork):
     """
     Unpacks the MiniBG vector into own board (4×25), shop (3×25), hand (3×25),
-    enemy (4×25). Runs a shared Conv1d encoder over the slot axis (kernel=1
-    then kernel=3 with padding) and **flattens** per-slot features so slot
+    enemy (4×25). Runs a shared Conv1d encoder over the slot axis (kernel=1 then
+    optional kernel=3 with padding on ``region_conv2``) and **flattens** per-slot features so slot
     identity is preserved — required so that slot-indexed action heads
     (BUY_SLOT_*, SELL_BOARD_*, PLACE_HAND_*, SELECT_ORDER_*) can read
     "what's in slot i" rather than the regional mean.
@@ -51,15 +52,29 @@ class MiniBGSlotEncoderNet(BaseDQNNetwork):
         slot_hidden: int = 16,
         trunk_hidden: int = 256,
         dueling: bool = True,
+        use_noisy: bool = False,
+        noisy_sigma: float = 0.5,
+        region_conv2_kernel: int = 1,
     ) -> None:
         super().__init__(num_actions=num_actions, dueling=dueling)
         self.slot_hidden = int(slot_hidden)
         self.trunk_hidden = int(trunk_hidden)
+        self.use_noisy = bool(use_noisy)
+        self.noisy_sigma = float(noisy_sigma)
+        k2 = int(region_conv2_kernel)
+        if k2 not in (1, 3):
+            raise ValueError("region_conv2_kernel must be 1 or 3")
+        self.region_conv2_kernel = k2
 
         self.region_conv1 = nn.Conv1d(_SLOT_DIM, self.slot_hidden, kernel_size=1)
-        self.region_conv2 = nn.Conv1d(
-            self.slot_hidden, self.slot_hidden, kernel_size=3, padding=1
-        )
+        if k2 == 3:
+            self.region_conv2 = nn.Conv1d(
+                self.slot_hidden, self.slot_hidden, kernel_size=3, padding=1
+            )
+        else:
+            self.region_conv2 = nn.Conv1d(
+                self.slot_hidden, self.slot_hidden, kernel_size=1
+            )
 
         trunk_in = (
             _TOTAL_SLOTS * self.slot_hidden
@@ -70,14 +85,22 @@ class MiniBGSlotEncoderNet(BaseDQNNetwork):
         self.trunk_fc1 = nn.Linear(trunk_in, self.trunk_hidden)
         self.trunk_fc2 = nn.Linear(self.trunk_hidden, self.trunk_hidden)
 
+        HeadLayer = NoisyLinear if self.use_noisy else nn.Linear
+        head_kw = {"sigma_init": self.noisy_sigma} if self.use_noisy else {}
+
         if dueling:
             hv = max(1, self.trunk_hidden // 2)
-            self.value_fc = nn.Linear(self.trunk_hidden, hv)
-            self.value_out = nn.Linear(hv, 1)
-            self.adv_fc = nn.Linear(self.trunk_hidden, hv)
-            self.adv_out = nn.Linear(hv, num_actions)
+            self.value_fc = HeadLayer(self.trunk_hidden, hv, **head_kw)
+            self.value_out = HeadLayer(hv, 1, **head_kw)
+            self.adv_fc = HeadLayer(self.trunk_hidden, hv, **head_kw)
+            self.adv_out = HeadLayer(hv, num_actions, **head_kw)
         else:
-            self.q_out = nn.Linear(self.trunk_hidden, num_actions)
+            self.q_out = HeadLayer(self.trunk_hidden, num_actions, **head_kw)
+
+    def reset_noise(self) -> None:
+        for m in self.modules():
+            if isinstance(m, NoisyLinear):
+                m.reset_noise()
 
     def _unpack(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
         if x.dim() > 2:
@@ -134,6 +157,9 @@ class MiniBGSlotEncoderNet(BaseDQNNetwork):
             "slot_hidden": self.slot_hidden,
             "trunk_hidden": self.trunk_hidden,
             "dueling": self._dueling,
+            "use_noisy": self.use_noisy,
+            "noisy_sigma": self.noisy_sigma,
+            "region_conv2_kernel": self.region_conv2_kernel,
         }
 
 

@@ -109,6 +109,13 @@ def main() -> None:
         action="store_true",
         help="Skip progress.png (eval CSV only)",
     )
+    parser.add_argument(
+        "--replay-dir",
+        type=Path,
+        default=None,
+        help="If set with --game minibg: write one JSONL + .txt render per game "
+        "(sequential; ignores batched eval). Example: run_dir/replays_vs_apex",
+    )
     args = parser.parse_args()
 
     run_dir = args.run_dir.resolve()
@@ -152,6 +159,11 @@ def main() -> None:
 
     out_csv = args.out_csv.resolve() if args.out_csv else (run_dir / "eval_results.csv")
 
+    replay_dir = args.replay_dir.resolve() if args.replay_dir else None
+    if replay_dir is not None and args.game != "minibg":
+        print("--replay-dir is only supported with --game minibg", file=sys.stderr)
+        sys.exit(1)
+
     df = eval_checkpoints_vs_opponents(
         paths,
         opponent_names=args.opponents,
@@ -164,6 +176,7 @@ def main() -> None:
         game_id=args.game,
         out_csv=out_csv,
         minibg_params=minibg_params,
+        replay_dir=replay_dir,
     )
 
     if df.empty:

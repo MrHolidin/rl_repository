@@ -1,8 +1,6 @@
 # MiniBG DQN with slot+Conv1d torso (`minibg_slot`). Opponents: random has the same
 # total mass as each named bot (1/(1+N) per type with N bots).
 # Checkpoints every 50k steps; metrics CSV every 10k (2× more often than 20k).
-#
-# python -m src.cli.train --config configs/minibg/dqn_slot_equal_mix.yaml --run_dir runs/minibg/dqn_slot_equal_mix
 seed: 13
 
 game:
@@ -21,6 +19,8 @@ agent:
     dueling: true
     learning_rate: 0.0001
     discount_factor: 1.0
+    use_noisy_nets: true
+    noisy_sigma: 0.5
     epsilon: 1.0
     epsilon_decay: 0.999995
     epsilon_min: 0.08
@@ -47,6 +47,9 @@ train:
     params:
       seed: 103
       equal_opponent_mass: true
+      self_play:
+        current_self_fraction: 0.2
+        start_episode: 0
       bots:
         - tempo
         - buffer_t2
@@ -57,11 +60,11 @@ train:
   callbacks:
     - type: checkpoint
       params:
-        interval: 50000
+        interval: 25000
         prefix: minibg_dqn
     - type: metrics_file
       params:
-        interval: 10000
+        interval: 5000
     - type: epsilon_decay
       params:
         every: step

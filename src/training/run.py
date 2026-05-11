@@ -216,11 +216,15 @@ def _build_opponent_sampler(
         use_seed = p.get("seed")
         if use_seed is None:
             use_seed = seed
+        sp = p.get("self_play")
+        self_play_dict = dict(sp) if sp else None
         return MiniBGMixedOpponentSampler(
             seed=use_seed,
             bots=list(p.get("bots") or ()),
             random_fraction=p.get("random_fraction"),
             equal_opponent_mass=bool(p.get("equal_opponent_mass", False)),
+            learning_agent=agent,
+            self_play=self_play_dict,
         )
 
     if cfg.type.lower() == "pool":

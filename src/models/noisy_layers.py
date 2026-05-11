@@ -58,6 +58,10 @@ class NoisyLinear(nn.Module):
         self.weight_sigma.data.fill_(sigma_val)
         self.bias_sigma.data.fill_(sigma_val)
 
+    def reset_parameters(self) -> None:
+        self._init_parameters()
+        self.reset_noise()
+
     def reset_noise(self) -> None:
         self.noise_in.copy_(_factorised_noise(
             self.in_features, self.weight_mu.device, self.weight_mu.dtype
@@ -130,6 +134,10 @@ class NoisyConv1d(nn.Module):
         self.weight_sigma.data.fill_(sigma_val)
         self.bias_sigma.data.fill_(sigma_val)
 
+    def reset_parameters(self) -> None:
+        self._init_parameters()
+        self.reset_noise()
+
     def reset_noise(self) -> None:
         self.noise_in.copy_(_factorised_noise(
             self.in_channels, self.weight_mu.device, self.weight_mu.dtype
@@ -201,6 +209,10 @@ class NoisyConv2d(nn.Module):
         sigma_val = self.sigma_init / math.sqrt(fan_in)
         self.weight_sigma.data.fill_(sigma_val)
         self.bias_sigma.data.fill_(sigma_val)
+
+    def reset_parameters(self) -> None:
+        self._init_parameters()
+        self.reset_noise()
 
     def reset_noise(self) -> None:
         fan_in = self.in_channels * self.kernel_size * self.kernel_size

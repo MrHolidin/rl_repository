@@ -261,6 +261,8 @@ class DQNAgent(BaseAgent):
             return int(np.random.choice(legal_actions))
 
         with torch.no_grad():
+            if self.training and self.use_noisy_nets:
+                self._reset_all_noise()
             obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
             legal_mask_tensor = torch.as_tensor(
                 legal_mask_arr,
@@ -338,21 +340,20 @@ class DQNAgent(BaseAgent):
 
         if not is_augmented:
             self.step_count += 1
-            if done and self.training and self.use_noisy_nets:
-                self._reset_all_noise()
 
         return {}
 
     def _reset_all_noise(self) -> None:
-        """Reset noise in all networks that support it (for noisy nets exploration)."""
+        """Resample noisy-net buffers on online Q-nets only.
+
+        Target nets stay in ``eval()`` and NoisyLinear uses μ-only forwards;
+        their noise buffers are unused—resetting them duplicated work (costly
+        with twin targets + frequent env steps).
+        """
         if hasattr(self.q_network, "reset_noise"):
             self.q_network.reset_noise()
-        if hasattr(self.target_network, "reset_noise"):
-            self.target_network.reset_noise()
         if self.q_network2 is not None and hasattr(self.q_network2, "reset_noise"):
             self.q_network2.reset_noise()
-        if self.target_network2 is not None and hasattr(self.target_network2, "reset_noise"):
-            self.target_network2.reset_noise()
 
     def _store_n_step_transition(
         self,
@@ -568,7 +569,15 @@ class DQNAgent(BaseAgent):
 
         # Recreate network from checkpoint
         network_class = checkpoint["network_class"]
-        network_kwargs = checkpoint["network_kwargs"]
+        network_kwargs = dict(checkpoint.get("network_kwargs") or {})
+        if network_class == "MiniBGSlotEncoderNet":
+            w = checkpoint.get("q_network_state_dict", {}).get("region_conv2.weight")
+            if w is not None and getattr(w, "ndim", 0) == 3:
+                kh = int(w.shape[2])
+                if kh == 3:
+                    network_kwargs["region_conv2_kernel"] = 3
+                elif kh == 1:
+                    network_kwargs.setdefault("region_conv2_kernel", 1)
         network = create_network_from_checkpoint(network_class, network_kwargs)
 
         load_optimizer = overrides.pop("load_optimizer", True)

@@ -69,7 +69,19 @@ class SelfPlayOpponent(BaseAgent):
         deterministic: bool = False,
     ) -> int:
         use_det = deterministic or self._greedy
-        return self._base_agent.act(obs, legal_mask=legal_mask, deterministic=use_det)
+        base = self._base_agent
+        # Greedy / deterministic play must use mean weights for NoisyLinear
+        # (same as frozen checkpoints). The learner stays in train(); toggle only
+        # for this forward so exploration noise does not distort the opponent.
+        if use_det and getattr(base, "use_noisy_nets", False):
+            was_training = base.training
+            base.eval()
+            try:
+                return base.act(obs, legal_mask=legal_mask, deterministic=True)
+            finally:
+                if was_training:
+                    base.train()
+        return base.act(obs, legal_mask=legal_mask, deterministic=use_det)
 
     def save(self, path: str) -> None:  # pragma: no cover - not used
         return None

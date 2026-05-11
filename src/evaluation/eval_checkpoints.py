@@ -22,6 +22,7 @@ from src.envs.connect4 import Connect4Game
 from src.search.connect4.heuristic_minimax import make_connect4_heuristic_minimax_policy
 from src.search.connect4.minimax_env_adapter import Connect4MinimaxEnvAdapter
 from src.training.trainer import StartPolicy
+from src.envs.minibg.replay_render import render_jsonl_file
 from src.utils.match import play_match, play_match_batched, play_single_game
 
 if TYPE_CHECKING:
@@ -191,7 +192,8 @@ def eval_checkpoints_vs_opponents(
         game_id: ``connect4``, ``othello``, or ``minibg`` (MiniBG opponents: heuristic bot names).
         out_csv: If set, save DataFrame with exact wins/draws/losses to this path.
         replay_dir: If set with ``game_id=minibg``, write one JSONL replay per game under this directory
-            (sequential eval; batched eval is not used). Typical size is well under 1 MB per dozen short games.
+            plus a sibling ``.txt`` human-readable render (sequential eval; batched eval is not used).
+            Typical size is well under 1 MB per dozen short games.
         minibg_params: Extra kwargs for ``make_game("minibg", ...)`` (e.g. ``battle_damage_shaping``).
 
     Returns:
@@ -296,6 +298,9 @@ def eval_checkpoints_vs_opponents(
                     )
                     if hasattr(env_g, "close_replay"):
                         env_g.close_replay()
+                    rpath.with_suffix(".txt").write_text(
+                        render_jsonl_file(rpath), encoding="utf-8"
+                    )
                     winner = result["winner"]
                     if winner == 0:
                         draws += 1
