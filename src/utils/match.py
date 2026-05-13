@@ -13,6 +13,30 @@ from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_
 from src.training.trainer import StartPolicy
 
 
+def agent_env_step(
+    env: TurnBasedEnv,
+    agent: BaseAgent,
+    obs: np.ndarray,
+    *,
+    deterministic: bool,
+) -> StepResult:
+    """Perform one ``env`` transition using ``agent``. MiniBG structured PPO uses ``step_structured``."""
+    if callable(getattr(agent, "act_structured", None)) and callable(
+        getattr(env, "step_structured", None)
+    ):
+        if hasattr(agent, "set_env"):
+            agent.set_env(env)
+        legal_list = env.legal_structured_actions()
+        struct_act, board_perm, _ = agent.act_structured(
+            obs, legal_list, env, deterministic=deterministic
+        )
+        return env.step_structured(struct_act, board_perm=board_perm)
+    if hasattr(agent, "set_env"):
+        agent.set_env(env)
+    action = agent.act(obs, legal_mask=env.legal_actions_mask, deterministic=deterministic)
+    return env.step(int(action))
+
+
 def play_single_game(
     env: TurnBasedEnv,
     agent: BaseAgent,
@@ -45,14 +69,17 @@ def play_single_game(
     steps = 0
     done = False
 
+    for participant in (agent, opponent):
+        if hasattr(participant, "set_env"):
+            participant.set_env(env)
+
     while not done:
         current_token = _current_player_token(env)
         is_agent_turn = current_token == agent_token
         actor = agent if is_agent_turn else opponent
         deterministic = deterministic_agent if is_agent_turn else deterministic_opponent
 
-        action = actor.act(obs, legal_mask=env.legal_actions_mask, deterministic=deterministic)
-        step = env.step(action)
+        step = agent_env_step(env, actor, obs, deterministic=deterministic)
         steps += 1
 
         if step.done:
@@ -131,10 +158,14 @@ def _apply_turn_batch(
             results[i] = envs[i].step(int(out[k]))
     else:
         for i in indices:
-            if hasattr(agent, "set_env"):
-                agent.set_env(envs[i])
-            results[i] = envs[i].step(
-                agent.act(obs_list[i], legal_mask=envs[i].legal_actions_mask, deterministic=False)
+            ob = obs_list[i]
+            if ob is None:
+                continue
+            results[i] = agent_env_step(
+                envs[i],
+                agent,
+                ob,
+                deterministic=deterministic,
             )
     return results
 

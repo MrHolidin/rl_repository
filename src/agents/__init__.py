@@ -7,12 +7,15 @@ from .othello import OthelloHeuristicAgent
 from .qlearning_agent import QLearningAgent
 from .dqn.agent import DQNAgent
 from .ppo_agent import PPOAgent
+from .ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
 from .alphazero.agent import AlphaZeroAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels
 from ..models import Connect4DQN, Connect4QRDQN, OthelloDQN, OthelloQRDQN
+from ..models.minibg_structured_ac import MiniBGStructuredActorCritic
 from ..models.ppo_policy_factory import (
     PPO_NETWORK_MINIBG_SLOT,
+    PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
     default_ppo_network_kwargs,
     ppo_network_type_for_save,
@@ -221,8 +224,43 @@ if "ppo" not in list_agents():
             action_space = kwargs["action_space"]
 
         is_minibg = network_type == PPO_NETWORK_MINIBG_SLOT
+        is_minibg_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
         obs_shape = kwargs.get("observation_shape")
         obs_type = kwargs.get("observation_type")
+
+        if is_minibg_structured:
+            if obs_shape is None or num_actions is None:
+                raise ValueError(
+                    "PPO network_type minibg_structured requires observation_shape (e.g. [362]) "
+                    "and num_actions from the environment config."
+                )
+            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))
+            trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
+            region_conv2_kernel = int(kwargs.pop("region_conv2_kernel", 1))
+            state_dim = int(kwargs.pop("state_dim", 128))
+            action_dim = int(kwargs.pop("action_dim", 64))
+            order_hidden = int(kwargs.pop("order_hidden", 64))
+            order_pos_dim = int(kwargs.pop("order_pos_dim", 16))
+            score_hidden = int(kwargs.pop("score_hidden", 128))
+            order_score_hidden = int(kwargs.pop("order_score_hidden", 64))
+            net = MiniBGStructuredActorCritic(
+                slot_hidden=slot_hidden_channels,
+                trunk_hidden=trunk_hidden_size,
+                region_conv2_kernel=region_conv2_kernel,
+                state_dim=state_dim,
+                action_dim=action_dim,
+                order_hidden=order_hidden,
+                order_pos_dim=order_pos_dim,
+                score_hidden=score_hidden,
+                order_score_hidden=order_score_hidden,
+            )
+            kwargs["observation_type"] = obs_type or "vector"
+            ppo_kw = dict(net.get_constructor_kwargs())
+            kwargs["network"] = net
+            kwargs["ppo_network_type"] = ppo_network_type_for_save(PPO_NETWORK_MINIBG_STRUCTURED)
+            kwargs["ppo_network_kwargs"] = ppo_kw
+            kwargs.pop("action_space", None)
+            return MiniBGPPOStructuredAgent(**_filter_ppo_agent_kwargs(kwargs))
 
         if is_minibg:
             if obs_shape is None or num_actions is None:
@@ -294,5 +332,6 @@ __all__ = [
     "QLearningAgent",
     "DQNAgent",
     "PPOAgent",
+    "MiniBGPPOStructuredAgent",
     "AlphaZeroAgent",
 ]

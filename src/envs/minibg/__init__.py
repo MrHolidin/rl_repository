@@ -60,6 +60,14 @@ from .obs import (
     encode_slots,
 )
 from .state import MiniBGState, Minion, PlayerPhase, PlayerState
+from .structured_actions import (
+    StructAction,
+    StructActionType,
+    structured_action_to_replay_env_int,
+    structured_legal_set,
+    slot_pick_sequence_to_perm,
+    validate_board_perm,
+)
 
 __all__ = [
     "Action",
@@ -96,6 +104,12 @@ __all__ = [
     "PlayerPhase",
     "MiniBGEnv",
     "INVALID_ACTION_REWARD",
+    "StructAction",
+    "StructActionType",
+    "structured_action_to_replay_env_int",
+    "structured_legal_set",
+    "slot_pick_sequence_to_perm",
+    "validate_board_perm",
     "NUM_ENV_ACTIONS",
     "NUM_PERMS",
     "PERMUTATIONS_4",

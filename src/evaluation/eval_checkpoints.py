@@ -92,6 +92,12 @@ def load_training_agent_checkpoint(
     path_str = str(path)
     map_location = device or ("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(path_str, map_location=map_location)
+    if ckpt.get("agent_kind") == "ppo_minibg_structured":
+        from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
+
+        agent = MiniBGPPOStructuredAgent.load(path_str, device=device, seed=seed)
+        freeze_agent(agent)
+        return agent
     if "policy_state_dict" in ckpt:
         agent = PPOAgent.load(path_str, device=device, seed=seed)
         freeze_agent(agent)

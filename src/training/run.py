@@ -267,6 +267,7 @@ def _build_opponent_sampler(
             past_self_fraction=float(sp.get("past_self_fraction", 0.3)),
             max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
             save_every=max(1, save_every),
+            frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
         )
         heuristic_distribution = dict(cfg.params.get("heuristic_distribution") or {})
         minibg_fb = [str(x).strip() for x in (cfg.params.get("minibg_fallback_bots") or []) if str(x).strip()]

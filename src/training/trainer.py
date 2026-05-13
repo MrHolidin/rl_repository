@@ -16,6 +16,11 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 import numpy as np
 
 from src.agents.base_agent import BaseAgent
+from src.agents.ppo_structured_minibg_agent import (
+    INFO_STRUCT_LEGAL,
+    INFO_STRUCT_NEXT_LEGAL,
+    MiniBGPPOStructuredAgent,
+)
 from src.envs.base import SingleAgentEnv, StepResult
 from src.training.opponent_sampler import OpponentSampler
 
@@ -128,30 +133,65 @@ class Trainer:
         while self._should_continue_training(total_steps):
             iteration_start = perf_counter() if self.track_timings else None
 
-            legal = self._as_bool_mask(self.env.legal_actions_mask)
-            action = int(
-                self.agent.act(obs, legal_mask=legal, deterministic=deterministic)
-            )
-            step = self.env.step(action)
-            episode_length += 1
-            episode_reward += float(step.reward)
+            if isinstance(self.agent, MiniBGPPOStructuredAgent):
+                if not hasattr(self.env, "legal_structured_actions") or not hasattr(
+                    self.env, "step_structured"
+                ):
+                    raise TypeError(
+                        "MiniBGPPOStructuredAgent requires env with legal_structured_actions() "
+                        "and step_structured() (MiniBGEnv or AgentPerspectiveEnv wrapping it)."
+                    )
+                legal_list = self.env.legal_structured_actions()
+                struct_act, board_perm, idx = self.agent.act_structured(
+                    obs, legal_list, self.env, deterministic=deterministic
+                )
+                step = self.env.step_structured(struct_act, board_perm=board_perm)
+                episode_length += 1
+                episode_reward += float(step.reward)
 
-            next_legal = (
-                self._zero_mask_like(legal)
-                if step.done
-                else self._as_bool_mask(self.env.legal_actions_mask)
-            )
-            transition = Transition(
-                obs=obs,
-                action=action,
-                reward=float(step.reward),
-                next_obs=step.obs,
-                terminated=step.terminated,
-                truncated=step.truncated,
-                info=step.info,
-                legal_mask=legal,
-                next_legal_mask=next_legal,
-            )
+                next_sl: List[Any] = (
+                    [] if step.done else list(self.env.legal_structured_actions())
+                )
+                transition = Transition(
+                    obs=obs,
+                    action=idx,
+                    reward=float(step.reward),
+                    next_obs=step.obs,
+                    terminated=step.terminated,
+                    truncated=step.truncated,
+                    info={
+                        **(step.info if isinstance(step.info, dict) else {}),
+                        INFO_STRUCT_LEGAL: legal_list,
+                        INFO_STRUCT_NEXT_LEGAL: next_sl,
+                    },
+                    legal_mask=None,
+                    next_legal_mask=None,
+                )
+            else:
+                legal = self._as_bool_mask(self.env.legal_actions_mask)
+                action = int(
+                    self.agent.act(obs, legal_mask=legal, deterministic=deterministic)
+                )
+                step = self.env.step(action)
+                episode_length += 1
+                episode_reward += float(step.reward)
+
+                next_legal = (
+                    self._zero_mask_like(legal)
+                    if step.done
+                    else self._as_bool_mask(self.env.legal_actions_mask)
+                )
+                transition = Transition(
+                    obs=obs,
+                    action=action,
+                    reward=float(step.reward),
+                    next_obs=step.obs,
+                    terminated=step.terminated,
+                    truncated=step.truncated,
+                    info=step.info,
+                    legal_mask=legal,
+                    next_legal_mask=next_legal,
+                )
 
             metrics = self._observe_and_update(transition)
             core_done = perf_counter() if self.track_timings else None

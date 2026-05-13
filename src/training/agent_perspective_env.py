@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import numpy as np
 
 from src.agents.base_agent import BaseAgent
+from src.envs.minibg.structured_actions import StructAction
 from src.envs.base import SingleAgentEnv, StepResult, TurnBasedEnv
 from src.envs.reward_config import RewardConfig
 from src.training.opponent_sampler import OpponentSampler
@@ -94,6 +95,20 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         return self.base.legal_actions_mask
 
     @property
+    def state(self) -> Any:
+        """Underlying turn env state (e.g. ``MiniBGState`` for MiniBG)."""
+        return self.base.state
+
+    def legal_structured_actions(self):
+        """Delegate to base when implemented (``MiniBGEnv``)."""
+        if not hasattr(self.base, "legal_structured_actions"):
+            raise AttributeError(
+                f"{type(self.base).__name__} has no legal_structured_actions; "
+                "structured MiniBG PPO requires MiniBGEnv as base."
+            )
+        return self.base.legal_structured_actions()
+
+    @property
     def done(self) -> bool:
         return self._done
 
@@ -165,6 +180,37 @@ class AgentPerspectiveEnv(SingleAgentEnv):
             info=step.info,
         )
 
+    def step_structured(
+        self,
+        action: StructAction,
+        *,
+        board_perm: Optional[Tuple[int, ...]] = None,
+    ) -> StepResult:
+        """Like ``step`` but uses ``MiniBGEnv.step_structured`` on the base env."""
+        if self._done:
+            raise RuntimeError("Episode is done; call reset() first.")
+        if not hasattr(self.base, "step_structured"):
+            raise AttributeError(
+                f"{type(self.base).__name__} has no step_structured; structured MiniBG PPO requires MiniBGEnv."
+            )
+
+        step = self.base.step_structured(action, board_perm=board_perm)
+        reward = self._reward_in_agent_perspective(step, agent_acted=True)
+        if step.done:
+            self._done = True
+            return StepResult(step.obs, reward, True, False, step.info)
+
+        obs, opp_reward, drain_done = self._drain_opponent(step.obs)
+        if drain_done:
+            self._done = True
+        return StepResult(
+            obs=obs,
+            reward=reward + opp_reward,
+            terminated=drain_done,
+            truncated=False,
+            info=step.info,
+        )
+
     def notify_episode_end(self, info: Dict[str, Any]) -> None:
         if self.opponent_sampler is None:
             self._episode_index += 1
@@ -192,8 +238,16 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         ):
             steps += 1
             opp_mask = self.base.legal_actions_mask
-            opp_action = self._opponent.act(obs, legal_mask=opp_mask, deterministic=False)
-            opp_step = self.base.step(opp_action)
+            if hasattr(self._opponent, "opponent_step"):
+                opp_step = self._opponent.opponent_step(
+                    self.base,
+                    obs,
+                    legal_mask=opp_mask,
+                    deterministic=False,
+                )
+            else:
+                opp_action = self._opponent.act(obs, legal_mask=opp_mask, deterministic=False)
+                opp_step = self.base.step(opp_action)
             obs = opp_step.obs
             accumulated += self._reward_in_agent_perspective(opp_step, agent_acted=False)
             if opp_step.done:

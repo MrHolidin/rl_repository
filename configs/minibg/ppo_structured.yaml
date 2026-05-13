@@ -1,3 +1,5 @@
+# MiniBG PPO with structured legal actions + order head (`minibg_structured` actor-critic).
+# Trainer вызывает legal_structured_actions / step_structured; obs тот же вектор 362.
 seed: 13
 
 game:
@@ -9,12 +11,18 @@ game:
 agent:
   id: ppo
   params:
-    network_type: minibg_slot
+    network_type: minibg_structured
     observation_shape: [362]
     observation_type: vector
+    # slot torso (как у minibg_slot)
     slot_hidden_channels: 16
     trunk_hidden_size: 256
     region_conv2_kernel: 1
+    # голова structured policy + order decoder
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
     learning_rate: 0.0003
     discount_factor: 1.0
     gae_lambda: 0.95
@@ -27,36 +35,34 @@ agent:
     rollout_steps: 2048
     ppo_epochs: 4
     minibatch_size: 256
-    device: gpu
+    device: cpu
 
 train:
   max_episodes: 10000000
-  total_steps: 2000000
+  total_steps: 500000
   deterministic: false
   track_timings: false
   start_policy: random
   opponent_sampler:
-    type: pool
+    type: minibg_mixed
     params:
       seed: 103
-      # Optional: only used if current_self_fraction + past_self_fraction < 1.0
-      minibg_fallback_bots:
-        - tempo
+      equal_opponent_mass: false
       self_play:
+        current_self_fraction: 0.2
         start_episode: 0
-        # Pure league mix: no heuristic branch when pool is non-empty (see OpponentPool.sample_opponent).
-        current_self_fraction: 0.5
-        past_self_fraction: 0.5
-        # Max frozen checkpoints kept **loaded** in GPU/CPU memory (LRU spills the rest).
-        max_frozen_agents: 20
-        save_every: 1000
-        # EMA of P(frozen wins) after each match vs that checkpoint; sampling uses ema_win_rate^2.
-        frozen_ema_beta: 0.05
+      bots:
+        - tempo
+        - buffer_t2
+        - balanced
+        - early_t2_pressure
+        - wide_t1
+        - fast_t3
   callbacks:
     - type: checkpoint
       params:
         interval: 50000
-        prefix: minibg_ppo
+        prefix: minibg_ppo_structured
     - type: metrics_file
       params:
         interval: 5000

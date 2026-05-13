@@ -160,17 +160,7 @@ class OpponentPoolSampler(OpponentSampler):
         if agent_result is None:
             return
 
-        for frozen in self.opponent_pool.frozen_agents:
-            if frozen.loaded_agent is self._current_opponent:
-                frozen.games += 1
-                if agent_result == 1:
-                    frozen.losses += 1
-                elif agent_result == -1:
-                    frozen.wins += 1
-                elif agent_result == 0:
-                    frozen.draws += 1
-                break
-
+        self.opponent_pool.apply_episode_result(self._current_opponent, agent_result)
         self._current_opponent = None
 
     def on_checkpoint(self, path: str | Path, episode_index: int) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -33,6 +33,13 @@ from .actions import (
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
 from .state import MiniBGState, Minion, PlayerPhase
+from .structured_actions import (
+    StructAction,
+    StructActionType,
+    structured_action_to_replay_env_int,
+    structured_legal_set,
+    validate_board_perm,
+)
 
 
 INVALID_ACTION_REWARD = -1.0
@@ -219,6 +226,202 @@ class MiniBGEnv(TurnBasedEnv):
             truncated=False,
             info=info,
         )
+
+    def legal_structured_actions(self) -> List[StructAction]:
+        """Legal structured tokens for the current player (shop + COMPLETE_TURN, or ORDER-only COMPLETE_TURN)."""
+        if self._state is None or self._state.done:
+            return []
+
+        player = self._state.players[self._state.current_player_index]
+        if player.phase == PlayerPhase.ORDER:
+            return [StructAction(StructActionType.COMPLETE_TURN)]
+
+        legal_game = set(int(a) for a in self._game.legal_actions(self._state))
+        out: List[StructAction] = []
+
+        if int(GameAction.ROLL) in legal_game:
+            out.append(StructAction(StructActionType.ROLL))
+        if int(GameAction.LEVEL_UP) in legal_game:
+            out.append(StructAction(StructActionType.LEVEL_UP))
+
+        for slot in range(SHOP_SIZE):
+            if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:
+                out.append(StructAction(StructActionType.BUY, (slot,)))
+
+        for pos in range(BOARD_SIZE):
+            if (int(GameAction.SELL_BOARD_0) + pos) in legal_game:
+                out.append(StructAction(StructActionType.SELL, (pos,)))
+
+        for h in range(HAND_SIZE):
+            if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
+                out.append(StructAction(StructActionType.PLACE, (h,)))
+
+        if int(GameAction.FINISH) in legal_game:
+            out.append(StructAction(StructActionType.COMPLETE_TURN))
+
+        return out
+
+    def step_structured(
+        self,
+        action: StructAction,
+        *,
+        board_perm: Optional[Tuple[int, ...]] = None,
+    ) -> StepResult:
+        """Apply a structured action. COMPLETE_TURN requires ``board_perm`` (length ``BOARD_SIZE`` permutation)."""
+        if self._state is None:
+            raise ValueError("Environment not initialized; call reset() first.")
+        if self._state.done:
+            raise ValueError("Episode is done. Call reset() first.")
+
+        acting_idx_before = self._state.current_player_index
+        legal = structured_legal_set(tuple(self.legal_structured_actions()))
+
+        def _illegal_reply() -> StepResult:
+            info_il: Dict[str, Any] = {
+                "winner": None,
+                "termination_reason": "illegal",
+                "invalid_action": True,
+            }
+            if self._replay_sink is not None:
+                assert self._state is not None
+                self._replay_frame += 1
+                rep_a = structured_action_to_replay_env_int(action)
+                self._replay_sink.frame(
+                    episode=self._replay_episode,
+                    frame=self._replay_frame,
+                    acting_idx=acting_idx_before,
+                    action=rep_a,
+                    illegal=True,
+                    state=self._state,
+                    info=info_il,
+                )
+            return StepResult(
+                obs=self._get_obs(),
+                reward=float(self.reward_config.invalid_action),
+                terminated=False,
+                truncated=False,
+                info=info_il,
+            )
+
+        if action not in legal:
+            return _illegal_reply()
+
+        if action.type == StructActionType.COMPLETE_TURN:
+            if board_perm is None:
+                return _illegal_reply()
+            try:
+                validate_board_perm(tuple(board_perm))
+            except ValueError:
+                return _illegal_reply()
+        elif board_perm is not None:
+            return _illegal_reply()
+
+        acting_idx = self._state.current_player_index
+        acting_token = PLAYER_TOKENS[acting_idx]
+        prev_round = self._state.round_number
+        prev_done = self._state.done
+        prev_hp = (
+            self._state.players[0].health,
+            self._state.players[1].health,
+        )
+
+        try:
+            if action.type == StructActionType.COMPLETE_TURN:
+                assert board_perm is not None
+                perm_tuple = tuple(int(x) for x in board_perm)
+                self._state = self._apply_complete_turn(self._state, acting_idx, perm_tuple)
+            else:
+                ga = self._struct_action_to_game_action(action)
+                self._state = self._game.apply_action(self._state, ga)
+        except ValueError:
+            return _illegal_reply()
+
+        battle_happened = (
+            self._state.round_number != prev_round
+            or (self._state.done and not prev_done)
+        )
+        if battle_happened:
+            self._update_battle_summary(prev_hp)
+
+        reward = 0.0
+        terminated = False
+        info: Dict[str, Any] = {
+            "winner": self._state.winner,
+            "termination_reason": None,
+            "invalid_action": False,
+            "battle_damage_shaping": 0.0,
+        }
+        if battle_happened:
+            info["battle_signed"] = (
+                float(self._last_battle_signed[0]),
+                float(self._last_battle_signed[1]),
+            )
+        if self._state.done:
+            terminated = True
+            if self._state.winner == acting_token:
+                reward = 1.0
+                info["termination_reason"] = "win"
+            elif self._state.winner == -acting_token:
+                reward = -1.0
+                info["termination_reason"] = "loss"
+            else:
+                reward = 0.0
+                info["termination_reason"] = "draw"
+
+        replay_action = structured_action_to_replay_env_int(action)
+        if self._replay_sink is not None:
+            assert self._state is not None
+            self._replay_frame += 1
+            self._replay_sink.frame(
+                episode=self._replay_episode,
+                frame=self._replay_frame,
+                acting_idx=acting_idx,
+                action=replay_action,
+                illegal=False,
+                state=self._state,
+                info=info,
+            )
+
+        return StepResult(
+            obs=self._get_obs(),
+            reward=reward,
+            terminated=terminated,
+            truncated=False,
+            info=info,
+        )
+
+    def _apply_complete_turn(
+        self,
+        state: MiniBGState,
+        acting_idx: int,
+        perm: Tuple[int, ...],
+    ) -> MiniBGState:
+        """Shop FINISH (if needed) → reorder_board → ORDER FINISH."""
+        player = state.players[acting_idx]
+        new_state = state
+        if player.phase == PlayerPhase.SHOP:
+            new_state = self._game.apply_action(new_state, int(GameAction.FINISH))
+        elif player.phase != PlayerPhase.ORDER:
+            raise ValueError(
+                f"COMPLETE_TURN invalid phase {player.phase.name}"
+            )
+        new_state = self._game.reorder_board(new_state, acting_idx, perm)
+        new_state = self._game.apply_action(new_state, int(GameAction.FINISH))
+        return new_state
+
+    @staticmethod
+    def _struct_action_to_game_action(action: StructAction) -> int:
+        if action.type == StructActionType.ROLL:
+            return int(GameAction.ROLL)
+        if action.type == StructActionType.LEVEL_UP:
+            return int(GameAction.LEVEL_UP)
+        if action.type == StructActionType.BUY:
+            return int(GameAction.BUY_SLOT_0) + action.args[0]
+        if action.type == StructActionType.SELL:
+            return int(GameAction.SELL_BOARD_0) + action.args[0]
+        if action.type == StructActionType.PLACE:
+            return int(GameAction.PLACE_HAND_0) + action.args[0]
+        raise ValueError(f"not a shop-phase structured action: {action}")
 
     @property
     def legal_actions_mask(self) -> np.ndarray:

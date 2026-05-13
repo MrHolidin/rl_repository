@@ -9,26 +9,35 @@ from typing import Any, Dict, List, Optional, Sequence
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
 from src.agents.base_agent import BaseAgent
+from src.envs.base import StepResult
 from src.utils import freeze_agent
 
 
 @dataclass
 class FrozenAgentInfo:
-    """Information about a frozen agent checkpoint."""
+    """Metadata for one frozen checkpoint + running stats vs the learner."""
+
     checkpoint_path: str
     episode: int
     loaded_agent: Optional[BaseAgent] = None  # lazy loading (DQN / PPO / …)
+    # EMA of P(frozen wins the match). Starts at 0.5; updated once per game vs this frozen.
+    ema_win_rate: float = 0.5
     last_used: int = 0  # шаг/эпизод последнего использования
     games: int = 0
-    wins: int = 0
-    losses: int = 0
+    wins: int = 0  # frozen wins (learner lost)
+    losses: int = 0  # frozen losses (learner won)
     draws: int = 0
 
     @property
-    def win_rate(self) -> float:
-        if self.games <= 100:
-            return 0.5  # априори считаем «средней сложностью»
+    def cumulative_win_rate(self) -> float:
+        if self.games <= 0:
+            return 0.5
         return self.wins / self.games
+
+    @property
+    def win_rate(self) -> float:
+        """Sampling weight input: recent frozen strength (EMA), not lifetime ratio."""
+        return self.ema_win_rate
 
 
 @dataclass
@@ -40,6 +49,8 @@ class SelfPlayConfig:
     past_self_fraction: float = 0.3
     max_frozen_agents: int = 10
     save_every: int = 1000
+    # EMA update for FrozenAgentInfo.ema_win_rate after each match vs a frozen checkpoint.
+    frozen_ema_beta: float = 0.05
 
     def __post_init__(self) -> None:
         if self.start_episode < 0:
@@ -54,6 +65,8 @@ class SelfPlayConfig:
             raise ValueError("max_frozen_agents must be non-negative")
         if self.save_every <= 0:
             raise ValueError("save_every must be positive")
+        if not 0.0 < self.frozen_ema_beta <= 1.0:
+            raise ValueError("frozen_ema_beta must be in (0, 1]")
 
 
 class SelfPlayOpponent(BaseAgent):
@@ -83,6 +96,33 @@ class SelfPlayOpponent(BaseAgent):
                 if was_training:
                     base.train()
         return base.act(obs, legal_mask=legal_mask, deterministic=use_det)
+
+    def opponent_step(
+        self,
+        env: Any,
+        obs,
+        *,
+        legal_mask: Optional[Any] = None,
+        deterministic: bool = False,
+    ) -> StepResult:
+        """Delegates structured opponents (MiniBG structured PPO) to ``base.opponent_step``."""
+        use_det = deterministic or self._greedy
+        base = self._base_agent
+        if use_det and getattr(base, "use_noisy_nets", False):
+            was_training = base.training
+            base.eval()
+            try:
+                if hasattr(base, "opponent_step"):
+                    return base.opponent_step(env, obs, legal_mask=legal_mask, deterministic=True)
+                opp_action = base.act(obs, legal_mask=legal_mask, deterministic=True)
+                return env.step(opp_action)
+            finally:
+                if was_training:
+                    base.train()
+        if hasattr(base, "opponent_step"):
+            return base.opponent_step(env, obs, legal_mask=legal_mask, deterministic=use_det)
+        opp_action = base.act(obs, legal_mask=legal_mask, deterministic=use_det)
+        return env.step(opp_action)
 
     def save(self, path: str) -> None:  # pragma: no cover - not used
         return None
@@ -220,7 +260,40 @@ class OpponentPool:
         info = FrozenAgentInfo(checkpoint_path=checkpoint_path, episode=episode)
         self.frozen_agents.append(info)
         # больше НЕ режем список по длине — ограничиваем только число loaded_agent
-    
+
+    def apply_episode_result(
+        self,
+        opponent: Optional[BaseAgent],
+        agent_result: Optional[int],
+    ) -> None:
+        """
+        After a full episode: if ``opponent`` was a frozen loaded agent, update
+        cumulative W/L/D and EMA win-rate (one update per match).
+        ``agent_result``: 1 = learner won, -1 = learner lost, 0 = draw.
+        """
+        if opponent is None or agent_result is None:
+            return
+        cfg = self.self_play_config
+        beta = float(cfg.frozen_ema_beta) if cfg is not None else 0.05
+
+        for info in self.frozen_agents:
+            if info.loaded_agent is not opponent:
+                continue
+            info.games += 1
+            if agent_result == 1:
+                info.losses += 1
+                y = 0.0
+            elif agent_result == -1:
+                info.wins += 1
+                y = 1.0
+            elif agent_result == 0:
+                info.draws += 1
+                y = 0.5
+            else:
+                return
+            info.ema_win_rate = (1.0 - beta) * info.ema_win_rate + beta * y
+            return
+
     def _sample_frozen_info(self) -> Optional[FrozenAgentInfo]:
         """Sample a frozen agent with PFSP-like weights (hard: prefer strong opponents)."""
         if not self.frozen_agents:
@@ -348,7 +421,9 @@ class OpponentPool:
                 "wins": info.wins,
                 "losses": info.losses,
                 "draws": info.draws,
-                "win_rate": round(info.win_rate, 4),
+                "ema_win_rate": round(info.ema_win_rate, 4),
+                "cumulative_win_rate": round(info.cumulative_win_rate, 4),
+                "win_rate": round(info.ema_win_rate, 4),
                 "selection_probability": round(p, 4),
             })
         return out

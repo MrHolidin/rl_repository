@@ -8,9 +8,11 @@ import torch.nn as nn
 
 from .author_critic_network import ActorCriticCNN
 from .minibg_slot_ac import MiniBGSlotActorCritic, _OBS_DIM
+from .minibg_structured_ac import MiniBGStructuredActorCritic
 
 PPO_NETWORK_ACTOR_CRITIC_CNN = "actor_critic_cnn"
 PPO_NETWORK_MINIBG_SLOT = "minibg_slot"
+PPO_NETWORK_MINIBG_STRUCTURED = "minibg_structured"
 
 
 def build_ppo_actor_critic(
@@ -46,9 +48,20 @@ def build_ppo_actor_critic(
             trunk_hidden=int(trunk_hidden_size),
             region_conv2_kernel=int(region_conv2_kernel),
         )
+    if nt == PPO_NETWORK_MINIBG_STRUCTURED:
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _OBS_DIM:
+            raise ValueError(
+                f"network_type {PPO_NETWORK_MINIBG_STRUCTURED!r} requires observation_shape [{_OBS_DIM}]"
+            )
+        return MiniBGStructuredActorCritic(
+            slot_hidden=int(slot_hidden_channels),
+            trunk_hidden=int(trunk_hidden_size),
+            region_conv2_kernel=int(region_conv2_kernel),
+        )
     raise ValueError(
         f"Unknown PPO network_type {network_type!r}. "
-        f"Try {PPO_NETWORK_ACTOR_CRITIC_CNN!r}, 'board_cnn', or {PPO_NETWORK_MINIBG_SLOT!r}."
+        f"Try {PPO_NETWORK_ACTOR_CRITIC_CNN!r}, 'board_cnn', {PPO_NETWORK_MINIBG_SLOT!r}, "
+        f"or {PPO_NETWORK_MINIBG_STRUCTURED!r}."
     )
 
 
@@ -78,6 +91,18 @@ def restore_ppo_actor_critic(
             trunk_hidden=int(kw.get("trunk_hidden", 256)),
             region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
         )
+    if ct == PPO_NETWORK_MINIBG_STRUCTURED:
+        return MiniBGStructuredActorCritic(
+            slot_hidden=int(kw.get("slot_hidden", 16)),
+            trunk_hidden=int(kw.get("trunk_hidden", 256)),
+            state_dim=int(kw.get("state_dim", 128)),
+            action_dim=int(kw.get("action_dim", 64)),
+            order_hidden=int(kw.get("order_hidden", 64)),
+            order_pos_dim=int(kw.get("order_pos_dim", 16)),
+            score_hidden=int(kw.get("score_hidden", 128)),
+            order_score_hidden=int(kw.get("order_score_hidden", 64)),
+            region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
+        )
     raise ValueError(f"Unknown canonical PPO network type {canonical_type!r}")
 
 
@@ -85,6 +110,8 @@ def default_ppo_network_kwargs(network_type: str, module: nn.Module) -> Dict[str
     """Serializer kwargs for checkpoint reload (excluding num_actions / obs shape)."""
     if isinstance(module, MiniBGSlotActorCritic):
         return {k: v for k, v in module.get_constructor_kwargs().items() if k != "num_actions"}
+    if isinstance(module, MiniBGStructuredActorCritic):
+        return dict(module.get_constructor_kwargs())
     if isinstance(module, ActorCriticCNN):
         return {
             "rows": int(module.rows),
@@ -101,6 +128,8 @@ def ppo_network_type_for_save(network_type: str) -> str:
         return PPO_NETWORK_ACTOR_CRITIC_CNN
     if nt == PPO_NETWORK_MINIBG_SLOT:
         return PPO_NETWORK_MINIBG_SLOT
+    if nt == PPO_NETWORK_MINIBG_STRUCTURED:
+        return PPO_NETWORK_MINIBG_STRUCTURED
     if nt == PPO_NETWORK_ACTOR_CRITIC_CNN:
         return PPO_NETWORK_ACTOR_CRITIC_CNN
     return nt
@@ -113,4 +142,5 @@ __all__ = [
     "restore_ppo_actor_critic",
     "PPO_NETWORK_ACTOR_CRITIC_CNN",
     "PPO_NETWORK_MINIBG_SLOT",
+    "PPO_NETWORK_MINIBG_STRUCTURED",
 ]
