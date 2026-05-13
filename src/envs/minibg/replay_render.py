@@ -8,8 +8,10 @@ from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Union
 
 from .action_map import (
     A_BUY_BASE,
+    A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
+    A_MAGNET_BASE,
     A_PLACE_BASE,
     A_ROLL,
     A_SELECT_ORDER_BASE,
@@ -18,10 +20,14 @@ from .action_map import (
     PERMUTATIONS_4,
     buy_slot,
     is_buy,
+    is_discover_pick,
     is_finish,
+    is_magnet,
     is_place,
     is_select_order,
     is_sell,
+    magnet_hand_board,
+    discover_pick_slot,
     order_index,
     place_slot,
     sell_pos,
@@ -39,11 +45,12 @@ def format_minion_slot(m: Optional[Dict[str, Any]]) -> str:
     if m is None:
         return "·"
     cid = m.get("card_id", "?")
+    disp = m.get("name") or cid
     atk = m.get("atk", "?")
     hp = m.get("hp", "?")
     extra = _kw_short(list(m.get("kw") or []))
     suf = f" {extra}" if extra else ""
-    return f"[{cid} {atk}/{hp}{suf}]"
+    return f"[{disp} {atk}/{hp}{suf}]"
 
 
 def format_board_line(label: str, board: List[Optional[Dict[str, Any]]]) -> str:
@@ -73,6 +80,11 @@ def decode_env_action(a: int) -> str:
         return f"SELL_BOARD_{sell_pos(a)}"
     if is_place(a):
         return f"PLACE_HAND_{place_slot(a)}"
+    if is_magnet(a):
+        h, b = magnet_hand_board(a)
+        return f"MAGNET_HAND_{h}_BOARD_{b}"
+    if is_discover_pick(a):
+        return f"DISCOVER_PICK_{discover_pick_slot(a)}"
     if is_finish(a):
         return "FINISH"
     if is_select_order(a):

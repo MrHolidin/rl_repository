@@ -1,4 +1,4 @@
-# MiniBG PPO with slot encoder (`minibg_slot` actor-critic). Same obs as DQN (362-dim vector).
+# MiniBG PPO with slot encoder (`minibg_slot` actor-critic). Same obs layout as DQN (flat OBS_DIM).
 seed: 13
 
 game:
@@ -11,7 +11,7 @@ agent:
   id: ppo
   params:
     network_type: minibg_slot
-    observation_shape: [362]
+    observation_shape: [572]
     observation_type: vector
     slot_hidden_channels: 16
     trunk_hidden_size: 256

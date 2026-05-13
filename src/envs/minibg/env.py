@@ -10,8 +10,10 @@ from ..base import StepResult, TurnBasedEnv
 from ..reward_config import RewardConfig
 from .action_map import (
     A_BUY_BASE,
+    A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
+    A_MAGNET_BASE,
     A_PLACE_BASE,
     A_ROLL,
     A_SELECT_ORDER_BASE,
@@ -29,6 +31,7 @@ from .actions import (
     HAND_SIZE,
     SHOP_SIZE,
     Action as GameAction,
+    magnet_game_action,
 )
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
@@ -239,6 +242,12 @@ class MiniBGEnv(TurnBasedEnv):
         legal_game = set(int(a) for a in self._game.legal_actions(self._state))
         out: List[StructAction] = []
 
+        if player.pending_choice is not None:
+            for i in range(3):
+                if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
+                    out.append(StructAction(StructActionType.DISCOVER_PICK, (i,)))
+            return out
+
         if int(GameAction.ROLL) in legal_game:
             out.append(StructAction(StructActionType.ROLL))
         if int(GameAction.LEVEL_UP) in legal_game:
@@ -255,6 +264,12 @@ class MiniBGEnv(TurnBasedEnv):
         for h in range(HAND_SIZE):
             if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
                 out.append(StructAction(StructActionType.PLACE, (h,)))
+
+        for h in range(HAND_SIZE):
+            for b in range(BOARD_SIZE):
+                mg = int(magnet_game_action(h, b))
+                if mg in legal_game:
+                    out.append(StructAction(StructActionType.MAGNET, (h, b)))
 
         if int(GameAction.FINISH) in legal_game:
             out.append(StructAction(StructActionType.COMPLETE_TURN))
@@ -421,6 +436,10 @@ class MiniBGEnv(TurnBasedEnv):
             return int(GameAction.SELL_BOARD_0) + action.args[0]
         if action.type == StructActionType.PLACE:
             return int(GameAction.PLACE_HAND_0) + action.args[0]
+        if action.type == StructActionType.MAGNET:
+            return int(magnet_game_action(action.args[0], action.args[1]))
+        if action.type == StructActionType.DISCOVER_PICK:
+            return int(GameAction.DISCOVER_PICK_0) + action.args[0]
         raise ValueError(f"not a shop-phase structured action: {action}")
 
     @property
@@ -462,6 +481,16 @@ class MiniBGEnv(TurnBasedEnv):
         for h in range(HAND_SIZE):
             if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
                 mask[A_PLACE_BASE + h] = True
+
+        for h in range(HAND_SIZE):
+            for b in range(BOARD_SIZE):
+                mg = int(magnet_game_action(h, b))
+                if mg in legal_game:
+                    mask[A_MAGNET_BASE + h * BOARD_SIZE + b] = True
+
+        for i in range(3):
+            if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
+                mask[A_DISCOVER_BASE + i] = True
 
         if int(GameAction.FINISH) in legal_game:
             mask[A_FINISH] = True

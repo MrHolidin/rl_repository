@@ -16,24 +16,42 @@ def _keyword_names(kw: frozenset[Keyword]) -> List[str]:
 
 
 def _effect_dict(eff: Effect) -> Dict[str, Any]:
-    return asdict(eff)
+    d = asdict(eff)
+    if d.get("tribe") is not None and hasattr(d["tribe"], "name"):
+        d["tribe"] = d["tribe"].name
+    if d.get("keyword") is not None and hasattr(d["keyword"], "name"):
+        d["keyword"] = d["keyword"].name
+    if d.get("race_filter") is not None and hasattr(d["race_filter"], "name"):
+        d["race_filter"] = d["race_filter"].name
+    if d.get("filter_race") is not None and hasattr(d["filter_race"], "name"):
+        d["filter_race"] = d["filter_race"].name
+    return d
 
 
 def _ability_dict(ab: Ability) -> Dict[str, Any]:
+    race = None
+    if ab.filter_race is not None:
+        race = ab.filter_race.name
     return {
         "trigger": ab.trigger.name,
         "effect_type": type(ab.effect).__name__,
         "effect": _effect_dict(ab.effect),
+        **({"filter_race": race} if race is not None else {}),
     }
 
 
 def minion_to_dict(m: Minion) -> Dict[str, Any]:
+    race_name = None if m.race is None else m.race.name
     return {
         "card_id": m.card_id,
+        "name": m.name,
+        "dbf_id": m.dbf_id,
         "atk": m.raw_attack,
         "hp": m.max_health,
         "tier": m.tier,
+        "race": race_name,
         "kw": _keyword_names(m.keywords),
+        "granted_kw": _keyword_names(m.granted_keywords),
         "shield": m.has_shield,
         "token": m.is_token,
         "abilities": [_ability_dict(a) for a in m.abilities],
@@ -41,13 +59,25 @@ def minion_to_dict(m: Minion) -> Dict[str, Any]:
 
 
 def player_to_dict(p: PlayerState) -> Dict[str, Any]:
+    pend = None
+    if p.pending_choice is not None:
+        pc = p.pending_choice
+        pend = {
+            "kind": pc.kind.name,
+            "options": list(pc.options),
+            "extra_after": pc.extra_modals_after,
+        }
     return {
         "hp": p.health,
+        "hero_dmg_taken": p.hero_damage_taken_total,
         "gold": p.gold,
         "tier": p.tavern_tier,
+        "tier_up_cost": p.next_tier_up_cost,
         "phase": p.phase.name,
         "shop_done": p.shopping_finished,
         "shop_acts": p.shop_actions_used,
+        "pending": pend,
+        "placed_idx": p.placed_minion_board_index,
         "board": [minion_to_dict(m) for m in p.board],
         "shop": [
             None if x is None else minion_to_dict(x) for x in p.shop

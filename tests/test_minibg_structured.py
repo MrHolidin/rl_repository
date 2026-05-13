@@ -23,11 +23,14 @@ from src.models.minibg_structured_ac import MiniBGStructuredActorCritic
 def _shop_struct_to_env_int(a: StructAction) -> int:
     from src.envs.minibg.action_map import (
         A_BUY_BASE,
+        A_DISCOVER_BASE,
         A_LEVEL_UP,
+        A_MAGNET_BASE,
         A_PLACE_BASE,
         A_ROLL,
         A_SELL_BASE,
     )
+    from src.envs.minibg.actions import BOARD_SIZE
 
     if a.type == StructActionType.ROLL:
         return int(A_ROLL)
@@ -39,6 +42,10 @@ def _shop_struct_to_env_int(a: StructAction) -> int:
         return int(A_SELL_BASE + a.args[0])
     if a.type == StructActionType.PLACE:
         return int(A_PLACE_BASE + a.args[0])
+    if a.type == StructActionType.MAGNET:
+        return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
+    if a.type == StructActionType.DISCOVER_PICK:
+        return int(A_DISCOVER_BASE + a.args[0])
     raise ValueError(a)
 
 
@@ -204,6 +211,8 @@ def test_structured_actor_critic_grad_flow():
 
 def test_order_logprob_teacher_padding_no_nan():
     """If picks truncate vs occupied (should not enter buffer after invariant); replay stays finite."""
+    from src.envs.minibg.obs import OBS_DIM
+
     m = MiniBGStructuredActorCritic(
         slot_hidden=8,
         trunk_hidden=32,
@@ -212,7 +221,7 @@ def test_order_logprob_teacher_padding_no_nan():
         order_hidden=16,
         order_pos_dim=8,
     )
-    x = torch.randn(1, 362)
+    x = torch.randn(1, OBS_DIM)
     state_emb, cache = m.encode_state(x)
     occ3 = torch.tensor([[True, True, True, False]], dtype=torch.bool)
     picks_short = torch.tensor([[0, 1, -1, -1]], dtype=torch.long)

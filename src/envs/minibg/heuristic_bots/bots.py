@@ -7,6 +7,7 @@ import numpy as np
 
 from ..action_map import (
     A_BUY_BASE,
+    A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
     A_PLACE_BASE,
@@ -78,6 +79,10 @@ class HeuristicBot(ABC):
         """
         mask = _mask(env)
         p = _me(env)
+
+        for i in range(3):
+            if bool(mask[A_DISCOVER_BASE + i]):
+                return A_DISCOVER_BASE + i
 
         if not bool(mask[A_FINISH]):
             key = order_key_token if self.order_style == "token" else order_key_default
@@ -934,6 +939,9 @@ class ApexBot(HeuristicBot):
                     s += 8.0 + rounds_left * 1.5
                 else:
                     s -= 6.0
+            elif ab.trigger == Trigger.ON_TURN_START:
+                rounds_left = max(0, 12 - r)
+                s += 6.0 + rounds_left * 1.0
         if cid == "recruit":
             s -= 0.5
         s += self._early_hp_tempo_bonus(m, p, r)
@@ -1314,6 +1322,7 @@ class LookaheadBot(HeuristicBot):
                     + (4.0 if Keyword.SHIELD in m.keywords else 0.0)
                     + (3.0 if any(ab.trigger == Trigger.ON_DEATH for ab in m.abilities) else 0.0)
                     + (4.0 if any(ab.trigger == Trigger.ON_TURN_END for ab in m.abilities) else 0.0)
+                    + (3.5 if any(ab.trigger == Trigger.ON_TURN_START for ab in m.abilities) else 0.0)
                 )
                 if sc_buy > best_buy_score:
                     best_buy_score = sc_buy

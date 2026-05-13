@@ -7,26 +7,19 @@ from .actions import Action as GameAction
 from .actions import BOARD_SIZE, HAND_SIZE, SHOP_SIZE
 
 
-# Action layout (37 total):
-#   0           ROLL
-#   1           LEVEL_UP
-#   2..4        BUY_SLOT_*       (SHOP_SIZE = 3)
-#   5..8        SELL_BOARD_*     (BOARD_SIZE = 4)
-#   9..11       PLACE_HAND_*     (HAND_SIZE = 3)
-#   12          FINISH           (shop -> order)
-#   13..36      SELECT_ORDER_*   (24 permutations of (0,1,2,3); only the
-#                                 ``k!`` canonical perms are legal in order
-#                                 phase, where ``k = len(board)``. A perm is
-#                                 canonical iff ``perm[j] == j`` for j >= k,
-#                                 so equivalent perms (under
-#                                 compact-after-permute) collapse onto a
-#                                 single legal action).
+# Action layout (52 total):
+#   0..23      ROLL .. MAGNET (last magnet = 23)
+#   24..26     DISCOVER_PICK_0..2  (pending Discover / Adapt)
+#   27         FINISH
+#   28..51     SELECT_ORDER_*
 A_ROLL = 0
 A_LEVEL_UP = 1
 A_BUY_BASE = 2
 A_SELL_BASE = A_BUY_BASE + SHOP_SIZE
 A_PLACE_BASE = A_SELL_BASE + BOARD_SIZE
-A_FINISH = A_PLACE_BASE + HAND_SIZE
+A_MAGNET_BASE = A_PLACE_BASE + HAND_SIZE
+A_DISCOVER_BASE = A_MAGNET_BASE + HAND_SIZE * BOARD_SIZE
+A_FINISH = A_DISCOVER_BASE + 3
 A_SELECT_ORDER_BASE = A_FINISH + 1
 
 NUM_PERMS = 24
@@ -50,6 +43,10 @@ def is_place(env_action: int) -> bool:
     return A_PLACE_BASE <= env_action < A_PLACE_BASE + HAND_SIZE
 
 
+def is_magnet(env_action: int) -> bool:
+    return A_MAGNET_BASE <= env_action < A_MAGNET_BASE + HAND_SIZE * BOARD_SIZE
+
+
 def is_finish(env_action: int) -> bool:
     return env_action == A_FINISH
 
@@ -68,6 +65,19 @@ def sell_pos(env_action: int) -> int:
 
 def place_slot(env_action: int) -> int:
     return env_action - A_PLACE_BASE
+
+
+def magnet_hand_board(env_action: int) -> Tuple[int, int]:
+    off = env_action - A_MAGNET_BASE
+    return off // BOARD_SIZE, off % BOARD_SIZE
+
+
+def is_discover_pick(env_action: int) -> bool:
+    return A_DISCOVER_BASE <= env_action < A_DISCOVER_BASE + 3
+
+
+def discover_pick_slot(env_action: int) -> int:
+    return env_action - A_DISCOVER_BASE
 
 
 def order_index(env_action: int) -> int:
@@ -103,6 +113,11 @@ def env_action_to_game_action(env_action: int) -> int:
         return int(GameAction.SELL_BOARD_0) + sell_pos(env_action)
     if is_place(env_action):
         return int(GameAction.PLACE_HAND_0) + place_slot(env_action)
+    if is_magnet(env_action):
+        h, b = magnet_hand_board(env_action)
+        return int(GameAction.MAGNET_HAND_0_BOARD_0) + h * BOARD_SIZE + b
+    if is_discover_pick(env_action):
+        return int(GameAction.DISCOVER_PICK_0) + discover_pick_slot(env_action)
     raise ValueError(
         f"env_action {env_action} is SELECT_ORDER or out of range"
     )
@@ -115,6 +130,8 @@ __all__ = [
     "A_BUY_BASE",
     "A_SELL_BASE",
     "A_PLACE_BASE",
+    "A_MAGNET_BASE",
+    "A_DISCOVER_BASE",
     "A_FINISH",
     "A_SELECT_ORDER_BASE",
     "NUM_PERMS",
@@ -122,11 +139,15 @@ __all__ = [
     "is_buy",
     "is_sell",
     "is_place",
+    "is_magnet",
+    "is_discover_pick",
     "is_finish",
     "is_select_order",
     "buy_slot",
     "sell_pos",
     "place_slot",
+    "magnet_hand_board",
+    "discover_pick_slot",
     "order_index",
     "legal_order_indices",
     "env_action_to_game_action",

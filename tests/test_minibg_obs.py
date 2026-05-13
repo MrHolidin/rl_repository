@@ -18,8 +18,12 @@ from src.envs.minibg.obs import (
     GLOBAL_DIM,
     HAND_LEN,
     LAST_BATTLE_DIM,
+    NUM_CARD_IDS,
+    NUM_TIER_ONEHOT,
     OBS_DIM,
     PHASE_DIM,
+    PENDING_CHOICE_DIM,
+    RACE_ONEHOT_DIM,
     SLOT_DIM,
     build_observation,
     encode_minion,
@@ -27,6 +31,15 @@ from src.envs.minibg.obs import (
     i_have_round_initiative,
 )
 from src.envs.minibg.state import PlayerPhase
+
+# Derived slot indices (must match ``obs.encode_minion`` layout).
+_C = NUM_CARD_IDS
+_T0 = 1 + _C
+_S0 = _T0 + NUM_TIER_ONEHOT
+_R0 = _S0 + 4
+_K0 = _R0 + RACE_ONEHOT_DIM
+_SH = _K0 + 6
+_TG0 = _SH + 1
 
 
 def test_obs_dim_matches_layout():
@@ -38,9 +51,10 @@ def test_obs_dim_matches_layout():
         + BOARD_SIZE * SLOT_DIM
         + LAST_BATTLE_DIM
         + PHASE_DIM
+        + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 25
+    assert SLOT_DIM == 45
     assert GLOBAL_DIM == 10
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -54,53 +68,61 @@ def test_encode_minion_none_is_zero_vector():
     assert v.dtype == np.float32
 
 
-def test_encode_minion_recruit_layout():
-    m = make_minion("recruit")
+def test_encode_minion_mecharoo_layout():
+    m = make_minion("toy_mech")
+    assert m.card_id == "BOT_445"
     v = encode_minion(m)
     assert v[0] == 1.0
-    assert v[1 + CARD_ID_TO_INDEX["recruit"]] == 1.0
-    # tier 1 → first tier slot
-    assert v[11] == 1.0 and v[12] == 0.0 and v[13] == 0.0
-    assert v[14] == 2.0 / 5.0  # base_attack
-    assert v[15] == 2.0 / 5.0  # base_health
-    assert v[16] == 0.0  # bonus_attack
-    assert v[17] == 0.0  # bonus_health
-    # no taunt / shield / abilities
-    assert v[18] == 0.0
-    assert v[19] == 0.0
-    assert v[20] == 0.0
-    assert v[21:25].sum() == 0.0
+    assert v[1 + CARD_ID_TO_INDEX["BOT_445"]] == 1.0
+    assert v[_T0] == 1.0 and v[_T0 + 1 : _T0 + NUM_TIER_ONEHOT].sum() == 0.0
+    assert v[_S0] == 1.0 / 5.0
+    assert v[_S0 + 1] == 1.0 / 5.0
+    assert v[_S0 + 2] == 0.0
+    assert v[_S0 + 3] == 0.0
+    assert v[_R0 + 3] == 1.0
+    assert v[_K0 : _SH].sum() == 0.0
+    assert v[_SH] == 0.0
+    assert v[_TG0 + 1] == 1.0
+    assert v[_TG0] == 0.0
+    assert v[_TG0 + 2 : _TG0 + 8].sum() == 0.0
 
 
 def test_encode_minion_shield_bot_runtime_shield_armed():
     m = make_minion("shield_bot")
     v = encode_minion(m)
-    assert v[19] == 1.0  # shield keyword
-    assert v[20] == 1.0  # runtime has_shield armed at construction
+    assert v[_K0 + 1] == 1.0
+    assert v[_SH] == 1.0
 
 
 def test_encode_minion_guard_taunt():
     m = make_minion("guard")
     v = encode_minion(m)
-    assert v[18] == 1.0
-    assert v[19] == 0.0
+    assert v[_K0] == 1.0
+    assert v[_K0 + 1] == 0.0
 
 
 def test_encode_minion_ability_flags():
     buf = encode_minion(make_minion("buffer"))
-    assert buf[21] == 1.0  # ON_BUY
-    assert buf[22] == 0.0
-    assert buf[23] == 0.0
-    assert buf[24] == 0.0
+    assert buf[_TG0 + 4] == 1.0
+    assert buf[_TG0] == 0.0
+    assert buf[_TG0 : _TG0 + 4].sum() == 0.0
+    assert buf[_TG0 + 5] == 0.0
+    assert buf[_TG0 + 6] == 0.0
 
     pr = encode_minion(make_minion("pack_rat"))
-    assert pr[22] == 1.0  # ON_DEATH
+    assert pr[_TG0 + 1] == 1.0
 
     cmd = encode_minion(make_minion("commander"))
-    assert cmd[23] == 1.0  # AURA
+    assert cmd[_TG0 + 2] == 1.0
 
     mn = encode_minion(make_minion("mentor"))
-    assert mn[24] == 1.0  # ON_TURN_END
+    assert mn[_TG0 + 3] == 1.0
+
+    ww = encode_minion(make_minion("wrath_weaver"))
+    assert ww[_TG0 + 5] == 1.0
+
+    kg = encode_minion(make_minion("kangors_apprentice"))
+    assert kg[_TG0 + 6] == 1.0
 
 
 def test_encode_minion_bonus_stats():
@@ -108,8 +130,8 @@ def test_encode_minion_bonus_stats():
     m.bonus_attack = 3
     m.bonus_health = 4
     v = encode_minion(m)
-    assert v[16] == 3.0 / 5.0
-    assert v[17] == 4.0 / 5.0
+    assert v[_S0 + 2] == 3.0 / 5.0
+    assert v[_S0 + 3] == 4.0 / 5.0
 
 
 def test_encode_slots_pads_with_zero_rows():
@@ -130,10 +152,10 @@ def test_initiative_helper_self_centric():
     g = MiniBGGame(seed=0)
     s = g.initial_state()
     s.initiative_player = 0
-    s.round_number = 1  # odd
+    s.round_number = 1
     assert i_have_round_initiative(s, 0) == 1.0
     assert i_have_round_initiative(s, 1) == 0.0
-    s.round_number = 2  # even → flips
+    s.round_number = 2
     assert i_have_round_initiative(s, 0) == 0.0
     assert i_have_round_initiative(s, 1) == 1.0
 
@@ -170,7 +192,7 @@ def test_build_observation_globals_match_state():
     assert g_arr[6] == 3 / MAX_TIER
     assert g_arr[7] == (MAX_SHOP_ACTIONS - 4) / MAX_SHOP_ACTIONS
     assert g_arr[8] == 2 / BOARD_SIZE
-    assert g_arr[9] == 1.0  # initiative on odd round
+    assert g_arr[9] == 1.0
 
 
 def test_build_observation_self_centric():
@@ -189,9 +211,9 @@ def test_build_observation_self_centric():
     assert obs1[1] == 7 / STARTING_HEALTH
     assert obs1[2] == 10 / STARTING_HEALTH
 
-    # last_battle is 2nd-to-last; PHASE indicator is last.
-    assert obs0[-2] == np.float32(0.5)
-    assert obs1[-2] == np.float32(-0.3)
+    lb_off = PENDING_CHOICE_DIM + PHASE_DIM + LAST_BATTLE_DIM
+    assert obs0[-lb_off] == np.float32(0.5)
+    assert obs1[-lb_off] == np.float32(-0.3)
 
 
 def test_build_observation_empty_enemy_board_zero_block():
@@ -220,9 +242,10 @@ def test_build_observation_hand_block_and_phase_indicator():
     )
     assert hand_block[0, 0] == 0.0 and hand_block[1, 0] == 1.0 and hand_block[2, 0] == 0.0
 
-    assert obs[-1] == 0.0  # SHOP phase
+    phase_off = PENDING_CHOICE_DIM + PHASE_DIM
+    assert obs[-phase_off] == 0.0
     s.players[0].phase = PlayerPhase.ORDER
-    assert build_observation(s, 0, 0.0, [])[-1] == 1.0
+    assert build_observation(s, 0, 0.0, [])[-phase_off] == 1.0
 
 
 def test_build_observation_own_board_block_layout():

@@ -17,7 +17,6 @@ from ..actions import (
     BOARD_SIZE,
     BUY_COST,
     HAND_SIZE,
-    LEVEL_UP_COSTS,
     MAX_TIER,
     SHOP_SIZE,
 )
@@ -81,6 +80,8 @@ def keyword_effect_bonus(m: Minion) -> int:
             b += 1
         elif ab.trigger == Trigger.ON_TURN_END:
             b += 2
+        elif ab.trigger == Trigger.ON_TURN_START:
+            b += 2
     return b
 
 
@@ -121,8 +122,7 @@ def can_afford_buy(p: PlayerState) -> bool:
 def can_afford_level(p: PlayerState) -> bool:
     if p.tavern_tier >= MAX_TIER:
         return False
-    cost = LEVEL_UP_COSTS[p.tavern_tier]
-    return p.gold >= cost
+    return p.gold >= p.next_tier_up_cost
 
 
 def board_full(p: PlayerState) -> bool:

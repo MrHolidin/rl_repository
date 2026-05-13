@@ -106,7 +106,7 @@ if "dqn" not in list_agents():
             if obs_shape is None or len(obs_shape) != 1:
                 raise ValueError(
                     "network_type 'minibg_mlp' requires agent.params.observation_shape: [D] "
-                    "(flat vector, currently [362] for MiniBG; see src/envs/minibg/obs.py:OBS_DIM)."
+                    "(flat MiniBG vector; size is src.envs.minibg.obs.OBS_DIM)."
                 )
             dueling = kwargs.pop("dueling", None)
             if dueling is None:
@@ -231,7 +231,7 @@ if "ppo" not in list_agents():
         if is_minibg_structured:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    "PPO network_type minibg_structured requires observation_shape (e.g. [362]) "
+                    "PPO network_type minibg_structured requires observation_shape (OBS_DIM,) "
                     "and num_actions from the environment config."
                 )
             slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))
@@ -265,7 +265,7 @@ if "ppo" not in list_agents():
         if is_minibg:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    "PPO network_type minibg_slot requires observation_shape (e.g. [362]) "
+                    "PPO network_type minibg_slot requires observation_shape (OBS_DIM,) "
                     "and num_actions from the environment config."
                 )
             slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))

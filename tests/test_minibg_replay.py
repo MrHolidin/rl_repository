@@ -15,7 +15,7 @@ def test_eval_checkpoints_vs_opponents_replay_dir(tmp_path: Path):
     ck = tmp_path / "dqn_1000.pt"
     ck.write_bytes(b"")
     rdir = tmp_path / "replays"
-    with patch("src.evaluation.eval_checkpoints.load_dqn_checkpoint") as ld:
+    with patch("src.evaluation.eval_checkpoints.load_training_agent_checkpoint") as ld:
 
         def _load(path, *, device=None, seed=42):
             return RandomAgent(seed=seed)

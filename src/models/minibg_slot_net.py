@@ -12,25 +12,20 @@ from .base_dqn_network import BaseDQNNetwork
 from .dueling_utils import dueling_aggregate
 from .noisy_layers import NoisyLinear
 
-# Must match src/envs/minibg/obs.py layout (flat concat order).
-_GLOBAL_DIM = 10
-_SLOT_DIM = 25
-_OWN_LEN = 4
-_SHOP_LEN = 3
-_HAND_LEN = 3
-_ENEMY_LEN = 4
-_LAST_BATTLE_DIM = 1
-_PHASE_DIM = 1
-_OBS_DIM = (
-    _GLOBAL_DIM
-    + _OWN_LEN * _SLOT_DIM
-    + _SHOP_LEN * _SLOT_DIM
-    + _HAND_LEN * _SLOT_DIM
-    + _ENEMY_LEN * _SLOT_DIM
-    + _LAST_BATTLE_DIM
-    + _PHASE_DIM
+from src.envs.minibg.actions import BOARD_SIZE, SHOP_SIZE
+from src.envs.minibg.obs import (
+    GLOBAL_DIM as _GLOBAL_DIM,
+    HAND_LEN as _HAND_LEN,
+    LAST_BATTLE_DIM as _LAST_BATTLE_DIM,
+    OBS_DIM as _OBS_DIM,
+    PHASE_DIM as _PHASE_DIM,
+    SLOT_DIM as _SLOT_DIM,
 )
 
+_OWN_LEN = BOARD_SIZE
+_SHOP_LEN = SHOP_SIZE
+_HAND_LEN = _HAND_LEN
+_ENEMY_LEN = BOARD_SIZE
 
 _TOTAL_SLOTS = _OWN_LEN + _SHOP_LEN + _HAND_LEN + _ENEMY_LEN
 

@@ -87,13 +87,13 @@ def test_buy_to_hand_then_place_to_board():
     _set_shop(env, 0, "recruit", "recruit", "recruit")
     env.step(A_BUY_BASE)
     p = env._state.players[0]
-    assert p.hand[0] is not None and p.hand[0].card_id == "recruit"
+    assert p.hand[0] is not None and p.hand[0].card_id == "EX1_162"
     assert p.board == []
     assert env._state.current_player_index == 0  # BUY does not pass turn
     env.step(A_PLACE_BASE)
     p = env._state.players[0]  # apply_action returned a copied state
     assert p.hand[0] is None
-    assert [m.card_id for m in p.board] == ["recruit"]
+    assert [m.card_id for m in p.board] == ["EX1_162"]
 
 
 def test_non_canonical_select_order_is_illegal_for_partial_board():
@@ -110,7 +110,7 @@ def test_non_canonical_select_order_is_illegal_for_partial_board():
     res = env.step(A_SELECT_ORDER_BASE)
     assert res.info["invalid_action"] is False
     assert env._state.players[0].phase == PlayerPhase.DONE
-    assert [m.card_id for m in env._state.players[0].board] == ["recruit"]
+    assert [m.card_id for m in env._state.players[0].board] == ["EX1_162"]
 
 
 def test_action_budget_exhaustion_auto_flips_phase():

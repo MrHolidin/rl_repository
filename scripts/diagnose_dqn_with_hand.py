@@ -30,8 +30,10 @@ from src.envs.minibg.heuristic_bots.bots import (
 )
 from src.envs.minibg.action_map import (
     A_BUY_BASE,
+    A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
+    A_MAGNET_BASE,
     A_PLACE_BASE,
     A_ROLL,
     A_SELECT_ORDER_BASE,
@@ -55,6 +57,10 @@ def action_kind(a: int) -> str:
         return "SELL"
     if A_PLACE_BASE <= a < A_PLACE_BASE + 3:
         return "PLACE"
+    if A_MAGNET_BASE <= a < A_MAGNET_BASE + 12:
+        return "MAGNET"
+    if A_DISCOVER_BASE <= a < A_DISCOVER_BASE + 3:
+        return "DISCOVER"
     if a == A_FINISH:
         return "FINISH"
     if a >= A_SELECT_ORDER_BASE:

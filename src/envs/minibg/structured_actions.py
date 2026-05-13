@@ -16,6 +16,8 @@ class StructActionType(IntEnum):
     SELL = 3
     PLACE = 4
     COMPLETE_TURN = 5
+    MAGNET = 6
+    DISCOVER_PICK = 7
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,20 @@ def validate_struct_action(a: StructAction) -> None:
         h = a.args[0]
         if h < 0 or h >= HAND_SIZE:
             raise ValueError(f"PLACE hand_slot out of range [0,{HAND_SIZE}): {h}")
+    elif t == StructActionType.MAGNET:
+        if len(a.args) != 2:
+            raise ValueError(f"MAGNET expects args (hand_slot, board_pos), got {a.args}")
+        h, b = a.args[0], a.args[1]
+        if h < 0 or h >= HAND_SIZE:
+            raise ValueError(f"MAGNET hand_slot out of range [0,{HAND_SIZE}): {h}")
+        if b < 0 or b >= BOARD_SIZE:
+            raise ValueError(f"MAGNET board_pos out of range [0,{BOARD_SIZE}): {b}")
+    elif t == StructActionType.DISCOVER_PICK:
+        if len(a.args) != 1:
+            raise ValueError(f"DISCOVER_PICK expects args (pick_0_2,), got {a.args}")
+        s = a.args[0]
+        if s < 0 or s > 2:
+            raise ValueError(f"DISCOVER_PICK slot out of range [0,2]: {s}")
     elif t == StructActionType.COMPLETE_TURN:
         if a.args != ():
             raise ValueError(f"COMPLETE_TURN expects args (); pass board_perm to env.step_structured")
@@ -92,8 +108,10 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
     """Approximate mapping for JSONL replay ``a`` field (legacy decoders)."""
     from .action_map import (
         A_BUY_BASE,
+        A_DISCOVER_BASE,
         A_FINISH,
         A_LEVEL_UP,
+        A_MAGNET_BASE,
         A_PLACE_BASE,
         A_ROLL,
         A_SELL_BASE,
@@ -109,6 +127,10 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         return int(A_SELL_BASE + a.args[0])
     if a.type == StructActionType.PLACE:
         return int(A_PLACE_BASE + a.args[0])
+    if a.type == StructActionType.MAGNET:
+        return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
+    if a.type == StructActionType.DISCOVER_PICK:
+        return int(A_DISCOVER_BASE + a.args[0])
     if a.type == StructActionType.COMPLETE_TURN:
         return int(A_FINISH)
     raise ValueError(a)

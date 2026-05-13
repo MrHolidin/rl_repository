@@ -1,5 +1,5 @@
 # MiniBG PPO with structured legal actions + order head (`minibg_structured` actor-critic).
-# Trainer вызывает legal_structured_actions / step_structured; obs тот же вектор 362.
+# Trainer вызывает legal_structured_actions / step_structured; obs — плоский вектор OBS_DIM (см. obs.py).
 seed: 13
 
 game:
@@ -12,7 +12,7 @@ agent:
   id: ppo
   params:
     network_type: minibg_structured
-    observation_shape: [362]
+    observation_shape: [572]
     observation_type: vector
     # slot torso (как у minibg_slot)
     slot_hidden_channels: 16
