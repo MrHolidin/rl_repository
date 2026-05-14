@@ -16,10 +16,10 @@ from .actions import (
     LEVEL_UP_DISCOUNT_PER_ROUND,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
+    MAX_SHOP_SLOTS,
     MAX_TIER,
     ROLL_COST,
     SELL_REWARD,
-    SHOP_SIZE,
     STARTING_HEALTH,
     STARTING_TIER,
     Action,
@@ -28,6 +28,7 @@ from .actions import (
     is_discover_pick_game_action,
     is_magnet_game_action,
     magnet_hand_board_from_game_action,
+    shop_offers_count,
 )
 from .battle import simulate_battle
 from .cards import make_minion, shop_pool_for_tier
@@ -78,6 +79,7 @@ from .state import (
     PlayerPhase,
     PlayerState,
     Race,
+    ROTATION_SHOP_TRIBES,
 )
 
 
@@ -85,14 +87,31 @@ PLAYER_TOKENS = (1, -1)
 
 
 class MiniBGGame(TurnBasedGame[MiniBGState]):
-    def __init__(self, seed: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        seed: Optional[int] = None,
+        *,
+        shop_excluded_race: Optional[Race] = None,
+        shop_full_tribes: bool = False,
+    ) -> None:
         self._rng = np.random.default_rng(seed)
+        self._shop_full_tribes = shop_full_tribes
+        self._shop_excluded_race_fixed = shop_excluded_race
+
+    def _pick_shop_excluded_race(self) -> Optional[Race]:
+        if self._shop_excluded_race_fixed is not None:
+            return self._shop_excluded_race_fixed
+        if self._shop_full_tribes:
+            return None
+        i = int(self._rng.integers(0, len(ROTATION_SHOP_TRIBES)))
+        return ROTATION_SHOP_TRIBES[i]
 
     def initial_state(self) -> MiniBGState:
         initiative_player = int(self._rng.integers(0, 2))
+        shop_excluded = self._pick_shop_excluded_race()
         players = (
-            self._fresh_player(round_number=1),
-            self._fresh_player(round_number=1),
+            self._fresh_player(round_number=1, shop_excluded_race=shop_excluded),
+            self._fresh_player(round_number=1, shop_excluded_race=shop_excluded),
         )
         return MiniBGState(
             players=players,
@@ -101,6 +120,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             initiative_player=initiative_player,
             winner=None,
             done=False,
+            shop_excluded_race=shop_excluded,
         )
 
     def current_player(self, state: MiniBGState) -> int:
@@ -143,7 +163,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
 
         if can_act:
             if not hand_full:
-                for slot in range(SHOP_SIZE):
+                n_offers = shop_offers_count(player.tavern_tier)
+                for slot in range(min(n_offers, len(player.shop))):
                     if (
                         player.shop[slot] is not None
                         and player.gold >= BUY_COST
@@ -226,25 +247,33 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 raise ValueError(
                     f"Expected DISCOVER_PICK_* while pending_choice, got {action_int}"
                 )
-            self._resolve_discover_pick(player, discover_pick_index(action_int))
+            self._resolve_discover_pick(
+                player,
+                discover_pick_index(action_int),
+                new_state.shop_excluded_race,
+            )
             consumes_budget = (
                 player.pending_choice is None
                 and player.placed_minion_board_index is None
             )
-        elif Action.BUY_SLOT_0 <= action_int <= Action.BUY_SLOT_2:
+        elif int(Action.BUY_SLOT_0) <= action_int < int(Action.BUY_SLOT_0) + MAX_SHOP_SLOTS:
             self._do_buy(player, action_int - int(Action.BUY_SLOT_0))
             consumes_budget = True
-        elif Action.SELL_BOARD_0 <= action_int <= Action.SELL_BOARD_3:
+        elif int(Action.SELL_BOARD_0) <= action_int < int(Action.SELL_BOARD_0) + BOARD_SIZE:
             self._do_sell(player, action_int - int(Action.SELL_BOARD_0))
             consumes_budget = True
         elif action_int == int(Action.ROLL):
-            self._do_roll(player)
+            self._do_roll(player, new_state.shop_excluded_race)
             consumes_budget = True
         elif action_int == int(Action.LEVEL_UP):
-            self._do_level_up(player)
+            self._do_level_up(player, new_state.shop_excluded_race)
             consumes_budget = True
-        elif Action.PLACE_HAND_0 <= action_int <= Action.PLACE_HAND_2:
-            self._do_place(player, action_int - int(Action.PLACE_HAND_0))
+        elif int(Action.PLACE_HAND_0) <= action_int < int(Action.PLACE_HAND_0) + HAND_SIZE:
+            self._do_place(
+                player,
+                action_int - int(Action.PLACE_HAND_0),
+                new_state.shop_excluded_race,
+            )
             consumes_budget = (
                 player.pending_choice is None
                 and player.placed_minion_board_index is None
@@ -260,7 +289,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             player.shop_actions_used += 1
             if player.shop_actions_used >= MAX_SHOP_ACTIONS:
                 # Budget exhausted -> auto-flip to order phase. Player still
-                # owes a SELECT_ORDER on their next turn.
+                # owes order-phase moves (swap / finish) on their next turn.
                 self._enter_order_phase(player)
 
         return new_state
@@ -288,6 +317,26 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         # For k = BOARD_SIZE this is a normal reorder; for k < BOARD_SIZE
         # all 24 perms collapse into k! distinct outcomes.
         player.board = [player.board[p] for p in perm if p < k]
+        return new_state
+
+    def swap_board_adjacent(
+        self,
+        state: MiniBGState,
+        player_idx: int,
+        i: int,
+    ) -> MiniBGState:
+        if state.done:
+            raise ValueError("Cannot swap board in terminal state")
+        new_state = self._copy_state(state)
+        player = new_state.players[player_idx]
+        if player.phase != PlayerPhase.ORDER:
+            raise ValueError("swap_board_adjacent only valid in ORDER phase")
+        b = player.board
+        if not (0 <= i < len(b) - 1):
+            raise ValueError(
+                f"swap index {i} invalid for board length {len(b)}"
+            )
+        b[i], b[i + 1] = b[i + 1], b[i]
         return new_state
 
     # ------------------------------------------------------------------
@@ -329,7 +378,12 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player.hand[h] = minion
         self._fire_on_buy(minion, player)
 
-    def _do_place(self, player: PlayerState, hand_slot: int) -> None:
+    def _do_place(
+        self,
+        player: PlayerState,
+        hand_slot: int,
+        shop_excluded_race: Optional[Race],
+    ) -> None:
         minion = player.hand[hand_slot]
         assert minion is not None
         assert len(player.board) < BOARD_SIZE
@@ -337,14 +391,19 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player.board.append(minion)
         self._fire_shop_friendly_summoned(player, minion)
         player.placed_minion_board_index = len(player.board) - 1
-        self._fire_on_place(minion, player)
+        self._fire_on_place(minion, player, shop_excluded_race)
         if player.pending_choice is None:
             idx = player.placed_minion_board_index
             assert idx is not None
             self._fire_after_friendly_minion_placed(player, player.board[idx])
             player.placed_minion_board_index = None
 
-    def _resolve_discover_pick(self, player: PlayerState, pick_slot: int) -> None:
+    def _resolve_discover_pick(
+        self,
+        player: PlayerState,
+        pick_slot: int,
+        shop_excluded_race: Optional[Race],
+    ) -> None:
         pc = player.pending_choice
         assert pc is not None
         assert 0 <= pick_slot <= 2
@@ -360,7 +419,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                     apply_adapt_key_to_minion(m, choice_token)
         if extra > 0:
             player.pending_choice = self._roll_pending_modal(
-                player, pc.kind, extra - 1
+                player, pc.kind, extra - 1, shop_excluded_race
             )
         else:
             player.pending_choice = None
@@ -374,9 +433,12 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player: PlayerState,
         kind: PendingChoiceKind,
         remaining_after: int,
+        shop_excluded_race: Optional[Race],
     ) -> PendingChoice:
         if kind == PendingChoiceKind.DISCOVER_MURLOC:
-            opts = roll_discover_murloc_triple(self._rng, player.tavern_tier)
+            opts = roll_discover_murloc_triple(
+                self._rng, player.tavern_tier, shop_excluded_race
+            )
         else:
             opts = roll_adapt_triple(self._rng)
         return PendingChoice(kind, opts, remaining_after)
@@ -605,7 +667,12 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                     p *= ab.effect.factor
         return p
 
-    def _fire_on_place(self, placed: Minion, player: PlayerState) -> None:
+    def _fire_on_place(
+        self,
+        placed: Minion,
+        player: PlayerState,
+        shop_excluded_race: Optional[Race],
+    ) -> None:
         mult = self._battlecry_multiplier(player.board)
         for ab in placed.abilities:
             if ab.trigger != Trigger.ON_PLACE:
@@ -613,7 +680,9 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             e = ab.effect
             if isinstance(e, DiscoverMurlocEffect):
                 total = mult * e.repeats
-                opts = roll_discover_murloc_triple(self._rng, player.tavern_tier)
+                opts = roll_discover_murloc_triple(
+                    self._rng, player.tavern_tier, shop_excluded_race
+                )
                 player.pending_choice = PendingChoice(
                     PendingChoiceKind.DISCOVER_MURLOC, opts, total - 1
                 )
@@ -660,16 +729,29 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         del player.board[pos]
         player.gold += SELL_REWARD
 
-    def _do_roll(self, player: PlayerState) -> None:
+    def _do_roll(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
         player.gold -= ROLL_COST
-        self._refresh_shop(player)
+        self._refresh_shop(player, shop_excluded_race)
 
-    def _do_level_up(self, player: PlayerState) -> None:
+    def _do_level_up(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
         cost = player.next_tier_up_cost
         player.gold -= cost
+        old_tier = player.tavern_tier
         player.tavern_tier += 1
         if player.tavern_tier < MAX_TIER:
             player.next_tier_up_cost = LEVEL_UP_COSTS[player.tavern_tier]
+        old_n = shop_offers_count(old_tier)
+        new_n = shop_offers_count(player.tavern_tier)
+        pool = self._tavern_card_pool(player.tavern_tier, shop_excluded_race)
+        while len(player.shop) < MAX_SHOP_SLOTS:
+            player.shop.append(None)
+        for i in range(old_n, new_n):
+            card_id = pool[int(self._rng.integers(0, len(pool)))]
+            player.shop[i] = make_minion(card_id)
 
     # ------------------------------------------------------------------
     # Effects
@@ -750,32 +832,43 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 elif isinstance(e, BuffSelf):
                     self._apply_shop_effect(player, source, e, None)
 
-    def _refresh_shop(self, player: PlayerState) -> None:
-        pool = shop_pool_for_tier(player.tavern_tier)
-        new_shop: List[Optional[Minion]] = []
-        for _ in range(SHOP_SIZE):
+    @staticmethod
+    def _tavern_card_pool(
+        tavern_tier: int,
+        shop_excluded_race: Optional[Race],
+    ) -> List[str]:
+        pool = shop_pool_for_tier(
+            tavern_tier, shop_excluded_race=shop_excluded_race
+        )
+        if not pool:
+            pool = shop_pool_for_tier(tavern_tier, shop_excluded_race=None)
+        return pool
+
+    def _refresh_shop(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
+        n = shop_offers_count(player.tavern_tier)
+        pool = self._tavern_card_pool(player.tavern_tier, shop_excluded_race)
+        new_shop: List[Optional[Minion]] = [None] * MAX_SHOP_SLOTS
+        for i in range(n):
             card_id = pool[int(self._rng.integers(0, len(pool)))]
-            new_shop.append(make_minion(card_id))
+            new_shop[i] = make_minion(card_id)
         player.shop = new_shop
 
     # ------------------------------------------------------------------
     # Round resolution
-    # ------------------------------------------------------------------
 
     def _resolve_battle_and_advance(self, state: MiniBGState) -> None:
         p0_has_initiative = (state.round_number % 2 == 1) == (state.initiative_player == 0)
-        p0_new_board: List[Minion] = []
-        p1_new_board: List[Minion] = []
         dmg_p0, dmg_p1 = simulate_battle(
             state.players[0].board,
             state.players[1].board,
             p0_has_initiative=p0_has_initiative,
             rng=self._rng,
-            p0_board_out=p0_new_board,
-            p1_board_out=p1_new_board,
+            p0_tavern_tier=state.players[0].tavern_tier,
+            p1_tavern_tier=state.players[1].tavern_tier,
         )
-        state.players[0].board = p0_new_board
-        state.players[1].board = p1_new_board
+        # Retail BG: combat only determines hero damage; recruitment boards are unchanged.
         state.players[0].health -= dmg_p0
         state.players[1].health -= dmg_p1
 
@@ -810,10 +903,12 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             p.placed_minion_board_index = None
             # Start-of-recruitment: board (L→R) then hand; then free shop reroll.
             self._fire_on_turn_start(p)
-            self._refresh_shop(p)
+            self._refresh_shop(p, state.shop_excluded_race)
         state.current_player_index = 0
 
-    def _fresh_player(self, round_number: int) -> PlayerState:
+    def _fresh_player(
+        self, round_number: int, shop_excluded_race: Optional[Race]
+    ) -> PlayerState:
         player = PlayerState(
             health=STARTING_HEALTH,
             hero_damage_taken_total=0,
@@ -821,14 +916,14 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             tavern_tier=STARTING_TIER,
             next_tier_up_cost=LEVEL_UP_COSTS[STARTING_TIER],
             board=[],
-            shop=[None for _ in range(SHOP_SIZE)],
+            shop=[None for _ in range(MAX_SHOP_SLOTS)],
             hand=[None for _ in range(HAND_SIZE)],
             phase=PlayerPhase.SHOP,
             shop_actions_used=0,
             pending_choice=None,
             placed_minion_board_index=None,
         )
-        self._refresh_shop(player)
+        self._refresh_shop(player, shop_excluded_race)
         return player
 
     @staticmethod
@@ -844,6 +939,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             initiative_player=state.initiative_player,
             winner=state.winner,
             done=state.done,
+            shop_excluded_race=state.shop_excluded_race,
         )
 
     @staticmethod

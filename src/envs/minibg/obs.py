@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -8,46 +8,60 @@ from .actions import (
     BOARD_SIZE,
     GOLD_AT_CAP,
     HAND_SIZE,
+    LEVEL_UP_COST_MAX,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
+    MAX_SHOP_SLOTS,
     MAX_TIER,
-    SHOP_SIZE,
     STARTING_HEALTH,
     gold_for_round,
 )
 from .cards import CARD_TEMPLATES
 from .discover_pool import ADAPT_KEYS_ALL
-from .effects import Keyword, Trigger
+from .effects import (
+    AdaptAllMurlocsEffect,
+    AdjacentStatAura,
+    AttackBonusPerOtherMurlocGlobal,
+    BattlecryMultiplierAura,
+    BuffSummonedIfRace,
+    CleaveOnAttack,
+    DeathrattleMultiplierAura,
+    DiscoverMurlocEffect,
+    HeroImmuneAura,
+    Keyword,
+    KeywordStatAura,
+    PogoHopperBattlecry,
+    SummonMultiplierAura,
+    TribalOtherStatAura,
+    Trigger,
+    ZappTargeting,
+)
 from .state import (
+    CNT_ACTIVE_SHOP_TRIBES,
     MiniBGState,
     Minion,
     PendingChoiceKind,
     PlayerPhase,
     PlayerState,
     Race,
+    ROTATION_SHOP_TRIBES,
 )
 
 
-CARD_IDS_FOR_ENCODING: tuple[str, ...] = (
-    "BOT_445",
-    "CS2_065",
-    "UNG_073",
-    "EX1_507",
-    "GVG_058",
-    "CFM_316",
-    "GVG_062",
-    "GVG_027",
-    "EX1_185",
-    "BGS_004",
-)
-NUM_CARD_IDS = len(CARD_IDS_FOR_ENCODING)
-CARD_ID_TO_INDEX = {cid: i for i, cid in enumerate(CARD_IDS_FOR_ENCODING)}
+def _build_card_index() -> Tuple[Tuple[str, ...], Dict[str, int]]:
+    """Dense per-template index (1-based, 0 reserved for empty/unknown). Deterministic by id."""
+    ids = tuple(sorted(CARD_TEMPLATES.keys()))
+    table = {cid: i + 1 for i, cid in enumerate(ids)}
+    return ids, table
 
-# Max tavern tier in patch catalog (BG); may exceed in-game MAX_TIER cap.
+
+CARD_INDEX_IDS, CARD_ID_TO_DENSE = _build_card_index()
+NUM_POOL_INDICES = len(CARD_INDEX_IDS)
+CARD_INDEX_EMPTY = 0
+
 NUM_TIER_ONEHOT = 6
 
-# Race one-hot: none, beast, demon, mech, murloc, all-tribes
-_RACE_ORDER: tuple[Optional[Race], ...] = (
+_RACE_ORDER: Tuple[Optional[Race], ...] = (
     None,
     Race.BEAST,
     Race.DEMON,
@@ -57,39 +71,86 @@ _RACE_ORDER: tuple[Optional[Race], ...] = (
 )
 RACE_ONEHOT_DIM = len(_RACE_ORDER)
 
-# slot vector layout
-#   [0]                         presence
-#   [1 .. 1+NUM_CARD_IDS)       card_id one-hot (patch HS ids)
-#   [1+C..1+C+NUM_TIER)         tavern tier one-hot (6 dims, tiers 1..6)
-#   stats                       base/bonus atk hp (4 dims)
-#   race                        one-hot (6)
-#   keywords                    TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC (6)
-#   runtime has_shield          (1)
-#   triggers  ON_BUY..ON_TURN_START (8) + ON_FRIENDLY_SUMMON, ON_SELF_DAMAGED, ON_FRIENDLY_DIED (3)
-_NUM_TRIG = 11
-_C = NUM_CARD_IDS
-_T0 = 1 + _C
-_T1 = _T0 + NUM_TIER_ONEHOT
-_S0 = _T1
-_S1 = _S0 + 4
-_R0 = _S1
-_R1 = _R0 + RACE_ONEHOT_DIM
-_K0 = _R1
-_K1 = _K0 + 6
-_SH = _K1
-_TG0 = _SH + 1
+NUM_KEYWORD_CHANNELS = 6  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC
+NUM_TRIGGER_CHANNELS = 12  # see TRIGGER_INDEX below
+NUM_EFFECT_CHANNELS = 14  # see EFFECT_INDEX below
 
-SLOT_DIM = _TG0 + _NUM_TRIG
+# Slot layout offsets (single source of truth — tests / nets pull these in directly).
+PRESENCE_OFFSET = 0
+CARD_IDX_OFFSET = 1
+TIER_OFFSET = CARD_IDX_OFFSET + 1
+STATS_OFFSET = TIER_OFFSET + NUM_TIER_ONEHOT
+RACE_OFFSET = STATS_OFFSET + 4
+KEYWORD_OFFSET = RACE_OFFSET + RACE_ONEHOT_DIM
+SHIELD_OFFSET = KEYWORD_OFFSET + NUM_KEYWORD_CHANNELS
+TRIGGER_OFFSET = SHIELD_OFFSET + 1
+EFFECT_OFFSET = TRIGGER_OFFSET + NUM_TRIGGER_CHANNELS
+SLOT_DIM = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
 
-GLOBAL_DIM = 10
-PENDING_CHOICE_DIM = 10
+# Trigger channel mapping (preserve historical positions 0..6, 8..10; fill 7=ON_TURN_START, add ON_OVERKILL).
+TRIGGER_INDEX: Dict[Trigger, int] = {
+    Trigger.ON_BUY: 0,
+    Trigger.ON_DEATH: 1,
+    Trigger.AURA: 2,
+    Trigger.ON_TURN_END: 3,
+    Trigger.ON_PLACE: 4,
+    Trigger.AFTER_FRIENDLY_MINION_PLACED: 5,
+    Trigger.ON_FRIENDLY_MECH_DIED: 6,
+    Trigger.ON_TURN_START: 7,
+    Trigger.ON_FRIENDLY_MINION_SUMMONED: 8,
+    Trigger.ON_SELF_DAMAGED: 9,
+    Trigger.ON_FRIENDLY_MINION_DIED: 10,
+    Trigger.ON_OVERKILL: 11,
+}
+assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS
+
+# Effect markers — high-impact aura/multiplier/listener types the network should distinguish
+# beyond the trigger fan-out (Brann/Khadgar/Baron etc. all share AURA trigger but differ wildly).
+_EFFECT_CLASSES: Tuple[type, ...] = (
+    BattlecryMultiplierAura,
+    DeathrattleMultiplierAura,
+    SummonMultiplierAura,
+    HeroImmuneAura,
+    CleaveOnAttack,
+    ZappTargeting,
+    AdjacentStatAura,
+    TribalOtherStatAura,
+    KeywordStatAura,
+    AttackBonusPerOtherMurlocGlobal,
+    BuffSummonedIfRace,
+    PogoHopperBattlecry,
+    DiscoverMurlocEffect,
+    AdaptAllMurlocsEffect,
+)
+assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS
+EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
+
+GLOBAL_CORE_DIM = 11
+SHOP_ROTATION_OBS_DIM = 5
+GLOBAL_DIM = GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM
+
+# Pending-choice layout (single block at obs tail):
+#   [0]   has_pending
+#   [1]   is_adapt (vs discover_murloc)
+#   [2]   extra_modals_after / 5
+#   [3..6) adapt option payload (key_idx/9 for adapt; 0 for discover)
+#   [6..9) discover option card_idx (dense pool index; 0 for adapt / no choice)
+# The 3 discover indices share the slot card embedding via the network's `self.card_emb`.
+PENDING_HEADER_DIM = 3
+PENDING_OPTIONS_DIM = 3
+PENDING_DISCOVER_IDX_DIM = 3
+PENDING_CHOICE_DIM = PENDING_HEADER_DIM + PENDING_OPTIONS_DIM + PENDING_DISCOVER_IDX_DIM
+PENDING_HEADER_OFFSET = 0
+PENDING_OPTIONS_OFFSET = PENDING_HEADER_OFFSET + PENDING_HEADER_DIM
+PENDING_DISCOVER_IDX_OFFSET = PENDING_OPTIONS_OFFSET + PENDING_OPTIONS_DIM
+
 LAST_BATTLE_DIM = 1
 HAND_LEN = HAND_SIZE
 PHASE_DIM = 1
 OBS_DIM = (
     GLOBAL_DIM
     + BOARD_SIZE * SLOT_DIM
-    + SHOP_SIZE * SLOT_DIM
+    + MAX_SHOP_SLOTS * SLOT_DIM
     + HAND_LEN * SLOT_DIM
     + BOARD_SIZE * SLOT_DIM
     + LAST_BATTLE_DIM
@@ -98,6 +159,22 @@ OBS_DIM = (
 )
 
 _STAT_NORM = 5.0
+
+
+def _encode_shop_rotation_globals(
+    shop_excluded_race: Optional[Race],
+) -> np.ndarray:
+    """4 slots: excluded tribe among ``ROTATION_SHOP_TRIBES``; slot 4 = active/4 (.75 or 1)."""
+    v = np.zeros(SHOP_ROTATION_OBS_DIM, dtype=np.float32)
+    if shop_excluded_race is None:
+        v[4] = 1.0
+        return v
+    for i, r in enumerate(ROTATION_SHOP_TRIBES):
+        if r == shop_excluded_race:
+            v[i] = 1.0
+            break
+    v[4] = float(CNT_ACTIVE_SHOP_TRIBES) / float(len(ROTATION_SHOP_TRIBES))
+    return v
 
 
 def _encode_race(m: Minion) -> np.ndarray:
@@ -119,17 +196,19 @@ def encode_pending_choice(me: PlayerState) -> np.ndarray:
     pc = me.pending_choice
     if pc is None:
         return v
-    v[0] = 1.0
-    v[1] = 1.0 if pc.kind == PendingChoiceKind.ADAPT else 0.0
-    v[2] = min(1.0, pc.extra_modals_after / 5.0)
+    is_adapt = pc.kind == PendingChoiceKind.ADAPT
+    v[PENDING_HEADER_OFFSET] = 1.0
+    v[PENDING_HEADER_OFFSET + 1] = 1.0 if is_adapt else 0.0
+    v[PENDING_HEADER_OFFSET + 2] = min(1.0, pc.extra_modals_after / 5.0)
     for i, tok in enumerate(pc.options):
         if i >= 3:
             break
-        if pc.kind == PendingChoiceKind.DISCOVER_MURLOC:
-            tier = CARD_TEMPLATES[tok].tier
-            v[3 + i] = tier / float(NUM_TIER_ONEHOT)
+        if is_adapt:
+            v[PENDING_OPTIONS_OFFSET + i] = float(ADAPT_KEYS_ALL.index(tok)) / 9.0
         else:
-            v[3 + i] = float(ADAPT_KEYS_ALL.index(tok)) / 9.0
+            v[PENDING_DISCOVER_IDX_OFFSET + i] = float(
+                CARD_ID_TO_DENSE.get(tok, CARD_INDEX_EMPTY)
+            )
     return v
 
 
@@ -137,41 +216,40 @@ def encode_minion(minion: Optional[Minion]) -> np.ndarray:
     v = np.zeros(SLOT_DIM, dtype=np.float32)
     if minion is None:
         return v
-    v[0] = 1.0
-    cid_idx = CARD_ID_TO_INDEX.get(minion.card_id)
-    if cid_idx is not None:
-        v[1 + cid_idx] = 1.0
+    v[PRESENCE_OFFSET] = 1.0
+
+    # Dense card index — networks gather an nn.Embedding row from this channel.
+    # Unknown card_ids (e.g. test fixtures outside CARD_TEMPLATES) collapse to 0.
+    v[CARD_IDX_OFFSET] = float(CARD_ID_TO_DENSE.get(minion.card_id, CARD_INDEX_EMPTY))
+
     tier = minion.tier
     if 1 <= tier <= NUM_TIER_ONEHOT:
-        v[_T0 + tier - 1] = 1.0
-    v[_S0] = minion.base_attack / _STAT_NORM
-    v[_S0 + 1] = minion.base_health / _STAT_NORM
-    v[_S0 + 2] = minion.bonus_attack / _STAT_NORM
-    v[_S0 + 3] = minion.bonus_health / _STAT_NORM
-    v[_R0 : _R1] = _encode_race(minion)
+        v[TIER_OFFSET + tier - 1] = 1.0
+
+    v[STATS_OFFSET] = minion.base_attack / _STAT_NORM
+    v[STATS_OFFSET + 1] = minion.base_health / _STAT_NORM
+    v[STATS_OFFSET + 2] = minion.bonus_attack / _STAT_NORM
+    v[STATS_OFFSET + 3] = minion.bonus_health / _STAT_NORM
+
+    v[RACE_OFFSET : RACE_OFFSET + RACE_ONEHOT_DIM] = _encode_race(minion)
+
     kw = minion.all_keywords
-    v[_K0] = 1.0 if Keyword.TAUNT in kw else 0.0
-    v[_K0 + 1] = 1.0 if Keyword.SHIELD in kw else 0.0
-    v[_K0 + 2] = 1.0 if Keyword.WINDFURY in kw else 0.0
-    v[_K0 + 3] = 1.0 if Keyword.POISONOUS in kw else 0.0
-    v[_K0 + 4] = 1.0 if Keyword.CHARGE in kw else 0.0
-    v[_K0 + 5] = 1.0 if Keyword.MAGNETIC in kw else 0.0
-    v[_SH] = 1.0 if minion.has_shield else 0.0
-    triggers = {ab.trigger for ab in minion.abilities}
-    v[_TG0] = 1.0 if Trigger.ON_BUY in triggers else 0.0
-    v[_TG0 + 1] = 1.0 if Trigger.ON_DEATH in triggers else 0.0
-    v[_TG0 + 2] = 1.0 if Trigger.AURA in triggers else 0.0
-    v[_TG0 + 3] = 1.0 if Trigger.ON_TURN_END in triggers else 0.0
-    v[_TG0 + 4] = 1.0 if Trigger.ON_PLACE in triggers else 0.0
-    v[_TG0 + 5] = (
-        1.0 if Trigger.AFTER_FRIENDLY_MINION_PLACED in triggers else 0.0
-    )
-    v[_TG0 + 6] = 1.0 if Trigger.ON_FRIENDLY_MECH_DIED in triggers else 0.0
-    v[_TG0 + 8] = (
-        1.0 if Trigger.ON_FRIENDLY_MINION_SUMMONED in triggers else 0.0
-    )
-    v[_TG0 + 9] = 1.0 if Trigger.ON_SELF_DAMAGED in triggers else 0.0
-    v[_TG0 + 10] = 1.0 if Trigger.ON_FRIENDLY_MINION_DIED in triggers else 0.0
+    v[KEYWORD_OFFSET] = 1.0 if Keyword.TAUNT in kw else 0.0
+    v[KEYWORD_OFFSET + 1] = 1.0 if Keyword.SHIELD in kw else 0.0
+    v[KEYWORD_OFFSET + 2] = 1.0 if Keyword.WINDFURY in kw else 0.0
+    v[KEYWORD_OFFSET + 3] = 1.0 if Keyword.POISONOUS in kw else 0.0
+    v[KEYWORD_OFFSET + 4] = 1.0 if Keyword.CHARGE in kw else 0.0
+    v[KEYWORD_OFFSET + 5] = 1.0 if Keyword.MAGNETIC in kw else 0.0
+
+    v[SHIELD_OFFSET] = 1.0 if minion.has_shield else 0.0
+
+    for ab in minion.abilities:
+        ti = TRIGGER_INDEX.get(ab.trigger)
+        if ti is not None:
+            v[TRIGGER_OFFSET + ti] = 1.0
+        ei = EFFECT_INDEX.get(type(ab.effect))
+        if ei is not None:
+            v[EFFECT_OFFSET + ei] = 1.0
     return v
 
 
@@ -203,8 +281,11 @@ def build_observation(
     enemy = state.players[1 - player_idx]
 
     actions_left = MAX_SHOP_ACTIONS - me.shop_actions_used
+    tier_up_cost = (
+        0.0 if me.tavern_tier >= MAX_TIER else float(me.next_tier_up_cost)
+    )
 
-    globals_arr = np.array(
+    globals_core = np.array(
         [
             state.round_number / MAX_ROUNDS,
             me.health / STARTING_HEALTH,
@@ -216,12 +297,16 @@ def build_observation(
             actions_left / MAX_SHOP_ACTIONS,
             len(me.board) / BOARD_SIZE,
             i_have_round_initiative(state, player_idx),
+            tier_up_cost / LEVEL_UP_COST_MAX,
         ],
         dtype=np.float32,
     )
+    globals_arr = np.concatenate(
+        [globals_core, _encode_shop_rotation_globals(state.shop_excluded_race)]
+    )
 
     own_board = encode_slots(list(me.board), BOARD_SIZE)
-    shop = encode_slots(list(me.shop), SHOP_SIZE)
+    shop = encode_slots(list(me.shop), MAX_SHOP_SLOTS)
     hand = encode_slots(list(me.hand), HAND_LEN)
     enemy_board = encode_slots(
         list(enemy_last_seen_board) if enemy_last_seen_board else [],
@@ -247,17 +332,40 @@ def build_observation(
 
 
 __all__ = [
-    "CARD_IDS_FOR_ENCODING",
-    "NUM_CARD_IDS",
-    "CARD_ID_TO_INDEX",
+    "CARD_INDEX_IDS",
+    "CARD_ID_TO_DENSE",
+    "CARD_INDEX_EMPTY",
+    "NUM_POOL_INDICES",
     "NUM_TIER_ONEHOT",
     "RACE_ONEHOT_DIM",
+    "NUM_KEYWORD_CHANNELS",
+    "NUM_TRIGGER_CHANNELS",
+    "NUM_EFFECT_CHANNELS",
+    "TRIGGER_INDEX",
+    "EFFECT_INDEX",
+    "PRESENCE_OFFSET",
+    "CARD_IDX_OFFSET",
+    "TIER_OFFSET",
+    "STATS_OFFSET",
+    "RACE_OFFSET",
+    "KEYWORD_OFFSET",
+    "SHIELD_OFFSET",
+    "TRIGGER_OFFSET",
+    "EFFECT_OFFSET",
     "SLOT_DIM",
     "GLOBAL_DIM",
+    "GLOBAL_CORE_DIM",
+    "SHOP_ROTATION_OBS_DIM",
     "LAST_BATTLE_DIM",
     "HAND_LEN",
     "PHASE_DIM",
     "PENDING_CHOICE_DIM",
+    "PENDING_HEADER_DIM",
+    "PENDING_OPTIONS_DIM",
+    "PENDING_DISCOVER_IDX_DIM",
+    "PENDING_HEADER_OFFSET",
+    "PENDING_OPTIONS_OFFSET",
+    "PENDING_DISCOVER_IDX_OFFSET",
     "OBS_DIM",
     "encode_minion",
     "encode_slots",

@@ -1,6 +1,6 @@
 """Discover (tier-weighted Murloc) and Gentle Megasaur Adapt."""
 
-from src.envs.minibg.actions import Action
+from src.envs.minibg.actions import Action, HAND_SIZE
 from src.envs.minibg.cards import make_minion
 from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL, murloc_discover_card_ids
 from src.envs.minibg.game import MiniBGGame
@@ -8,7 +8,7 @@ from src.envs.minibg.state import PendingChoiceKind
 
 
 def test_primalfin_blocks_shop_until_discover_pick():
-    g = MiniBGGame(seed=42)
+    g = MiniBGGame(seed=42, shop_full_tribes=True)
     s = g.initial_state()
     p = s.players[0]
     p.board = []
@@ -36,7 +36,7 @@ def test_primalfin_blocks_shop_until_discover_pick():
 
 
 def test_gentle_megasaur_adapt_all_murlocs():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
@@ -55,7 +55,7 @@ def test_gentle_megasaur_adapt_all_murlocs():
 
 
 def test_golden_megasaur_two_adapt_rounds():
-    g = MiniBGGame(seed=1)
+    g = MiniBGGame(seed=1, shop_full_tribes=True)
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
@@ -69,16 +69,17 @@ def test_golden_megasaur_two_adapt_rounds():
 
 
 def test_place_primalfin_illegal_if_discover_overflow_hand():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("brann")]
-    p.hand = [
-        make_minion("primalfin_lookout"),
-        make_minion("recruit"),
-        make_minion("recruit"),
-    ]
+    p.hand = [None] * HAND_SIZE
+    p.hand[0] = make_minion("primalfin_lookout")
+    for i in range(1, HAND_SIZE):
+        p.hand[i] = make_minion("recruit")
     assert int(Action.PLACE_HAND_0) not in set(g.legal_actions(s))
-    p.hand = [make_minion("primalfin_lookout"), make_minion("recruit"), None]
+    p.hand = [None] * HAND_SIZE
+    p.hand[0] = make_minion("primalfin_lookout")
+    p.hand[1] = make_minion("recruit")
     assert int(Action.PLACE_HAND_0) in set(g.legal_actions(s))
 

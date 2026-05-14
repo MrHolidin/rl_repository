@@ -21,16 +21,8 @@ from src.utils.match import play_single_game
 
 
 DEFAULT_OPPONENTS = [
-    "random",
-    "tempo",
-    "buffer_t2",
-    "balanced",
-    "wide_t1",
-    "fast_t3",
-    "token",
-    "buffer_t1",
-    "delayed_t2_pressure",
-    "early_t2_pressure",
+    "t1_random",
+    "t_up_random",
 ]
 
 

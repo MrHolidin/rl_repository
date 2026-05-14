@@ -43,20 +43,17 @@ train:
   track_timings: false
   start_policy: random
   opponent_sampler:
-    type: minibg_mixed
+    type: pool
     params:
       seed: 103
-      equal_opponent_mass: true
       self_play:
         current_self_fraction: 0.2
         start_episode: 0
-      bots:
-        - tempo
-        - buffer_t2
-        - balanced
-        - early_t2_pressure
-        - wide_t1
-        - fast_t3
+      scripted:
+        distribution:
+          random: 0.3333333333333333
+          t1_random: 0.3333333333333333
+          t_up_random: 0.3333333333333334
   callbacks:
     - type: checkpoint
       params:

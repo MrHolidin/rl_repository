@@ -49,11 +49,11 @@ def test_play_match_minibg_keyword_game_id():
 def test_eval_build_opponents_minibg():
     from src.evaluation.eval_checkpoints import build_opponents_from_names
 
-    op = build_opponents_from_names(["random", "tempo"], seed=5, game_id="minibg")
-    assert set(op) == {"random", "tempo"}
+    op = build_opponents_from_names(["t1_random", "t_up_random"], seed=5, game_id="minibg")
+    assert set(op) == {"t1_random", "t_up_random"}
     env = _default_env_factory("minibg", RewardConfig())
     for bot in op.values():
         if hasattr(bot, "set_env"):
             bot.set_env(env)
     m = env.legal_actions_mask
-    _ = op["random"].act(env._get_obs(), legal_mask=m, deterministic=False)
+    _ = op["t1_random"].act(env._get_obs(), legal_mask=m, deterministic=False)

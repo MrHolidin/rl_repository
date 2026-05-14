@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Sequence
-
-import random as py_random
+from typing import Optional
 
 from src.agents.base_agent import BaseAgent
 from src.agents import RandomAgent
@@ -51,87 +49,6 @@ class RandomOpponentSampler(OpponentSampler):
         return RandomAgent(seed=opp_seed)
 
 
-class MiniBGMixedOpponentSampler(OpponentSampler):
-    """``RandomAgent`` share ``random_fraction``; else uniform over ``bots`` (MiniBG heuristics)."""
-
-    def __init__(
-        self,
-        *,
-        seed: Optional[int],
-        bots: Sequence[str],
-        random_fraction: Optional[float] = None,
-        equal_opponent_mass: bool = False,
-        learning_agent: Optional[BaseAgent] = None,
-        self_play: Optional[dict] = None,
-    ) -> None:
-        from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
-        from src.envs.minibg.heuristic_bots.tournament import make_bot
-
-        self.seed = seed
-        if not bots:
-            raise ValueError("minibg_mixed: non-empty bots list is required")
-        valid = frozenset(default_bot_constructors().keys())
-        cleaned: List[str] = []
-        for b in bots:
-            key = str(b).strip()
-            if key == "random":
-                raise ValueError(
-                    "minibg_mixed: use random_fraction for random; do not list 'random' in bots"
-                )
-            if key not in valid:
-                raise ValueError(f"minibg_mixed: unknown bot {key!r}; valid: {sorted(valid)}")
-            cleaned.append(key)
-        self._bots = cleaned
-        self._make_bot = make_bot
-        self._episode_index = 0
-
-        sp = dict(self_play or {})
-        csf = float(sp.get("current_self_fraction", 0.0))
-        if csf < 0.0 or csf > 1.0:
-            raise ValueError("minibg_mixed: self_play.current_self_fraction must be in [0, 1]")
-        self._self_play_csf = csf
-        self._self_play_start = int(sp.get("start_episode", 0))
-        self._learning_agent = learning_agent
-        if self._self_play_csf > 0.0 and learning_agent is None:
-            raise ValueError(
-                "minibg_mixed: self_play.current_self_fraction > 0 requires the learning agent"
-            )
-
-        if equal_opponent_mass:
-            self.random_fraction = 1.0 / (1.0 + float(len(self._bots)))
-        elif random_fraction is not None:
-            self.random_fraction = min(1.0, max(0.0, float(random_fraction)))
-        else:
-            self.random_fraction = 0.5
-
-    def prepare(self, episode_index: int) -> None:
-        self._episode_index = episode_index
-
-    def sample(self) -> BaseAgent:
-        from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
-        from src.training.selfplay.opponent_pool import SelfPlayOpponent
-
-        episode = self._episode_index
-        self._episode_index += 1
-        rng_ep = (self.seed + 100000 + episode) if self.seed is not None else episode
-        rnd = py_random.Random(rng_ep + 17)
-
-        if (
-            self._learning_agent is not None
-            and self._self_play_csf > 0.0
-            and episode >= self._self_play_start
-            and rnd.random() < self._self_play_csf
-        ):
-            return SelfPlayOpponent(self._learning_agent, greedy=True)
-
-        rnd2 = py_random.Random(rng_ep + 99).random()
-        if rnd2 < self.random_fraction:
-            opp_seed = (self.seed + 200000 + episode) if self.seed is not None else None
-            return RandomAgent(seed=opp_seed)
-        name = rnd.choice(self._bots)
-        return MiniBGHeuristicAgent(self._make_bot(name, rng_ep + 31))
-
-
 class OpponentPoolSampler(OpponentSampler):
     """Adapter around OpponentPool from legacy training pipeline."""
 
@@ -164,8 +81,11 @@ class OpponentPoolSampler(OpponentSampler):
         self._current_opponent = None
 
     def on_checkpoint(self, path: str | Path, episode_index: int) -> None:
+        pool = self.opponent_pool
+        if pool.self_play_config is None:  # type: ignore[union-attr]
+            return
         try:
-            self.opponent_pool.add_frozen_agent(str(path), episode_index)  # type: ignore[operator]
+            pool.add_frozen_agent(str(path), episode_index)  # type: ignore[operator]
         except FileNotFoundError:  # pragma: no cover - safety
             pass
 
@@ -173,6 +93,5 @@ class OpponentPoolSampler(OpponentSampler):
 __all__ = [
     "OpponentSampler",
     "RandomOpponentSampler",
-    "MiniBGMixedOpponentSampler",
     "OpponentPoolSampler",
 ]

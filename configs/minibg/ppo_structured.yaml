@@ -12,12 +12,14 @@ agent:
   id: ppo
   params:
     network_type: minibg_structured
-    observation_shape: [572]
+    observation_shape: [736]
     observation_type: vector
     # slot torso (как у minibg_slot)
-    slot_hidden_channels: 16
+    slot_hidden_channels: 32
     trunk_hidden_size: 256
     region_conv2_kernel: 1
+    # card identity embedding над плотным индексом из CARD_TEMPLATES
+    card_emb_dim: 16
     # голова structured policy + order decoder
     state_dim: 128
     action_dim: 64
@@ -39,25 +41,25 @@ agent:
 
 train:
   max_episodes: 10000000
-  total_steps: 500000
+  total_steps: 2000000
   deterministic: false
   track_timings: false
   start_policy: random
   opponent_sampler:
-    type: minibg_mixed
+    type: pool
     params:
       seed: 103
-      equal_opponent_mass: false
       self_play:
-        current_self_fraction: 0.2
         start_episode: 0
-      bots:
-        - tempo
-        - buffer_t2
-        - balanced
-        - early_t2_pressure
-        - wide_t1
-        - fast_t3
+        current_self_fraction: 0.4
+        past_self_fraction: 0.4
+        max_frozen_agents: 20
+        save_every: 1000
+        frozen_ema_beta: 0.05
+      scripted:
+        distribution:
+          t1_random: 0.25
+          t_up_random: 0.25
   callbacks:
     - type: checkpoint
       params:

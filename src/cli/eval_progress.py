@@ -50,7 +50,8 @@ def main() -> None:
         "--device",
         type=str,
         default=None,
-        help="Device for DQN (cuda/cpu, default: auto)",
+        help="Inference device: cuda or cpu. For --game minibg default is cpu (not auto). "
+        "Other games default to auto (cuda if available).",
     )
     parser.add_argument(
         "--prefix",
@@ -208,12 +209,16 @@ def main() -> None:
         print("--replay-dir is only supported with --game minibg", file=sys.stderr)
         sys.exit(1)
 
+    eval_device = args.device
+    if eval_device is None and args.game == "minibg":
+        eval_device = "cpu"
+
     df = eval_checkpoints_vs_opponents(
         paths,
         opponent_names=args.opponents,
         num_games=args.num_games,
         batch_size=batch_size,
-        device=args.device,
+        device=eval_device,
         seed=args.seed,
         reward_config=reward_config,
         start_policy=args.start_policy,

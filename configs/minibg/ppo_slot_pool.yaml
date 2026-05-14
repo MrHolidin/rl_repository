@@ -10,7 +10,7 @@ agent:
   id: ppo
   params:
     network_type: minibg_slot
-    observation_shape: [572]
+    observation_shape: [362]
     observation_type: vector
     slot_hidden_channels: 16
     trunk_hidden_size: 256
@@ -39,9 +39,10 @@ train:
     type: pool
     params:
       seed: 103
-      # Optional: only used if current_self_fraction + past_self_fraction < 1.0
-      minibg_fallback_bots:
-        - tempo
+      # Used when current_self_fraction + past_self_fraction < 1.0
+      scripted:
+        distribution:
+          tempo: 1.0
       self_play:
         start_episode: 0
         # Pure league mix: no heuristic branch when pool is non-empty (see OpponentPool.sample_opponent).

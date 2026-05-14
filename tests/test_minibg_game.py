@@ -2,8 +2,10 @@ import pytest
 
 from src.envs.minibg.actions import (
     Action,
+    BOARD_SIZE,
     BUY_COST,
     HAND_SIZE,
+    MAX_SHOP_SLOTS,
     SELL_REWARD,
     STARTING_HEALTH,
     gold_for_round,
@@ -16,7 +18,7 @@ from src.envs.minibg.state import MiniBGState, PlayerPhase
 def _force_shop(state: MiniBGState, player_idx: int, *card_ids):
     p = state.players[player_idx]
     p.shop = [make_minion(cid) if cid is not None else None for cid in card_ids]
-    while len(p.shop) < 3:
+    while len(p.shop) < MAX_SHOP_SLOTS:
         p.shop.append(None)
 
 
@@ -67,6 +69,7 @@ def test_level_up_charges_discounted_price_and_resets_next_base():
     assert p0.tavern_tier == 2
     assert p0.gold == 5
     assert p0.next_tier_up_cost == 7
+    assert sum(1 for x in p0.shop if x is not None) == 4
 
 
 def test_legal_actions_initial_state():
@@ -108,13 +111,13 @@ def test_buy_illegal_when_hand_full_but_legal_when_board_full():
     s.players[0].hand = [make_minion("guard") for _ in range(HAND_SIZE)]
     assert int(Action.BUY_SLOT_0) not in set(g.legal_actions(s))
     s.players[0].hand = [None] * HAND_SIZE
-    s.players[0].board = [make_minion("recruit") for _ in range(4)]
+    s.players[0].board = [make_minion("recruit") for _ in range(BOARD_SIZE)]
     assert int(Action.BUY_SLOT_0) in set(g.legal_actions(s))
 
 
 def test_place_illegal_when_board_full():
     g, s = _make_game()
-    s.players[0].board = [make_minion("recruit") for _ in range(4)]
+    s.players[0].board = [make_minion("recruit") for _ in range(BOARD_SIZE)]
     s.players[0].hand[0] = make_minion("guard")
     assert int(Action.PLACE_HAND_0) not in set(g.legal_actions(s))
 

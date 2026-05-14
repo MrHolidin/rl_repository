@@ -124,10 +124,14 @@ Must be present. Supported types:
 
 - **`random`**: always use a `RandomAgent`.  
   - `params`: optional `seed`; if missing, uses top-level `seed`.
-- **`pool`**: self-play style pool (heuristics + frozen checkpoints).  
-  - Requires top-level `seed`.  
-  - `params.self_play`: `start_episode`, `current_self_fraction`, `past_self_fraction`, `max_frozen_agents`, `save_every`.  
-  - `params.heuristic_distribution`: e.g. `{ "random": 0.2, "heuristic": 0.5, "smart_heuristic": 0.3 }`.
+- **`pool`**: self-play league (current / frozen past self) plus a **scripted** mix (game-specific static opponents).  
+  - Requires top-level `seed` (or `params.seed`).  
+  - `params.self_play`: `start_episode`, `current_self_fraction`, `past_self_fraction`, `max_frozen_agents`, `save_every`, `frozen_ema_beta`.  
+    Omit the whole `self_play` block **only for MiniBG** to train purely against scripted opponents; for Connect4/Othello, omitting it keeps the previous default self-play mix.  
+  - **`params.scripted.distribution`**: nonnegative weights (normalized automatically). Keys name opponent kinds **inside the non-self-play branch** only.  
+    - Classic games: e.g. `random`, `heuristic`, `smart_heuristic`, `othello_heuristic`.  
+    - MiniBG (`game.id: minibg`): `random` and MiniBG bot ids (e.g. `t1_random`).  
+  - **Legacy** (still supported): `params.heuristic_distribution` for classic games; for MiniBG, `minibg_bots` / `bots` with `random_fraction` / `equal_opponent_mass` instead of `scripted.distribution`.
 
 ### `train.callbacks`
 

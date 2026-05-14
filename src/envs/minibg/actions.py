@@ -2,43 +2,89 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-SHOP_SIZE = 3
-BOARD_SIZE = 4
-HAND_SIZE = 3
+# BG-style: max visible shop slots (tier 6); lower tiers use fewer (see ``shop_offers_count``).
+MAX_SHOP_SLOTS = 6
+BOARD_SIZE = 7
+HAND_SIZE = 5
+
+# Minions offered per refresh by tavern tier (Hearthstone Battlegrounds).
+SHOP_OFFERS_BY_TIER: dict[int, int] = {
+    1: 3,
+    2: 4,
+    3: 4,
+    4: 5,
+    5: 5,
+    6: 6,
+}
+
+
+def shop_offers_count(tavern_tier: int) -> int:
+    return SHOP_OFFERS_BY_TIER.get(int(tavern_tier), MAX_SHOP_SLOTS)
 
 
 class Action(IntEnum):
     BUY_SLOT_0 = 0
     BUY_SLOT_1 = 1
     BUY_SLOT_2 = 2
-    SELL_BOARD_0 = 3
-    SELL_BOARD_1 = 4
-    SELL_BOARD_2 = 5
-    SELL_BOARD_3 = 6
-    ROLL = 7
-    LEVEL_UP = 8
-    FINISH = 9
-    PLACE_HAND_0 = 10
-    PLACE_HAND_1 = 11
-    PLACE_HAND_2 = 12
-    MAGNET_HAND_0_BOARD_0 = 13
-    MAGNET_HAND_0_BOARD_1 = 14
-    MAGNET_HAND_0_BOARD_2 = 15
-    MAGNET_HAND_0_BOARD_3 = 16
-    MAGNET_HAND_1_BOARD_0 = 17
-    MAGNET_HAND_1_BOARD_1 = 18
-    MAGNET_HAND_1_BOARD_2 = 19
-    MAGNET_HAND_1_BOARD_3 = 20
-    MAGNET_HAND_2_BOARD_0 = 21
-    MAGNET_HAND_2_BOARD_1 = 22
-    MAGNET_HAND_2_BOARD_2 = 23
-    MAGNET_HAND_2_BOARD_3 = 24
-    DISCOVER_PICK_0 = 25
-    DISCOVER_PICK_1 = 26
-    DISCOVER_PICK_2 = 27
+    BUY_SLOT_3 = 3
+    BUY_SLOT_4 = 4
+    BUY_SLOT_5 = 5
+    SELL_BOARD_0 = 6
+    SELL_BOARD_1 = 7
+    SELL_BOARD_2 = 8
+    SELL_BOARD_3 = 9
+    SELL_BOARD_4 = 10
+    SELL_BOARD_5 = 11
+    SELL_BOARD_6 = 12
+    ROLL = 13
+    LEVEL_UP = 14
+    FINISH = 15
+    PLACE_HAND_0 = 16
+    PLACE_HAND_1 = 17
+    PLACE_HAND_2 = 18
+    PLACE_HAND_3 = 19
+    PLACE_HAND_4 = 20
+    MAGNET_HAND_0_BOARD_0 = 21
+    MAGNET_HAND_0_BOARD_1 = 22
+    MAGNET_HAND_0_BOARD_2 = 23
+    MAGNET_HAND_0_BOARD_3 = 24
+    MAGNET_HAND_0_BOARD_4 = 25
+    MAGNET_HAND_0_BOARD_5 = 26
+    MAGNET_HAND_0_BOARD_6 = 27
+    MAGNET_HAND_1_BOARD_0 = 28
+    MAGNET_HAND_1_BOARD_1 = 29
+    MAGNET_HAND_1_BOARD_2 = 30
+    MAGNET_HAND_1_BOARD_3 = 31
+    MAGNET_HAND_1_BOARD_4 = 32
+    MAGNET_HAND_1_BOARD_5 = 33
+    MAGNET_HAND_1_BOARD_6 = 34
+    MAGNET_HAND_2_BOARD_0 = 35
+    MAGNET_HAND_2_BOARD_1 = 36
+    MAGNET_HAND_2_BOARD_2 = 37
+    MAGNET_HAND_2_BOARD_3 = 38
+    MAGNET_HAND_2_BOARD_4 = 39
+    MAGNET_HAND_2_BOARD_5 = 40
+    MAGNET_HAND_2_BOARD_6 = 41
+    MAGNET_HAND_3_BOARD_0 = 42
+    MAGNET_HAND_3_BOARD_1 = 43
+    MAGNET_HAND_3_BOARD_2 = 44
+    MAGNET_HAND_3_BOARD_3 = 45
+    MAGNET_HAND_3_BOARD_4 = 46
+    MAGNET_HAND_3_BOARD_5 = 47
+    MAGNET_HAND_3_BOARD_6 = 48
+    MAGNET_HAND_4_BOARD_0 = 49
+    MAGNET_HAND_4_BOARD_1 = 50
+    MAGNET_HAND_4_BOARD_2 = 51
+    MAGNET_HAND_4_BOARD_3 = 52
+    MAGNET_HAND_4_BOARD_4 = 53
+    MAGNET_HAND_4_BOARD_5 = 54
+    MAGNET_HAND_4_BOARD_6 = 55
+    DISCOVER_PICK_0 = 56
+    DISCOVER_PICK_1 = 57
+    DISCOVER_PICK_2 = 58
 
 
-NUM_ACTIONS = 28
+NUM_ACTIONS = 59
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE
@@ -53,9 +99,8 @@ MAX_ROUNDS = 20
 BUY_COST = 3
 SELL_REWARD = 1
 ROLL_COST = 1
-# Base gold to upgrade from current tier T → T+1 (wiki.gg BG table). In-game price
-# is ``PlayerState.next_tier_up_cost``, which ticks down by 1 each new round until bought.
 LEVEL_UP_COSTS: dict[int, int] = {1: 5, 2: 7, 3: 8, 4: 11, 5: 11}
+LEVEL_UP_COST_MAX = max(LEVEL_UP_COSTS.values())
 LEVEL_UP_DISCOUNT_PER_ROUND = 1
 
 GOLD_PER_ROUND: dict[int, int] = {
@@ -80,7 +125,6 @@ def gold_for_round(round_number: int) -> int:
 
 
 def base_level_up_cost(current_tier: int) -> int:
-    """Gold for the next tier-up at full base price (no waiting discount)."""
     return LEVEL_UP_COSTS[current_tier]
 
 
@@ -120,12 +164,14 @@ def discover_pick_index(action_int: int) -> int:
 __all__ = [
     "Action",
     "MAGNET_ACTION_BASE",
+    "MAX_SHOP_SLOTS",
     "NUM_MAGNET_ACTIONS",
     "NUM_ACTIONS",
     "MAX_SHOP_ACTIONS",
-    "SHOP_SIZE",
     "BOARD_SIZE",
     "HAND_SIZE",
+    "SHOP_OFFERS_BY_TIER",
+    "shop_offers_count",
     "STARTING_HEALTH",
     "STARTING_GOLD",
     "STARTING_TIER",
@@ -135,6 +181,7 @@ __all__ = [
     "SELL_REWARD",
     "ROLL_COST",
     "LEVEL_UP_COSTS",
+    "LEVEL_UP_COST_MAX",
     "LEVEL_UP_DISCOUNT_PER_ROUND",
     "base_level_up_cost",
     "GOLD_PER_ROUND",

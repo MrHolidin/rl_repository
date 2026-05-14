@@ -356,8 +356,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         return metrics
 
     def _value_only(self, obs_1: torch.Tensor) -> torch.Tensor:
-        state_emb, _ = self.policy_net.encode_state(obs_1)
-        return self.policy_net.critic(state_emb).reshape(-1)
+        _, enc_cache = self.policy_net.encode_state(obs_1)
+        return self.policy_net.critic(enc_cache["trunk"]).reshape(-1)
 
     def _ppo_struct_update(self) -> Dict[str, float]:
         buf = self.rollout_buffer
@@ -423,11 +423,21 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             raise ValueError(
                 "structured PPO update: empty legal_lists in rollout buffer (should be unreachable)"
             )
-        t_np, r_np, k_np, s_np, m_np = _build_action_tokens(buf.legal_lists, Lmax_global)
+        (
+            t_np,
+            r_np,
+            src_k_np,
+            src_s_np,
+            tgt_k_np,
+            tgt_s_np,
+            m_np,
+        ) = _build_action_tokens(buf.legal_lists, Lmax_global)
         type_ids_all = torch.from_numpy(t_np).to(device, non_blocking=True)
         role_ids_all = torch.from_numpy(r_np).to(device, non_blocking=True)
-        region_kinds_all = torch.from_numpy(k_np).to(device, non_blocking=True)
-        region_slots_all = torch.from_numpy(s_np).to(device, non_blocking=True)
+        src_region_kinds_all = torch.from_numpy(src_k_np).to(device, non_blocking=True)
+        src_region_slots_all = torch.from_numpy(src_s_np).to(device, non_blocking=True)
+        tgt_region_kinds_all = torch.from_numpy(tgt_k_np).to(device, non_blocking=True)
+        tgt_region_slots_all = torch.from_numpy(tgt_s_np).to(device, non_blocking=True)
         mask_all = torch.from_numpy(m_np).to(device, non_blocking=True)
 
         total_policy_loss = 0.0
@@ -460,8 +470,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
                 type_ids_mb = type_ids_all[mb_idx_t]
                 role_ids_mb = role_ids_all[mb_idx_t]
-                region_kinds_mb = region_kinds_all[mb_idx_t]
-                region_slots_mb = region_slots_all[mb_idx_t]
+                src_region_kinds_mb = src_region_kinds_all[mb_idx_t]
+                src_region_slots_mb = src_region_slots_all[mb_idx_t]
+                tgt_region_kinds_mb = tgt_region_kinds_all[mb_idx_t]
+                tgt_region_slots_mb = tgt_region_slots_all[mb_idx_t]
                 mask_mb = mask_all[mb_idx_t]
 
                 logits, mask, values_new_mb, cache = (
@@ -469,8 +481,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                         obs_mb,
                         type_ids_mb,
                         role_ids_mb,
-                        region_kinds_mb,
-                        region_slots_mb,
+                        src_region_kinds_mb,
+                        src_region_slots_mb,
+                        tgt_region_kinds_mb,
+                        tgt_region_slots_mb,
                         mask_mb,
                         return_cache=True,
                     )
@@ -603,8 +617,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
     @classmethod
     def load(cls, path: str, *, device: Optional[str] = None, **overrides: Any) -> "MiniBGPPOStructuredAgent":
-        map_location = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        checkpoint = torch.load(path, map_location=map_location)
+        # Default CPU for eval/benchmarks; pass device="cuda" for GPU inference.
+        eff_device = device if device is not None else "cpu"
+        checkpoint = torch.load(path, map_location=eff_device)
         if checkpoint.get("agent_kind") != "ppo_minibg_structured":
             raise ValueError(f"checkpoint is not MiniBG structured PPO: {checkpoint.get('agent_kind')!r}")
 
@@ -643,7 +658,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "rollout_steps": checkpoint.get("rollout_steps", 1024),
             "ppo_epochs": checkpoint.get("ppo_epochs", 4),
             "minibatch_size": checkpoint.get("minibatch_size", 256),
-            "device": device,
+            "device": eff_device,
             "model_config": checkpoint.get("model_config"),
         }
         allowed_ov = frozenset(

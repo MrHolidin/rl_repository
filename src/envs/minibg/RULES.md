@@ -3,8 +3,24 @@
 This file documents the gameplay-level rules implemented by this module. Source of truth for ambiguities resolved during implementation.
 
 ## Setup
-- Two players, both starting at 30 HP, 3 gold, Tavern Tier 1, empty board, freshly rolled shop (3 minions).
+- Two players, both starting at 30 HP, 3 gold, Tavern Tier 1, empty board, freshly rolled shop (minion count follows **Offers per tier** below; tier 1 = 3).
+- Hand holds **up to 5** minions (bought cards go to the first empty hand slot).
 - At game start, one player is randomly chosen as the **odd-round initiative holder**. The other holds even-round initiative.
+
+## Offers per tier (battlegrounds-style)
+
+When the shop **refreshes** (round start, ROLL, or extra slots after LEVEL_UP), the number of minion offers is:
+
+| Tavern tier | Minions in shop |
+|-------------|-----------------|
+| 1           | 3               |
+| 2           | 4               |
+| 3           | 4               |
+| 4           | 5               |
+| 5           | 5               |
+| 6           | 6               |
+
+Inactive shop slots exist only as padding for the observation; they stay empty. **LEVEL_UP** immediately rolls **one new minion into each newly active offer slot** (same tier pool as after the upgrade).
 
 ## Round structure
 Each round has Shop Phase then Battle Phase. Game ends after a Battle that brings any player ≤ 0 HP, or after the 20th round.
@@ -18,7 +34,7 @@ Available actions (max 20 BUY/SELL/ROLL/LEVEL_UP per round):
 |-------------|----------|------------------------------------------------------------------------|
 | Buy slot    | 3 gold   | Place shop[i] on right end of board; shop slot becomes empty; trigger ON_BUY abilities. |
 | Sell pos    | +1 gold  | Remove minion from board; remaining minions shift left.                 |
-| Roll        | 1 gold   | Replace **all 3 shop slots** with fresh minions of allowed tiers.       |
+| Roll        | 1 gold   | Replace **all active shop offer slots** with fresh minions of allowed tiers.       |
 | Level up    | Variable price (base 5→7→8→11→11 for T1→…T6); **−1** each new round until you buy | Increase Tavern Tier (max 6). |
 | Finish      | free     | End shop phase for this player.                                         |
 
@@ -43,7 +59,7 @@ At round start, gold restores to round cap and **shops auto-reroll for free** fo
 | 11+   | 10       |
 
 ### Battle Phase
-Resolved automatically at the moment both players have finished shopping. Operates on **copies** of player boards; permanent boards are not mutated.
+Resolved automatically at the moment both players have finished shopping. Combat **simulates on copies** of both boards; shop boards after battle are the **same minions** as at the end of recruitment (retail BG). Only hero health is reduced from the combat result.
 
 #### First attacker
 1. Side with strictly more alive minions attacks first.
@@ -75,20 +91,21 @@ Continuous stat auras recomputed on each strike read: **`StatAura`** (Raid Leade
 When one or both sides have no alive minions left.
 
 #### Damage to losing player
-`damage = min(7, 1 + sum(tier of surviving winner's minions))`. Battle draw (both sides empty) deals 0 damage. The constant +1 means even a single Tier 1 survivor inflicts 2 damage.
+`damage = min(DAMAGE_CAP, attacker_tavern_tier + sum(tier of surviving winner's minions))`. Battle draw (both sides empty) deals 0 damage. With default tier **1** in isolated combat tests this matches the former `1 + sum(tiers)` rule.
 
 ## Persistence between rounds
-Permanent (kept):
-- Player health, gold cap, tavern tier.
-- **Combat survivors** on each player's board (composition and `bonus_*` buffs on copied templates; see below).
-- Hand cards (including stats buffed by `ON_TURN_START` in hand).
-- Permanent stat buffs from shop (`ON_PLACE`, `ON_BUY`, `ON_TURN_END`, `ON_TURN_START`, etc.).
+Combat uses **copies** of recruitment-board `Minion` objects; buffs and damage applied during the brawl do **not** write back to `player.board`. At the start of the next recruitment phase the board is still the **same minions with the same stats** as at the end of shopping **before** that autobattle (retail BG). Only **hero** health changes from combat damage.
 
-After each battle, the shop board is replaced by **alive** combat minions (shallow copy of each survivor's template, shields re-armed if the minion has Divine Shield). Combat damage to minions is not kept on the persistent minion (templates restore to printed + permanent `bonus_*`). **Summoned tokens** and Khadgar-multiplied summons persist when they survive the brawl. If more than `BOARD_SIZE` minions survive, only the first `BOARD_SIZE` in combat order are kept.
+Permanent across rounds (unchanged by combat itself):
+- Board composition and all recruitment-time stats (`base_*`, `bonus_*`, keywords, shields as modeled on shop `Minion`) until the next shop phase modifies them.
+- Hand cards.
+- Tavern tier, gold schedule for the new round, etc.
 
-Transient (combat-only for a single brawl):
-- In-combat current HP / shield-armed runtime on `BattleMinion` (not stored on shop `Minion`).
-- Corpses and minions that die before battle ends.
+After a non-terminal battle the round advances: **`ON_TURN_START`** may change board/hand (e.g. Micro Machine), then shops reroll — that is shop-phase persistence, not combat leakage.
+
+Transient (combat-only):
+- `BattleMinion.current_health`, `shield_armed` during the brawl, summons and deaths that exist only inside `simulate_battle`.
+- Optional `p0_board_out` / `p1_board_out` expose **alive combat copies** for tests; core `game.py` does not replace recruitment boards from them.
 
 ## Card pool
 

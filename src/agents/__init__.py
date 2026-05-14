@@ -234,25 +234,31 @@ if "ppo" not in list_agents():
                     "PPO network_type minibg_structured requires observation_shape (OBS_DIM,) "
                     "and num_actions from the environment config."
                 )
-            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))
+            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
             trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
             region_conv2_kernel = int(kwargs.pop("region_conv2_kernel", 1))
             state_dim = int(kwargs.pop("state_dim", 128))
             action_dim = int(kwargs.pop("action_dim", 64))
+            interaction_dim = int(kwargs.pop("interaction_dim", 64))
             order_hidden = int(kwargs.pop("order_hidden", 64))
             order_pos_dim = int(kwargs.pop("order_pos_dim", 16))
             score_hidden = int(kwargs.pop("score_hidden", 128))
             order_score_hidden = int(kwargs.pop("order_score_hidden", 64))
+            critic_hidden = int(kwargs.pop("critic_hidden", 128))
+            card_emb_dim = int(kwargs.pop("card_emb_dim", 16))
             net = MiniBGStructuredActorCritic(
                 slot_hidden=slot_hidden_channels,
                 trunk_hidden=trunk_hidden_size,
                 region_conv2_kernel=region_conv2_kernel,
                 state_dim=state_dim,
                 action_dim=action_dim,
+                interaction_dim=interaction_dim,
                 order_hidden=order_hidden,
                 order_pos_dim=order_pos_dim,
                 score_hidden=score_hidden,
                 order_score_hidden=order_score_hidden,
+                critic_hidden=critic_hidden,
+                card_emb_dim=card_emb_dim,
             )
             kwargs["observation_type"] = obs_type or "vector"
             ppo_kw = dict(net.get_constructor_kwargs())
@@ -268,9 +274,10 @@ if "ppo" not in list_agents():
                     "PPO network_type minibg_slot requires observation_shape (OBS_DIM,) "
                     "and num_actions from the environment config."
                 )
-            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 16))
+            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
             trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
             region_conv2_kernel = int(kwargs.pop("region_conv2_kernel", 1))
+            card_emb_dim = int(kwargs.pop("card_emb_dim", 16))
             net = build_ppo_actor_critic(
                 PPO_NETWORK_MINIBG_SLOT,
                 tuple(obs_shape),
@@ -278,12 +285,14 @@ if "ppo" not in list_agents():
                 slot_hidden_channels=slot_hidden_channels,
                 trunk_hidden_size=trunk_hidden_size,
                 region_conv2_kernel=region_conv2_kernel,
+                card_emb_dim=card_emb_dim,
             )
             kwargs["observation_type"] = obs_type or "vector"
             ppo_kw = {
                 "slot_hidden": slot_hidden_channels,
                 "trunk_hidden": trunk_hidden_size,
                 "region_conv2_kernel": region_conv2_kernel,
+                "card_emb_dim": card_emb_dim,
             }
         else:
             if obs_shape is None or obs_type is None or num_actions is None:

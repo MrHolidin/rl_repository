@@ -31,6 +31,25 @@ def test_empty_vs_filled_loses():
     assert dmg_p1 == 0
 
 
+def test_winner_damage_scales_with_winner_tavern_tier():
+    dmg_lo, _ = simulate_battle(
+        [],
+        _board("recruit"),
+        p0_has_initiative=True,
+        rng=_rng(),
+        p1_tavern_tier=1,
+    )
+    dmg_hi, _ = simulate_battle(
+        [],
+        _board("recruit"),
+        p0_has_initiative=True,
+        rng=_rng(),
+        p1_tavern_tier=4,
+    )
+    assert dmg_lo == 2  # 1 + minion tier 1
+    assert dmg_hi == 5  # 4 + minion tier 1
+
+
 def test_pick_target_respects_taunt():
     side = build_battle_side(_board("bruiser", "guard", "recruit"))
     rng = _rng(0)

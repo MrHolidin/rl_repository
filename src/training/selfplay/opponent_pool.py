@@ -4,7 +4,7 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Literal, Optional
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
@@ -67,6 +67,26 @@ class SelfPlayConfig:
             raise ValueError("save_every must be positive")
         if not 0.0 < self.frozen_ema_beta <= 1.0:
             raise ValueError("frozen_ema_beta must be in (0, 1]")
+
+
+ScriptedMode = Literal["classic", "minibg"]
+
+
+@dataclass(frozen=True)
+class ScriptedOpponentsSpec:
+    """Weights for sampling a non-learned opponent **inside the scripted branch** (after self-play rolls)."""
+
+    mode: ScriptedMode
+    distribution: Dict[str, float]
+
+    def __post_init__(self) -> None:
+        if not self.distribution:
+            raise ValueError("scripted.distribution must be non-empty")
+        tot = sum(max(0.0, float(v)) for v in self.distribution.values())
+        if tot <= 0:
+            raise ValueError("scripted.distribution must have a positive total weight")
+        norm = {str(k).strip(): max(0.0, float(v)) / tot for k, v in self.distribution.items() if str(k).strip()}
+        object.__setattr__(self, "distribution", norm)
 
 
 class SelfPlayOpponent(BaseAgent):
@@ -141,108 +161,76 @@ class SelfPlayOpponent(BaseAgent):
 class OpponentPool:
     """
     Pool of opponents for self-play training.
-    
-    Manages heuristic opponents and frozen agents from checkpoints (DQN or PPO).
-    Supports lazy loading to avoid keeping all models in memory.
 
-    For MiniBG, pass ``minibg_fallback_bots`` so rare heuristic fallback uses
-    scripted bots instead of Connect4 heuristics.
+    The **scripted** branch (``ScriptedOpponentsSpec``) mixes game-specific static opponents:
+    classic board presets or MiniBG bot ids, with optional ``random`` key for ``RandomAgent``.
     """
-    
+
     def __init__(
         self,
         device: Optional[str],
         seed: int,
         self_play_config: Optional[SelfPlayConfig],
-        heuristic_distribution: Dict[str, float],
+        scripted: ScriptedOpponentsSpec,
         current_agent: Optional[BaseAgent] = None,
-        minibg_fallback_bots: Optional[Sequence[str]] = None,
     ):
-        """
-        Initialize opponent pool.
-        
-        Args:
-            device: Device for loading frozen checkpoints ('cuda' or 'cpu')
-            seed: Random seed
-            self_play_config: Optional self-play configuration. If None, only heuristic opponents are used.
-            heuristic_distribution: Distribution of Connect4-style heuristics (ignored when ``minibg_fallback_bots`` set).
-            minibg_fallback_bots: If set, ``_create_heuristic_agent`` picks a uniform MiniBG bot (fallback only).
-        """
         self.device = device
         self.seed = seed
-        self._minibg_fallback_bots: List[str] = (
-            [str(b).strip() for b in minibg_fallback_bots if str(b).strip()]
-            if minibg_fallback_bots
-            else []
-        )
-        
+        self._scripted = scripted
+        if scripted.mode == "minibg":
+            from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+
+            valid = frozenset(default_bot_constructors().keys())
+            for name in scripted.distribution:
+                if name != "random" and name not in valid:
+                    raise ValueError(
+                        f"minibg scripted distribution: unknown key {name!r}; "
+                        f"expected 'random' or {sorted(valid)}"
+                    )
+
         # Self-play settings
         self.self_play_config = self_play_config
         self.max_loaded_agents = (
             self_play_config.max_frozen_agents if self_play_config is not None else 0
         )
         self.current_agent = current_agent
-        
-        total = sum(heuristic_distribution.values())
-        if total > 0:
-            self.heuristic_distribution = {
-                k: v / total for k, v in heuristic_distribution.items()
-            }
-        elif self._minibg_fallback_bots:
-            self.heuristic_distribution = {}
-        else:
-            self.heuristic_distribution = {
-                "random": 0.2,
-                "heuristic": 0.5,
-                "smart_heuristic": 0.3,
-            }
-        
+
         # List of frozen agents
         self.frozen_agents: List[FrozenAgentInfo] = []
-    
-    # ---------- HEURISTIC OPPONENTS ----------
-    
-    def _sample_heuristic_type(self) -> str:
-        """Sample a heuristic opponent type based on distribution."""
+
+    # ---------- SCRIPTED (NON-LEARNED) OPPONENTS ----------
+
+    def _sample_scripted_key(self) -> str:
         r = random.random()
         acc = 0.0
-        for name, p in self.heuristic_distribution.items():
+        dist = self._scripted.distribution
+        for name, p in dist.items():
             acc += p
             if r <= acc:
                 return name
-        return list(self.heuristic_distribution.keys())[-1]
-    
-    def _create_heuristic_agent(self, episode: int):
-        """
-        Create a new heuristic opponent with seed depending on episode.
-        
-        Args:
-            episode: Current episode number (for seed variation)
-            
-        Returns:
-            Heuristic agent instance
-        """
-        if self._minibg_fallback_bots:
+        return list(dist.keys())[-1]
+
+    def _create_scripted_opponent(self, episode: int):
+        key = self._sample_scripted_key()
+        if self._scripted.mode == "minibg":
             from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
             from src.envs.minibg.heuristic_bots.tournament import make_bot
 
             rng_ep = self.seed + 100000 + episode
-            name = random.choice(self._minibg_fallback_bots)
-            return MiniBGHeuristicAgent(make_bot(name, rng_ep + 31))
+            if key == "random":
+                return RandomAgent(seed=self.seed + 200000 + episode)
+            return MiniBGHeuristicAgent(make_bot(key, rng_ep + 31))
 
-        opp_type = self._sample_heuristic_type()
-        opp_seed = self.seed + 100000 + episode  # Avoid seed collisions
-        
-        if opp_type == "random":
+        opp_seed = self.seed + 100000 + episode
+        if key == "random":
             return RandomAgent(seed=opp_seed)
-        elif opp_type == "heuristic":
+        if key == "heuristic":
             return HeuristicAgent(seed=opp_seed)
-        elif opp_type == "smart_heuristic":
+        if key == "smart_heuristic":
             return SmartHeuristicAgent(seed=opp_seed)
-        elif opp_type == "othello_heuristic":
+        if key == "othello_heuristic":
             return OthelloHeuristicAgent(seed=opp_seed)
-        else:
-            raise ValueError(f"Unknown heuristic opponent type: {opp_type}")
+        raise ValueError(f"Unknown scripted opponent type: {key}")
     
     # ---------- FROZEN CHECKPOINT AGENTS (DQN / PPO) ----------
     
@@ -350,17 +338,13 @@ class OpponentPool:
     
     # ---------- PUBLIC INTERFACE ----------
     
+    def sample_scripted_opponent(self, episode: int):
+        """Sample from ``scripted`` only (ignores self-play / frozen)."""
+        return self._create_scripted_opponent(episode)
+
     def sample_heuristic_opponent(self, episode: int):
-        """
-        Sample a heuristic opponent (ignores self-play, always returns heuristic).
-        
-        Args:
-            episode: Current episode number (for seed variation)
-            
-        Returns:
-            Heuristic agent instance
-        """
-        return self._create_heuristic_agent(episode)
+        """Deprecated name for :meth:`sample_scripted_opponent`."""
+        return self.sample_scripted_opponent(episode)
     
     def sample_opponent(self, episode: int):
         """
@@ -381,10 +365,9 @@ class OpponentPool:
                 info = self._sample_frozen_info()
                 if info is not None:
                     return self._get_loaded_frozen_agent(info, step=episode)
-        
-        # Fallback: use heuristic opponent
-        return self._create_heuristic_agent(episode)
-    
+
+        return self._create_scripted_opponent(episode)
+
     def get_pool_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the opponent pool.

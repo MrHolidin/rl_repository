@@ -1,11 +1,11 @@
 import torch
 
 import src.models  # noqa: F401 — triggers network registry
+from src.envs.minibg.actions import BOARD_SIZE, MAX_SHOP_SLOTS
 from src.envs.minibg.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     GLOBAL_DIM,
-    SHOP_SIZE,
     SLOT_DIM,
     build_observation,
 )
@@ -63,6 +63,9 @@ def test_minibg_slot_distinguishes_slot_permutations():
         make_minion("recruit"),
         make_minion("big_guy"),
         None,
+        None,
+        None,
+        None,
     ]
     obs_a = build_observation(s, 0, 0.0, [])
 
@@ -71,14 +74,17 @@ def test_minibg_slot_distinguishes_slot_permutations():
         make_minion("big_guy"),
         make_minion("recruit"),
         None,
+        None,
+        None,
+        None,
     ]
     obs_b = build_observation(s, 0, 0.0, [])
 
     # Sanity: regional aggregates (mean / sum) should be identical.
-    shop_start = GLOBAL_DIM + 4 * SLOT_DIM  # globals + own_board (4 slots)
-    shop_end = shop_start + SHOP_SIZE * SLOT_DIM
-    region_a = obs_a[shop_start:shop_end].reshape(SHOP_SIZE, SLOT_DIM)
-    region_b = obs_b[shop_start:shop_end].reshape(SHOP_SIZE, SLOT_DIM)
+    shop_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM  # globals + own_board
+    shop_end = shop_start + MAX_SHOP_SLOTS * SLOT_DIM
+    region_a = obs_a[shop_start:shop_end].reshape(MAX_SHOP_SLOTS, SLOT_DIM)
+    region_b = obs_b[shop_start:shop_end].reshape(MAX_SHOP_SLOTS, SLOT_DIM)
     assert (region_a.sum(axis=0) == region_b.sum(axis=0)).all()
     assert not (region_a == region_b).all()  # actually permuted
 

@@ -126,12 +126,7 @@ def main() -> None:
         "--opponents",
         type=str,
         default="",
-        help="Comma-separated bot names (default: all heuristics except random)",
-    )
-    p.add_argument(
-        "--include-random",
-        action="store_true",
-        help="Also evaluate vs random heuristic bot",
+        help="Comma-separated bot names (default: all heuristic bots)",
     )
     args = p.parse_args()
 
@@ -139,7 +134,7 @@ def main() -> None:
     if args.opponents.strip():
         names = [x.strip() for x in args.opponents.split(",") if x.strip()]
     else:
-        names = sorted(k for k in ctors.keys() if args.include_random or k != "random")
+        names = sorted(ctors.keys())
     for n in names:
         if n not in ctors:
             raise SystemExit(f"Unknown bot {n!r}. Known: {sorted(ctors)}")

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import FrozenSet, Sequence, Tuple
 
-from .actions import BOARD_SIZE, HAND_SIZE, SHOP_SIZE
+from .actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS
 
 
 class StructActionType(IntEnum):
@@ -65,8 +65,8 @@ def validate_struct_action(a: StructAction) -> None:
         if len(a.args) != 1:
             raise ValueError(f"BUY expects args (shop_slot,), got {a.args}")
         s = a.args[0]
-        if s < 0 or s >= SHOP_SIZE:
-            raise ValueError(f"BUY shop_slot out of range [0,{SHOP_SIZE}): {s}")
+        if s < 0 or s >= MAX_SHOP_SLOTS:
+            raise ValueError(f"BUY shop_slot out of range [0,{MAX_SHOP_SLOTS}): {s}")
     elif t == StructActionType.SELL:
         if len(a.args) != 1:
             raise ValueError(f"SELL expects args (board_slot,), got {a.args}")

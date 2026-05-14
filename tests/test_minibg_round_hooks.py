@@ -1,4 +1,4 @@
-"""Round increment, combat→shop board persistence, ON_TURN_START ordering."""
+"""Round increment, combat leaves shop boards unchanged, ON_TURN_START ordering."""
 
 import numpy as np
 
@@ -8,12 +8,14 @@ from src.envs.minibg.effects import Ability, BuffSelf, Trigger
 from src.envs.minibg.game import MiniBGGame
 
 
-def test_resolve_battle_replaces_boards_with_survivors():
+def test_resolve_battle_preserves_shop_boards():
     g = MiniBGGame(seed=0)
     s = g.initial_state()
-    s.players[0].board = [make_minion("recruit")]
+    before = make_minion("recruit")
+    s.players[0].board = [before]
     s.players[1].board = []
     g._resolve_battle_and_advance(s)
+    assert s.players[0].board == [before]
     assert [m.card_id for m in s.players[0].board] == ["EX1_162"]
     assert s.players[1].board == []
 
@@ -68,5 +70,5 @@ def test_khadgar_tokens_on_persistent_board():
         rng=np.random.default_rng(0),
         p0_board_out=b0,
     )
-    assert sum(1 for m in b0 if m.card_id == "CFM_316t") == 3
+    assert sum(1 for m in b0 if m.card_id == "CFM_316t") == 4
     assert any(m.card_id == "DAL_575" for m in b0)

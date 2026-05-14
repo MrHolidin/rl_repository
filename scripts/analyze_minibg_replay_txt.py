@@ -132,8 +132,8 @@ def parse_txt(path: Path) -> Dict[str, object]:
                 ctr["SELL"] += 1
             elif verb == "FINISH":
                 ctr["FINISH"] += 1
-            elif verb.startswith("SELECT_ORDER"):
-                ctr["SELECT_ORDER"] += 1
+            elif verb.startswith("SWAP_BOARD") or verb.startswith("SELECT_ORDER"):
+                ctr["SWAP_BOARD"] += 1
             else:
                 ctr[verb.split()[0]] += 1
             continue

@@ -10,14 +10,14 @@ Two layers:
 - `state.py` — `Minion`, `PlayerState` (`health`, `gold`, `tavern_tier`, **`next_tier_up_cost`**, `board`, `shop`, `hand`, `phase`, `shop_actions_used`, `hero_damage_taken_total`, pending-choice fields), `MiniBGState`. `PlayerPhase` is `SHOP | ORDER | DONE`.
 - `cards.py` — `CARD_TEMPLATES` declarative pool, `make_minion(card_id)`, `shop_pool_for_tier(tier)`.
 - `patch_catalog.py` — loads `data/minibg/bg_patch_15_6_2_36393_catalog.json`: 186 Hearthstone BG minions with **tavern tier** from HearthSim `CardDefs.xml` (commit `e6cdbc5`, build 36393) merged with HearthstoneJSON card text/stats. Regenerate via `scripts/build_minibg_patch_catalog.py`.
-- `actions.py` — `Action` IntEnum (28 discrete game actions: BUY×3, SELL×4, ROLL, LEVEL_UP, FINISH, PLACE_HAND×3, MAGNET_HAND×BOARD×12, DISCOVER_PICK×3) and gameplay constants (`SHOP_SIZE=3`, `BOARD_SIZE=4` shop/placement cap, `HAND_SIZE=3`). Combat summoning uses `battle.COMBAT_BOARD_MAX=7` (BG board space).
+- `actions.py` — `Action` IntEnum (41 discrete game actions: BUY×6, SELL×4, ROLL, LEVEL_UP, FINISH, PLACE_HAND×5, MAGNET 5×4, DISCOVER_PICK×3) and gameplay constants (`MAX_SHOP_SLOTS=6` with `shop_offers_count(tier)` matching BG offers 3/4/4/5/5/6, `BOARD_SIZE=4` shop placement cap, `HAND_SIZE=5`). Combat summoning uses `battle.COMBAT_BOARD_MAX=7` (BG board space).
 - `battle.py` — event-driven combat (`BeginAttackExchange`, `DamageStrike` → `ShieldLost` / `DamageDealt` / `Overkill`, `AttackCompleted`, `MinionDied`, `MinionSummoned`). Strikes use `attack_with_auras`; in death resolution `attack_value(..., death_resolution=True)` and `health_aura_bonus(..., death_resolution=True)` **freeze** continuous stat auras (no tribal/keyword/adjacent/global contributions during `ON_DEATH` / Kangor windows). **Health auras** (`StatAura.health`, `TribalOtherStatAura`, `KeywordStatAura`, `AdjacentStatAura`) use `health_aura_snapshot` and resync after damage/summons so current/max drop when a source dies (e.g. Mal'Ganis). **Adjacency** (`AdjacentStatAura`): only board index ±1 from the source; **corpses keep slots** (no nearest-living retarget). **Baron** / **Khadgar** / Kangor / board-cap behavior unchanged. **Initiative**, **Windfury**, **Zapp**, **Cleave**, **Charge** as before (`simulate_battle(..., death_log=, mech_death_log=, p0_survivors_out=)`).
 - `game.py` — `MiniBGGame(TurnBasedGame[MiniBGState])`: shop loop, hand mechanic, two-phase shop turn (`shop` → `order`), `ON_BUY` / `ON_PLACE` / `AFTER_FRIENDLY_MINION_PLACED` / `ON_TURN_END` dispatch, **Magnetic** (`MAGNET_HAND_h_BOARD_b`): merge hand Magnetic Mech onto an existing board Mech (stats add, keywords combine incl. Divine Shield, target keeps board buffs, `ON_DEATH` from magnet queued after existing DRs; no `ON_PLACE` / battlecry from the magnetic piece), hero damage + `hero_damage_taken_total`, Mal'Ganis-style hero immune (`HeroImmuneAura`), **Brann** (`BattlecryMultiplierAura`): each `ON_PLACE` effect iterates with **fresh** product `Π` over `player.board` each repetition (normal `factor=2`, golden `3`); **not** applied to `AFTER_FRIENDLY_MINION_PLACED`, round orchestration, battle invocation, `reorder_board` primitive (compact-after-permute).
-- `action_map.py` — 52-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SLOT_*` / `SELL_BOARD_*` / `PLACE_HAND_*` / `MAGNET_HAND_*_BOARD_*` / `DISCOVER_PICK_0..2` / `FINISH` / `SELECT_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
-- `obs.py` — fixed-size vector observation (10 globals + 4·SLOT_DIM own board + 3·SLOT_DIM shop + 3·SLOT_DIM hand + 4·SLOT_DIM last-seen enemy board + 1 last-battle scalar + 1 phase indicator + 10-dim pending-choice vector for Discover/Adapt modals).
-- `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, on `SELECT_ORDER_*` calls `reorder_board(perm)` then submits the order via `apply_action(FINISH)` from the order phase. Tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs. On battle resolution emits `info["battle_signed"] = (signed_p0, signed_p1)` for symmetric per-player shaping; the env's own `step().reward` carries only terminal win/loss/draw (shaping is computed in `src.training.agent_perspective_env.AgentPerspectiveEnv`). Read-only `state` / `game` for scripted opponents. Optional `replay_path` / `replay_meta`: JSONL per-step snapshots via `replay.py` (replay format `2` includes `hand` and `phase`). Training: the trainer consumes `AgentPerspectiveEnv` which wraps `MiniBGEnv`, drives opponent moves until the agent must act again, and attributes terminal + shaping reward in the agent's zero-sum perspective.
-- `heuristic_bots/` — scripted opponents (`RandomBot`, `TempoBot`, …) + `tournament.run_tournament`. CLI: `python -m src.envs.minibg.heuristic_bots` or `python scripts/minibg_tournament.py`. The shared `_finish(env)` helper is phase-aware: in shop phase it auto-places pending hand cards then issues `FINISH`; in order phase it picks a permutation via `choose_final_order`.
-- **Shared eval / matches** — `MiniBGEnv` follows the same `TurnBasedEnv` contract as Connect4/Othello (`legal_actions_mask`, `current_player_token`, `winner` in `±1` / `0`), so `src.utils.match.play_single_game` / `play_match` work with multi-step shop turns (each loop picks the actor whose `current_player_token` matches `agent_token`). Use `play_match(..., game_id="minibg")` when no custom `env` is passed, or `make_game("minibg", ...)`. Heuristic bots implement `choose_action(env)`; for `play_match` use `MiniBGHeuristicAgent` from `heuristic_bots.agent_adapter` (set via `set_env`). `src.evaluation.eval_checkpoints.build_opponents_from_names(..., game_id="minibg")` accepts keys from `default_bot_constructors()` (e.g. `tempo`, `buffer_t2`, `random`).
+- `action_map.py` — 65-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SLOT_0..5` / `SELL_BOARD_*` / `PLACE_HAND_0..4` / `MAGNET_HAND_*_BOARD_*` / `DISCOVER_PICK_0..2` / `FINISH` / `SELECT_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
+- `obs.py` — fixed-size vector observation (10 globals + 4·SLOT_DIM own board + 6·SLOT_DIM shop + 5·SLOT_DIM hand + 4·SLOT_DIM last-seen enemy board + 1 last-battle scalar + 1 phase indicator + 10-dim pending-choice vector for Discover/Adapt modals).
+- `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, on `SELECT_ORDER_*` calls `reorder_board(perm)` then submits the order via `apply_action(FINISH)` from the order phase. Tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs. On battle resolution emits `info["battle_signed"] = (signed_p0, signed_p1)` for symmetric per-player shaping; the env's own `step().reward` carries only terminal win/loss/draw (shaping is computed in `src.training.agent_perspective_env.AgentPerspectiveEnv`). Read-only `state` / `game` for scripted opponents. Optional `replay_path` / `replay_meta`: JSONL per-step snapshots via `replay.py` (replay format `2` includes `hand` and `phase`). Structured-eval replay headers add seating metadata (`learned_player_index`, `agent_token`, `learned_agent_kind`, `scripted_opponent`, `roles_note`); tier rollups: `replay_tier_stats.py`, CLI `scripts/minibg_replay_tier_stats.py`. Training: the trainer consumes `AgentPerspectiveEnv` which wraps `MiniBGEnv`, drives opponent moves until the agent must act again, and attributes terminal + shaping reward in the agent's zero-sum perspective.
+- `heuristic_bots/` — scripted opponents (`t1_random`, `t_up_random`) + `tournament.run_tournament`. CLI: `python -m src.envs.minibg.heuristic_bots` or `python scripts/minibg_tournament.py`. The shared `_finish(env)` helper is phase-aware: in shop phase it auto-places pending hand cards then issues `FINISH`; in order phase it picks a permutation via `choose_final_order`.
+- **Shared eval / matches** — `MiniBGEnv` follows the same `TurnBasedEnv` contract as Connect4/Othello (`legal_actions_mask`, `current_player_token`, `winner` in `±1` / `0`), so `src.utils.match.play_single_game` / `play_match` work with multi-step shop turns (each loop picks the actor whose `current_player_token` matches `agent_token`). Use `play_match(..., game_id="minibg")` when no custom `env` is passed, or `make_game("minibg", ...)`. Heuristic bots implement `choose_action(env)`; for `play_match` use `MiniBGHeuristicAgent` from `heuristic_bots.agent_adapter` (set via `set_env`). `src.evaluation.eval_checkpoints.build_opponents_from_names(..., game_id="minibg")` accepts keys from `default_bot_constructors()` (i.e. `t1_random`, `t_up_random`).
 
 ## Effect pattern
 
@@ -61,17 +61,16 @@ Each round is split into a shop phase and an order phase per player.
 3. Either passes the turn to the other player (if they are not yet `DONE`) or resolves the battle.
 
 **Battle resolution** (`_resolve_battle_and_advance`):
-1. `simulate_battle` on deep copies of both boards (input boards unchanged).
-2. Replace each player's persistent `board` with combat **survivors** (truncated to `BOARD_SIZE`).
-3. Subtract damage from each player's health.
-4. Terminal check (any player ≤ 0 hp, or round 20 finished).
-5. Otherwise increment `round_number`, then **discount** each player's `next_tier_up_cost` by 1 (min 0) if below max tier, restore gold (`gold_for_round`), clear `shop_actions_used`, set both phases to `SHOP`, fire **`ON_TURN_START`** per player (board L→R, then hand), then reroll both shops. **Hand persists across rounds.**
+1. `simulate_battle` on **`copy.copy` per minion** (shop `board` lists are not mutated by combat).
+2. Subtract damage from each player's health (winner's **tavern tier** plus sum of tiers of surviving minions, capped). **Persistent shop `board` lists are not replaced** (retail BG).
+3. Terminal check (any player ≤ 0 hp, or round 20 finished).
+4. Otherwise increment `round_number`, then **discount** each player's `next_tier_up_cost` by 1 (min 0) if below max tier, restore gold (`gold_for_round`), clear `shop_actions_used`, set both phases to `SHOP`, fire **`ON_TURN_START`** per player (board L→R, then hand), then reroll both shops. **Hand persists across rounds.**
 
 ## Battle copy semantics
 
 `simulate_battle` builds `BattleMinion(template, …, instance_id)` from each `Minion`. Strike damage uses **alive** others for aura contributions. During deathrattle / Kangor resolution, `attack_value` / `health_aura_bonus` use `death_resolution=True` (frozen stats); summoned minions do not inherit live-board auras until the next normal strike phase.
 
-After `simulate_battle`, the core game applies hero damage, then copies **alive** combat minions (in board scan order, truncated to `BOARD_SIZE`) onto each player's persistent `board` via `persist_shop_board_from_side` (Divine Shield re-arms on the copy). Tokens and Khadgar-duplicated summons persist if they survived combat. Input `Minion` lists are not mutated by `simulate_battle`.
+After `simulate_battle`, the core game applies hero damage only. Optional `p0_board_out` / `p1_board_out` still expose **alive combat minions** (for tests and tooling); `_resolve_battle_and_advance` does not use them. Input `Minion` lists are not mutated by `simulate_battle`.
 
 **Shop-phase recruitment** after a non-terminal battle: round counter and gold are updated first; **`ON_TURN_START`** runs on each player's board (left-to-right) then hand, then `_refresh_shop` runs (free reroll).
 
@@ -82,7 +81,7 @@ After `simulate_battle`, the core game applies hero damage, then copies **alive*
 - `MAGNET_HAND_h_BOARD_b`: requires `hand[h]` non-empty with `Keyword.MAGNETIC` and Mech tribe, `board[b]` a Mech (`MECHANICAL` or `ALL`), `shop_actions_used < MAX_SHOP_ACTIONS`. Merges into `board[b]` in place (hand slot cleared); does not append a minion or fire `ON_PLACE` on the magnetic card.
 - `SELL_BOARD_i`: list element removed at the chosen position; remaining minions shift left. Refunds 1 gold.
 - `SELECT_ORDER_j` (env): `reorder_board(perm = PERMUTATIONS_4[j])` followed by submit. `reorder_board` keeps only positions `< k` (current board size) in the order specified by `perm`, and drops the empty tail. Only `k!` canonical perms are exposed via the legal mask (one per equivalence class).
-- Battle summons: appended to the rightmost end of the combat side while `alive_count < COMBAT_BOARD_MAX` (7). Surviving combat minions (including summons) are copied to the persistent board after battle, up to `BOARD_SIZE` (4), in combat scan order.
+- Battle summons: appended to the rightmost end of the combat side while `alive_count < COMBAT_BOARD_MAX` (7). Only hero damage is persisted after combat; shop boards stay as at end of recruitment.
 
 ## Action space (game core)
 
@@ -105,23 +104,24 @@ After `MAX_SHOP_ACTIONS` BUY/SELL/PLACE/MAGNET/ROLL/LEVEL_UP actions, the game a
 
 ## Action space (RL env)
 
-49 discrete actions (`action_map.py`):
+65 discrete actions (`action_map.py`):
 
 | Index range | Meaning                                                |
 |-------------|--------------------------------------------------------|
 | 0           | `ROLL`                                                 |
 | 1           | `LEVEL_UP`                                             |
-| 2..4        | `BUY_SLOT_0/1/2`                                       |
-| 5..8        | `SELL_BOARD_0/1/2/3`                                   |
-| 9..11       | `PLACE_HAND_0/1/2`                                     |
-| 12..23      | `MAGNET_HAND_h_BOARD_b` (`h∈{0,1,2}`, `b∈{0,1,2,3}`) |
-| 24          | `FINISH` (shop → order)                                |
-| 25..48      | `SELECT_ORDER_0..23`: apply permutation `PERMUTATIONS_4[j]` and submit the order (in order phase only). |
+| 2..7        | `BUY_SLOT_0..5` (only tiers with that offer pack legal) |
+| 8..11       | `SELL_BOARD_0/1/2/3`                                   |
+| 12..16      | `PLACE_HAND_0..4`                                      |
+| 17..36      | `MAGNET_HAND_h_BOARD_b` (`h∈{0..4}`, `b∈{0,1,2,3}`)  |
+| 37..39      | `DISCOVER_PICK_0..2`                                   |
+| 40          | `FINISH` (shop → order)                                |
+| 41..64      | `SELECT_ORDER_0..23`: apply permutation `PERMUTATIONS_4[j]` and submit the order (in order phase only). |
 
 `PERMUTATIONS_4` is the 24-element list of permutations of `(0,1,2,3)` in lexicographic order (`itertools.permutations`); index 0 is the identity. Only the **`k!` canonical perms** are legal in the order phase, where `k = len(board)`: a perm is canonical iff `perm[j] == j` for `j >= k`. This gives exactly one representative per equivalence class under compact-after-permute, so each legal SELECT_ORDER produces a distinct board layout. Exposing all 24 (with up to 24/k! redundant copies) was empirically harmful — DQN spread its gradient across redundant outputs and the argmax over reorder degenerated to a coin flip in early rounds.
 
 `MiniBGEnv.legal_actions_mask` is phase-aware:
-- **Shop phase**: projects `MiniBGGame.legal_actions(state)` onto slots 0..24 (`SELECT_ORDER_*` are forbidden).
+- **Shop phase**: projects `MiniBGGame.legal_actions(state)` onto non-`SELECT_ORDER` slots (`SELECT_ORDER_*` are forbidden).
 - **Order phase**: only canonical SELECT_ORDER slots are legal — `1` for `k <= 1`, `2` for `k = 2`, `6` for `k = 3`, `24` for `k = 4`.
 
 ## Observation (RL env)
@@ -129,11 +129,11 @@ After `MAX_SHOP_ACTIONS` BUY/SELL/PLACE/MAGNET/ROLL/LEVEL_UP actions, the game a
 Fixed-size float32 vector, **self-centric** (the current player is always "me"):
 
 - 10 globals: `round/20`, `my_hp/30`, `enemy_hp/30`, `gold/10`, `gold_cap/10`, `my_tier/MAX_TIER`, `enemy_tier/MAX_TIER`, `actions_left/20`, `my_board_count/4`, `has_initiative_if_equal_board_size`.
-- 4 × 42 own board slots, 3 × 42 shop slots, 3 × 42 hand slots, 4 × 42 last-seen enemy board slots. Each SLOT_DIM slot vector encodes: presence, toy `card_id` one-hot (10), tavern **tier** one-hot (6 tiers), 4 stat scalars, **tribe** one-hot (none + 4 tribes + all-tribes), keywords (`Taunt`, `Shield`, `Windfury`, `Poisonous`, `Charge`, `Magnetic`), runtime `has_shield`, and ability-trigger flags (`ON_BUY`, `ON_DEATH`, `AURA`, `ON_TURN_END`, `ON_PLACE`, `AFTER_FRIENDLY_MINION_PLACED`, `ON_FRIENDLY_MECH_DIED`, `ON_TURN_START`).
+- 4 × 51 own board slots, 6 × 51 shop slots, 5 × 51 hand slots, 4 × 51 last-seen enemy board slots. Each SLOT_DIM slot vector encodes: presence, toy `card_id` one-hot (10), tavern **tier** one-hot (6 tiers), 4 stat scalars, **tribe** one-hot (none + 4 tribes + all-tribes), keywords (`Taunt`, `Shield`, `Windfury`, `Poisonous`, `Charge`, `Magnetic`), runtime `has_shield`, and ability-trigger flags (`ON_BUY`, `ON_DEATH`, `AURA`, `ON_TURN_END`, `ON_PLACE`, `AFTER_FRIENDLY_MINION_PLACED`, `ON_FRIENDLY_MECH_DIED`, `ON_TURN_START`).
 - 1 last-battle scalar = `(damage_dealt − damage_taken) / 7` from the previous round, from this player's perspective.
 - 1 phase indicator: `0.0` for `SHOP`, `1.0` for `ORDER`. (`DONE` is transient and never observed by the acting player.)
 
-Total: `OBS_DIM = 10 + 14·SLOT_DIM + 2` with `SLOT_DIM = 41` (see `obs.py`).
+Total: `OBS_DIM = 10 + 19·SLOT_DIM + 2` with `SLOT_DIM = 51` (see `obs.py`).
 
 The enemy's board is **only** updated post-battle (last-seen snapshot). The enemy's hp and tier are read live from current state — those are public. The enemy's hand is never observed (hand is private information).
 

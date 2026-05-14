@@ -32,7 +32,7 @@ def test_buff_random_friendly_no_others_is_noop():
     g = MiniBGGame(seed=0)
     buffer_card = make_minion("buffer")
     p = _player(board=[buffer_card])
-    g._fire_on_place(buffer_card, p)
+    g._fire_on_place(buffer_card, p, None)
     assert buffer_card.bonus_attack == 0
     assert buffer_card.bonus_health == 0
 
@@ -42,7 +42,7 @@ def test_buff_random_friendly_picks_only_other_minion():
     target = make_minion("recruit")
     buffer_card = make_minion("buffer")
     p = _player(board=[target, buffer_card])
-    g._fire_on_place(buffer_card, p)
+    g._fire_on_place(buffer_card, p, None)
     assert target.bonus_attack == 1
     assert target.bonus_health == 1
     assert buffer_card.bonus_attack == 0
@@ -167,7 +167,7 @@ def test_defender_argus_buffs_adjacent_in_shop():
     right = make_minion("recruit")
     argus = make_minion("defender_argus")
     p = _player(board=[left, argus, right])
-    g._fire_on_place(argus, p)
+    g._fire_on_place(argus, p, None)
     assert left.bonus_attack == 1 and left.bonus_health == 1
     assert Keyword.TAUNT in left.keywords
     assert right.bonus_attack == 1 and Keyword.TAUNT in right.keywords

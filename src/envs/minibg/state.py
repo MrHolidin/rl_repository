@@ -35,6 +35,17 @@ class Race(Enum):
     ALL = auto()
 
 
+# Tavern pool: per episode one of these is excluded (see ``MiniBGState.shop_excluded_race``).
+# Neutrals (`race is None`) and ``Race.ALL`` minions are never excluded.
+ROTATION_SHOP_TRIBES: Tuple[Race, Race, Race, Race] = (
+    Race.BEAST,
+    Race.DEMON,
+    Race.MECHANICAL,
+    Race.MURLOC,
+)
+CNT_ACTIVE_SHOP_TRIBES = len(ROTATION_SHOP_TRIBES) - 1
+
+
 @dataclass
 class Minion:
     card_id: str
@@ -86,7 +97,7 @@ class PlayerState:
 
     @property
     def shopping_finished(self) -> bool:
-        """``True`` once the player submitted SELECT_ORDER for this round."""
+        """``True`` once the player finished the recruitment order phase (submitted board)."""
         return self.phase == PlayerPhase.DONE
 
 
@@ -98,6 +109,8 @@ class MiniBGState:
     initiative_player: int
     winner: Optional[int]
     done: bool
+    # ``None`` = all four rotation tribes in the tavern (no exclusion).
+    shop_excluded_race: Optional[Race] = None
 
 
 __all__ = [
@@ -106,6 +119,8 @@ __all__ = [
     "MiniBGState",
     "PlayerPhase",
     "Race",
+    "ROTATION_SHOP_TRIBES",
+    "CNT_ACTIVE_SHOP_TRIBES",
     "PendingChoiceKind",
     "PendingChoice",
 ]

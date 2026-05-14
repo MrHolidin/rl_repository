@@ -20,9 +20,10 @@ def build_ppo_actor_critic(
     observation_shape: Tuple[int, ...],
     num_actions: int,
     *,
-    slot_hidden_channels: int = 16,
+    slot_hidden_channels: int = 32,
     trunk_hidden_size: int = 256,
     region_conv2_kernel: int = 1,
+    card_emb_dim: int = 16,
 ) -> nn.Module:
     nt = network_type.strip().lower()
     if nt in ("board_cnn", "actor_critic_cnn", PPO_NETWORK_ACTOR_CRITIC_CNN):
@@ -47,6 +48,7 @@ def build_ppo_actor_critic(
             slot_hidden=int(slot_hidden_channels),
             trunk_hidden=int(trunk_hidden_size),
             region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
         )
     if nt == PPO_NETWORK_MINIBG_STRUCTURED:
         if len(observation_shape) != 1 or int(observation_shape[0]) != _OBS_DIM:
@@ -57,6 +59,7 @@ def build_ppo_actor_critic(
             slot_hidden=int(slot_hidden_channels),
             trunk_hidden=int(trunk_hidden_size),
             region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
         )
     raise ValueError(
         f"Unknown PPO network_type {network_type!r}. "
@@ -87,21 +90,25 @@ def restore_ppo_actor_critic(
     if ct == PPO_NETWORK_MINIBG_SLOT:
         return MiniBGSlotActorCritic(
             num_actions=int(num_actions),
-            slot_hidden=int(kw.get("slot_hidden", 16)),
+            slot_hidden=int(kw.get("slot_hidden", 32)),
             trunk_hidden=int(kw.get("trunk_hidden", 256)),
             region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
+            card_emb_dim=int(kw.get("card_emb_dim", 16)),
         )
     if ct == PPO_NETWORK_MINIBG_STRUCTURED:
         return MiniBGStructuredActorCritic(
-            slot_hidden=int(kw.get("slot_hidden", 16)),
+            slot_hidden=int(kw.get("slot_hidden", 32)),
             trunk_hidden=int(kw.get("trunk_hidden", 256)),
             state_dim=int(kw.get("state_dim", 128)),
             action_dim=int(kw.get("action_dim", 64)),
+            interaction_dim=int(kw.get("interaction_dim", 64)),
             order_hidden=int(kw.get("order_hidden", 64)),
             order_pos_dim=int(kw.get("order_pos_dim", 16)),
             score_hidden=int(kw.get("score_hidden", 128)),
             order_score_hidden=int(kw.get("order_score_hidden", 64)),
+            critic_hidden=int(kw.get("critic_hidden", 128)),
             region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
+            card_emb_dim=int(kw.get("card_emb_dim", 16)),
         )
     raise ValueError(f"Unknown canonical PPO network type {canonical_type!r}")
 

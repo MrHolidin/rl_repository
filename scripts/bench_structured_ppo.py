@@ -151,7 +151,10 @@ def bench_action_emb_paths() -> None:
             mask[b, :L] = True
         s_exp = se.unsqueeze(1).expand(-1, max_l, -1)
         g_exp = c["g_full"].unsqueeze(1).expand(-1, max_l, -1)
-        h_all = torch.cat([s_exp, ae_pad, g_exp], dim=-1)
+        s_int = torch.tanh(net.state_to_interact(se))
+        a_int = torch.tanh(net.action_to_interact(ae_pad))
+        interaction = s_int.unsqueeze(1) * a_int
+        h_all = torch.cat([s_exp, ae_pad, interaction, g_exp], dim=-1)
         logits = net.score_fc(h_all.reshape(-1, h_all.size(-1))).squeeze(-1).view(len(legal), max_l)
         return logits.masked_fill(~mask, float("-inf"))
 

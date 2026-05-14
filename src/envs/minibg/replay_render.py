@@ -7,30 +7,23 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, TextIO, Tuple, Union
 
 from .action_map import (
-    A_BUY_BASE,
-    A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
-    A_MAGNET_BASE,
-    A_PLACE_BASE,
     A_ROLL,
-    A_SELECT_ORDER_BASE,
-    A_SELL_BASE,
     NUM_ENV_ACTIONS,
-    PERMUTATIONS_4,
     buy_slot,
     is_buy,
     is_discover_pick,
     is_finish,
     is_magnet,
     is_place,
-    is_select_order,
     is_sell,
+    is_swap_board,
     magnet_hand_board,
     discover_pick_slot,
-    order_index,
     place_slot,
     sell_pos,
+    swap_adj_index_from_env_action,
 )
 
 
@@ -69,6 +62,16 @@ def format_hand_line(label: str, hand: Optional[List[Optional[Dict[str, Any]]]])
     return f"  {label}: {body}"
 
 
+def format_shop_line(label: str, shop: Optional[List[Optional[Dict[str, Any]]]]) -> str:
+    """Pretty-print tavern offers (fixed-width slots; empty slot is ``·``)."""
+    if shop is None:
+        return f"  {label}: (нет данных о лавке в реплее)"
+    if not shop:
+        return f"  {label}: (пусто)"
+    parts = [format_minion_slot(x) for x in shop]
+    return f"  {label}: {' '.join(parts)}"
+
+
 def decode_env_action(a: int) -> str:
     if a == A_ROLL:
         return "ROLL"
@@ -87,10 +90,34 @@ def decode_env_action(a: int) -> str:
         return f"DISCOVER_PICK_{discover_pick_slot(a)}"
     if is_finish(a):
         return "FINISH"
-    if is_select_order(a):
-        j = order_index(a)
-        perm = PERMUTATIONS_4[j] if 0 <= j < len(PERMUTATIONS_4) else ()
-        return f"SELECT_ORDER perm#{j} {perm}"
+    if is_swap_board(a):
+        j = swap_adj_index_from_env_action(a)
+        return f"SWAP_BOARD_{j}_{j + 1}"
+    if 0 <= a < NUM_ENV_ACTIONS:
+        return f"UNKNOWN_{a}"
+    return f"OUT_OF_RANGE_{a}"
+
+
+def decode_env_action_compact(a: int) -> str:
+    """Same actions as :func:`decode_env_action` but without shop/hand/board slot indices."""
+    if a == A_ROLL:
+        return "ROLL"
+    if a == A_LEVEL_UP:
+        return "LEVEL_UP"
+    if is_buy(a):
+        return "BUY"
+    if is_sell(a):
+        return "SELL"
+    if is_place(a):
+        return "PLACE"
+    if is_magnet(a):
+        return "MAGNET"
+    if is_discover_pick(a):
+        return "DISCOVER"
+    if is_finish(a):
+        return "FINISH"
+    if is_swap_board(a):
+        return "SWAP_BOARD"
     if 0 <= a < NUM_ENV_ACTIONS:
         return f"UNKNOWN_{a}"
     return f"OUT_OF_RANGE_{a}"
@@ -100,21 +127,11 @@ def _player(state: Dict[str, Any], idx: int) -> Dict[str, Any]:
     return state.get(f"p{idx}", {}) or {}
 
 
-def _hand_slot_sig(hand_list: List[Optional[Dict[str, Any]]]) -> Tuple[Any, ...]:
-    return tuple(
-        None
-        if x is None
-        else (x.get("card_id"), x.get("atk"), x.get("hp"))
-        for x in hand_list
-    )
-
-
 def render_jsonl_records(lines: Iterator[str]) -> str:
     out: List[str] = []
     prev_round: Optional[int] = None
     prev_hp: Optional[Tuple[int, int]] = None
-    last_shop_finish_hand: Optional[Tuple[int, int, Tuple[Any, ...]]] = None
-
+    prev_boards: Optional[Tuple[List[Any], List[Any]]] = None
     for raw in lines:
         raw = raw.strip()
         if not raw:
@@ -132,7 +149,7 @@ def render_jsonl_records(lines: Iterator[str]) -> str:
             out.append("")
             prev_round = None
             prev_hp = None
-            last_shop_finish_hand = None
+            prev_boards = None
             continue
         if t != "frame":
             continue
@@ -150,51 +167,47 @@ def render_jsonl_records(lines: Iterator[str]) -> str:
         b1 = list(p1.get("board") or [])
 
         tag = "ILLEGAL " if illegal else ""
-        act = decode_env_action(a)
+        act = decode_env_action_compact(a)
         out.append(
             f"{tag}R{rnd} P{p_act} {act}  "
             f"(gold {p0.get('gold')}/{p1.get('gold')}, tier {p0.get('tier')}/{p1.get('tier')}, "
             f"hp {hp0}/{hp1})"
         )
-
-        if act == "FINISH" or act.startswith("SELECT_ORDER"):
-            acted = _player(st, p_act)
-            if "hand" not in acted:
-                out.append(
-                    format_hand_line(
-                        f"P{p_act} рука (на конец хода; в снимке нет поля hand)",
-                        None,
-                    )
-                )
-                last_shop_finish_hand = None
-            else:
-                raw = acted.get("hand")
-                hand_list: List[Optional[Dict[str, Any]]] = (
-                    [] if raw is None else list(raw)
-                )
-                sig = _hand_slot_sig(hand_list)
-                if act.startswith("SELECT_ORDER"):
-                    if last_shop_finish_hand == (p_act, rnd, sig):
-                        last_shop_finish_hand = None
-                    else:
-                        out.append(
-                            format_hand_line(f"P{p_act} рука (на конец хода)", hand_list)
-                        )
-                        last_shop_finish_hand = None
-                else:
-                    out.append(
-                        format_hand_line(f"P{p_act} рука (на конец хода)", hand_list)
-                    )
-                    last_shop_finish_hand = (p_act, rnd, sig)
+        h0_raw = p0.get("hand")
+        h1_raw = p1.get("hand")
+        h0: Optional[List[Optional[Dict[str, Any]]]] = (
+            None if h0_raw is None else list(h0_raw)
+        )
+        h1: Optional[List[Optional[Dict[str, Any]]]] = (
+            None if h1_raw is None else list(h1_raw)
+        )
+        s0_raw = p0.get("shop")
+        s1_raw = p1.get("shop")
+        s0: Optional[List[Optional[Dict[str, Any]]]] = (
+            None if s0_raw is None else list(s0_raw)
+        )
+        s1: Optional[List[Optional[Dict[str, Any]]]] = (
+            None if s1_raw is None else list(s1_raw)
+        )
+        out.append(format_board_line("стол P0", b0))
+        out.append(format_board_line("стол P1", b1))
+        out.append(format_hand_line("рука P0", h0))
+        out.append(format_hand_line("рука P1", h1))
+        out.append(format_shop_line("лавка P0", s0))
+        out.append(format_shop_line("лавка P1", s1))
 
         if prev_round is not None and rnd > prev_round:
             out.append("")
+            if prev_boards is not None:
+                b0_pre, b1_pre = prev_boards
+            else:
+                b0_pre, b1_pre = b0, b1
             out.append(
-                f"  ┌─ Перед боем (состав досок после магазина раунда {prev_round}; "
-                f"бой не меняет расстановку на доске) ─"
+                f"  ┌─ Перед боем (состав досок в конце раунда набора {prev_round}, "
+                f"до разрешения боя) ─"
             )
-            out.append(format_board_line("P0 стол", b0))
-            out.append(format_board_line("P1 стол", b1))
+            out.append(format_board_line("P0 стол", b0_pre))
+            out.append(format_board_line("P1 стол", b1_pre))
             out.append("  └─")
             if prev_hp is not None:
                 d0 = hp0 - prev_hp[0]
@@ -212,6 +225,7 @@ def render_jsonl_records(lines: Iterator[str]) -> str:
 
         prev_round = rnd
         prev_hp = (hp0, hp1)
+        prev_boards = (list(b0), list(b1))
 
     return "\n".join(out).rstrip() + "\n"
 
@@ -225,11 +239,78 @@ def render_jsonl_to_stream(path: Union[str, Path], stream: TextIO) -> None:
     stream.write(render_jsonl_file(path))
 
 
+def board_compact_repr(board: List[Any]) -> str:
+    parts = [format_minion_slot(x) for x in board] if board else []
+    return " ".join(parts) if parts else "(пусто)"
+
+
+def iter_pre_battle_rows(lines: Iterator[str]) -> Iterator[Dict[str, Any]]:
+    """Yield one dict per combat, same ``prev_boards`` / ``prev_round`` logic as ``render_jsonl_records``.
+
+    Rows describe boards at end of recruitment for ``shop_round_ended``, immediately before battle
+    resolves and increments ``round`` to ``round_after``.
+    """
+    prev_round: Optional[int] = None
+    prev_hp: Optional[Tuple[int, int]] = None
+    prev_boards: Optional[Tuple[List[Any], List[Any]]] = None
+
+    for raw in lines:
+        raw = raw.strip()
+        if not raw:
+            continue
+        rec = json.loads(raw)
+        t = rec.get("type")
+        if t == "episode_break":
+            prev_round = None
+            prev_hp = None
+            prev_boards = None
+            continue
+        if t != "frame":
+            continue
+
+        st = rec.get("state") or {}
+        rnd = int(st.get("round") or 0)
+        p0 = _player(st, 0)
+        p1 = _player(st, 1)
+        hp0 = int(p0.get("hp", 0))
+        hp1 = int(p1.get("hp", 0))
+        b0 = list(p0.get("board") or [])
+        b1 = list(p1.get("board") or [])
+
+        if prev_round is not None and rnd > prev_round:
+            if prev_boards is not None:
+                b0_pre, b1_pre = prev_boards
+            else:
+                b0_pre, b1_pre = b0, b1
+            d0 = d1 = 0
+            if prev_hp is not None:
+                d0 = hp0 - prev_hp[0]
+                d1 = hp1 - prev_hp[1]
+            yield {
+                "shop_round_ended": prev_round,
+                "round_after": rnd,
+                "hp_p0_after": hp0,
+                "hp_p1_after": hp1,
+                "delta_hp_p0": d0,
+                "delta_hp_p1": d1,
+                "p0_table": board_compact_repr(b0_pre),
+                "p1_table": board_compact_repr(b1_pre),
+            }
+
+        prev_round = rnd
+        prev_hp = (hp0, hp1)
+        prev_boards = (list(b0), list(b1))
+
+
 __all__ = [
+    "board_compact_repr",
     "decode_env_action",
+    "decode_env_action_compact",
     "format_board_line",
     "format_hand_line",
+    "format_shop_line",
     "format_minion_slot",
+    "iter_pre_battle_rows",
     "render_jsonl_file",
     "render_jsonl_records",
     "render_jsonl_to_stream",

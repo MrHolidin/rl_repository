@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .card_pool import CARD_TEMPLATES as _CARD_TEMPLATES
 from .effects import Keyword
-from .state import Minion
+from .state import Minion, Race
 
 CARD_TEMPLATES: Dict[str, Minion] = dict(_CARD_TEMPLATES)
 
@@ -71,13 +71,28 @@ def make_minion(card_id: str) -> Minion:
     return fresh
 
 
-def shop_pool_for_tier(tavern_tier: int) -> List[str]:
+def shop_minion_allowed_with_exclusion(
+    m: Minion, shop_excluded_race: Optional[Race]
+) -> bool:
+    if shop_excluded_race is None:
+        return True
+    if m.race is None or m.race == Race.ALL:
+        return True
+    return m.race != shop_excluded_race
+
+
+def shop_pool_for_tier(
+    tavern_tier: int,
+    *,
+    shop_excluded_race: Optional[Race] = None,
+) -> List[str]:
     return [
         cid
         for cid, m in CARD_TEMPLATES.items()
         if not m.is_token
         and not m.is_golden
         and m.tier <= tavern_tier
+        and shop_minion_allowed_with_exclusion(m, shop_excluded_race)
     ]
 
 
@@ -86,5 +101,6 @@ __all__ = [
     "LEGACY_CARD_ID_ALIASES",
     "make_minion",
     "resolve_card_id",
+    "shop_minion_allowed_with_exclusion",
     "shop_pool_for_tier",
 ]

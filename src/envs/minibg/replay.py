@@ -95,6 +95,9 @@ def state_to_dict(state: MiniBGState) -> Dict[str, Any]:
         "init": state.initiative_player,
         "done": state.done,
         "winner": state.winner,
+        "shop_excluded_race": (
+            None if state.shop_excluded_race is None else state.shop_excluded_race.name
+        ),
         "p0": player_to_dict(state.players[0]),
         "p1": player_to_dict(state.players[1]),
     }

@@ -12,7 +12,7 @@ from .base_dqn_network import BaseDQNNetwork
 from .dueling_utils import dueling_aggregate
 from .noisy_layers import NoisyLinear
 
-from src.envs.minibg.actions import BOARD_SIZE, SHOP_SIZE
+from src.envs.minibg.actions import BOARD_SIZE, MAX_SHOP_SLOTS
 from src.envs.minibg.obs import (
     GLOBAL_DIM as _GLOBAL_DIM,
     HAND_LEN as _HAND_LEN,
@@ -23,7 +23,7 @@ from src.envs.minibg.obs import (
 )
 
 _OWN_LEN = BOARD_SIZE
-_SHOP_LEN = SHOP_SIZE
+_SHOP_LEN = MAX_SHOP_SLOTS
 _HAND_LEN = _HAND_LEN
 _ENEMY_LEN = BOARD_SIZE
 

@@ -9,9 +9,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.agents.dqn.agent import DQNAgent
-from src.training.canonical_checkpoint import train_and_probe
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 CKPT_PATH = FIXTURES / "canonical_dqn.pt"
 PROBE_PATH = FIXTURES / "canonical_dqn_probe.json"
@@ -24,6 +21,8 @@ def _load_probe() -> list:
 
 def test_checkpoint_produces_same_inference():
     """Load canonical checkpoint and verify actions match probe data."""
+    from src.agents.dqn.agent import DQNAgent
+
     if os.environ.get("UPDATE_CANONICAL") == "1":
         pytest.skip("Skipped when UPDATE_CANONICAL=1")
     if not CKPT_PATH.exists():
@@ -43,6 +42,8 @@ def test_checkpoint_produces_same_inference():
 
 def test_training_deterministic():
     """Train twice with same seed; probe actions must match."""
+    from src.training.canonical_checkpoint import train_and_probe
+
     _, actions1 = train_and_probe(seed=42, steps=300)
     _, actions2 = train_and_probe(seed=42, steps=300)
     assert actions1 == actions2, f"Probe actions differ: {actions1} vs {actions2}"
@@ -50,6 +51,8 @@ def test_training_deterministic():
 
 def test_training_matches_canonical():
     """Train from scratch; probe actions must match canonical file (unchanged during test)."""
+    from src.training.canonical_checkpoint import train_and_probe
+
     if os.environ.get("UPDATE_CANONICAL") == "1":
         pytest.skip("Skipped when UPDATE_CANONICAL=1")
     if not PROBE_PATH.exists():

@@ -16,7 +16,6 @@ from src.features.action_space import DiscreteActionSpace
 from src.registry import make_agent, make_game
 from src.training.meta import collect_meta, write_meta_json
 from src.training.opponent_sampler import (
-    MiniBGMixedOpponentSampler,
     OpponentSampler,
     RandomOpponentSampler,
 )
@@ -213,6 +212,79 @@ def _start_policy_to_probability(policy: StartPolicy) -> float:
     return 0.5
 
 
+def _build_scripted_spec(game_id: str, p: Dict[str, Any]) -> "ScriptedOpponentsSpec":
+    """Unified scripted opponents: ``scripted.distribution``; legacy keys still accepted."""
+    from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+    from src.training.selfplay.opponent_pool import ScriptedOpponentsSpec
+
+    g = (game_id or "").strip().lower()
+    scripted_block = dict(p.get("scripted") or {})
+    dist_in: Dict[str, Any] = dict(scripted_block.get("distribution") or {})
+    valid_bg = frozenset(default_bot_constructors().keys())
+
+    def _as_weights(d: Dict[str, Any]) -> Dict[str, float]:
+        out: Dict[str, float] = {}
+        for k, v in d.items():
+            key = str(k).strip()
+            if not key:
+                continue
+            out[key] = max(0.0, float(v))
+        return out
+
+    if g == "minibg":
+        if dist_in:
+            w = _as_weights(dist_in)
+            for name in w:
+                if name != "random" and name not in valid_bg:
+                    raise ValueError(
+                        f"minibg scripted.distribution: unknown key {name!r}; "
+                        f"use 'random' or a bot id from {sorted(valid_bg)}"
+                    )
+            return ScriptedOpponentsSpec("minibg", w)
+
+        raw_bots = p.get("minibg_bots") or p.get("bots")
+        bots = [str(x).strip() for x in (raw_bots or []) if str(x).strip()]
+        if not bots:
+            raise ValueError(
+                "game.id minibg: set opponent_sampler.params.scripted.distribution, "
+                "or legacy minibg_bots / bots (non-empty)"
+            )
+        for b in bots:
+            if b not in valid_bg:
+                raise ValueError(f"minibg unknown bot {b!r}; valid: {sorted(valid_bg)}")
+        if bool(p.get("equal_opponent_mass", False)):
+            share = 1.0 / (1.0 + len(bots))
+            dweights = {"random": share}
+            per = (1.0 - share) / len(bots)
+            for b in bots:
+                dweights[b] = per
+            return ScriptedOpponentsSpec("minibg", dweights)
+        rf = p.get("minibg_random_fraction", p.get("random_fraction"))
+        if rf is None:
+            rf = 0.5
+        rf = min(1.0, max(0.0, float(rf)))
+        dweights = {"random": rf}
+        if bots:
+            per = (1.0 - rf) / len(bots)
+            for b in bots:
+                dweights[b] = per
+        return ScriptedOpponentsSpec("minibg", dweights)
+
+    if dist_in:
+        return ScriptedOpponentsSpec("classic", _as_weights(dist_in))
+    h = dict(p.get("heuristic_distribution") or {})
+    if h:
+        return ScriptedOpponentsSpec("classic", _as_weights(h))
+    return ScriptedOpponentsSpec(
+        "classic",
+        {
+            "random": 0.2,
+            "heuristic": 0.5,
+            "smart_heuristic": 0.3,
+        },
+    )
+
+
 def _build_opponent_sampler(
     app_cfg: AppConfig,
     agent: Any,
@@ -230,24 +302,6 @@ def _build_opponent_sampler(
             use_seed = seed
         return RandomOpponentSampler(seed=use_seed)
 
-    if cfg.type.lower() == "minibg_mixed":
-        if (app_cfg.game.id or "").strip().lower() != "minibg":
-            raise ValueError("opponent_sampler type 'minibg_mixed' requires game.id: minibg")
-        p = dict(cfg.params or {})
-        use_seed = p.get("seed")
-        if use_seed is None:
-            use_seed = seed
-        sp = p.get("self_play")
-        self_play_dict = dict(sp) if sp else None
-        return MiniBGMixedOpponentSampler(
-            seed=use_seed,
-            bots=list(p.get("bots") or ()),
-            random_fraction=p.get("random_fraction"),
-            equal_opponent_mass=bool(p.get("equal_opponent_mass", False)),
-            learning_agent=agent,
-            self_play=self_play_dict,
-        )
-
     if cfg.type.lower() == "pool":
         p = dict(cfg.params or {})
         use_seed = p.get("seed")
@@ -259,30 +313,39 @@ def _build_opponent_sampler(
             )
         use_seed = int(use_seed)
         game_id = (app_cfg.game.id or "").strip().lower()
-        sp = p.get("self_play", {})
-        save_every = int(sp.get("save_every", 1000))
-        self_play_config = SelfPlayConfig(
-            start_episode=int(sp.get("start_episode", 0)),
-            current_self_fraction=float(sp.get("current_self_fraction", 0.3)),
-            past_self_fraction=float(sp.get("past_self_fraction", 0.3)),
-            max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
-            save_every=max(1, save_every),
-            frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
-        )
-        heuristic_distribution = dict(cfg.params.get("heuristic_distribution") or {})
-        minibg_fb = [str(x).strip() for x in (cfg.params.get("minibg_fallback_bots") or []) if str(x).strip()]
-        if game_id == "minibg":
-            if not minibg_fb:
-                minibg_fb = ["tempo"]
-        elif not heuristic_distribution:
-            heuristic_distribution = {"random": 0.2, "heuristic": 0.5, "smart_heuristic": 0.3}
+        sp_raw = p.get("self_play")
+        if not sp_raw:
+            if game_id == "minibg":
+                self_play_config = None
+            else:
+                sp = {}
+                save_every = int(sp.get("save_every", 1000))
+                self_play_config = SelfPlayConfig(
+                    start_episode=int(sp.get("start_episode", 0)),
+                    current_self_fraction=float(sp.get("current_self_fraction", 0.3)),
+                    past_self_fraction=float(sp.get("past_self_fraction", 0.3)),
+                    max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
+                    save_every=max(1, save_every),
+                    frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
+                )
+        else:
+            sp = dict(sp_raw)
+            save_every = int(sp.get("save_every", 1000))
+            self_play_config = SelfPlayConfig(
+                start_episode=int(sp.get("start_episode", 0)),
+                current_self_fraction=float(sp.get("current_self_fraction", 0.3)),
+                past_self_fraction=float(sp.get("past_self_fraction", 0.3)),
+                max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
+                save_every=max(1, save_every),
+                frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
+            )
+        scripted = _build_scripted_spec(game_id, p)
         pool = OpponentPool(
             device=device,
             seed=use_seed,
             self_play_config=self_play_config,
-            heuristic_distribution=heuristic_distribution,
+            scripted=scripted,
             current_agent=agent,
-            minibg_fallback_bots=minibg_fb if game_id == "minibg" else None,
         )
         return OpponentPoolSampler(opponent_pool=pool)
     raise ValueError(f"Unknown opponent_sampler type: {cfg.type}")

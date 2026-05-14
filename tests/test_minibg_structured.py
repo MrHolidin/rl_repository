@@ -6,11 +6,8 @@ import numpy as np
 import torch
 
 from src.envs.minibg import MiniBGEnv
-from src.envs.minibg.action_map import (
-    A_FINISH,
-    A_SELECT_ORDER_BASE,
-    PERMUTATIONS_4,
-)
+from src.envs.minibg.action_map import A_FINISH
+from src.envs.minibg.actions import BOARD_SIZE
 from src.envs.minibg.state import PlayerPhase
 from src.envs.minibg.structured_actions import (
     StructAction,
@@ -50,7 +47,7 @@ def _shop_struct_to_env_int(a: StructAction) -> int:
 
 
 def test_validate_board_perm_ok():
-    validate_board_perm((3, 2, 1, 0))
+    validate_board_perm(tuple(range(BOARD_SIZE - 1, -1, -1)))
 
 
 def test_structured_shop_moves_match_int_steps():
@@ -78,21 +75,19 @@ def test_structured_illegal_complete_turn_without_perm():
     assert r.info.get("invalid_action") is True
 
 
-def test_structured_complete_turn_matches_finish_plus_select_order():
-    """Flat env exposes only canonical SELECT_ORDER indices (here k=0 → perm index 0)."""
+def test_structured_complete_turn_matches_finish_twice_in_order_phase():
+    """Structured COMPLETE_TURN with perm matches shop FINISH + order FINISH for k=0."""
     env_s = MiniBGEnv(seed=42)
     env_i = MiniBGEnv(seed=42)
     env_s.reset()
     env_i.reset()
 
-    perm_index = 0
-    perm = PERMUTATIONS_4[perm_index]
-
+    perm = tuple(range(BOARD_SIZE))
     env_s.step_structured(
-        StructAction(StructActionType.COMPLETE_TURN), board_perm=tuple(perm)
+        StructAction(StructActionType.COMPLETE_TURN), board_perm=perm
     )
     env_i.step(A_FINISH)
-    env_i.step(A_SELECT_ORDER_BASE + perm_index)
+    env_i.step(A_FINISH)
     assert env_s.get_state_hash() == env_i.get_state_hash()
 
 
@@ -118,7 +113,9 @@ def test_structured_order_phase_only_complete_turn():
     legal_s = env.legal_structured_actions()
     assert legal_s == [StructAction(StructActionType.COMPLETE_TURN)]
     h_before = env.get_state_hash()
-    env.step_structured(StructAction(StructActionType.COMPLETE_TURN), board_perm=(0, 1, 2, 3))
+    env.step_structured(
+        StructAction(StructActionType.COMPLETE_TURN), board_perm=tuple(range(BOARD_SIZE))
+    )
     assert env.get_state_hash() != h_before
 
 
@@ -157,7 +154,7 @@ def test_structured_actor_critic_order_logprob_consistency():
     state_emb, cache = m.encode_state(x)
     E_own = cache["E_own"]
     g_full = cache["g_full"]
-    occ = torch.tensor([[True, False, False, False]], dtype=torch.bool)
+    occ = torch.tensor([[True] + [False] * (BOARD_SIZE - 1)], dtype=torch.bool)
     picked, lp_sample, _ = m.sample_board_order(state_emb, E_own, g_full, occ, deterministic=True)
     assert picked[0, 0].item() == 0
     lp_tf = m.order_logprob_given_sequence(state_emb, E_own, g_full, occ, picked[:, :1])
@@ -198,11 +195,13 @@ def test_structured_actor_critic_grad_flow():
         state_emb,
         cache["E_own"],
         cache["g_full"],
-        torch.ones(1, 4, dtype=torch.bool),
-        torch.tensor([[3, 2, 1, 0]], dtype=torch.long),
+        torch.ones(1, BOARD_SIZE, dtype=torch.bool),
+        torch.tensor([[3, 2, 1, 0] + [-1] * (BOARD_SIZE - 4)], dtype=torch.long),
     )
     loss = loss + lp.mean()
     loss.backward()
+    assert m.state_to_interact.weight.grad is not None
+    assert m.action_to_interact.weight.grad is not None
     assert m.score_fc[0].weight.grad is not None
     assert m.score_fc[-1].weight.grad is not None
     assert m.order_gru.weight_hh.grad is not None
@@ -223,8 +222,12 @@ def test_order_logprob_teacher_padding_no_nan():
     )
     x = torch.randn(1, OBS_DIM)
     state_emb, cache = m.encode_state(x)
-    occ3 = torch.tensor([[True, True, True, False]], dtype=torch.bool)
-    picks_short = torch.tensor([[0, 1, -1, -1]], dtype=torch.long)
+    occ3 = torch.tensor(
+        [[True, True, True] + [False] * (BOARD_SIZE - 3)], dtype=torch.bool
+    )
+    picks_short = torch.tensor(
+        [[0, 1] + [-1] * (BOARD_SIZE - 2)], dtype=torch.long
+    )
     lp = m.order_logprob_given_sequence(state_emb, cache["E_own"], cache["g_full"], occ3, picks_short)
     assert torch.isfinite(lp).all(), lp
 
@@ -232,8 +235,10 @@ def test_order_logprob_teacher_padding_no_nan():
 def test_slot_pick_sequence_to_perm_shapes():
     from src.envs.minibg import slot_pick_sequence_to_perm
 
-    assert slot_pick_sequence_to_perm([2, 0, 1], 3) == (2, 0, 1, 3)
-    assert slot_pick_sequence_to_perm([], 0) == (0, 1, 2, 3)
+    assert slot_pick_sequence_to_perm([2, 0, 1], 3) == (2, 0, 1) + tuple(
+        range(3, BOARD_SIZE)
+    )
+    assert slot_pick_sequence_to_perm([], 0) == tuple(range(BOARD_SIZE))
 
 
 def test_structured_ppo_agent_rollout_update_smoke():

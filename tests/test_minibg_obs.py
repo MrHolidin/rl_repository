@@ -4,49 +4,58 @@ from src.envs.minibg.actions import (
     BOARD_SIZE,
     GOLD_AT_CAP,
     HAND_SIZE,
+    LEVEL_UP_COST_MAX,
     MAX_ROUNDS,
     MAX_SHOP_ACTIONS,
+    MAX_SHOP_SLOTS,
     MAX_TIER,
-    SHOP_SIZE,
     STARTING_HEALTH,
     gold_for_round,
 )
 from src.envs.minibg.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
-    CARD_ID_TO_INDEX,
+    CARD_ID_TO_DENSE,
+    CARD_IDX_OFFSET,
+    EFFECT_OFFSET,
+    GLOBAL_CORE_DIM,
     GLOBAL_DIM,
     HAND_LEN,
+    KEYWORD_OFFSET,
     LAST_BATTLE_DIM,
-    NUM_CARD_IDS,
     NUM_TIER_ONEHOT,
+    NUM_TRIGGER_CHANNELS,
     OBS_DIM,
     PHASE_DIM,
     PENDING_CHOICE_DIM,
+    RACE_OFFSET,
     RACE_ONEHOT_DIM,
+    SHIELD_OFFSET,
     SLOT_DIM,
+    STATS_OFFSET,
+    TIER_OFFSET,
+    TRIGGER_OFFSET,
     build_observation,
     encode_minion,
     encode_slots,
     i_have_round_initiative,
 )
-from src.envs.minibg.state import PlayerPhase
+from src.envs.minibg.state import CNT_ACTIVE_SHOP_TRIBES, PlayerPhase, Race, ROTATION_SHOP_TRIBES
 
-# Derived slot indices (must match ``obs.encode_minion`` layout).
-_C = NUM_CARD_IDS
-_T0 = 1 + _C
-_S0 = _T0 + NUM_TIER_ONEHOT
-_R0 = _S0 + 4
-_K0 = _R0 + RACE_ONEHOT_DIM
-_SH = _K0 + 6
-_TG0 = _SH + 1
+# Layout aliases preserved so legacy assertions read the same offsets.
+_T0 = TIER_OFFSET
+_S0 = STATS_OFFSET
+_R0 = RACE_OFFSET
+_K0 = KEYWORD_OFFSET
+_SH = SHIELD_OFFSET
+_TG0 = TRIGGER_OFFSET
 
 
 def test_obs_dim_matches_layout():
     expected = (
         GLOBAL_DIM
         + BOARD_SIZE * SLOT_DIM
-        + SHOP_SIZE * SLOT_DIM
+        + MAX_SHOP_SLOTS * SLOT_DIM
         + HAND_LEN * SLOT_DIM
         + BOARD_SIZE * SLOT_DIM
         + LAST_BATTLE_DIM
@@ -54,8 +63,8 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 45
-    assert GLOBAL_DIM == 10
+    assert SLOT_DIM == 51
+    assert GLOBAL_DIM == 16
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
     assert PHASE_DIM == 1
@@ -73,7 +82,7 @@ def test_encode_minion_mecharoo_layout():
     assert m.card_id == "BOT_445"
     v = encode_minion(m)
     assert v[0] == 1.0
-    assert v[1 + CARD_ID_TO_INDEX["BOT_445"]] == 1.0
+    assert int(v[CARD_IDX_OFFSET]) == CARD_ID_TO_DENSE["BOT_445"]
     assert v[_T0] == 1.0 and v[_T0 + 1 : _T0 + NUM_TIER_ONEHOT].sum() == 0.0
     assert v[_S0] == 1.0 / 5.0
     assert v[_S0 + 1] == 1.0 / 5.0
@@ -149,7 +158,7 @@ def test_encode_slots_truncates_overflow():
 
 
 def test_initiative_helper_self_centric():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     s.initiative_player = 0
     s.round_number = 1
@@ -161,7 +170,7 @@ def test_initiative_helper_self_centric():
 
 
 def test_build_observation_shape_and_dtype():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
     assert obs.shape == (OBS_DIM,)
@@ -169,12 +178,13 @@ def test_build_observation_shape_and_dtype():
 
 
 def test_build_observation_globals_match_state():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     s.players[0].health = 10
     s.players[1].health = 7
     s.players[0].gold = 5
     s.players[0].tavern_tier = 2
+    s.players[0].next_tier_up_cost = 4
     s.players[1].tavern_tier = 3
     s.players[0].shop_actions_used = 4
     s.players[0].board = [make_minion("recruit"), make_minion("guard")]
@@ -193,10 +203,13 @@ def test_build_observation_globals_match_state():
     assert g_arr[7] == (MAX_SHOP_ACTIONS - 4) / MAX_SHOP_ACTIONS
     assert g_arr[8] == 2 / BOARD_SIZE
     assert g_arr[9] == 1.0
+    assert g_arr[10] == 4 / LEVEL_UP_COST_MAX
+    assert tuple(g_arr[11:15]) == (0.0, 0.0, 0.0, 0.0)
+    assert g_arr[15] == 1.0
 
 
 def test_build_observation_self_centric():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     s.players[0].health = 10
     s.players[1].health = 7
@@ -217,13 +230,13 @@ def test_build_observation_self_centric():
 
 
 def test_build_observation_empty_enemy_board_zero_block():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
     enemy_block_start = (
         GLOBAL_DIM
         + BOARD_SIZE * SLOT_DIM
-        + SHOP_SIZE * SLOT_DIM
+        + MAX_SHOP_SLOTS * SLOT_DIM
         + HAND_LEN * SLOT_DIM
     )
     enemy_block = obs[enemy_block_start : enemy_block_start + BOARD_SIZE * SLOT_DIM]
@@ -231,12 +244,12 @@ def test_build_observation_empty_enemy_board_zero_block():
 
 
 def test_build_observation_hand_block_and_phase_indicator():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     s.players[0].hand[1] = make_minion("guard")
     obs = build_observation(s, 0, 0.0, [])
 
-    hand_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + SHOP_SIZE * SLOT_DIM
+    hand_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + MAX_SHOP_SLOTS * SLOT_DIM
     hand_block = obs[hand_start : hand_start + HAND_LEN * SLOT_DIM].reshape(
         HAND_LEN, SLOT_DIM
     )
@@ -249,7 +262,7 @@ def test_build_observation_hand_block_and_phase_indicator():
 
 
 def test_build_observation_own_board_block_layout():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
     s.players[0].board = [make_minion("recruit")]
     obs = build_observation(s, 0, 0.0, [])
@@ -258,3 +271,13 @@ def test_build_observation_own_board_block_layout():
     second_slot = obs[own_start + SLOT_DIM : own_start + 2 * SLOT_DIM]
     assert first_slot[0] == 1.0
     assert np.all(second_slot == 0.0)
+
+
+def test_build_observation_encodes_shop_excluded_race():
+    g = MiniBGGame(seed=123, shop_excluded_race=Race.MURLOC)
+    s = g.initial_state()
+    obs = build_observation(s, 0, 0.0, [])
+    rot = obs[GLOBAL_CORE_DIM:GLOBAL_DIM]
+    assert rot[3] == 1.0
+    assert rot[0:3].sum() == 0.0
+    assert rot[4] == CNT_ACTIVE_SHOP_TRIBES / len(ROTATION_SHOP_TRIBES)

@@ -60,9 +60,8 @@ def test_emperor_cobra_constructed_pool_has_tier():
 def test_minion_from_catalog_poison_and_race():
     from src.envs.minibg.effects import Keyword
     from src.envs.minibg.obs import (
-        NUM_CARD_IDS,
-        NUM_TIER_ONEHOT,
-        RACE_ONEHOT_DIM,
+        KEYWORD_OFFSET,
+        TIER_OFFSET,
         encode_minion,
     )
     from src.envs.minibg.state import Race
@@ -73,7 +72,5 @@ def test_minion_from_catalog_poison_and_race():
     assert m.race == Race.BEAST
     v = encode_minion(m)
     assert v[0] == 1.0
-    _t0 = 1 + NUM_CARD_IDS
-    assert v[_t0] == 1.0
-    _k0 = _t0 + NUM_TIER_ONEHOT + 4 + RACE_ONEHOT_DIM
-    assert v[_k0 + 3] == 1.0
+    assert v[TIER_OFFSET] == 1.0
+    assert v[KEYWORD_OFFSET + 3] == 1.0

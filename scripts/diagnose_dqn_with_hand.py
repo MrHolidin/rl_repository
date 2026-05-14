@@ -1,6 +1,6 @@
 """Diagnose dqn_with_hand regression.
 
-Loads a checkpoint and plays N episodes vs `random` and vs `balanced`. For
+Loads a checkpoint and plays N episodes vs `t1_random` and vs `t_up_random`. For
 every state the agent acts in, records:
   - phase (SHOP | ORDER)
   - num_legal actions
@@ -23,11 +23,8 @@ import torch
 
 from src.agents.dqn.agent import DQNAgent
 from src.envs.minibg.env import MiniBGEnv
-from src.envs.minibg.heuristic_bots.bots import (
-    BalancedBot,
-    RandomBot,
-    HeuristicBot,
-)
+from src.envs.minibg.heuristic_bots.bots import HeuristicBot
+from src.envs.minibg.heuristic_bots.tournament import make_bot
 from src.envs.minibg.action_map import (
     A_BUY_BASE,
     A_DISCOVER_BASE,
@@ -36,10 +33,11 @@ from src.envs.minibg.action_map import (
     A_MAGNET_BASE,
     A_PLACE_BASE,
     A_ROLL,
-    A_SELECT_ORDER_BASE,
     A_SELL_BASE,
     NUM_ENV_ACTIONS,
+    is_swap_board,
 )
+from src.envs.minibg.actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS
 from src.envs.minibg.state import PlayerPhase
 
 
@@ -51,20 +49,20 @@ def action_kind(a: int) -> str:
         return "ROLL"
     if a == A_LEVEL_UP:
         return "LEVEL_UP"
-    if A_BUY_BASE <= a < A_BUY_BASE + 3:
+    if A_BUY_BASE <= a < A_BUY_BASE + MAX_SHOP_SLOTS:
         return "BUY"
-    if A_SELL_BASE <= a < A_SELL_BASE + 4:
+    if A_SELL_BASE <= a < A_SELL_BASE + BOARD_SIZE:
         return "SELL"
-    if A_PLACE_BASE <= a < A_PLACE_BASE + 3:
+    if A_PLACE_BASE <= a < A_PLACE_BASE + HAND_SIZE:
         return "PLACE"
-    if A_MAGNET_BASE <= a < A_MAGNET_BASE + 12:
+    if A_MAGNET_BASE <= a < A_MAGNET_BASE + HAND_SIZE * BOARD_SIZE:
         return "MAGNET"
     if A_DISCOVER_BASE <= a < A_DISCOVER_BASE + 3:
         return "DISCOVER"
     if a == A_FINISH:
         return "FINISH"
-    if a >= A_SELECT_ORDER_BASE:
-        return "SELECT_ORDER"
+    if is_swap_board(a):
+        return "SWAP_BOARD"
     return "?"
 
 
@@ -185,18 +183,18 @@ def main():
     agent = load_agent(Path(args.ckpt), device=args.device)
     print(f"Loaded {args.ckpt}; device={agent.device}")
 
-    rb = RandomBot(seed=args.seed)
-    bb = BalancedBot()
+    b0 = make_bot("t1_random", args.seed)
+    b1 = make_bot("t_up_random", args.seed + 999)
 
     rng = np.random.default_rng(args.seed)
     s1 = int(rng.integers(0, 2**31 - 1))
     s2 = int(rng.integers(0, 2**31 - 1))
 
-    rec_r, out_r, ts_r, as_r = run_episodes(agent, rb, args.episodes, s1)
-    rec_b, out_b, ts_b, as_b = run_episodes(agent, bb, args.episodes, s2)
+    rec_r, out_r, ts_r, as_r = run_episodes(agent, b0, args.episodes, s1)
+    rec_b, out_b, ts_b, as_b = run_episodes(agent, b1, args.episodes, s2)
 
-    summarize("random", rec_r, out_r, ts_r, as_r)
-    summarize("balanced", rec_b, out_b, ts_b, as_b)
+    summarize("t1_random", rec_r, out_r, ts_r, as_r)
+    summarize("t_up_random", rec_b, out_b, ts_b, as_b)
 
 
 if __name__ == "__main__":

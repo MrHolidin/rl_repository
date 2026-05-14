@@ -16,26 +16,25 @@ from .action_map import (
     A_MAGNET_BASE,
     A_PLACE_BASE,
     A_ROLL,
-    A_SELECT_ORDER_BASE,
     A_SELL_BASE,
+    A_SWAP_BOARD_0,
     NUM_ENV_ACTIONS,
-    PERMUTATIONS_4,
+    NUM_SWAP_ADJ,
     env_action_to_game_action,
-    is_select_order,
-    legal_order_indices,
-    order_index,
+    is_swap_board,
+    swap_adj_index_from_env_action,
 )
 from .actions import (
     BOARD_SIZE,
     DAMAGE_CAP,
     HAND_SIZE,
-    SHOP_SIZE,
+    MAX_SHOP_SLOTS,
     Action as GameAction,
     magnet_game_action,
 )
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
-from .state import MiniBGState, Minion, PlayerPhase
+from .state import MiniBGState, Minion, PlayerPhase, Race
 from .structured_actions import (
     StructAction,
     StructActionType,
@@ -70,6 +69,8 @@ class MiniBGEnv(TurnBasedEnv):
         reward_config: Optional[RewardConfig] = None,
         replay_path: Optional[Union[str, Path]] = None,
         replay_meta: Optional[Dict[str, Any]] = None,
+        shop_excluded_race: Optional[Race] = None,
+        shop_full_tribes: bool = False,
     ) -> None:
         self._seed = seed
         # Stored for backward compatibility / introspection only.
@@ -77,7 +78,13 @@ class MiniBGEnv(TurnBasedEnv):
         self.reward_config = reward_config or RewardConfig(
             invalid_action=INVALID_ACTION_REWARD
         )
-        self._game: MiniBGGame = MiniBGGame(seed=seed)
+        self._shop_excluded_race = shop_excluded_race
+        self._shop_full_tribes = shop_full_tribes
+        self._game: MiniBGGame = MiniBGGame(
+            seed=seed,
+            shop_excluded_race=shop_excluded_race,
+            shop_full_tribes=shop_full_tribes,
+        )
         self._state: Optional[MiniBGState] = None
         self._last_seen_enemy_board: List[List[Minion]] = [[], []]
         self._last_battle_signed: List[float] = [0.0, 0.0]
@@ -99,9 +106,22 @@ class MiniBGEnv(TurnBasedEnv):
     def reset(self, seed: Optional[int] = None) -> np.ndarray:
         if seed is not None:
             self._seed = seed
-            self._game = MiniBGGame(seed=seed)
+            self._game = MiniBGGame(
+                seed=seed,
+                shop_excluded_race=self._shop_excluded_race,
+                shop_full_tribes=self._shop_full_tribes,
+            )
         elif self._seed is not None:
-            self._game = MiniBGGame(seed=self._seed)
+            self._game = MiniBGGame(
+                seed=self._seed,
+                shop_excluded_race=self._shop_excluded_race,
+                shop_full_tribes=self._shop_full_tribes,
+            )
+        else:
+            self._game = MiniBGGame(
+                shop_excluded_race=self._shop_excluded_race,
+                shop_full_tribes=self._shop_full_tribes,
+            )
         self._state = self._game.initial_state()
         self._last_seen_enemy_board = [[], []]
         self._last_battle_signed = [0.0, 0.0]
@@ -164,13 +184,9 @@ class MiniBGEnv(TurnBasedEnv):
             self._state.players[1].health,
         )
 
-        if is_select_order(action_int):
-            j = order_index(action_int)
-            perm = PERMUTATIONS_4[j]
-            self._state = self._game.reorder_board(self._state, acting_idx, perm)
-            self._state = self._game.apply_action(
-                self._state, int(GameAction.FINISH)
-            )
+        if is_swap_board(action_int):
+            i = swap_adj_index_from_env_action(action_int)
+            self._state = self._game.swap_board_adjacent(self._state, acting_idx, i)
         else:
             game_action = env_action_to_game_action(action_int)
             self._state = self._game.apply_action(self._state, game_action)
@@ -253,7 +269,7 @@ class MiniBGEnv(TurnBasedEnv):
         if int(GameAction.LEVEL_UP) in legal_game:
             out.append(StructAction(StructActionType.LEVEL_UP))
 
-        for slot in range(SHOP_SIZE):
+        for slot in range(MAX_SHOP_SLOTS):
             if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:
                 out.append(StructAction(StructActionType.BUY, (slot,)))
 
@@ -452,14 +468,12 @@ class MiniBGEnv(TurnBasedEnv):
 
         player = self._state.players[self._state.current_player_index]
 
-        # Order phase: SELECT_ORDER_* are the only legal env actions. Only
-        # ``k!`` canonical perms are legal (one representative per equivalence
-        # class under compact-after-permute) — exposing the redundant 24
-        # outputs to DQN washes out the gradient signal in this phase.
         if player.phase == PlayerPhase.ORDER:
+            mask[A_FINISH] = True
             k = len(player.board)
-            for j in legal_order_indices(k):
-                mask[A_SELECT_ORDER_BASE + j] = True
+            for i in range(NUM_SWAP_ADJ):
+                if i + 1 < k:
+                    mask[A_SWAP_BOARD_0 + i] = True
             return mask
 
         # Shop phase: bridge from game's legal_actions.
@@ -470,7 +484,7 @@ class MiniBGEnv(TurnBasedEnv):
         if int(GameAction.LEVEL_UP) in legal_game:
             mask[A_LEVEL_UP] = True
 
-        for slot in range(SHOP_SIZE):
+        for slot in range(MAX_SHOP_SLOTS):
             if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:
                 mask[A_BUY_BASE + slot] = True
 

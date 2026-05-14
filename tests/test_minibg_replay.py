@@ -23,7 +23,7 @@ def test_eval_checkpoints_vs_opponents_replay_dir(tmp_path: Path):
         ld.side_effect = _load
         df = eval_checkpoints_vs_opponents(
             [ck],
-            opponent_names=["random"],
+            opponent_names=["t1_random"],
             num_games=2,
             game_id="minibg",
             replay_dir=rdir,

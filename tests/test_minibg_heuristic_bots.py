@@ -24,15 +24,15 @@ def test_bot_always_chooses_legal_action(name: str) -> None:
 
 
 def test_play_game_terminates() -> None:
-    b0 = make_bot("tempo", 1)
-    b1 = make_bot("wide_t1", 2)
+    b0 = make_bot("t1_random", 1)
+    b1 = make_bot("t_up_random", 2)
     r = play_game(b0, b1, seed=42)
     assert r in ("bot0", "bot1", "draw")
 
 
 def test_tournament_smoke() -> None:
-    names = ["random", "tempo", "wide_t1"]
+    names = ["t1_random", "t_up_random"]
     res = run_tournament(names, games_per_pair=1, base_seed=7)
-    assert len(res) == 3
+    assert len(res) == 1
     for v in res.values():
         assert sum(v) == 2

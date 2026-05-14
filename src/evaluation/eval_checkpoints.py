@@ -23,7 +23,12 @@ from src.search.connect4.heuristic_minimax import make_connect4_heuristic_minima
 from src.search.connect4.minimax_env_adapter import Connect4MinimaxEnvAdapter
 from src.training.trainer import StartPolicy
 from src.envs.minibg.replay_render import render_jsonl_file
-from src.utils.match import play_match, play_match_batched, play_single_game
+from src.utils.match import (
+    play_match,
+    play_match_batched,
+    play_single_game,
+    resolve_opening_agent_token,
+)
 
 if TYPE_CHECKING:
     from src.envs.base import TurnBasedEnv
@@ -174,13 +179,36 @@ def evaluate_agent_vs_opponents_metrics(
             replay_dir.mkdir(parents=True, exist_ok=True)
             w1 = draws = w2 = 0
             mg_base = dict(minibg_params or {})
+            from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
+
+            learned_kind = (
+                "ppo_minibg_structured"
+                if isinstance(agent, MiniBGPPOStructuredAgent)
+                else type(agent).__name__
+            )
             for g in range(num_games):
                 rpath = replay_dir / f"{match_identity}__{opp_name}__{g:04d}.jsonl"
+                game_seed = (match_seed + g) if match_seed is not None else None
+                inner_start = StartPolicy.RANDOM if randomize_first else StartPolicy.AGENT_FIRST
+                agent_token = resolve_opening_agent_token(inner_start, seed=game_seed)
+                learned_player_index = 0 if agent_token == 1 else 1
+                scripted_player_index = 1 - learned_player_index
                 meta = {
                     "checkpoint": match_identity,
                     "opponent": opp_name,
                     "game_index": g,
                     "match_seed": match_seed,
+                    "game_seed": game_seed,
+                    "opening_policy": inner_start.name,
+                    "agent_token": agent_token,
+                    "learned_player_index": learned_player_index,
+                    "scripted_player_index": scripted_player_index,
+                    "learned_agent_kind": learned_kind,
+                    "scripted_opponent": opp_name,
+                    "roles_note": (
+                        f"P{learned_player_index}=learned({learned_kind}); "
+                        f"P{scripted_player_index}=scripted({opp_name})"
+                    ),
                 }
                 env_g = make_game(
                     "minibg",
@@ -193,8 +221,6 @@ def evaluate_agent_vs_opponents_metrics(
                     if hasattr(a, "set_env"):
                         a.set_env(env_g)
                 a1x, a2x = (agent, opponent) if agent_first_in_call else (opponent, agent)
-                game_seed = (match_seed + g) if match_seed is not None else None
-                inner_start = StartPolicy.RANDOM if randomize_first else StartPolicy.AGENT_FIRST
                 result = play_single_game(
                     env_g,
                     a1x,
@@ -369,7 +395,8 @@ def eval_checkpoints_vs_opponents(
         opponent_names: List of opponent types: random, heuristic, smart_heuristic, othello_heuristic, minimax_N.
         num_games: Games per (checkpoint, opponent) pair.
         batch_size: Parallel envs for batched eval. None = use num_games (one batch).
-        device: Device for DQN/PPO tensors ('cuda' or 'cpu').
+        device: Device for DQN/PPO tensors (``cuda`` or ``cpu``). ``None`` = CUDA if available.
+            ``src.cli.eval_progress`` passes ``cpu`` for ``game_id=minibg`` when ``--device`` is omitted.
         seed: Random seed.
         reward_config: Environment reward config.
         start_policy: Who goes first: 'random', 'agent_first', or 'opponent_first'.

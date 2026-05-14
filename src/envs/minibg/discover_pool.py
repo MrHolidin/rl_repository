@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -49,14 +49,18 @@ def murloc_discover_card_ids() -> List[str]:
 def roll_discover_murloc_triple(
     rng: np.random.Generator,
     tavern_tier: int,
+    shop_excluded_race: Optional[Race] = None,
 ) -> Tuple[str, str, str]:
     """Three distinct discover options; tier-weighted by current tavern tier (BG-style)."""
     cap = min(MAX_TIER, tavern_tier + 1)
-    eligible = [
-        cid
-        for cid in murloc_discover_card_ids()
-        if CARD_TEMPLATES[cid].tier <= cap
-    ]
+    if shop_excluded_race == Race.MURLOC:
+        eligible: List[str] = []
+    else:
+        eligible = [
+            cid
+            for cid in murloc_discover_card_ids()
+            if CARD_TEMPLATES[cid].tier <= cap
+        ]
     if len(eligible) < 3:
         raise RuntimeError(
             f"need at least 3 murlocs for discover (tavern {tavern_tier}), got {len(eligible)}"

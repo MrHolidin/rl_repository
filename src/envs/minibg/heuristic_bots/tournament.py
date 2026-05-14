@@ -15,11 +15,7 @@ def make_bot(name: str, run_seed: int) -> HeuristicBot:
     if name not in ctors:
         raise KeyError(f"Unknown bot {name!r}; known: {sorted(ctors)}")
     cls = ctors[name]
-    if name == "random":
-        return cls(seed=run_seed)  # type: ignore[misc]
-    if name == "lookahead":
-        return cls(seed=run_seed)  # type: ignore[misc]
-    return cls()
+    return cls(seed=run_seed)  # type: ignore[misc]
 
 
 def play_game(

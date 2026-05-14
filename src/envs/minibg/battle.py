@@ -366,7 +366,7 @@ def _build_side(board: List[Minion], rt: _CombatRuntime) -> BattleSide:
     out: List[BattleMinion] = []
     for m in board:
         bid = rt.alloc_id()
-        out.append(BattleMinion.from_minion(m, bid))
+        out.append(BattleMinion.from_minion(copy(m), bid))
     return BattleSide(minions=out)
 
 
@@ -938,8 +938,8 @@ def _decide_first_side(
     return 0 if p0_has_initiative else 1
 
 
-def _winner_damage(side: BattleSide) -> int:
-    raw = 1 + sum(m.tier for m in side.minions if m.alive)
+def _winner_damage(side: BattleSide, winner_tavern_tier: int) -> int:
+    raw = int(winner_tavern_tier) + sum(m.tier for m in side.minions if m.alive)
     return min(DAMAGE_CAP, raw)
 
 
@@ -995,6 +995,9 @@ def simulate_battle(
     p0_board_out: Optional[List[Minion]] = None,
     p1_board_out: Optional[List[Minion]] = None,
     max_board_slots: int = BOARD_SIZE,
+    *,
+    p0_tavern_tier: int = 1,
+    p1_tavern_tier: int = 1,
 ) -> Tuple[int, int]:
     rt = _CombatRuntime(
         sides=(BattleSide(), BattleSide()),
@@ -1032,7 +1035,7 @@ def simulate_battle(
             p1_board_out=p1_board_out,
             max_board_slots=max_board_slots,
         )
-        return _winner_damage(side1), 0
+        return _winner_damage(side1, p1_tavern_tier), 0
     if not side1.has_alive():
         _emit_survivor_outputs(
             side0,
@@ -1043,7 +1046,7 @@ def simulate_battle(
             p1_board_out=p1_board_out,
             max_board_slots=max_board_slots,
         )
-        return 0, _winner_damage(side0)
+        return 0, _winner_damage(side0, p0_tavern_tier)
 
     attacker_idx = _decide_first_side(side0, side1, p0_has_initiative)
     sides = (side0, side1)
@@ -1077,9 +1080,9 @@ def simulate_battle(
         max_board_slots=max_board_slots,
     )
     if p0_alive and not p1_alive:
-        return 0, _winner_damage(side0)
+        return 0, _winner_damage(side0, p0_tavern_tier)
     if p1_alive and not p0_alive:
-        return _winner_damage(side1), 0
+        return _winner_damage(side1, p1_tavern_tier), 0
     return 0, 0
 
 

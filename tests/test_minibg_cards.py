@@ -8,6 +8,7 @@ from src.envs.minibg.cards import (
     shop_pool_for_tier,
 )
 from src.envs.minibg.replay import minion_to_dict
+from src.envs.minibg.state import Race
 
 
 def test_legacy_aliases_map_into_card_templates():
@@ -55,6 +56,15 @@ def test_shop_pool_is_monotone_by_tier_and_excludes_goldens():
     assert t1.issubset(t6)
     for cid in t1:
         assert CARD_TEMPLATES[cid].tier == 1
+
+
+def test_shop_pool_excludes_rotation_tribe_when_configured():
+    ids_full = set(shop_pool_for_tier(6, shop_excluded_race=None))
+    ids_nm = shop_pool_for_tier(6, shop_excluded_race=Race.MURLOC)
+    assert len(ids_nm) <= len(ids_full)
+    assert set(ids_nm).issubset(ids_full)
+    for cid in ids_nm:
+        assert CARD_TEMPLATES[cid].race != Race.MURLOC
 
 
 def test_make_minion_returns_distinct_instances():

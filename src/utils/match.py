@@ -106,6 +106,19 @@ def _resolve_agent_token(start_policy: StartPolicy, rng: Optional[random.Random]
     return 1 if coin < 0.5 else -1
 
 
+def resolve_opening_agent_token(
+    start_policy: StartPolicy,
+    *,
+    seed: Optional[int] = None,
+) -> int:
+    """Same opening-seat rule as :func:`play_single_game` when ``random_opening_config`` is ``None``.
+
+    The returned token ``±1`` matches ``MiniBGEnv.current_player_token`` indexing (P0 → ``+1``).
+    """
+    rng = random.Random(seed) if seed is not None else None
+    return _resolve_agent_token(start_policy, rng)
+
+
 def _current_player_token(env: TurnBasedEnv) -> int:
     """Return +1 for the first player, -1 for the second.
 
@@ -189,6 +202,13 @@ def play_match_batched(
     Batches forward passes when an agent implements act_batch (e.g. DQN).
     Same return convention as play_match.
     """
+    if num_games < 1:
+        raise ValueError("num_games must be >= 1")
+    if batch_size < 1:
+        raise ValueError(
+            "play_match_batched requires batch_size >= 1 (creates that many parallel envs). "
+            "For sequential play use play_match() instead."
+        )
     if reward_config is None:
         reward_config = RewardConfig()
     if env_factory is not None:
