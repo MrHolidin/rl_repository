@@ -635,15 +635,17 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     base = max(0, effect.count)
                 rt.in_death_resolution = True
                 target_side = _summon_target_side(side_idx, effect.for_opponent)
+                wave_cap = max(1, getattr(effect, "dr_wave_count", 1))
                 rep = 0
                 while rep < _deathrattle_multiplier(rt.side(side_idx)):
                     rep += 1
                     n_sum = _summon_multiplier(rt.side(side_idx))
                     for _ in range(n_sum):
-                        for __ in range(base):
-                            tok = make_minion(effect.token_id)
-                            if _summon_append(rt, target_side, tok) is None:
-                                break
+                        for _wave in range(wave_cap):
+                            for __ in range(base):
+                                tok = make_minion(effect.token_id)
+                                if _summon_append(rt, target_side, tok) is None:
+                                    break
             elif isinstance(effect, SummonRandomMinionEffect):
                 race_hs = hs_race_string(effect.race_filter)
                 pool = build_summon_pool(

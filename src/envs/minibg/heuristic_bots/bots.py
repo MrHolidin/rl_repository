@@ -240,7 +240,10 @@ class TierUpRandomBot(HeuristicBot):
 
 
 def default_bot_constructors() -> dict[str, type[HeuristicBot]]:
+    from .structured_bot import StructuredHeuristicBot
+
     return {
         Tier1RandomBot.name: Tier1RandomBot,
         TierUpRandomBot.name: TierUpRandomBot,
+        StructuredHeuristicBot.name: StructuredHeuristicBot,
     }

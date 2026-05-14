@@ -83,7 +83,8 @@ STATS_OFFSET = TIER_OFFSET + NUM_TIER_ONEHOT
 RACE_OFFSET = STATS_OFFSET + 4
 KEYWORD_OFFSET = RACE_OFFSET + RACE_ONEHOT_DIM
 SHIELD_OFFSET = KEYWORD_OFFSET + NUM_KEYWORD_CHANNELS
-TRIGGER_OFFSET = SHIELD_OFFSET + 1
+GOLDEN_OFFSET = SHIELD_OFFSET + 1
+TRIGGER_OFFSET = GOLDEN_OFFSET + 1
 EFFECT_OFFSET = TRIGGER_OFFSET + NUM_TRIGGER_CHANNELS
 SLOT_DIM = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
 
@@ -242,6 +243,7 @@ def encode_minion(minion: Optional[Minion]) -> np.ndarray:
     v[KEYWORD_OFFSET + 5] = 1.0 if Keyword.MAGNETIC in kw else 0.0
 
     v[SHIELD_OFFSET] = 1.0 if minion.has_shield else 0.0
+    v[GOLDEN_OFFSET] = 1.0 if minion.is_golden else 0.0
 
     for ab in minion.abilities:
         ti = TRIGGER_INDEX.get(ab.trigger)
@@ -350,6 +352,7 @@ __all__ = [
     "RACE_OFFSET",
     "KEYWORD_OFFSET",
     "SHIELD_OFFSET",
+    "GOLDEN_OFFSET",
     "TRIGGER_OFFSET",
     "EFFECT_OFFSET",
     "SLOT_DIM",

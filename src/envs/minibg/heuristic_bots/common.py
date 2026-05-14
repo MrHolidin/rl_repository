@@ -6,8 +6,9 @@ import numpy as np
 
 from ..action_map import A_FINISH, A_SWAP_BOARD_0, NUM_ENV_ACTIONS, NUM_SWAP_ADJ
 from ..actions import BOARD_SIZE
-from ..effects import Keyword, Trigger
-from ..state import Minion, PlayerPhase, PlayerState
+from ..state import Minion
+
+from .value_model import order_key_structured
 
 
 def legal_env_indices(mask: np.ndarray) -> List[int]:
@@ -19,20 +20,7 @@ def board_full(board_len: int) -> bool:
 
 
 def order_key_token(old_idx: int, board: Sequence[Minion | None]) -> Tuple[float, int]:
-    m = board[old_idx]
-    assert m is not None
-    w = 0.0
-    if Keyword.TAUNT in m.keywords:
-        w -= 100.0
-    if m.card_id == "commander":
-        w += 50.0
-    if m.card_id == "mentor":
-        w += 45.0
-    if any(ab.trigger == Trigger.ON_DEATH for ab in m.abilities):
-        w -= 15.0
-    if m.card_id == "buffer":
-        w += 5.0
-    return (w, old_idx)
+    return order_key_structured(old_idx, board)
 
 
 def order_key_default(old_idx: int, board: Sequence[Minion | None]) -> Tuple[float, int]:

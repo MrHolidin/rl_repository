@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -31,14 +31,17 @@ from .actions import (
     shop_offers_count,
 )
 from .battle import simulate_battle
-from .cards import make_minion, shop_pool_for_tier
+from .card_pool import triple_merge_golden_abilities
+from .cards import CARD_TEMPLATES, make_minion, shop_pool_for_tier
 from .discover_pool import (
     apply_adapt_key_to_minion,
     is_murloc_board_minion,
     roll_adapt_triple,
     roll_discover_murloc_triple,
+    roll_triple_reward_discover_triple,
 )
 from .effects import (
+    Ability,
     AdjacentStatAura,
     BuffAdjacentBattlecry,
     BuffAllFriendlyOfTribe,
@@ -207,6 +210,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 actions.append(int(Action.LEVEL_UP))
 
         actions.append(int(Action.FINISH))
+        actions.append(int(Action.FINISH_FREEZE_SHOP))
         return actions
 
     def apply_action(self, state: MiniBGState, action: ActionType) -> MiniBGState:
@@ -238,6 +242,12 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         if action_int == int(Action.FINISH):
             # Phase flip only — same player keeps the turn to submit order.
             self._enter_order_phase(player)
+            player.shop_freeze_next_round = False
+            return new_state
+
+        if action_int == int(Action.FINISH_FREEZE_SHOP):
+            self._enter_order_phase(player)
+            player.shop_freeze_next_round = True
             return new_state
 
         consumes_budget = False
@@ -291,6 +301,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 # Budget exhausted -> auto-flip to order phase. Player still
                 # owes order-phase moves (swap / finish) on their next turn.
                 self._enter_order_phase(player)
+                player.shop_freeze_next_round = False
 
         return new_state
 
@@ -377,6 +388,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         assert h is not None, "BUY illegal when hand is full (legal mask bug)"
         player.hand[h] = minion
         self._fire_on_buy(minion, player)
+        self._try_resolve_triples_loop(player)
 
     def _do_place(
         self,
@@ -387,16 +399,29 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         minion = player.hand[hand_slot]
         assert minion is not None
         assert len(player.board) < BOARD_SIZE
+        queued_triple_reward = minion.is_golden and minion.from_triple_merge
         player.hand[hand_slot] = None
         player.board.append(minion)
         self._fire_shop_friendly_summoned(player, minion)
         player.placed_minion_board_index = len(player.board) - 1
         self._fire_on_place(minion, player, shop_excluded_race)
         if player.pending_choice is None:
-            idx = player.placed_minion_board_index
-            assert idx is not None
-            self._fire_after_friendly_minion_placed(player, player.board[idx])
+            try:
+                idx = player.board.index(minion)
+            except ValueError:
+                pass
+            else:
+                self._fire_after_friendly_minion_placed(player, player.board[idx])
             player.placed_minion_board_index = None
+
+        self._try_resolve_triples_loop(player)
+
+        if queued_triple_reward and minion in player.board and minion.is_golden:
+            if player.pending_choice is None:
+                self._open_triple_reward_discover(player, shop_excluded_race)
+            else:
+                player.triple_reward_discover_pending = True
+            minion.from_triple_merge = False
 
     def _resolve_discover_pick(
         self,
@@ -409,10 +434,14 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         assert 0 <= pick_slot <= 2
         choice_token = pc.options[pick_slot]
         extra = pc.extra_modals_after
-        if pc.kind == PendingChoiceKind.DISCOVER_MURLOC:
+        if pc.kind in (
+            PendingChoiceKind.DISCOVER_MURLOC,
+            PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
+        ):
             h = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
             assert h is not None, "discover pick with full hand (legal mask bug)"
             player.hand[h] = make_minion(choice_token)
+            self._try_resolve_triples_loop(player)
         else:
             for m in player.board:
                 if is_murloc_board_minion(m):
@@ -427,6 +456,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             if idx is not None:
                 self._fire_after_friendly_minion_placed(player, player.board[idx])
                 player.placed_minion_board_index = None
+            self._flush_triple_reward_queue_if_idle(player, shop_excluded_race)
 
     def _roll_pending_modal(
         self,
@@ -437,6 +467,10 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
     ) -> PendingChoice:
         if kind == PendingChoiceKind.DISCOVER_MURLOC:
             opts = roll_discover_murloc_triple(
+                self._rng, player.tavern_tier, shop_excluded_race
+            )
+        elif kind == PendingChoiceKind.TRIPLE_REWARD_DISCOVER:
+            opts = roll_triple_reward_discover_triple(
                 self._rng, player.tavern_tier, shop_excluded_race
             )
         else:
@@ -475,7 +509,6 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         target.keywords = combined_kw
         target.granted_keywords = frozenset()
         target.has_shield = target.has_shield or magnet.has_shield
-        target.is_golden = target.is_golden or magnet.is_golden
 
         nt = [ab for ab in target.abilities if ab.trigger != Trigger.ON_DEATH]
         dt = [ab for ab in target.abilities if ab.trigger == Trigger.ON_DEATH]
@@ -492,6 +525,95 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         assert self._hand_minion_can_magnetize(magnet)
         player.hand[hand_slot] = None
         self.merge_magnetic_inplace(target, magnet)
+        self._try_resolve_triples_loop(player)
+
+    @staticmethod
+    def _merge_three_non_golden_into_golden(card_id: str, a: Minion, b: Minion, c: Minion) -> Minion:
+        tpl = CARD_TEMPLATES[card_id]
+        merged_kw = (
+            a.keywords
+            | a.granted_keywords
+            | b.keywords
+            | b.granted_keywords
+            | c.keywords
+            | c.granted_keywords
+        )
+        shield = a.has_shield or b.has_shield or c.has_shield or (
+            Keyword.SHIELD in merged_kw
+        )
+        return Minion(
+            card_id=card_id,
+            base_attack=tpl.base_attack * 2,
+            base_health=tpl.base_health * 2,
+            tier=tpl.tier,
+            name=tpl.name,
+            bonus_attack=a.bonus_attack + b.bonus_attack + c.bonus_attack,
+            bonus_health=a.bonus_health + b.bonus_health + c.bonus_health,
+            race=tpl.race,
+            keywords=frozenset(merged_kw),
+            granted_keywords=frozenset(),
+            abilities=triple_merge_golden_abilities(card_id),
+            has_shield=shield,
+            is_token=tpl.is_token,
+            is_golden=True,
+            from_triple_merge=True,
+            dbf_id=tpl.dbf_id,
+        )
+
+    def _try_resolve_triples_loop(self, player: PlayerState) -> None:
+        for _ in range(24):
+            if not self._resolve_one_triple(player):
+                break
+
+    def _resolve_one_triple(self, player: PlayerState) -> bool:
+        groups: Dict[str, List[Tuple[str, int, Minion]]] = {}
+        for i, m in enumerate(player.board):
+            if not m.is_golden:
+                groups.setdefault(m.card_id, []).append(("b", i, m))
+        for i, hm in enumerate(player.hand):
+            if hm is not None and not hm.is_golden:
+                groups.setdefault(hm.card_id, []).append(("h", i, hm))
+        candidate: Optional[str] = None
+        for cid in sorted(groups.keys()):
+            if len(groups[cid]) >= 3:
+                candidate = cid
+                break
+        if candidate is None:
+            return False
+        ordered = sorted(
+            groups[candidate], key=lambda t: (0 if t[0] == "b" else 1, t[1])
+        )[:3]
+        m0, m1, m2 = ordered[0][2], ordered[1][2], ordered[2][2]
+        merged = MiniBGGame._merge_three_non_golden_into_golden(candidate, m0, m1, m2)
+        for _, idx, _ in sorted(
+            (t for t in ordered if t[0] == "b"), key=lambda t: -t[1]
+        ):
+            del player.board[idx]
+        for _, idx, _ in sorted(
+            (t for t in ordered if t[0] == "h"), key=lambda t: -t[1]
+        ):
+            player.hand[idx] = None
+        hslot = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
+        assert hslot is not None, "triple merge with full hand (bug)"
+        player.hand[hslot] = merged
+        return True
+
+    def _open_triple_reward_discover(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
+        opts = roll_triple_reward_discover_triple(
+            self._rng, player.tavern_tier, shop_excluded_race
+        )
+        player.pending_choice = PendingChoice(
+            PendingChoiceKind.TRIPLE_REWARD_DISCOVER, opts, 0
+        )
+
+    def _flush_triple_reward_queue_if_idle(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
+        if player.pending_choice is None and player.triple_reward_discover_pending:
+            player.triple_reward_discover_pending = False
+            self._open_triple_reward_discover(player, shop_excluded_race)
 
     @staticmethod
     def _player_has_hero_immune(player: PlayerState) -> bool:
@@ -576,6 +698,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             player.board.insert(insert_at, tok)
             self._fire_shop_friendly_summoned(player, tok)
             insert_at += 1
+        self._try_resolve_triples_loop(player)
 
     def _fire_shop_friendly_summoned(self, player: PlayerState, summoned: Minion) -> None:
         for m in player.board:
@@ -728,6 +851,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
     def _do_sell(self, player: PlayerState, pos: int) -> None:
         del player.board[pos]
         player.gold += SELL_REWARD
+        self._try_resolve_triples_loop(player)
 
     def _do_roll(
         self, player: PlayerState, shop_excluded_race: Optional[Race]
@@ -855,6 +979,21 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             new_shop[i] = make_minion(card_id)
         player.shop = new_shop
 
+    def _refresh_shop_fill_empty_slots(
+        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    ) -> None:
+        """Keep existing offers in active slots; reroll only empty offers; clear inactive tiers."""
+        n = shop_offers_count(player.tavern_tier)
+        pool = self._tavern_card_pool(player.tavern_tier, shop_excluded_race)
+        while len(player.shop) < MAX_SHOP_SLOTS:
+            player.shop.append(None)
+        for i in range(MAX_SHOP_SLOTS):
+            if i >= n:
+                player.shop[i] = None
+            elif player.shop[i] is None:
+                card_id = pool[int(self._rng.integers(0, len(pool)))]
+                player.shop[i] = make_minion(card_id)
+
     # ------------------------------------------------------------------
     # Round resolution
 
@@ -900,10 +1039,16 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             p.phase = PlayerPhase.SHOP
             p.shop_actions_used = 0
             p.pending_choice = None
+            p.triple_reward_discover_pending = False
             p.placed_minion_board_index = None
-            # Start-of-recruitment: board (L→R) then hand; then free shop reroll.
+            # Start-of-recruitment: board (L→R) then hand; then shop (full reroll or
+            # reuse frozen offers and fill empties).
             self._fire_on_turn_start(p)
-            self._refresh_shop(p, state.shop_excluded_race)
+            if p.shop_freeze_next_round:
+                self._refresh_shop_fill_empty_slots(p, state.shop_excluded_race)
+                p.shop_freeze_next_round = False
+            else:
+                self._refresh_shop(p, state.shop_excluded_race)
         state.current_player_index = 0
 
     def _fresh_player(
@@ -955,6 +1100,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             hand=[copy(m) if m is not None else None for m in p.hand],
             phase=p.phase,
             shop_actions_used=p.shop_actions_used,
+            shop_freeze_next_round=p.shop_freeze_next_round,
             pending_choice=(
                 PendingChoice(
                     p.pending_choice.kind,
@@ -965,6 +1111,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 else None
             ),
             placed_minion_board_index=p.placed_minion_board_index,
+            triple_reward_discover_pending=p.triple_reward_discover_pending,
             pogo_hoppers_played=p.pogo_hoppers_played,
         )
 

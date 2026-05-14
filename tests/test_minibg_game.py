@@ -80,6 +80,7 @@ def test_legal_actions_initial_state():
         int(Action.BUY_SLOT_2),
         int(Action.ROLL),
         int(Action.FINISH),
+        int(Action.FINISH_FREEZE_SHOP),
     }
 
 
@@ -136,12 +137,27 @@ def test_finish_in_shop_only_flips_phase():
     g, s = _make_game()
     s2 = g.apply_action(s, int(Action.FINISH))
     assert s2.players[0].phase == PlayerPhase.ORDER
+    assert s2.players[0].shop_freeze_next_round is False
     assert s2.current_player_index == 0  # turn stays
     # Order phase: only FINISH legal; submitting it passes turn.
     assert set(g.legal_actions(s2)) == {int(Action.FINISH)}
     s3 = g.apply_action(s2, int(Action.FINISH))
     assert s3.players[0].phase == PlayerPhase.DONE
     assert s3.current_player_index == 1
+
+
+def test_finish_freeze_shop_carry_offers_through_round_transition():
+    g, s = _make_game(seed=11)
+    _force_shop(s, 0, "recruit", "buffer", "guard")
+    before = tuple(m.card_id if m else None for m in s.players[0].shop[:4])
+    s = g.apply_action(s, int(Action.FINISH_FREEZE_SHOP))
+    assert s.players[0].shop_freeze_next_round is True
+    s = g.apply_action(s, int(Action.FINISH))
+    s = _submit_order_identity(g, s)
+
+    ids_p0_now = tuple(m.card_id if m else None for m in s.players[0].shop[:4])
+    assert ids_p0_now == before
+    assert not s.players[0].shop_freeze_next_round
 
 
 def test_round_advances_when_both_players_submit():

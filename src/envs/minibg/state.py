@@ -16,6 +16,7 @@ class PlayerPhase(IntEnum):
 class PendingChoiceKind(IntEnum):
     DISCOVER_MURLOC = 0
     ADAPT = 1
+    TRIPLE_REWARD_DISCOVER = 2
 
 
 @dataclass
@@ -63,6 +64,8 @@ class Minion:
     has_shield: bool = False
     is_token: bool = False
     is_golden: bool = False
+    """Set when this minion was forged from three non-golden copies; grants one discover after play."""
+    from_triple_merge: bool = False
     dbf_id: Optional[int] = None
 
     @property
@@ -90,10 +93,13 @@ class PlayerState:
     hand: List[Optional[Minion]]
     phase: PlayerPhase
     shop_actions_used: int
+    shop_freeze_next_round: bool = False
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
     pending_choice: Optional["PendingChoice"] = None
     placed_minion_board_index: Optional[int] = None
+    # Queued after playing a golden from a triple when a murloc/adapt modal is active first.
+    triple_reward_discover_pending: bool = False
 
     @property
     def shopping_finished(self) -> bool:

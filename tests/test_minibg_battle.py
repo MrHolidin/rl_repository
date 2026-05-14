@@ -105,12 +105,12 @@ def test_commander_aura_buffs_kill():
     assert dmg_p1 == 6
 
 
-def test_damage_cap_at_seven():
+def test_damage_below_cap_three_big_survivors():
     p0 = _board("big_guy", "big_guy", "big_guy")
     p1 = []
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert dmg_p0 == 0
-    assert dmg_p1 == 7
+    assert dmg_p1 == 10
 
 
 def test_simulate_battle_fill_persistent_board_kwargs():

@@ -1,0 +1,121 @@
+"""ADAPT modal options must not collapse to identical pending embeddings."""
+
+import numpy as np
+import torch
+
+from src.envs.minibg.obs import (
+    OBS_DIM,
+    PENDING_OPTIONS_OFFSET,
+    build_observation,
+)
+from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerPhase, Race
+from src.models.minibg_slot_ac import MiniBGSlotActorCritic
+from src.models.minibg_structured_ac import MiniBGStructuredActorCritic
+
+from tests.test_minibg_structured import _blank_state_vectors
+
+
+def _obs_with_pending_adapt(opts: tuple[str, str, str]) -> np.ndarray:
+    from src.envs.minibg.state import MiniBGState, PlayerState
+
+    sid = (
+        CARD_ID_ONE := "BGS_004",
+        CARD_ID_TWO := "EX1_162",
+        CARD_ID_THREE := "UNG_073",
+    )
+    me = PlayerState(
+        health=40,
+        gold=3,
+        tavern_tier=5,
+        next_tier_up_cost=12,
+        board=[__import__("src.envs.minibg.cards", fromlist=["make_minion"]).make_minion(sid[i]) for i in range(3)],
+        shop=[None] * 6,
+        hand=[None, None, None],
+        phase=PlayerPhase.SHOP,
+        shop_actions_used=2,
+        pending_choice=PendingChoice(
+            PendingChoiceKind.ADAPT, opts, 0
+        ),
+    )
+    en = PlayerState(
+        health=40,
+        gold=3,
+        tavern_tier=5,
+        next_tier_up_cost=12,
+        board=[],
+        shop=[None] * 6,
+        hand=[None, None, None],
+        phase=PlayerPhase.SHOP,
+        shop_actions_used=2,
+    )
+    s = MiniBGState(
+        players=(me, en),
+        round_number=8,
+        current_player_index=0,
+        initiative_player=0,
+        winner=None,
+        done=False,
+        shop_excluded_race=None,
+    )
+    return build_observation(s, 0, 0.0, [])
+
+
+def test_obs_encodes_three_distinct_adapt_option_scalars():
+    from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+
+    opts = (ADAPT_KEYS_ALL[2], ADAPT_KEYS_ALL[5], ADAPT_KEYS_ALL[9])
+    obs = _obs_with_pending_adapt(opts)
+    assert obs.shape == (OBS_DIM,)
+    base = OBS_DIM - 9  # pending tail length
+    pend = obs[base:]
+    vals = pend[PENDING_OPTIONS_OFFSET : PENDING_OPTIONS_OFFSET + 3]
+    assert len({float(v) for v in vals}) == 3
+
+
+def test_slot_ac_pending_feat_differs_across_adapt_options():
+    from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+
+    n_act = int(
+        __import__(
+            "src.envs.minibg.actions",
+            fromlist=["NUM_ENV_ACTIONS"],
+        ).NUM_ENV_ACTIONS
+    )
+    net = MiniBGSlotActorCritic(num_actions=n_act, card_emb_dim=16)
+    a = torch.from_numpy(
+        _obs_with_pending_adapt(
+            (ADAPT_KEYS_ALL[0], ADAPT_KEYS_ALL[1], ADAPT_KEYS_ALL[2]),
+        ).astype(np.float32)
+        .reshape(1, -1),
+    )
+    b = torch.from_numpy(
+        _obs_with_pending_adapt(
+            (ADAPT_KEYS_ALL[3], ADAPT_KEYS_ALL[4], ADAPT_KEYS_ALL[5]),
+        ).astype(np.float32)
+        .reshape(1, -1),
+    )
+    pa = MiniBGSlotActorCritic.forward.__wrapped__.__globals__.get("_encode_pending_with_card_emb")
+    # Reach pending slice like forward does:
+    pend_a = a[:, -9:]
+    pend_b = b[:, -9:]
+    fa = __import__(
+        "src.models.minibg_slot_ac",
+        fromlist=["_encode_pending_with_card_emb"],
+    )._encode_pending_with_card_emb(pend_a, net.card_emb, net.adapt_choice_emb)
+    fb = __import__(
+        "src.models.minibg_slot_ac",
+        fromlist=["_encode_pending_with_card_emb"],
+    )._encode_pending_with_card_emb(pend_b, net.card_emb, net.adapt_choice_emb)
+    assert not torch.allclose(fa, fb)
+
+
+def test_structured_E_pending_rows_differ_for_adapt_choices():
+    from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+
+    net = MiniBGStructuredActorCritic(
+        PPO_NETWORK_TYPE := __import__(
+            "src.envs.minibg",
+            fromlist=["something"],
+        )
+    )
+

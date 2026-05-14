@@ -25,7 +25,7 @@ agent:
     action_dim: 64
     order_hidden: 64
     order_pos_dim: 16
-    learning_rate: 0.0003
+    learning_rate: 0.0001
     discount_factor: 1.0
     gae_lambda: 0.95
     ppo_clip_eps: 0.2

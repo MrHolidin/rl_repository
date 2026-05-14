@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from .actions import MAX_TIER
-from .cards import CARD_TEMPLATES
+from .cards import CARD_TEMPLATES, shop_minion_allowed_with_exclusion, shop_pool_for_tier
 from .effects import Ability, Keyword, SummonEffect, Trigger
 from .state import Minion, Race
 
@@ -83,6 +83,49 @@ def roll_adapt_triple(rng: np.random.Generator) -> Tuple[str, str, str]:
     return (keys[0], keys[1], keys[2])
 
 
+def triple_reward_discover_tier(tavern_tier: int) -> int:
+    """Discover pool tier = current tavern tier + 1 (capped); at T6 use T6."""
+    return min(MAX_TIER, int(tavern_tier) + 1)
+
+
+def roll_triple_reward_discover_triple(
+    rng: np.random.Generator,
+    tavern_tier: int,
+    shop_excluded_race: Optional[Race] = None,
+) -> Tuple[str, str, str]:
+    """Three distinct options from minions of tier ``tavern_tier + 1`` when possible."""
+    tgt = triple_reward_discover_tier(tavern_tier)
+    eligible_exact = [
+        cid
+        for cid in shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race)
+        if CARD_TEMPLATES[cid].tier == tgt
+    ]
+    eligible = eligible_exact
+    if len(eligible) < 3:
+        eligible = list(
+            shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race)
+        )
+    if len(eligible) < 3:
+        eligible = [
+            cid
+            for cid, m in CARD_TEMPLATES.items()
+            if not m.is_token
+            and not m.is_golden
+            and m.tier <= tgt
+            and shop_minion_allowed_with_exclusion(m, shop_excluded_race)
+        ]
+    if len(eligible) < 3:
+        raise RuntimeError(
+            f"need at least 3 cards for triple-reward discover (tier {tgt}), got {len(eligible)}"
+        )
+    pool = list(eligible)
+    picks: List[str] = []
+    for _ in range(3):
+        j = int(rng.integers(0, len(pool)))
+        picks.append(pool.pop(j))
+    return (picks[0], picks[1], picks[2])
+
+
 def is_murloc_board_minion(m: Minion) -> bool:
     return m.race in (Race.MURLOC, Race.ALL)
 
@@ -129,6 +172,8 @@ __all__ = [
     "murloc_discover_card_ids",
     "roll_discover_murloc_triple",
     "roll_adapt_triple",
+    "roll_triple_reward_discover_triple",
+    "triple_reward_discover_tier",
     "is_murloc_board_minion",
     "apply_adapt_key_to_minion",
 ]

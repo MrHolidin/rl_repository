@@ -249,7 +249,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             picks_np = np.full(BOARD_SIZE, -1, dtype=np.int64)
             board_perm: Optional[Tuple[int, ...]] = None
 
-            if chosen.type == StructActionType.COMPLETE_TURN:
+            if chosen.type in (
+                StructActionType.COMPLETE_TURN,
+                StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+            ):
                 state_emb = enc_cache["state_emb"]
                 e_own = enc_cache["E_own"]
                 g_full = enc_cache["g_full"]
@@ -274,7 +277,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "action_idx": idx,
                 "value": float(value.squeeze(0).item()),
                 "log_prob": float(log_total.item()),
-                "complete_turn": chosen.type == StructActionType.COMPLETE_TURN,
+                "complete_turn": chosen.type
+                in (
+                    StructActionType.COMPLETE_TURN,
+                    StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+                ),
                 "occupied_mask": occupied_np.copy(),
                 "order_picks": picks_np.copy(),
             }

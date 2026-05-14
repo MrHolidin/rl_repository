@@ -98,6 +98,25 @@ def minion_by_dbf_id(path: Optional[Path] = None) -> Dict[int, TavernMinionRecor
     return {m.dbf_id: m for m in load_tavern_minions(path)}
 
 
+@lru_cache(maxsize=1)
+def normal_to_golden_card_id_map(path: Optional[Path] = None) -> Dict[str, str]:
+    """Non-golden tavern ``card_id`` → catalog triple-upgrade golden ``card_id`` (usually ``TB_BaconUps_*``)."""
+
+    by_dbf = minion_by_dbf_id(path)
+    out: Dict[str, str] = {}
+    for rec in load_tavern_minions(path):
+        if rec.is_golden or rec.golden_dbf_id is None:
+            continue
+        g = by_dbf.get(rec.golden_dbf_id)
+        if g is not None:
+            out[rec.id] = g.id
+    return out
+
+
+def golden_upgrade_card_id(normal_card_id: str, path: Optional[Path] = None) -> Optional[str]:
+    return normal_to_golden_card_id_map(path).get(normal_card_id)
+
+
 def minion_by_id(path: Optional[Path] = None) -> Dict[str, TavernMinionRecord]:
     return {m.id: m for m in load_tavern_minions(path)}
 
@@ -159,12 +178,14 @@ def minion_from_tavern_record(rec: TavernMinionRecord):
 __all__ = [
     "TavernMinionRecord",
     "catalog_path",
+    "golden_upgrade_card_id",
     "keywords_for_tavern_record",
     "load_patch_catalog",
     "load_tavern_minions",
     "minion_by_dbf_id",
     "minion_by_id",
     "minion_from_tavern_record",
+    "normal_to_golden_card_id_map",
     "patch_build",
     "patch_version",
     "race_from_hs_string",

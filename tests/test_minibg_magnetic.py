@@ -61,7 +61,8 @@ def test_magnet_preserves_board_buffs():
     assert m.max_health == 5
 
 
-def test_golden_magnetic_stats_and_flag():
+def test_golden_magnetic_adds_double_stats_but_not_golden_identity():
+    """BG-style: magnet stats from a golden module apply; merged minion stays its card identity (not golden)."""
     g = MiniBGGame(seed=0)
     s = g.initial_state()
     p = s.players[0]
@@ -69,7 +70,7 @@ def test_golden_magnetic_stats_and_flag():
     p.hand[0] = make_minion("annoy_o_module_golden")
     s2 = g.apply_action(s, int(magnet_game_action(0, 0)))
     m = s2.players[0].board[0]
-    assert m.is_golden
+    assert not m.is_golden
     assert m.raw_attack == 5
     assert m.max_health == 9
 

@@ -4,6 +4,7 @@ import pytest
 from src.envs.minibg.action_map import (
     A_BUY_BASE,
     A_FINISH,
+    A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
     A_PLACE_BASE,
     A_ROLL,
@@ -53,12 +54,14 @@ def test_legal_actions_mask_is_phase_aware():
     mask = env.legal_actions_mask
     assert mask[A_ROLL]
     assert mask[A_FINISH]
+    assert mask[A_FINISH_FREEZE_SHOP]
     n_buy = shop_offers_count(env._state.players[0].tavern_tier)
     assert all(mask[A_BUY_BASE + i] for i in range(n_buy))
     assert not any(mask[A_BUY_BASE + i] for i in range(n_buy, MAX_SHOP_SLOTS))
     env.step(A_FINISH)
     mask = env.legal_actions_mask
     assert mask[A_FINISH]
+    assert not mask[A_FINISH_FREEZE_SHOP]
     assert not any(mask[A_SWAP_BOARD_0 + i] for i in range(NUM_SWAP_ADJ))
     assert not mask[A_ROLL]
     assert not any(mask[A_BUY_BASE + i] for i in range(MAX_SHOP_SLOTS))

@@ -44,6 +44,7 @@ from .effects import (
 )
 from .patch_catalog import load_tavern_minions, minion_by_id, minion_from_tavern_record
 from .state import Minion, Race
+from .triple_effects import resolve_triple_forged_abilities
 
 # Golden rewards (triple) — not in tavern pool; separate ``card_id`` rows.
 GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
@@ -419,6 +420,12 @@ def build_card_templates() -> Dict[str, Minion]:
         is_token=True,
     )
     return out
+
+
+def triple_merge_golden_abilities(normal_card_id: str) -> Tuple[Ability, ...]:
+    """Abilities for a forged golden (three normals); see ``triple_effects``."""
+
+    return resolve_triple_forged_abilities(normal_card_id, EFFECTS)
 
 
 CARD_TEMPLATES: Dict[str, Minion] = build_card_templates()

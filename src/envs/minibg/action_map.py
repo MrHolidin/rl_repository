@@ -17,6 +17,7 @@ A_SELL_BOARD_LAST = int(Action.SELL_BOARD_0) + BOARD_SIZE - 1
 A_ROLL = int(Action.ROLL)
 A_LEVEL_UP = int(Action.LEVEL_UP)
 A_FINISH = int(Action.FINISH)
+A_FINISH_FREEZE_SHOP = int(Action.FINISH_FREEZE_SHOP)
 A_PLACE_HAND_0 = int(Action.PLACE_HAND_0)
 A_PLACE_HAND_LAST = int(Action.PLACE_HAND_0) + HAND_SIZE - 1
 A_MAGNET_HAND_0_BOARD_0 = int(Action.MAGNET_HAND_0_BOARD_0)
@@ -119,6 +120,10 @@ def is_finish(env_action: int) -> bool:
     return int(env_action) == A_FINISH
 
 
+def is_finish_freeze_shop(env_action: int) -> bool:
+    return int(env_action) == A_FINISH_FREEZE_SHOP
+
+
 def env_action_to_game_action(env_action: int) -> int:
     a = int(env_action)
     if is_swap_board(a):
@@ -140,6 +145,7 @@ def _iter_primitive_actions(*, tavern_tier: int) -> Iterable[int]:
     yield A_ROLL
     yield A_LEVEL_UP
     yield A_FINISH
+    yield A_FINISH_FREEZE_SHOP
     yield from range(A_PLACE_HAND_0, A_PLACE_HAND_LAST + 1)
     yield from range(A_MAGNET_HAND_0_BOARD_0, A_MAGNET_HAND_LAST_BOARD_LAST + 1)
     yield from range(A_DISCOVER_PICK_0, A_DISCOVER_PICK_LAST + 1)
@@ -161,6 +167,7 @@ __all__ = [
     "A_BUY_BASE",
     "A_DISCOVER_BASE",
     "A_FINISH",
+    "A_FINISH_FREEZE_SHOP",
     "A_LEVEL_UP",
     "A_MAGNET_BASE",
     "A_MAGNET_HAND_LAST_BOARD_LAST",
@@ -181,6 +188,7 @@ __all__ = [
     "is_buy",
     "is_discover_pick",
     "is_finish",
+    "is_finish_freeze_shop",
     "is_magnet",
     "is_place",
     "is_sell",

@@ -30,6 +30,7 @@ def test_decode_env_action():
     assert decode_env_action(int(A_PLACE_BASE)) == "PLACE_HAND_0"
     assert decode_env_action(int(A_DISCOVER_BASE)) == "DISCOVER_PICK_0"
     assert decode_env_action(int(A_FINISH)) == "FINISH"
+    assert decode_env_action(int(GA.FINISH_FREEZE_SHOP)) == "FINISH_FREEZE_SHOP"
     assert decode_env_action(int(A_SWAP_BOARD_0)) == "SWAP_BOARD_0_1"
 
 
@@ -38,7 +39,7 @@ def test_decode_env_action_compact_no_slots():
     from src.envs.minibg.action_map import A_PLACE_BASE, A_SWAP_BOARD_0
 
     assert decode_env_action_compact(int(GA.BUY_SLOT_0)) == "BUY"
-    assert decode_env_action_compact(int(GA.SELL_BOARD_0)) == "SELL"
+    assert decode_env_action_compact(int(GA.FINISH_FREEZE_SHOP)) == "FINISH_FREEZE_SHOP"
     assert decode_env_action_compact(int(A_PLACE_BASE)) == "PLACE"
     assert decode_env_action_compact(int(A_SWAP_BOARD_0)) == "SWAP_BOARD"
 

@@ -13,6 +13,8 @@ from torch.distributions import Categorical
 from src.envs.minibg.actions import BOARD_SIZE
 from src.envs.minibg.structured_actions import StructAction, StructActionType
 
+from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+
 from src.envs.minibg.obs import (
     EFFECT_OFFSET as _EFFECT_OFFSET,
     NUM_EFFECT_CHANNELS as _NUM_EFFECT_CHANNELS,
@@ -40,6 +42,7 @@ from .minibg_slot_ac import (
     _SLOT_CONT_DIM,
     _SLOT_DIM,
     _TOTAL_SLOTS,
+    _pending_three_option_emb,
     _split_card_idx_and_cont,
 )
 
@@ -210,11 +213,17 @@ class MiniBGStructuredActorCritic(nn.Module):
         self.card_emb = nn.Embedding(
             _NUM_POOL_INDICES + 1, self.card_emb_dim, padding_idx=0
         )
+        self.adapt_choice_emb = nn.Embedding(
+            len(ADAPT_KEYS_ALL) + 1, self.card_emb_dim, padding_idx=0
+        )
         # Tight init (matches slot AC): keeps Conv1d activations bounded on step 0
         # despite 102 random rows fanning into 50 continuous channels.
         nn.init.normal_(self.card_emb.weight, mean=0.0, std=0.02)
         with torch.no_grad():
             self.card_emb.weight[0].zero_()
+        nn.init.normal_(self.adapt_choice_emb.weight, mean=0.0, std=0.02)
+        with torch.no_grad():
+            self.adapt_choice_emb.weight[0].zero_()
 
         conv_in = _SLOT_CONT_DIM + self.card_emb_dim
         self.region_conv1 = nn.Conv1d(conv_in, self.slot_hidden, kernel_size=1)
@@ -402,23 +411,18 @@ class MiniBGStructuredActorCritic(nn.Module):
         EXT_shop = shop[..., _TRIGGER_OFFSET:_EXT_END]
         EXT_hand = hand[..., _TRIGGER_OFFSET:_EXT_END]
 
-        # Pending entities (3 discover/adapt options). Only the card_emb projection
-        # is populated — trigger/effect bits aren't carried in obs's pending tail,
-        # so EXT_pending stays zero (the embedding implicitly captures effect identity).
+        # Pending entities (3 discover or ADAPT options). Indices route through ``card_emb``
+        # or dedicated ``adapt_choice_emb`` matching ``encode_pending_choice``.
         B = x.size(0)
         device = x.device
         dtype = E_own.dtype
         cont = pending[..., :_PENDING_DISCOVER_IDX_OFFSET]
-        disc_idx = pending[
-            ...,
-            _PENDING_DISCOVER_IDX_OFFSET : _PENDING_DISCOVER_IDX_OFFSET
-            + _PENDING_DISCOVER_IDX_DIM,
-        ]
-        disc_long = disc_idx.long().clamp_(min=0, max=_NUM_POOL_INDICES)
-        disc_emb = self.card_emb(disc_long)
-        pending_feat = torch.cat([cont, disc_emb.flatten(-2)], dim=-1)
+        opt_stack = _pending_three_option_emb(
+            pending, self.card_emb, self.adapt_choice_emb
+        )
+        pending_feat = torch.cat([cont, opt_stack.flatten(-2)], dim=-1)
         E_pending = self._add_pos_region(
-            self.pending_to_slot(disc_emb), self.pending_pos_emb, REG_PENDING
+            self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING
         )
         EXT_pending = torch.zeros(B, _PENDING_LEN, _EXT_DIM, device=device, dtype=dtype)
 

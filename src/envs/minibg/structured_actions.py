@@ -18,11 +18,12 @@ class StructActionType(IntEnum):
     COMPLETE_TURN = 5
     MAGNET = 6
     DISCOVER_PICK = 7
+    COMPLETE_TURN_FREEZE_SHOP = 8
 
 
 @dataclass(frozen=True)
 class StructAction:
-    """Frozen action token; COMPLETE_TURN carries board order via ``step(..., board_perm=...)``."""
+    """Frozen action token; COMPLETE_TURN* carries board order via ``step(..., board_perm=...)``."""
 
     type: StructActionType
     args: Tuple[int, ...] = ()
@@ -93,9 +94,9 @@ def validate_struct_action(a: StructAction) -> None:
         s = a.args[0]
         if s < 0 or s > 2:
             raise ValueError(f"DISCOVER_PICK slot out of range [0,2]: {s}")
-    elif t == StructActionType.COMPLETE_TURN:
+    elif t == StructActionType.COMPLETE_TURN or t == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
         if a.args != ():
-            raise ValueError(f"COMPLETE_TURN expects args (); pass board_perm to env.step_structured")
+            raise ValueError(f"{t.name} expects args (); pass board_perm to env.step_structured")
     else:
         raise ValueError(f"unknown StructActionType {t}")
 
@@ -110,6 +111,7 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         A_BUY_BASE,
         A_DISCOVER_BASE,
         A_FINISH,
+        A_FINISH_FREEZE_SHOP,
         A_LEVEL_UP,
         A_MAGNET_BASE,
         A_PLACE_BASE,
@@ -131,6 +133,8 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
     if a.type == StructActionType.DISCOVER_PICK:
         return int(A_DISCOVER_BASE + a.args[0])
+    if a.type == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
+        return int(A_FINISH_FREEZE_SHOP)
     if a.type == StructActionType.COMPLETE_TURN:
         return int(A_FINISH)
     raise ValueError(a)

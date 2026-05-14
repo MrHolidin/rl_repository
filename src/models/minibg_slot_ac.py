@@ -21,7 +21,10 @@ from src.envs.minibg.obs import (
     PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
     PHASE_DIM as _PHASE_DIM,
     SLOT_DIM as _SLOT_DIM,
+    PENDING_HEADER_OFFSET as _PENDING_HEADER_OFFSET,
+    PENDING_OPTIONS_OFFSET as _PENDING_OPTIONS_OFFSET,
 )
+from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
 
 _OWN_LEN = BOARD_SIZE
 _SHOP_LEN = MAX_SHOP_SLOTS
@@ -30,6 +33,42 @@ _ENEMY_LEN = BOARD_SIZE
 _TOTAL_SLOTS = _OWN_LEN + _SHOP_LEN + _HAND_LEN + _ENEMY_LEN
 _SLOT_CONT_DIM = _SLOT_DIM - 1
 _PENDING_CONT_DIM = _PENDING_CHOICE_DIM - _PENDING_DISCOVER_IDX_DIM
+_PENDING_IS_ADAPT_CH = _PENDING_HEADER_OFFSET + 1
+
+
+def _pending_three_option_emb(
+    pending: torch.Tensor,
+    card_emb: nn.Embedding,
+    adapt_emb: nn.Embedding,
+) -> torch.Tensor:
+    """``(B, 3, D)`` per-modal option vectors; mirrors ``encode_pending_choice``."""
+
+    is_adapt = pending[..., _PENDING_IS_ADAPT_CH] > 0.5
+    opt_scaled = pending[
+        ...,
+        _PENDING_OPTIONS_OFFSET : _PENDING_OPTIONS_OFFSET + _PENDING_DISCOVER_IDX_DIM,
+    ]
+    adapt_idx_raw = (opt_scaled * 9.0).round().long().clamp(0, len(ADAPT_KEYS_ALL) - 1)
+    disc_idx = pending[
+        ...,
+        _PENDING_DISCOVER_IDX_OFFSET : _PENDING_DISCOVER_IDX_OFFSET + _PENDING_DISCOVER_IDX_DIM,
+    ].long().clamp_(min=0, max=_NUM_POOL_INDICES)
+    ae = adapt_emb(adapt_idx_raw + 1)
+    de = card_emb(disc_idx)
+    mask = is_adapt.unsqueeze(-1).unsqueeze(-1).expand_as(de)
+    return torch.where(mask, ae, de)
+
+
+def _encode_pending_with_card_emb(
+    pending: torch.Tensor,
+    card_emb: nn.Embedding,
+    adapt_emb: nn.Embedding,
+) -> torch.Tensor:
+    """Flatten pending + per-option embeddings (discover vs ADAPT‑key table)."""
+
+    cont = pending[..., :_PENDING_DISCOVER_IDX_OFFSET]
+    emb_stack = _pending_three_option_emb(pending, card_emb, adapt_emb)
+    return torch.cat([cont, emb_stack.flatten(-2)], dim=-1)
 
 
 def _split_card_idx_and_cont(
@@ -47,23 +86,6 @@ def _split_card_idx_and_cont(
         dim=-1,
     )
     return torch.cat([cont, emb], dim=-1)
-
-
-def _encode_pending_with_card_emb(
-    pending: torch.Tensor, card_emb: nn.Embedding
-) -> torch.Tensor:
-    """Pending tail ``(B, PENDING_CHOICE_DIM)`` → ``(B, PENDING_CONT_DIM + 3*card_emb_dim)``.
-
-    Discover option indices (last 3 channels) are routed through the shared slot card embedding so
-    DISCOVER_PICK scoring sees actual card identities, not just tier scalars.
-    """
-    cont = pending[..., :_PENDING_DISCOVER_IDX_OFFSET]
-    disc_idx = pending[
-        ..., _PENDING_DISCOVER_IDX_OFFSET : _PENDING_DISCOVER_IDX_OFFSET + _PENDING_DISCOVER_IDX_DIM
-    ]
-    disc_long = disc_idx.long().clamp_(min=0, max=_NUM_POOL_INDICES)
-    disc_emb = card_emb(disc_long)
-    return torch.cat([cont, disc_emb.flatten(-2)], dim=-1)
 
 
 class MiniBGSlotActorCritic(nn.Module):
@@ -91,11 +113,17 @@ class MiniBGSlotActorCritic(nn.Module):
         self.card_emb = nn.Embedding(
             _NUM_POOL_INDICES + 1, self.card_emb_dim, padding_idx=0
         )
+        self.adapt_choice_emb = nn.Embedding(
+            len(ADAPT_KEYS_ALL) + 1, self.card_emb_dim, padding_idx=0
+        )
         # Smaller-than-default init: 102 random rows at N(0, 1) into a Conv1d alongside
         # bounded continuous features causes large early-step grads in region_conv1.
         nn.init.normal_(self.card_emb.weight, mean=0.0, std=0.02)
         with torch.no_grad():
             self.card_emb.weight[0].zero_()
+        nn.init.normal_(self.adapt_choice_emb.weight, mean=0.0, std=0.02)
+        with torch.no_grad():
+            self.adapt_choice_emb.weight[0].zero_()
 
         conv_in = _SLOT_CONT_DIM + self.card_emb_dim
         self.region_conv1 = nn.Conv1d(conv_in, self.slot_hidden, kernel_size=1)
@@ -170,7 +198,9 @@ class MiniBGSlotActorCritic(nn.Module):
         e_shop = self._encode_region(shop)
         e_hand = self._encode_region(hand)
         e_enemy = self._encode_region(enemy)
-        pending_feat = _encode_pending_with_card_emb(pending, self.card_emb)
+        pending_feat = _encode_pending_with_card_emb(
+            pending, self.card_emb, self.adapt_choice_emb
+        )
         feat = torch.cat(
             [e_own, e_shop, e_hand, e_enemy, g, lb, phase, pending_feat], dim=1
         )
@@ -194,4 +224,5 @@ __all__ = [
     "_PENDING_DISCOVER_IDX_DIM",
     "_split_card_idx_and_cont",
     "_encode_pending_with_card_emb",
+    "_pending_three_option_emb",
 ]

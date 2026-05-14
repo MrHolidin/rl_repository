@@ -30,6 +30,7 @@ from src.envs.minibg.obs import (
     PENDING_CHOICE_DIM,
     RACE_OFFSET,
     RACE_ONEHOT_DIM,
+    GOLDEN_OFFSET,
     SHIELD_OFFSET,
     SLOT_DIM,
     STATS_OFFSET,
@@ -63,7 +64,7 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 51
+    assert SLOT_DIM == 52
     assert GLOBAL_DIM == 16
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -75,6 +76,13 @@ def test_encode_minion_none_is_zero_vector():
     assert v.shape == (SLOT_DIM,)
     assert np.all(v == 0.0)
     assert v.dtype == np.float32
+
+
+def test_encode_minion_golden_flag():
+    m = make_minion("recruit")
+    m.is_golden = True
+    v = encode_minion(m)
+    assert v[GOLDEN_OFFSET] == 1.0
 
 
 def test_encode_minion_mecharoo_layout():

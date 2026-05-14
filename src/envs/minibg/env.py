@@ -12,6 +12,7 @@ from .action_map import (
     A_BUY_BASE,
     A_DISCOVER_BASE,
     A_FINISH,
+    A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
     A_MAGNET_BASE,
     A_PLACE_BASE,
@@ -289,6 +290,8 @@ class MiniBGEnv(TurnBasedEnv):
 
         if int(GameAction.FINISH) in legal_game:
             out.append(StructAction(StructActionType.COMPLETE_TURN))
+        if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
+            out.append(StructAction(StructActionType.COMPLETE_TURN_FREEZE_SHOP))
 
         return out
 
@@ -337,7 +340,10 @@ class MiniBGEnv(TurnBasedEnv):
         if action not in legal:
             return _illegal_reply()
 
-        if action.type == StructActionType.COMPLETE_TURN:
+        if action.type in (
+            StructActionType.COMPLETE_TURN,
+            StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+        ):
             if board_perm is None:
                 return _illegal_reply()
             try:
@@ -357,10 +363,23 @@ class MiniBGEnv(TurnBasedEnv):
         )
 
         try:
-            if action.type == StructActionType.COMPLETE_TURN:
+            if action.type in (
+                StructActionType.COMPLETE_TURN,
+                StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+            ):
                 assert board_perm is not None
                 perm_tuple = tuple(int(x) for x in board_perm)
-                self._state = self._apply_complete_turn(self._state, acting_idx, perm_tuple)
+                shop_finish = (
+                    int(GameAction.FINISH_FREEZE_SHOP)
+                    if action.type == StructActionType.COMPLETE_TURN_FREEZE_SHOP
+                    else int(GameAction.FINISH)
+                )
+                self._state = self._apply_complete_turn(
+                    self._state,
+                    acting_idx,
+                    perm_tuple,
+                    shop_phase_finish=int(shop_finish),
+                )
             else:
                 ga = self._struct_action_to_game_action(action)
                 self._state = self._game.apply_action(self._state, ga)
@@ -426,12 +445,14 @@ class MiniBGEnv(TurnBasedEnv):
         state: MiniBGState,
         acting_idx: int,
         perm: Tuple[int, ...],
+        *,
+        shop_phase_finish: int,
     ) -> MiniBGState:
-        """Shop FINISH (if needed) → reorder_board → ORDER FINISH."""
+        """Shop exit (FINISH or FINISH_FREEZE_SHOP) if needed → reorder_board → ORDER FINISH."""
         player = state.players[acting_idx]
         new_state = state
         if player.phase == PlayerPhase.SHOP:
-            new_state = self._game.apply_action(new_state, int(GameAction.FINISH))
+            new_state = self._game.apply_action(new_state, shop_phase_finish)
         elif player.phase != PlayerPhase.ORDER:
             raise ValueError(
                 f"COMPLETE_TURN invalid phase {player.phase.name}"
@@ -508,6 +529,8 @@ class MiniBGEnv(TurnBasedEnv):
 
         if int(GameAction.FINISH) in legal_game:
             mask[A_FINISH] = True
+        if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
+            mask[A_FINISH_FREEZE_SHOP] = True
 
         return mask
 

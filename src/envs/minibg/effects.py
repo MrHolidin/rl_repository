@@ -41,6 +41,8 @@ class SummonEffect:
     count: int = 1
     count_from_source_attack: bool = False
     for_opponent: bool = False
+    # Golden Rat Pack: same DR resolves multiple sweeps before Baron/Duplicator multipliers.
+    dr_wave_count: int = 1
 
 
 @dataclass(frozen=True)

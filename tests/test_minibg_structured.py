@@ -58,7 +58,15 @@ def test_structured_shop_moves_match_int_steps():
     for _ in range(3):
         ls = env_s.legal_structured_actions()
         li = env_i.get_legal_actions()
-        pick = next(a for a in ls if a.type != StructActionType.COMPLETE_TURN)
+        pick = next(
+            a
+            for a in ls
+            if a.type
+            not in (
+                StructActionType.COMPLETE_TURN,
+                StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+            )
+        )
         ai = _shop_struct_to_env_int(pick)
         assert ai in li
         env_s.step_structured(pick)
@@ -354,3 +362,54 @@ def test_masked_policy_entropy_backward_no_nan_grad():
     ent_row = -(p_safe * log_sm_safe).sum(dim=-1)
     ent_row.mean().backward()
     assert torch.isfinite(logits.grad).all()
+
+
+def test_pending_three_option_emb_adapt_uses_distinct_rows():
+    """Regression: ADAPT keys live only in pending[3:6]; ``card_emb(0,0,0)`` must not collapse."""
+
+    from src.models.minibg_slot_ac import _pending_three_option_emb
+
+    net = MiniBGStructuredActorCritic(
+        slot_hidden=4,
+        trunk_hidden=16,
+        state_dim=8,
+        action_dim=8,
+        order_hidden=8,
+        order_pos_dim=4,
+    )
+    p = torch.zeros(1, 9, dtype=torch.float32)
+    p[0, 0], p[0, 1] = 1.0, 1.0  # pending + is_adapt
+    p[0, 3] = 1.0 / 9.0
+    p[0, 4] = 4.0 / 9.0
+    p[0, 5] = 7.0 / 9.0
+    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb)[0]
+    assert st.shape == (3, net.card_emb_dim)
+    norms = (
+        torch.norm(st[0] - st[1]).item(),
+        torch.norm(st[0] - st[2]).item(),
+        torch.norm(st[1] - st[2]).item(),
+    )
+    assert min(norms) > 1e-6
+
+
+def test_pending_three_option_emb_discover_still_card_embedded():
+    from src.envs.minibg.obs import CARD_ID_TO_DENSE
+
+    from src.models.minibg_slot_ac import _pending_three_option_emb
+
+    net = MiniBGStructuredActorCritic(
+        slot_hidden=4,
+        trunk_hidden=16,
+        state_dim=8,
+        action_dim=8,
+        order_hidden=8,
+        order_pos_dim=4,
+    )
+    cid_a, cid_b = "EX1_162", "UNG_073"
+    p = torch.zeros(1, 9, dtype=torch.float32)
+    p[0, 0], p[0, 1] = 1.0, 0.0  # discover
+    p[0, 6] = float(CARD_ID_TO_DENSE[cid_a])
+    p[0, 7] = float(CARD_ID_TO_DENSE[cid_b])
+    p[0, 8] = float(CARD_ID_TO_DENSE[cid_a])
+    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb)[0]
+    assert torch.norm(st[0] - st[1]).item() > 1e-6

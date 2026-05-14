@@ -101,7 +101,10 @@ def bench_action_emb_paths() -> None:
         obs_list.append(np.asarray(o, dtype=np.float32))
         legal_list.append(legal)
         a = legal[0]
-        if a.type == StructActionType.COMPLETE_TURN:
+        if a.type in (
+            StructActionType.COMPLETE_TURN,
+            StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+        ):
             step = env.step_structured(a, board_perm=(0, 1, 2, 3))
         else:
             step = env.step_structured(a)
@@ -123,6 +126,7 @@ def bench_action_emb_paths() -> None:
             re = net.role_emb(torch.full((1,), role_for_struct(a), dtype=torch.long))
             if a.type in {
                 StructActionType.COMPLETE_TURN,
+                StructActionType.COMPLETE_TURN_FREEZE_SHOP,
                 StructActionType.ROLL,
                 StructActionType.LEVEL_UP,
             }:

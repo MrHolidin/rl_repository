@@ -54,6 +54,8 @@ def minion_to_dict(m: Minion) -> Dict[str, Any]:
         "granted_kw": _keyword_names(m.granted_keywords),
         "shield": m.has_shield,
         "token": m.is_token,
+        "golden": m.is_golden,
+        "from_triple_merge": m.from_triple_merge,
         "abilities": [_ability_dict(a) for a in m.abilities],
     }
 
@@ -76,7 +78,9 @@ def player_to_dict(p: PlayerState) -> Dict[str, Any]:
         "phase": p.phase.name,
         "shop_done": p.shopping_finished,
         "shop_acts": p.shop_actions_used,
+        "shop_freeze_next_round": p.shop_freeze_next_round,
         "pending": pend,
+        "triple_reward_pending": p.triple_reward_discover_pending,
         "placed_idx": p.placed_minion_board_index,
         "board": [minion_to_dict(m) for m in p.board],
         "shop": [

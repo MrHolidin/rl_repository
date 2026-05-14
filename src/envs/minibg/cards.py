@@ -68,6 +68,7 @@ def make_minion(card_id: str) -> Minion:
     fresh = copy(template)
     fresh.has_shield = Keyword.SHIELD in template.all_keywords
     fresh.is_golden = template.is_golden
+    fresh.from_triple_merge = False
     return fresh
 
 

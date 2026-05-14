@@ -15,6 +15,7 @@ from .action_map import (
     is_buy,
     is_discover_pick,
     is_finish,
+    is_finish_freeze_shop,
     is_magnet,
     is_place,
     is_sell,
@@ -90,6 +91,8 @@ def decode_env_action(a: int) -> str:
         return f"DISCOVER_PICK_{discover_pick_slot(a)}"
     if is_finish(a):
         return "FINISH"
+    if is_finish_freeze_shop(a):
+        return "FINISH_FREEZE_SHOP"
     if is_swap_board(a):
         j = swap_adj_index_from_env_action(a)
         return f"SWAP_BOARD_{j}_{j + 1}"
@@ -116,6 +119,8 @@ def decode_env_action_compact(a: int) -> str:
         return "DISCOVER"
     if is_finish(a):
         return "FINISH"
+    if is_finish_freeze_shop(a):
+        return "FINISH_FREEZE_SHOP"
     if is_swap_board(a):
         return "SWAP_BOARD"
     if 0 <= a < NUM_ENV_ACTIONS:
