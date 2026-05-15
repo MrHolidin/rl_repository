@@ -246,6 +246,11 @@ if "ppo" not in list_agents():
             order_score_hidden = int(kwargs.pop("order_score_hidden", 64))
             critic_hidden = int(kwargs.pop("critic_hidden", 128))
             card_emb_dim = int(kwargs.pop("card_emb_dim", 16))
+            entity_attention_layers = int(kwargs.pop("entity_attention_layers", 0))
+            entity_attention_heads = int(kwargs.pop("entity_attention_heads", 4))
+            entity_attention_ff_mult = int(kwargs.pop("entity_attention_ff_mult", 2))
+            entity_attention_init_scale = float(kwargs.pop("entity_attention_init_scale", 0.1))
+            use_global_entity_token = bool(kwargs.pop("use_global_entity_token", True))
             net = MiniBGStructuredActorCritic(
                 slot_hidden=slot_hidden_channels,
                 trunk_hidden=trunk_hidden_size,
@@ -259,6 +264,11 @@ if "ppo" not in list_agents():
                 order_score_hidden=order_score_hidden,
                 critic_hidden=critic_hidden,
                 card_emb_dim=card_emb_dim,
+                entity_attention_layers=entity_attention_layers,
+                entity_attention_heads=entity_attention_heads,
+                entity_attention_ff_mult=entity_attention_ff_mult,
+                entity_attention_init_scale=entity_attention_init_scale,
+                use_global_entity_token=use_global_entity_token,
             )
             kwargs["observation_type"] = obs_type or "vector"
             ppo_kw = dict(net.get_constructor_kwargs())

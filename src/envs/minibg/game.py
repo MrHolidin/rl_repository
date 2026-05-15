@@ -47,9 +47,11 @@ from .effects import (
     BuffAllFriendlyOfTribe,
     BuffAllOtherOfTribe,
     BuffAllWithKeyword,
+    BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
+    BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSummonedIfRace,
     BuffListenerIfSummonedMatches,
     BattlecryMultiplierAura,
@@ -60,11 +62,11 @@ from .effects import (
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
-    KangorSummonCopy,
     KeywordStatAura,
     Keyword,
     StatAura,
     SummonEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
     SummonRandomMinionEffect,
     SummonMultiplierAura,
     DeathrattleMultiplierAura,
@@ -151,6 +153,13 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
 
         # Shop phase — pending Discover / Adapt blocks other actions.
         if player.pending_choice is not None:
+            pc = player.pending_choice
+            if pc.kind in (
+                PendingChoiceKind.DISCOVER_MURLOC,
+                PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
+            ):
+                if not MiniBGGame._hand_has_free_slot(player):
+                    return []
             return [
                 int(Action.DISCOVER_PICK_0),
                 int(Action.DISCOVER_PICK_1),
@@ -264,7 +273,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             )
             consumes_budget = (
                 player.pending_choice is None
-                and player.placed_minion_board_index is None
+                and player.placed_minion_pending_after is None
             )
         elif int(Action.BUY_SLOT_0) <= action_int < int(Action.BUY_SLOT_0) + MAX_SHOP_SLOTS:
             self._do_buy(player, action_int - int(Action.BUY_SLOT_0))
@@ -286,7 +295,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             )
             consumes_budget = (
                 player.pending_choice is None
-                and player.placed_minion_board_index is None
+                and player.placed_minion_pending_after is None
             )
         elif is_magnet_game_action(action_int):
             h, b = magnet_hand_board_from_game_action(action_int)
@@ -404,6 +413,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player.board.append(minion)
         self._fire_shop_friendly_summoned(player, minion)
         player.placed_minion_board_index = len(player.board) - 1
+        player.placed_minion_pending_after = minion
         self._fire_on_place(minion, player, shop_excluded_race)
         if player.pending_choice is None:
             try:
@@ -413,15 +423,18 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             else:
                 self._fire_after_friendly_minion_placed(player, player.board[idx])
             player.placed_minion_board_index = None
+            player.placed_minion_pending_after = None
 
         self._try_resolve_triples_loop(player)
 
         if queued_triple_reward and minion in player.board and minion.is_golden:
             if player.pending_choice is None:
-                self._open_triple_reward_discover(player, shop_excluded_race)
+                self._try_open_triple_reward_discover(player, shop_excluded_race)
             else:
                 player.triple_reward_discover_pending = True
             minion.from_triple_merge = False
+
+        self._flush_triple_reward_queue_if_idle(player, shop_excluded_race)
 
     def _resolve_discover_pick(
         self,
@@ -434,27 +447,38 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         assert 0 <= pick_slot <= 2
         choice_token = pc.options[pick_slot]
         extra = pc.extra_modals_after
-        if pc.kind in (
+        hand_discover = pc.kind in (
             PendingChoiceKind.DISCOVER_MURLOC,
             PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
-        ):
+        )
+        if hand_discover:
             h = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
-            assert h is not None, "discover pick with full hand (legal mask bug)"
+            if h is None:
+                raise ValueError(
+                    "DISCOVER pick with full hand; legal mask must require a free hand slot"
+                )
             player.hand[h] = make_minion(choice_token)
             self._try_resolve_triples_loop(player)
         else:
             for m in player.board:
                 if is_murloc_board_minion(m):
                     apply_adapt_key_to_minion(m, choice_token)
-        if extra > 0:
+
+        chain_next = extra > 0
+        if chain_next and hand_discover and not MiniBGGame._hand_has_free_slot(player):
+            chain_next = False
+
+        if chain_next:
             player.pending_choice = self._roll_pending_modal(
                 player, pc.kind, extra - 1, shop_excluded_race
             )
         else:
             player.pending_choice = None
-            idx = player.placed_minion_board_index
-            if idx is not None:
-                self._fire_after_friendly_minion_placed(player, player.board[idx])
+            ref = player.placed_minion_pending_after
+            if ref is not None:
+                if ref in player.board:
+                    self._fire_after_friendly_minion_placed(player, ref)
+                player.placed_minion_pending_after = None
                 player.placed_minion_board_index = None
             self._flush_triple_reward_queue_if_idle(player, shop_excluded_race)
 
@@ -598,9 +622,21 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player.hand[hslot] = merged
         return True
 
-    def _open_triple_reward_discover(
-        self, player: PlayerState, shop_excluded_race: Optional[Race]
+    @staticmethod
+    def _hand_has_free_slot(player: PlayerState) -> bool:
+        return any(s is None for s in player.hand)
+
+    def _try_open_triple_reward_discover(
+        self,
+        player: PlayerState,
+        shop_excluded_race: Optional[Race],
     ) -> None:
+        """Open triple-reward discover only if hand has room for the received minion."""
+
+        if not MiniBGGame._hand_has_free_slot(player):
+            player.triple_reward_discover_pending = True
+            return
+        player.triple_reward_discover_pending = False
         opts = roll_triple_reward_discover_triple(
             self._rng, player.tavern_tier, shop_excluded_race
         )
@@ -612,8 +648,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         self, player: PlayerState, shop_excluded_race: Optional[Race]
     ) -> None:
         if player.pending_choice is None and player.triple_reward_discover_pending:
-            player.triple_reward_discover_pending = False
-            self._open_triple_reward_discover(player, shop_excluded_race)
+            self._try_open_triple_reward_discover(player, shop_excluded_race)
 
     @staticmethod
     def _player_has_hero_immune(player: PlayerState) -> bool:
@@ -672,14 +707,15 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             pool = [m for m in pool if m is not source]
         if effect.filter_race is not None:
             pool = [m for m in pool if self._minion_matches_tribe(m, effect.filter_race)]
-        if not pool:
-            return
-        tgt = pool[int(self._rng.integers(0, len(pool)))]
-        tgt.keywords = frozenset(tgt.keywords | {effect.keyword})
-        if effect.keyword == Keyword.TAUNT:
-            pass
-        if effect.keyword == Keyword.SHIELD:
-            tgt.has_shield = True
+        for _ in range(max(1, effect.repeats)):
+            if not pool:
+                return
+            tgt = pool[int(self._rng.integers(0, len(pool)))]
+            tgt.keywords = frozenset(tgt.keywords | {effect.keyword})
+            if effect.keyword == Keyword.TAUNT:
+                pass
+            if effect.keyword == Keyword.SHIELD:
+                tgt.has_shield = True
 
     def _apply_summon_from_place(
         self, player: PlayerState, source: Minion, effect: SummonEffect
@@ -737,6 +773,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
     ) -> None:
         if isinstance(effect, BuffRandomFriendly):
             self._apply_buff_random(source, effect, player.board)
+        elif isinstance(effect, BuffOnePerListedTribeFriendly):
+            self._apply_buff_one_per_listed_tribe(source, effect, player.board)
         elif isinstance(effect, DealHeroDamage):
             self._damage_hero(player, effect.amount)
         elif isinstance(effect, BuffSelf):
@@ -766,7 +804,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 KeywordStatAura,
                 AdjacentStatAura,
                 HeroImmuneAura,
-                KangorSummonCopy,
+                SummonFirstDeadFriendlyMechsThisCombat,
                 BattlecryMultiplierAura,
                 DeathrattleMultiplierAura,
                 SummonMultiplierAura,
@@ -802,7 +840,10 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 continue
             e = ab.effect
             if isinstance(e, DiscoverMurlocEffect):
-                total = mult * e.repeats
+                free_slots = sum(1 for s in player.hand if s is None)
+                total = min(mult * e.repeats, free_slots)
+                if total <= 0:
+                    return
                 opts = roll_discover_murloc_triple(
                     self._rng, player.tavern_tier, shop_excluded_race
                 )
@@ -845,6 +886,17 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 if ab.trigger != Trigger.AFTER_FRIENDLY_MINION_PLACED:
                     continue
                 if ab.filter_race is not None and placed.race != ab.filter_race:
+                    continue
+                eff = ab.effect
+                if isinstance(eff, BuffSelfWhenFriendlyBattlecryPlaced):
+                    if m is placed:
+                        continue
+                    if not any(
+                        x.trigger == Trigger.ON_PLACE for x in placed.abilities
+                    ):
+                        continue
+                    m.bonus_attack += eff.attack
+                    m.bonus_health += eff.health
                     continue
                 self._apply_shop_effect(player, m, ab.effect, placed)
 
@@ -922,6 +974,25 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             if effect.grant_taunt:
                 target.keywords = frozenset(target.keywords | {Keyword.TAUNT})
 
+    def _apply_buff_one_per_listed_tribe(
+        self,
+        source: Minion,
+        effect: BuffOnePerListedTribeFriendly,
+        board: List[Minion],
+    ) -> None:
+        for tribe in effect.tribes:
+            pool = (
+                [m for m in board if m is not source]
+                if effect.exclude_self
+                else list(board)
+            )
+            pool = [m for m in pool if self._minion_matches_tribe(m, tribe)]
+            if not pool:
+                continue
+            target = pool[int(self._rng.integers(0, len(pool)))]
+            target.bonus_attack += effect.attack
+            target.bonus_health += effect.health
+
     def _fire_on_buy(self, minion: Minion, player: PlayerState) -> None:
         for ab in minion.abilities:
             if ab.trigger == Trigger.ON_BUY and isinstance(ab.effect, BuffRandomFriendly):
@@ -930,8 +1001,14 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
     def _fire_on_turn_end(self, player: PlayerState) -> None:
         for source in list(player.board):
             for ab in source.abilities:
-                if ab.trigger == Trigger.ON_TURN_END and isinstance(ab.effect, BuffRandomFriendly):
+                if ab.trigger != Trigger.ON_TURN_END:
+                    continue
+                if isinstance(ab.effect, BuffRandomFriendly):
                     self._apply_buff_random(source, ab.effect, player.board)
+                elif isinstance(ab.effect, BuffOnePerListedTribeFriendly):
+                    self._apply_buff_one_per_listed_tribe(
+                        source, ab.effect, player.board
+                    )
 
     def _fire_on_turn_start(self, player: PlayerState) -> None:
         """After round increment, before shop reroll: board left-to-right, then hand slots."""
@@ -942,6 +1019,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 e = ab.effect
                 if isinstance(e, BuffRandomFriendly):
                     self._apply_buff_random(source, e, player.board)
+                elif isinstance(e, BuffOnePerListedTribeFriendly):
+                    self._apply_buff_one_per_listed_tribe(source, e, player.board)
                 elif isinstance(e, BuffSelf):
                     self._apply_shop_effect(player, source, e, None)
         for source in list(player.hand):
@@ -953,6 +1032,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 e = ab.effect
                 if isinstance(e, BuffRandomFriendly):
                     self._apply_buff_random(source, e, player.board)
+                elif isinstance(e, BuffOnePerListedTribeFriendly):
+                    self._apply_buff_one_per_listed_tribe(source, e, player.board)
                 elif isinstance(e, BuffSelf):
                     self._apply_shop_effect(player, source, e, None)
 
@@ -1041,6 +1122,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             p.pending_choice = None
             p.triple_reward_discover_pending = False
             p.placed_minion_board_index = None
+            p.placed_minion_pending_after = None
             # Start-of-recruitment: board (L→R) then hand; then shop (full reroll or
             # reuse frozen offers and fill empties).
             self._fire_on_turn_start(p)
@@ -1067,6 +1149,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             shop_actions_used=0,
             pending_choice=None,
             placed_minion_board_index=None,
+            placed_minion_pending_after=None,
         )
         self._refresh_shop(player, shop_excluded_race)
         return player
@@ -1089,13 +1172,30 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
 
     @staticmethod
     def _copy_player(p: PlayerState) -> PlayerState:
+        new_board = [copy(m) for m in p.board]
+        remapped_pending: Optional[Minion] = None
+        pend = p.placed_minion_pending_after
+        if pend is not None:
+            try:
+                i = p.board.index(pend)
+            except ValueError:
+                pass
+            else:
+                if 0 <= i < len(new_board):
+                    remapped_pending = new_board[i]
+        placed_idx: Optional[int] = None
+        if remapped_pending is not None:
+            try:
+                placed_idx = new_board.index(remapped_pending)
+            except ValueError:
+                placed_idx = None
         return PlayerState(
             health=p.health,
             hero_damage_taken_total=p.hero_damage_taken_total,
             gold=p.gold,
             tavern_tier=p.tavern_tier,
             next_tier_up_cost=p.next_tier_up_cost,
-            board=[copy(m) for m in p.board],
+            board=new_board,
             shop=[copy(m) if m is not None else None for m in p.shop],
             hand=[copy(m) if m is not None else None for m in p.hand],
             phase=p.phase,
@@ -1110,7 +1210,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 if p.pending_choice is not None
                 else None
             ),
-            placed_minion_board_index=p.placed_minion_board_index,
+            placed_minion_board_index=placed_idx,
+            placed_minion_pending_after=remapped_pending,
             triple_reward_discover_pending=p.triple_reward_discover_pending,
             pogo_hoppers_played=p.pogo_hoppers_played,
         )

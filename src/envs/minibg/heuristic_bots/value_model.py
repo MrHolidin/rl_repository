@@ -24,7 +24,87 @@ from ..effects import (
     ZappTargeting,
 )
 from ..effects import Keyword
-from ..state import Minion, Race
+from ..state import Minion, PlayerState, Race
+
+
+def count_non_golden_same_card_hand(
+    player: PlayerState,
+    card_id: str,
+    *,
+    exclude_hand_idx: Optional[int] = None,
+) -> int:
+    n = 0
+    for i, hm in enumerate(player.hand):
+        if hm is None:
+            continue
+        if exclude_hand_idx is not None and i == exclude_hand_idx:
+            continue
+        if not hm.is_golden and hm.card_id == card_id:
+            n += 1
+    return n
+
+
+def count_non_golden_same_card_board(
+    player: PlayerState,
+    card_id: str,
+    *,
+    exclude_board_idx: Optional[int] = None,
+) -> int:
+    n = 0
+    for i, m in enumerate(player.board):
+        if exclude_board_idx is not None and i == exclude_board_idx:
+            continue
+        if not m.is_golden and m.card_id == card_id:
+            n += 1
+    return n
+
+
+def triple_progress_buy_bonus(player: PlayerState, card_id: str) -> float:
+    """Extra shop score when buying advances / completes a triple (non-golden only)."""
+
+    n = count_non_golden_same_card_hand(player, card_id) + count_non_golden_same_card_board(
+        player, card_id
+    )
+    if n >= 2:
+        return 8.2
+    if n == 1:
+        return 2.4
+    return 0.0
+
+
+def triple_progress_place_bonus(
+    player: PlayerState, card_id: str, hand_slot: int
+) -> float:
+    """Prefer playing a minion that merges with two other non-golden copies."""
+
+    nh = count_non_golden_same_card_hand(player, card_id, exclude_hand_idx=hand_slot)
+    nb = count_non_golden_same_card_board(player, card_id)
+    n = nh + nb
+    if n >= 2:
+        return 9.0
+    if n == 1:
+        return 2.6
+    return 0.0
+
+
+def triple_cluster_keep_bonus_board(player: PlayerState, board_idx: int) -> float:
+    """Raises effective value so we avoid selling into a near-triple cluster."""
+
+    if board_idx < 0 or board_idx >= len(player.board):
+        return 0.0
+    m = player.board[board_idx]
+    if m.is_golden:
+        return 0.0
+    partners = count_non_golden_same_card_hand(
+        player, m.card_id
+    ) + count_non_golden_same_card_board(
+        player, m.card_id, exclude_board_idx=board_idx
+    )
+    if partners >= 2:
+        return 11.0
+    if partners == 1:
+        return 3.2
+    return 0.0
 
 
 def rounds_left_estimate(round_number: int) -> int:
@@ -228,11 +308,16 @@ __all__ = [
     "ability_shop_estimate",
     "adapt_choice_score",
     "board_power",
+    "count_non_golden_same_card_board",
+    "count_non_golden_same_card_hand",
     "dominant_race",
     "minion_shop_value",
     "order_key_structured",
     "roll_threshold_adjusted",
     "roll_value_threshold",
     "rounds_left_estimate",
+    "triple_cluster_keep_bonus_board",
+    "triple_progress_buy_bonus",
+    "triple_progress_place_bonus",
     "tribe_counts",
 ]

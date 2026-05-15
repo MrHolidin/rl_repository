@@ -82,6 +82,49 @@ REG_ENEMY = 3
 REG_PENDING = 4
 
 
+class EntityAttentionBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        *,
+        num_heads: int = 4,
+        ff_mult: int = 2,
+        init_scale: float = 0.1,
+    ) -> None:
+        super().__init__()
+        if dim % num_heads != 0:
+            raise ValueError(f"dim={dim} must be divisible by num_heads={num_heads}")
+
+        self.ln_attn = nn.LayerNorm(dim)
+        self.attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=num_heads,
+            dropout=0.0,
+            batch_first=True,
+        )
+
+        self.ln_ff = nn.LayerNorm(dim)
+        ff_dim = ff_mult * dim
+        self.ff = nn.Sequential(
+            nn.Linear(dim, ff_dim),
+            nn.GELU(),
+            nn.Linear(ff_dim, dim),
+        )
+
+        self.attn_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
+        self.ff_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.ln_attn(x)
+        a, _ = self.attn(h, h, h, need_weights=False)
+        x = x + a * self.attn_scale.view(1, 1, -1)
+
+        h = self.ln_ff(x)
+        x = x + self.ff(h) * self.ff_scale.view(1, 1, -1)
+
+        return x
+
+
 def role_for_struct(a: StructAction) -> int:
     t = a.type
     if t == StructActionType.BUY:
@@ -191,6 +234,11 @@ class MiniBGStructuredActorCritic(nn.Module):
         critic_hidden: int = 128,
         region_conv2_kernel: int = 1,
         card_emb_dim: int = 16,
+        entity_attention_layers: int = 0,
+        entity_attention_heads: int = 4,
+        entity_attention_ff_mult: int = 2,
+        entity_attention_init_scale: float = 0.1,
+        use_global_entity_token: bool = True,
     ) -> None:
         super().__init__()
         self.slot_hidden = int(slot_hidden)
@@ -204,6 +252,11 @@ class MiniBGStructuredActorCritic(nn.Module):
         self.order_score_hidden = int(order_score_hidden)
         self.critic_hidden = int(critic_hidden)
         self.card_emb_dim = int(card_emb_dim)
+        self.entity_attention_layers = int(entity_attention_layers)
+        self.entity_attention_heads = int(entity_attention_heads)
+        self.entity_attention_ff_mult = int(entity_attention_ff_mult)
+        self.entity_attention_init_scale = float(entity_attention_init_scale)
+        self.use_global_entity_token = bool(use_global_entity_token)
 
         k2 = int(region_conv2_kernel)
         if k2 not in (1, 3):
@@ -251,6 +304,29 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.slot_region_emb,
         ):
             nn.init.normal_(emb.weight, mean=0.0, std=0.02)
+
+        if self.entity_attention_layers < 0:
+            raise ValueError("entity_attention_layers must be >= 0")
+
+        if self.entity_attention_layers > 0:
+            self.entity_attn = nn.ModuleList(
+                [
+                    EntityAttentionBlock(
+                        self.slot_hidden,
+                        num_heads=self.entity_attention_heads,
+                        ff_mult=self.entity_attention_ff_mult,
+                        init_scale=self.entity_attention_init_scale,
+                    )
+                    for _ in range(self.entity_attention_layers)
+                ]
+            )
+        else:
+            self.entity_attn = nn.ModuleList()
+
+        if self.entity_attention_layers > 0 and self.use_global_entity_token:
+            self.global_to_entity_token = nn.Linear(_GLOBALS_FULL_DIM, self.slot_hidden)
+        else:
+            self.global_to_entity_token = None
 
         self._pending_feat_dim = (
             _PENDING_CONT_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
@@ -344,6 +420,11 @@ class MiniBGStructuredActorCritic(nn.Module):
             "critic_hidden": self.critic_hidden,
             "region_conv2_kernel": self._region_conv2_kernel,
             "card_emb_dim": self.card_emb_dim,
+            "entity_attention_layers": self.entity_attention_layers,
+            "entity_attention_heads": self.entity_attention_heads,
+            "entity_attention_ff_mult": self.entity_attention_ff_mult,
+            "entity_attention_init_scale": self.entity_attention_init_scale,
+            "use_global_entity_token": self.use_global_entity_token,
         }
 
     def _unpack(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
@@ -390,6 +471,51 @@ class MiniBGStructuredActorCritic(nn.Module):
         ).view(1, 1, H)
         return E + pe + re
 
+    def _contextualize_entities(
+        self,
+        E_own: torch.Tensor,
+        E_shop: torch.Tensor,
+        E_hand: torch.Tensor,
+        E_enemy: torch.Tensor,
+        E_pending: torch.Tensor,
+        g_full: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        if len(self.entity_attn) == 0:
+            return E_own, E_shop, E_hand, E_enemy, E_pending
+
+        pieces = [E_own, E_shop, E_hand, E_enemy, E_pending]
+
+        if self.global_to_entity_token is not None:
+            g_tok = self.global_to_entity_token(g_full).unsqueeze(1)
+            E_all = torch.cat([g_tok] + pieces, dim=1)
+            offset = 1
+        else:
+            E_all = torch.cat(pieces, dim=1)
+            offset = 0
+
+        for block in self.entity_attn:
+            E_all = block(E_all)
+
+        if offset:
+            E_all = E_all[:, offset:, :]
+
+        i = 0
+        E_own = E_all[:, i : i + _OWN_LEN]
+        i += _OWN_LEN
+
+        E_shop = E_all[:, i : i + _SHOP_LEN]
+        i += _SHOP_LEN
+
+        E_hand = E_all[:, i : i + _HAND_LEN]
+        i += _HAND_LEN
+
+        E_enemy = E_all[:, i : i + _ENEMY_LEN]
+        i += _ENEMY_LEN
+
+        E_pending = E_all[:, i : i + _PENDING_LEN]
+
+        return E_own, E_shop, E_hand, E_enemy, E_pending
+
     def encode_state(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         g, own, shop, hand, enemy, lb, phase, pending = self._unpack(x)
         E_own = self._add_pos_region(
@@ -426,6 +552,16 @@ class MiniBGStructuredActorCritic(nn.Module):
         )
         EXT_pending = torch.zeros(B, _PENDING_LEN, _EXT_DIM, device=device, dtype=dtype)
 
+        g_full = torch.cat([g, lb, phase], dim=-1)
+        E_own, E_shop, E_hand, E_enemy, E_pending = self._contextualize_entities(
+            E_own,
+            E_shop,
+            E_hand,
+            E_enemy,
+            E_pending,
+            g_full,
+        )
+
         feat_flat = torch.cat(
             [
                 E_own.flatten(1),
@@ -442,7 +578,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         t = F.relu(self.trunk_fc2(F.relu(self.trunk_fc1(feat_flat))))
 
         state_emb = self.state_proj(t)
-        g_full = torch.cat([g, lb, phase], dim=-1)
         cache = {
             "E_own": E_own,
             "E_shop": E_shop,

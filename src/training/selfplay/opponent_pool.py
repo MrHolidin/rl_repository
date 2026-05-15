@@ -190,7 +190,7 @@ class OpponentPool:
 
         # Self-play settings
         self.self_play_config = self_play_config
-        self.max_loaded_agents = (
+        self.max_frozen_agents = (
             self_play_config.max_frozen_agents if self_play_config is not None else 0
         )
         self.current_agent = current_agent
@@ -233,7 +233,19 @@ class OpponentPool:
         raise ValueError(f"Unknown scripted opponent type: {key}")
     
     # ---------- FROZEN CHECKPOINT AGENTS (DQN / PPO) ----------
-    
+
+    def _drop_worst_frozen_until_cap(self) -> None:
+        """If over ``max_frozen_agents``, remove entries with lowest ``win_rate`` (EMA)."""
+        cap = self.max_frozen_agents
+        if cap <= 0:
+            return
+        while len(self.frozen_agents) > cap:
+            worst = min(
+                self.frozen_agents,
+                key=lambda fa: (fa.win_rate, fa.episode),
+            )
+            self.frozen_agents.remove(worst)
+
     def add_frozen_agent(self, checkpoint_path: str, episode: int):
         """
         Add a new frozen agent to the pool.
@@ -247,7 +259,7 @@ class OpponentPool:
         
         info = FrozenAgentInfo(checkpoint_path=checkpoint_path, episode=episode)
         self.frozen_agents.append(info)
-        # больше НЕ режем список по длине — ограничиваем только число loaded_agent
+        self._drop_worst_frozen_until_cap()
 
     def apply_episode_result(
         self,
@@ -319,7 +331,7 @@ class OpponentPool:
             return info.loaded_agent
 
         loaded_infos = [fa for fa in self.frozen_agents if fa.loaded_agent is not None]
-        if self.max_loaded_agents > 0 and len(loaded_infos) >= self.max_loaded_agents:
+        if self.max_frozen_agents > 0 and len(loaded_infos) >= self.max_frozen_agents:
             victim = min(loaded_infos, key=lambda fa: fa.last_used)
             victim.loaded_agent = None
 

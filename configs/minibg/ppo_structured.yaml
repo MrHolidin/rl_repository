@@ -20,6 +20,12 @@ agent:
     region_conv2_kernel: 1
     # card identity embedding над плотным индексом из CARD_TEMPLATES
     card_emb_dim: 16
+    # cross-region entity self-attention после conv (до trunk)
+    entity_attention_layers: 1
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 2
+    entity_attention_init_scale: 0.1
+    use_global_entity_token: true
     # голова structured policy + order decoder
     state_dim: 128
     action_dim: 64
@@ -41,7 +47,7 @@ agent:
 
 train:
   max_episodes: 10000000
-  total_steps: 2000000
+  total_steps: 10000000
   deterministic: false
   track_timings: false
   start_policy: random

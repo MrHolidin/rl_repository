@@ -208,7 +208,8 @@ def test_shield_resets_between_battles():
     assert dmg_p1 == 3
 
 
-def test_kangor_summons_mech_copy_ordered_mech_death_log():
+def test_kangor_deathrattle_summons_first_dead_friendly_mech_corpses():
+    """Kangor is literal DR: no summons until Kangor dies; then first N dead Mech corpses (LTR)."""
     tm = make_minion("toy_mech")
     tm.abilities = ()
     p0 = [tm, make_minion("kangors_apprentice")]
@@ -223,10 +224,9 @@ def test_kangor_summons_mech_copy_ordered_mech_death_log():
         mech_death_log=mech_log,
         p0_survivors_out=survivors,
     )
-    assert len(mech_log) == 2
-    assert all(m[1].card_id == "BOT_445" for m in mech_log)
-    assert survivors.count("BOT_445") == 1
-    assert "BGS_012" in survivors
+    assert len(mech_log) == 1
+    assert mech_log[0][1].card_id == "BOT_445"
+    assert survivors == ["BGS_012"]
 
 
 def test_pick_target_zapp_prefers_minimum_attack_among_legal():

@@ -1,73 +1,14 @@
-"""HS collectible minion pools for BG-style random deathrattle summons."""
+"""BG tavern minion pools for random deathrattle summons (tier filter, not HS mana/cost)."""
 
 from __future__ import annotations
 
-import json
 from functools import lru_cache
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
-from .effects import Keyword
-from .state import Minion, Race
-
-_HSJSON_PATH = Path(__file__).resolve().parents[3] / "data" / "minibg" / "cards_36393_raw.json"
-
-_MECHANIC_TO_KW: dict[str, Keyword] = {
-    "TAUNT": Keyword.TAUNT,
-    "DIVINE_SHIELD": Keyword.SHIELD,
-    "WINDFURY": Keyword.WINDFURY,
-    "CHARGE": Keyword.CHARGE,
-    "POISONOUS": Keyword.POISONOUS,
-}
-
-
-def _keywords_from_mechanics(mechanics: List[str], referenced: List[str]) -> frozenset[Keyword]:
-    out: set[Keyword] = set()
-    for tag in mechanics or []:
-        k = _MECHANIC_TO_KW.get(tag)
-        if k is not None:
-            out.add(k)
-    for tag in referenced or []:
-        k = _MECHANIC_TO_KW.get(tag)
-        if k is not None:
-            out.add(k)
-    return frozenset(out)
-
-
-def _race_from_hs(value: Optional[str]) -> Optional[Race]:
-    if value is None:
-        return None
-    mapping = {
-        "BEAST": Race.BEAST,
-        "DEMON": Race.DEMON,
-        "MECHANICAL": Race.MECHANICAL,
-        "MURLOC": Race.MURLOC,
-        "ALL": Race.ALL,
-        "PIRATE": None,
-        "DRAGON": None,
-        "ELEMENTAL": None,
-        "QUILBOAR": None,
-        "NAGA": None,
-        "UNDEAD": None,
-    }
-    return mapping.get(value)
-
-
-@lru_cache(maxsize=1)
-def _collectible_minion_rows() -> tuple[Dict[str, Any], ...]:
-    with _HSJSON_PATH.open(encoding="utf-8") as f:
-        cards = json.load(f)
-    out: List[Dict[str, Any]] = []
-    for c in cards:
-        if c.get("type") != "MINION":
-            continue
-        if not c.get("collectible"):
-            continue
-        cid = str(c.get("id", ""))
-        if cid.startswith("TB_BaconUps_"):
-            continue
-        out.append(c)
-    return tuple(out)
+from .card_pool import EFFECTS, GOLDEN_REWARD_IDS, TOKEN_IDS
+from .effects import Trigger
+from .patch_catalog import load_tavern_minions
+from .state import Race
 
 
 def hs_race_string(race: Any) -> Optional[str]:
@@ -82,58 +23,40 @@ def hs_race_string(race: Any) -> Optional[str]:
     return rev.get(race)
 
 
+def _record_has_deathrattle(rec_id: str, mechanics: frozenset) -> bool:
+    if "DEATHRATTLE" in mechanics:
+        return True
+    return any(ab.trigger == Trigger.ON_DEATH for ab in EFFECTS.get(rec_id, ()))
+
+
 @lru_cache(maxsize=256)
 def build_summon_pool(
-    exact_cost: Optional[int],
+    exact_tier: Optional[int],
     legendary_only: bool,
     require_deathrattle: bool,
     race_hs: Optional[str],
     exclude_card_id: Optional[str],
-) -> tuple[Dict[str, Any], ...]:
-    pool: List[Dict[str, Any]] = []
-    for c in _collectible_minion_rows():
-        if exact_cost is not None and c.get("cost") != exact_cost:
+) -> tuple[str, ...]:
+    pool: List[str] = []
+    for rec in load_tavern_minions():
+        cid = rec.id
+        if not rec.is_bacon_pool or rec.is_golden:
             continue
-        if legendary_only and c.get("rarity") != "LEGENDARY":
+        if cid in TOKEN_IDS or cid in GOLDEN_REWARD_IDS:
             continue
-        if require_deathrattle and "DEATHRATTLE" not in (c.get("mechanics") or []):
+        if exclude_card_id is not None and cid == exclude_card_id:
             continue
-        if race_hs is not None and c.get("race") != race_hs:
+        if exact_tier is not None and rec.tier != exact_tier:
             continue
-        if exclude_card_id is not None and c.get("id") == exclude_card_id:
+        if legendary_only:
+            if rec.rarity != "LEGENDARY":
+                continue
+        if require_deathrattle and not _record_has_deathrattle(cid, rec.mechanics):
             continue
-        pool.append(c)
+        if race_hs is not None and rec.race != race_hs:
+            continue
+        pool.append(cid)
     return tuple(pool)
 
 
-def minion_from_hsjson_card(c: Dict[str, Any]) -> Minion:
-    kws = _keywords_from_mechanics(
-        list(c.get("mechanics") or []),
-        list(c.get("referencedTags") or []),
-    )
-    race = _race_from_hs(c.get("race"))
-    cost = int(c.get("cost") or 1)
-    tier = max(1, min(cost, 6))
-    atk = int(c.get("attack") or 0)
-    hp = int(c.get("health") or 1)
-    mid = str(c["id"])
-    return Minion(
-        card_id=mid,
-        base_attack=atk,
-        base_health=hp,
-        tier=tier,
-        name=str(c.get("name") or ""),
-        race=race,
-        keywords=kws,
-        abilities=(),
-        has_shield=Keyword.SHIELD in kws,
-        is_token=False,
-        dbf_id=int(c["dbfId"]) if c.get("dbfId") is not None else None,
-    )
-
-
-__all__ = [
-    "build_summon_pool",
-    "hs_race_string",
-    "minion_from_hsjson_card",
-]
+__all__ = ["build_summon_pool", "hs_race_string"]

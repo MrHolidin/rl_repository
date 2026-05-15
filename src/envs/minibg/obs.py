@@ -86,7 +86,10 @@ SHIELD_OFFSET = KEYWORD_OFFSET + NUM_KEYWORD_CHANNELS
 GOLDEN_OFFSET = SHIELD_OFFSET + 1
 TRIGGER_OFFSET = GOLDEN_OFFSET + 1
 EFFECT_OFFSET = TRIGGER_OFFSET + NUM_TRIGGER_CHANNELS
-SLOT_DIM = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
+# Non-golden copies of the same ``card_id`` elsewhere (triple / buy planning); normalized.
+HAND_SAME_CARD_COUNT_OFFSET = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
+BOARD_SAME_CARD_COUNT_OFFSET = HAND_SAME_CARD_COUNT_OFFSET + 1
+SLOT_DIM = BOARD_SAME_CARD_COUNT_OFFSET + 1
 
 # Trigger channel mapping (preserve historical positions 0..6, 8..10; fill 7=ON_TURN_START, add ON_OVERKILL).
 TRIGGER_INDEX: Dict[Trigger, int] = {
@@ -213,7 +216,54 @@ def encode_pending_choice(me: PlayerState) -> np.ndarray:
     return v
 
 
-def encode_minion(minion: Optional[Minion]) -> np.ndarray:
+def _count_non_golden_same_card_hand(
+    player: PlayerState,
+    card_id: str,
+    *,
+    exclude_hand_idx: Optional[int] = None,
+) -> int:
+    n = 0
+    for i, hm in enumerate(player.hand):
+        if hm is None:
+            continue
+        if exclude_hand_idx is not None and i == exclude_hand_idx:
+            continue
+        if not hm.is_golden and hm.card_id == card_id:
+            n += 1
+    return n
+
+
+def _count_non_golden_same_card_board(
+    player: PlayerState,
+    card_id: str,
+    *,
+    exclude_board_idx: Optional[int] = None,
+) -> int:
+    n = 0
+    for i, m in enumerate(player.board):
+        if exclude_board_idx is not None and i == exclude_board_idx:
+            continue
+        if not m.is_golden and m.card_id == card_id:
+            n += 1
+    return n
+
+
+def _count_non_golden_same_card_enemy_board(
+    board: Sequence[Minion], idx: int, card_id: str
+) -> int:
+    return sum(
+        1
+        for j, m in enumerate(board)
+        if j != idx and not m.is_golden and m.card_id == card_id
+    )
+
+
+def encode_minion(
+    minion: Optional[Minion],
+    *,
+    same_non_golden_hand_elsewhere: int = 0,
+    same_non_golden_board_elsewhere: int = 0,
+) -> np.ndarray:
     v = np.zeros(SLOT_DIM, dtype=np.float32)
     if minion is None:
         return v
@@ -252,6 +302,12 @@ def encode_minion(minion: Optional[Minion]) -> np.ndarray:
         ei = EFFECT_INDEX.get(type(ab.effect))
         if ei is not None:
             v[EFFECT_OFFSET + ei] = 1.0
+    v[HAND_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_hand_elsewhere) / float(
+        HAND_SIZE
+    )
+    v[BOARD_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_board_elsewhere) / float(
+        BOARD_SIZE
+    )
     return v
 
 
@@ -262,6 +318,67 @@ def encode_slots(
     for i in range(min(num_slots, len(minions))):
         if minions[i] is not None:
             out[i] = encode_minion(minions[i])
+    return out
+
+
+def _encode_own_board_with_pair_counts(player: PlayerState) -> np.ndarray:
+    out = np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
+    for i, m in enumerate(player.board):
+        nh = _count_non_golden_same_card_hand(player, m.card_id)
+        nb = _count_non_golden_same_card_board(
+            player, m.card_id, exclude_board_idx=i
+        )
+        out[i] = encode_minion(
+            m,
+            same_non_golden_hand_elsewhere=nh,
+            same_non_golden_board_elsewhere=nb,
+        )
+    return out
+
+
+def _encode_hand_with_pair_counts(player: PlayerState) -> np.ndarray:
+    out = np.zeros((HAND_LEN, SLOT_DIM), dtype=np.float32)
+    for i, hm in enumerate(player.hand):
+        if hm is None:
+            continue
+        nh = _count_non_golden_same_card_hand(
+            player, hm.card_id, exclude_hand_idx=i
+        )
+        nb = _count_non_golden_same_card_board(player, hm.card_id)
+        out[i] = encode_minion(
+            hm,
+            same_non_golden_hand_elsewhere=nh,
+            same_non_golden_board_elsewhere=nb,
+        )
+    return out
+
+
+def _encode_shop_with_pair_counts(player: PlayerState) -> np.ndarray:
+    out = np.zeros((MAX_SHOP_SLOTS, SLOT_DIM), dtype=np.float32)
+    for i, m in enumerate(player.shop):
+        if m is None or i >= MAX_SHOP_SLOTS:
+            continue
+        nh = _count_non_golden_same_card_hand(player, m.card_id)
+        nb = _count_non_golden_same_card_board(player, m.card_id)
+        out[i] = encode_minion(
+            m,
+            same_non_golden_hand_elsewhere=nh,
+            same_non_golden_board_elsewhere=nb,
+        )
+    return out
+
+
+def _encode_enemy_board_with_pair_counts(board: List[Minion]) -> np.ndarray:
+    out = np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
+    for i, m in enumerate(board):
+        if i >= BOARD_SIZE:
+            break
+        n_same = _count_non_golden_same_card_enemy_board(board, i, m.card_id)
+        out[i] = encode_minion(
+            m,
+            same_non_golden_hand_elsewhere=0,
+            same_non_golden_board_elsewhere=n_same,
+        )
     return out
 
 
@@ -307,12 +424,13 @@ def build_observation(
         [globals_core, _encode_shop_rotation_globals(state.shop_excluded_race)]
     )
 
-    own_board = encode_slots(list(me.board), BOARD_SIZE)
-    shop = encode_slots(list(me.shop), MAX_SHOP_SLOTS)
-    hand = encode_slots(list(me.hand), HAND_LEN)
-    enemy_board = encode_slots(
-        list(enemy_last_seen_board) if enemy_last_seen_board else [],
-        BOARD_SIZE,
+    own_board = _encode_own_board_with_pair_counts(me)
+    shop = _encode_shop_with_pair_counts(me)
+    hand = _encode_hand_with_pair_counts(me)
+    enemy_board = (
+        _encode_enemy_board_with_pair_counts(list(enemy_last_seen_board))
+        if enemy_last_seen_board
+        else np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     )
     last_battle = np.array([last_battle_signed], dtype=np.float32)
     phase_val = 1.0 if me.phase == PlayerPhase.ORDER else 0.0
@@ -355,6 +473,8 @@ __all__ = [
     "GOLDEN_OFFSET",
     "TRIGGER_OFFSET",
     "EFFECT_OFFSET",
+    "HAND_SAME_CARD_COUNT_OFFSET",
+    "BOARD_SAME_CARD_COUNT_OFFSET",
     "SLOT_DIM",
     "GLOBAL_DIM",
     "GLOBAL_CORE_DIM",

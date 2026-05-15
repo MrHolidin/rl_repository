@@ -109,6 +109,11 @@ def restore_ppo_actor_critic(
             critic_hidden=int(kw.get("critic_hidden", 128)),
             region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
             card_emb_dim=int(kw.get("card_emb_dim", 16)),
+            entity_attention_layers=int(kw.get("entity_attention_layers", 0)),
+            entity_attention_heads=int(kw.get("entity_attention_heads", 4)),
+            entity_attention_ff_mult=int(kw.get("entity_attention_ff_mult", 2)),
+            entity_attention_init_scale=float(kw.get("entity_attention_init_scale", 0.1)),
+            use_global_entity_token=bool(kw.get("use_global_entity_token", True)),
         )
     raise ValueError(f"Unknown canonical PPO network type {canonical_type!r}")
 

@@ -44,6 +44,9 @@ from .value_model import (
     order_key_structured,
     roll_threshold_adjusted,
     rounds_left_estimate,
+    triple_cluster_keep_bonus_board,
+    triple_progress_buy_bonus,
+    triple_progress_place_bonus,
 )
 
 
@@ -134,7 +137,7 @@ class StructuredHeuristicBot(HeuristicBot):
                 board_len=bl,
                 round_number=rn,
                 tavern_tier_cap=cap,
-            )
+            ) + triple_progress_place_bonus(p, hm.card_id, slot)
             if sc > best_sc:
                 best_sc = sc
                 best_a = a
@@ -175,7 +178,7 @@ class StructuredHeuristicBot(HeuristicBot):
             board_len=max(bl, 1),
             round_number=rn,
             tavern_tier_cap=p.tavern_tier,
-        )
+        ) + triple_progress_buy_bonus(p, m.card_id)
 
     def _should_level_up(self, env: MiniBGEnv, p: PlayerState, rl: int) -> bool:
         if p.tavern_tier >= MAX_TIER:
@@ -311,19 +314,22 @@ class StructuredHeuristicBot(HeuristicBot):
 
         sell_legal = [a for a in legal if is_sell(a) and a in ok_sell]
         if sell_legal:
-            return int(
-                min(
-                    sell_legal,
-                    key=lambda a: minion_shop_value(
-                        p.board[sell_pos(a)],
-                        rounds_left=rl,
-                        dominant=dominant_race(p.board),
-                        board_len=len(p.board),
-                        round_number=rn,
-                        tavern_tier_cap=p.tavern_tier,
-                    ),
-                )
-            )
+            dom = dominant_race(p.board)
+            bl = len(p.board)
+
+            def sell_key(a: int) -> float:
+                bi = sell_pos(a)
+                m = p.board[bi]
+                return minion_shop_value(
+                    m,
+                    rounds_left=rl,
+                    dominant=dom,
+                    board_len=bl,
+                    round_number=rn,
+                    tavern_tier_cap=p.tavern_tier,
+                ) + triple_cluster_keep_bonus_board(p, bi)
+
+            return int(min(sell_legal, key=sell_key))
 
         if (
             bool(mask[A_ROLL])

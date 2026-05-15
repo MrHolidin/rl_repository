@@ -18,18 +18,22 @@ from .effects import (
     BuffAllWithKeyword,
     BuffListenerIfSummonedMatches,
     BuffRandomFriendly,
+    BuffOnePerListedTribeFriendly,
     BuffRandomOtherFriendlyCombat,
     BuffSelf,
+    BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSummonedIfRace,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     Effect,
+    GrantKeywordRandomFriendly,
     KeywordStatAura,
     PogoHopperBattlecry,
     StatAura,
     SummonEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
     SummonOnSelfDamaged,
     SummonRandomMinionEffect,
@@ -67,6 +71,9 @@ def implicit_triple_golden_effect(e: Effect) -> Effect:
             health=e.health * 2,
             repeats=max(1, e.repeats * 2),
         )
+
+    if isinstance(e, BuffOnePerListedTribeFriendly):
+        return replace(e, attack=e.attack * 2, health=e.health * 2)
 
     if isinstance(e, DealHeroDamage):
         return replace(e, amount=e.amount * 2)
@@ -122,12 +129,19 @@ def implicit_triple_golden_effect(e: Effect) -> Effect:
     if isinstance(e, AdjacentStatAura):
         return replace(e, attack=e.attack * 2, health=e.health * 2)
 
+    if isinstance(e, SummonFirstDeadFriendlyMechsThisCombat):
+        return replace(e, count=max(1, e.count * 2))
+
+    if isinstance(e, GrantKeywordRandomFriendly):
+        return replace(e, repeats=max(1, e.repeats * 2))
+
+    if isinstance(e, BuffSelfWhenFriendlyBattlecryPlaced):
+        return replace(e, attack=e.attack * 2, health=e.health * 2)
+
     if isinstance(e, AttackBonusPerOtherMurlocGlobal):
         return replace(e, per_attack=e.per_attack * 2)
 
     return e
-
-
 def resolve_triple_forged_abilities(
     normal_card_id: str,
     effects_table: Mapping[str, Tuple[Ability, ...]],

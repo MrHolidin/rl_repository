@@ -177,22 +177,22 @@ def test_hand_persists_across_rounds():
     assert s.players[0].hand[0].card_id == "CS2_065"
 
 
-def test_buffer_on_place_buffs_existing_board_not_hand():
+def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
     g = MiniBGGame(seed=1234)
     s = g.initial_state()
-    s.players[0].board = [make_minion("recruit")]
+    s.players[0].board = [make_minion("murloc_warleader")]
     _force_shop(s, 0, "buffer", None, None)
     s.players[0].gold = 10
     s2 = g.apply_action(s, int(Action.BUY_SLOT_0))
-    recruit = s2.players[0].board[0]
-    assert (recruit.bonus_attack, recruit.bonus_health) == (0, 0)
+    mur = s2.players[0].board[0]
+    assert (mur.bonus_attack, mur.bonus_health) == (0, 0)
     s3 = g.apply_action(s2, int(Action.PLACE_HAND_0))
-    recruit_after = s3.players[0].board[0]
-    assert recruit_after.card_id == "EX1_162"
-    assert (recruit_after.bonus_attack, recruit_after.bonus_health) == (1, 1)
-    buf = s3.players[0].board[1]
-    assert buf.card_id == "UNG_073"
-    assert buf.bonus_attack == 0 and buf.bonus_health == 0
+    mur_after = s3.players[0].board[0]
+    assert mur_after.card_id == "EX1_507"
+    assert (mur_after.bonus_attack, mur_after.bonus_health) == (1, 1)
+    rp = s3.players[0].board[1]
+    assert rp.card_id == "UNG_073"
+    assert rp.bonus_attack == 0 and rp.bonus_health == 0
 
     g = MiniBGGame(seed=1234)
     s = g.initial_state()
@@ -208,6 +208,17 @@ def test_buffer_on_place_buffs_existing_board_not_hand():
     rec_hand = s3.players[0].hand[0]
     assert rec_hand is not None and rec_hand.card_id == "EX1_162"
     assert rec_hand.bonus_attack == 0
+
+
+def test_crowd_favorite_buff_when_battlecry_minion_placed():
+    g = MiniBGGame(seed=0)
+    s = g.initial_state()
+    s.players[0].board = [make_minion("AT_121")]
+    s.players[0].hand[0] = make_minion("buffer")
+    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    cf = s2.players[0].board[0]
+    assert cf.card_id == "AT_121"
+    assert cf.bonus_attack == 1 and cf.bonus_health == 1
 
 
 def test_vulgar_homunculus_damage_blocked_by_mal_ganis():
@@ -248,10 +259,11 @@ def test_annihilan_gains_stats_from_cumulative_hero_damage():
 
     g = MiniBGGame(seed=0)
     s = g.initial_state()
-    s.players[0].board = [make_minion("mentor"), make_minion("recruit")]
+    s.players[0].board = [make_minion("mentor"), make_minion("toy_mech")]
     s_flip = g.apply_action(s, int(Action.FINISH))    # shop -> order only
     assert s_flip.players[0].board[1].bonus_attack == 0
     s_done = g.apply_action(s_flip, int(Action.FINISH))  # submit
+    assert s_done.players[0].board[1].card_id == "BOT_445"
     assert s_done.players[0].board[1].bonus_attack == 2
     assert s_done.players[0].board[1].bonus_health == 2
 

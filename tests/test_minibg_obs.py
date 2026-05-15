@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from src.envs.minibg.actions import (
     BOARD_SIZE,
@@ -15,12 +16,14 @@ from src.envs.minibg.actions import (
 from src.envs.minibg.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
+    BOARD_SAME_CARD_COUNT_OFFSET,
     CARD_ID_TO_DENSE,
     CARD_IDX_OFFSET,
     EFFECT_OFFSET,
     GLOBAL_CORE_DIM,
     GLOBAL_DIM,
     HAND_LEN,
+    HAND_SAME_CARD_COUNT_OFFSET,
     KEYWORD_OFFSET,
     LAST_BATTLE_DIM,
     NUM_TIER_ONEHOT,
@@ -64,7 +67,7 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 52
+    assert SLOT_DIM == 54
     assert GLOBAL_DIM == 16
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -102,9 +105,36 @@ def test_encode_minion_mecharoo_layout():
     assert v[_TG0 + 1] == 1.0
     assert v[_TG0] == 0.0
     assert v[_TG0 + 2 : _TG0 + 8].sum() == 0.0
+    assert v[HAND_SAME_CARD_COUNT_OFFSET] == 0.0
+    assert v[BOARD_SAME_CARD_COUNT_OFFSET] == 0.0
+def test_build_observation_same_non_golden_copy_counts_own_board_and_hand():
+    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    s = g.initial_state()
+    p = s.players[0]
+    p.board = [
+        make_minion("recruit"),
+        make_minion("recruit"),
+        make_minion("guard"),
+    ]
+    p.hand[0] = make_minion("recruit")
+    obs = build_observation(s, 0, 0.0, [])
+    own = obs[GLOBAL_DIM : GLOBAL_DIM + BOARD_SIZE * SLOT_DIM].reshape(
+        BOARD_SIZE, SLOT_DIM
+    )
+    assert float(own[0][HAND_SAME_CARD_COUNT_OFFSET]) == pytest.approx(1.0 / HAND_SIZE)
+    assert float(own[0][BOARD_SAME_CARD_COUNT_OFFSET]) == pytest.approx(
+        1.0 / BOARD_SIZE
+    )
+    assert float(own[2][HAND_SAME_CARD_COUNT_OFFSET]) == pytest.approx(0.0)
+    assert float(own[2][BOARD_SAME_CARD_COUNT_OFFSET]) == pytest.approx(0.0)
+    hs = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + MAX_SHOP_SLOTS * SLOT_DIM
+    hand_blk = obs[hs : hs + HAND_LEN * SLOT_DIM].reshape(HAND_LEN, SLOT_DIM)
+    assert float(hand_blk[0][HAND_SAME_CARD_COUNT_OFFSET]) == pytest.approx(0.0)
+    assert float(hand_blk[0][BOARD_SAME_CARD_COUNT_OFFSET]) == pytest.approx(
+        2.0 / BOARD_SIZE
+    )
 
 
-def test_encode_minion_shield_bot_runtime_shield_armed():
     m = make_minion("shield_bot")
     v = encode_minion(m)
     assert v[_K0 + 1] == 1.0
@@ -139,7 +169,7 @@ def test_encode_minion_ability_flags():
     assert ww[_TG0 + 5] == 1.0
 
     kg = encode_minion(make_minion("kangors_apprentice"))
-    assert kg[_TG0 + 6] == 1.0
+    assert kg[_TG0 + 1] == 1.0
 
 
 def test_encode_minion_bonus_stats():

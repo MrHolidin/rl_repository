@@ -29,10 +29,10 @@ from .effects import (
     Keyword,
     KeywordStatAura,
     DeathrattleMultiplierAura,
-    KangorSummonCopy,
     StatAura,
     SummonEffect,
     SummonRandomMinionEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
     SummonOnSelfDamaged,
     TribalOtherStatAura,
@@ -40,7 +40,7 @@ from .effects import (
     ZappTargeting,
 )
 from .state import Minion, Race
-from .summon_pool import build_summon_pool, hs_race_string, minion_from_hsjson_card
+from .summon_pool import build_summon_pool, hs_race_string
 
 
 @dataclass
@@ -649,7 +649,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
             elif isinstance(effect, SummonRandomMinionEffect):
                 race_hs = hs_race_string(effect.race_filter)
                 pool = build_summon_pool(
-                    effect.exact_cost,
+                    effect.exact_tier,
                     effect.legendary_only,
                     effect.require_deathrattle,
                     race_hs,
@@ -664,8 +664,8 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     n_sum = _summon_multiplier(rt.side(side_idx))
                     for _ in range(n_sum):
                         for __ in range(effect.count):
-                            row = pool[int(rt.rng.integers(0, len(pool)))]
-                            tok = minion_from_hsjson_card(row)
+                            cid = pool[int(rt.rng.integers(0, len(pool)))]
+                            tok = make_minion(cid)
                             if _summon_append(rt, target_side, tok) is None:
                                 break
             elif isinstance(effect, DealDamageRandomEnemyMinion):
@@ -722,60 +722,56 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     t.template.bonus_health += effect.health
                     t.current_health += effect.health
                 _sync_health_all(rt)
+            elif isinstance(effect, SummonFirstDeadFriendlyMechsThisCombat):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    templates = _dead_friendly_mech_templates_ordered(side, dead)
+                    take = templates[: max(0, effect.count)]
+                    n_sum = _summon_multiplier(side)
+                    for _k in range(n_sum):
+                        for tpl in take:
+                            if _summon_append(rt, side_idx, copy(tpl)) is None:
+                                break
             elif isinstance(effect, GrantKeywordRandomFriendly):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
                     rep_dr += 1
-                    pool = []
-                    for m in side.minions:
-                        if not m.alive or m is dead:
+                    for _kw in range(max(1, effect.repeats)):
+                        pool = []
+                        for m in side.minions:
+                            if not m.alive or m is dead:
+                                continue
+                            if effect.filter_race is not None and not _matches_tribe_for_aura(
+                                m.template, effect.filter_race
+                            ):
+                                continue
+                            pool.append(m)
+                        if not pool:
                             continue
-                        if effect.filter_race is not None and not _matches_tribe_for_aura(
-                            m.template, effect.filter_race
-                        ):
-                            continue
-                        pool.append(m)
-                    if not pool:
-                        continue
-                    t = pool[int(rt.rng.integers(0, len(pool)))]
-                    t.template.keywords = frozenset(
-                        t.template.keywords | {effect.keyword}
-                    )
-                    if effect.keyword == Keyword.SHIELD:
-                        t.shield_armed = True
-                    if effect.keyword == Keyword.POISONOUS:
-                        pass
+                        t = pool[int(rt.rng.integers(0, len(pool)))]
+                        t.template.keywords = frozenset(
+                            t.template.keywords | {effect.keyword}
+                        )
+                        if effect.keyword == Keyword.SHIELD:
+                            t.shield_armed = True
+                        if effect.keyword == Keyword.POISONOUS:
+                            pass
     finally:
         rt.in_death_resolution = prev
 
 
-def _fire_kangor_listeners(
-    rt: _CombatRuntime,
-    dead: BattleMinion,
-    dead_side_idx: int,
-) -> None:
-    if not _is_mech_template(dead.template):
-        return
-    side = rt.side(dead_side_idx)
-    prev = rt.in_death_resolution
-    rt.in_death_resolution = True
-    try:
-        for listener in list(side.minions):
-            if listener is dead or not listener.alive:
-                continue
-            for ab in listener.template.abilities:
-                if ab.trigger != Trigger.ON_FRIENDLY_MECH_DIED:
-                    continue
-                if not isinstance(ab.effect, KangorSummonCopy):
-                    continue
-                tpl = copy(dead.template)
-                copy_i = 0
-                while copy_i < _summon_multiplier(rt.side(dead_side_idx)):
-                    copy_i += 1
-                    if _summon_append(rt, dead_side_idx, copy(tpl)) is None:
-                        break
-    finally:
-        rt.in_death_resolution = prev
+def _dead_friendly_mech_templates_ordered(
+    side: BattleSide, dead: BattleMinion
+) -> List[Minion]:
+    out: List[Minion] = []
+    for m in side.minions:
+        if m.alive or m is dead:
+            continue
+        if not _is_mech_template(m.template):
+            continue
+        out.append(copy(m.template))
+    return out
 
 
 def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
@@ -811,7 +807,6 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
 
     _fire_friendly_minion_died_listeners(rt, bm, e.side_idx)
     _fire_deathrattle(rt, bm, e.side_idx)
-    _fire_kangor_listeners(rt, bm, e.side_idx)
     _sync_health_all(rt)
 
 

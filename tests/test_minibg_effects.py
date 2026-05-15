@@ -7,7 +7,12 @@ from src.envs.minibg.battle import (
     attack_with_auras,
 )
 from src.envs.minibg.cards import make_minion
-from src.envs.minibg.effects import Keyword
+from src.envs.minibg.effects import (
+    Ability,
+    Keyword,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    Trigger,
+)
 from src.envs.minibg.state import PlayerPhase, PlayerState
 from src.envs.minibg.game import MiniBGGame
 
@@ -39,7 +44,7 @@ def test_buff_random_friendly_no_others_is_noop():
 
 def test_buff_random_friendly_picks_only_other_minion():
     g = MiniBGGame(seed=0)
-    target = make_minion("recruit")
+    target = make_minion("murloc_warleader")
     buffer_card = make_minion("buffer")
     p = _player(board=[target, buffer_card])
     g._fire_on_place(buffer_card, p, None)
@@ -52,11 +57,12 @@ def test_buff_random_friendly_picks_only_other_minion():
 def test_mentor_on_turn_end_buffs_other_friendly():
     g = MiniBGGame(seed=0)
     mentor = make_minion("mentor")
-    recruit = make_minion("recruit")
-    p = _player(board=[mentor, recruit])
+    mech = make_minion("toy_mech")
+    p = _player(board=[mentor, mech])
     g._fire_on_turn_end(p)
-    assert recruit.bonus_attack == 2
-    assert recruit.bonus_health == 2
+    assert mech.bonus_attack == 2
+    assert mech.bonus_health == 2
+    assert mech.card_id == "BOT_445"
     assert mentor.bonus_attack == 0
     assert mentor.bonus_health == 0
 
@@ -74,11 +80,11 @@ def test_two_mentors_both_fire():
     g = MiniBGGame(seed=0)
     m1 = make_minion("mentor")
     m2 = make_minion("mentor")
-    rec = make_minion("recruit")
-    p = _player(board=[m1, m2, rec])
+    mech = make_minion("toy_mech")
+    p = _player(board=[m1, m2, mech])
     g._fire_on_turn_end(p)
-    total_atk = m1.bonus_attack + m2.bonus_attack + rec.bonus_attack
-    total_hp = m1.bonus_health + m2.bonus_health + rec.bonus_health
+    total_atk = m1.bonus_attack + m2.bonus_attack + mech.bonus_attack
+    total_hp = m1.bonus_health + m2.bonus_health + mech.bonus_health
     assert total_atk == 4
     assert total_hp == 4
 
@@ -207,3 +213,35 @@ def test_tribal_aura_drops_when_source_dies():
     mal_b, imp_b = side.minions
     mal_b.current_health = 0
     assert attack_with_auras(imp_b, side) == imp.raw_attack
+
+
+def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
+    m1 = BattleMinion.from_minion(make_minion("toy_mech"), 1)
+    m1.current_health = 0
+    m2 = BattleMinion.from_minion(make_minion("shield_bot"), 2)
+    m2.current_health = 0
+    kang_tpl = make_minion("kangors_apprentice")
+    kang_tpl.abilities = (
+        Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
+    )
+    kang = BattleMinion.from_minion(kang_tpl, 3)
+    kang.current_health = 0
+    side = BattleSide(minions=[m1, m2, kang])
+    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(0))
+    _fire_deathrattle(rt, kang, 0)
+    alive_ids = [m.template.card_id for m in side.minions if m.alive]
+    assert alive_ids.count("BOT_445") == 1
+    assert alive_ids.count("GVG_058") == 1
+
+
+def test_golden_selfless_hero_grants_two_divine_shields():
+    sh = make_minion("TB_BaconUps_014")
+    a = BattleMinion.from_minion(make_minion("recruit"), 1)
+    b = BattleMinion.from_minion(make_minion("recruit"), 2)
+    dead = BattleMinion.from_minion(sh, 3)
+    dead.current_health = 0
+    side = BattleSide(minions=[a, b, dead])
+    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(1))
+    _fire_deathrattle(rt, dead, 0)
+    assert Keyword.SHIELD in a.template.keywords and a.shield_armed
+    assert Keyword.SHIELD in b.template.keywords and b.shield_armed

@@ -16,10 +16,12 @@ from .effects import (
     BuffAllFriendlyOfTribe,
     BuffAllOtherOfTribe,
     BuffAllWithKeyword,
+    BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffRandomOtherFriendlyCombat,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
+    BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSummonedIfRace,
     BuffListenerIfSummonedMatches,
     CleaveOnAttack,
@@ -30,10 +32,10 @@ from .effects import (
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
-    KangorSummonCopy,
     Keyword,
     KeywordStatAura,
     SummonEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
     SummonRandomMinionEffect,
     SummonOnSelfDamaged,
@@ -49,10 +51,13 @@ from .triple_effects import resolve_triple_forged_abilities
 # Golden rewards (triple) — not in tavern pool; separate ``card_id`` rows.
 GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
     {
+        "TB_BaconUps_014",
+        "TB_BaconUps_037",
         "TB_BaconUps_045",
         "TB_BaconUps_055",
         "TB_BaconUps_034",
         "TB_BaconUps_084",
+        "TB_BaconUps_087",
         "TB_BaconUps_099",
     }
 )
@@ -123,7 +128,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "UNG_073": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(attack=1, health=1, exclude_self=True),
+            BuffOnePerListedTribeFriendly(
+                1, 1, (Race.MURLOC,), exclude_self=True
+            ),
         ),
     ),
     "BGS_020": (Ability(Trigger.ON_PLACE, DiscoverMurlocEffect(repeats=1)),),
@@ -143,8 +150,13 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             SummonEffect(token_id="BOT_312t", count=3),
         ),
     ),
-    # Combat engine models Kangor as mech-death listeners (not the printed DR).
-    "BGS_012": (Ability(Trigger.ON_FRIENDLY_MECH_DIED, KangorSummonCopy()),),
+    # Kangor's Apprentice: literal DR (first N dead friendly Mech corpses, board order).
+    "BGS_012": (
+        Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
+    ),
+    "TB_BaconUps_087": (
+        Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=4)),
+    ),
     "FP1_031": (Ability(Trigger.AURA, DeathrattleMultiplierAura(factor=2)),),
     "LOE_077": (Ability(Trigger.AURA, BattlecryMultiplierAura(factor=2)),),
     "TB_BaconUps_045": (
@@ -179,7 +191,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "GVG_027": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffRandomFriendly(attack=2, health=2, exclude_self=True),
+            BuffOnePerListedTribeFriendly(
+                2, 2, (Race.MECHANICAL,), exclude_self=True
+            ),
         ),
     ),
     "EX1_577": (
@@ -193,6 +207,18 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "EX1_506": (Ability(Trigger.ON_PLACE, SummonEffect(token_id="EX1_506a", count=1)),),
     "EX1_062": (Ability(Trigger.AURA, AttackBonusPerOtherMurlocGlobal(per_attack=1)),),
     "BOT_606": (Ability(Trigger.ON_DEATH, DealDamageRandomEnemyMinion(amount=4)),),
+    "AT_121": (
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffSelfWhenFriendlyBattlecryPlaced(1, 1),
+        ),
+    ),
+    "TB_BaconUps_037": (
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffSelfWhenFriendlyBattlecryPlaced(2, 2),
+        ),
+    ),
     "BGS_001": (
         Ability(
             Trigger.ON_PLACE,
@@ -200,7 +226,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BGS_025": (
-        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_cost=1)),
+        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_tier=1)),
     ),
     "GVG_048": (
         Ability(
@@ -211,18 +237,26 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "KAR_095": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(1, 1, exclude_self=True, repeats=3),
+            BuffOnePerListedTribeFriendly(
+                1, 1, (Race.BEAST, Race.MURLOC), exclude_self=True
+            ),
         ),
     ),
     "OG_256": (Ability(Trigger.ON_DEATH, BuffAllFriendlyMinions(attack=1, health=1)),),
     "OG_221": (
         Ability(
             Trigger.ON_DEATH,
-            GrantKeywordRandomFriendly(Keyword.SHIELD, exclude_self=True),
+            GrantKeywordRandomFriendly(Keyword.SHIELD, exclude_self=True, repeats=1),
+        ),
+    ),
+    "TB_BaconUps_014": (
+        Ability(
+            Trigger.ON_DEATH,
+            GrantKeywordRandomFriendly(Keyword.SHIELD, exclude_self=True, repeats=2),
         ),
     ),
     "BGS_023": (
-        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_cost=2)),
+        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_tier=2)),
     ),
     "CFM_610": (
         Ability(
@@ -261,7 +295,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.ON_DEATH, BuffRandomOtherFriendlyCombat(attack=1, health=1)),
     ),
     "BGS_024": (
-        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_cost=4)),
+        Ability(Trigger.ON_DEATH, SummonRandomMinionEffect(count=1, exact_tier=4)),
     ),
     "CFM_816": (
         Ability(
@@ -280,13 +314,20 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "KAR_702": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(2, 2, exclude_self=True, repeats=3),
+            BuffOnePerListedTribeFriendly(
+                2, 2, (Race.BEAST, Race.MURLOC), exclude_self=True
+            ),
         ),
     ),
     "BGS_009": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffRandomFriendly(2, 2, exclude_self=True, repeats=4),
+            BuffOnePerListedTribeFriendly(
+                2,
+                2,
+                (Race.MECHANICAL, Race.MURLOC, Race.DEMON, Race.BEAST),
+                exclude_self=True,
+            ),
         ),
     ),
     "BGS_018": (

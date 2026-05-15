@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 
 class Keyword(Enum):
@@ -23,7 +23,7 @@ class Trigger(Enum):
     ON_DEATH = auto()
     ON_TURN_END = auto()
     AURA = auto()
-    ON_FRIENDLY_MECH_DIED = auto()  # combat-only (Kangor's Apprentice); ignored in shop dispatch
+    ON_FRIENDLY_MECH_DIED = auto()  # legacy trigger flag (obs); unused in rules
     ON_TURN_START = auto()  # shop: after round increment, before shop reroll (board then hand)
     ON_OVERKILL = auto()  # combat-only: excess kill damage on defender
     ON_FRIENDLY_MINION_SUMMONED = auto()  # shop + combat: another friendly hit the board
@@ -47,10 +47,10 @@ class SummonEffect:
 
 @dataclass(frozen=True)
 class SummonRandomMinionEffect:
-    """Deathrattle: summon ``count`` random **collectible** HS MINIONs from ``cards_36393_raw.json``."""
+    """Deathrattle: summon ``count`` random BG tavern minions (tier filter / optional legendary or DR)."""
 
     count: int = 1
-    exact_cost: Optional[int] = None
+    exact_tier: Optional[int] = None
     legendary_only: bool = False
     require_deathrattle: bool = False
     race_filter: Optional[Any] = None
@@ -66,6 +66,19 @@ class BuffRandomFriendly:
     filter_race: Optional[Any] = None
     grant_taunt: bool = False
     repeats: int = 1
+
+
+@dataclass(frozen=True)
+class BuffOnePerListedTribeFriendly:
+    """Shop: for each entry in ``tribes``, pick uniformly among matching friendlies (if any).
+
+    Dragon and other HS tribes omitted from ``Race`` are skipped at card definition time.
+    """
+
+    attack: int
+    health: int
+    tribes: Tuple[Any, ...]
+    exclude_self: bool = True
 
 
 @dataclass(frozen=True)
@@ -102,6 +115,15 @@ class GrantKeywordRandomFriendly:
     keyword: Keyword
     filter_race: Optional[Any] = None
     exclude_self: bool = True
+    repeats: int = 1
+
+
+@dataclass(frozen=True)
+class BuffSelfWhenFriendlyBattlecryPlaced:
+    """Shop: source gains stats after another friendly with an ``ON_PLACE`` ability is placed."""
+
+    attack: int = 0
+    health: int = 0
 
 
 @dataclass(frozen=True)
@@ -241,8 +263,10 @@ class BuffSelfFromHeroDamageTaken:
 
 
 @dataclass(frozen=True)
-class KangorSummonCopy:
-    """Combat-only: listener summons a shallow copy of the friendly Mech that died (see battle engine)."""
+class SummonFirstDeadFriendlyMechsThisCombat:
+    """Deathrattle: summon shallow copies of the first ``count`` dead friendly Mech corpses (board order)."""
+
+    count: int = 2
 
 
 @dataclass(frozen=True)
@@ -261,7 +285,7 @@ class DeathrattleMultiplierAura:
 
 @dataclass(frozen=True)
 class SummonMultiplierAura:
-    """BG Khadgar-style: product multiplies each summon iteration from ``SummonEffect`` / ``SummonRandomMinionEffect`` / Kangor."""
+    """BG Khadgar-style: product multiplies each summon iteration from summon effects."""
 
     factor: int
 
@@ -294,10 +318,12 @@ Effect = Union[
     SummonEffect,
     SummonRandomMinionEffect,
     BuffRandomFriendly,
+    BuffOnePerListedTribeFriendly,
     BuffAllOtherOfTribe,
     BuffAllFriendlyOfTribe,
     BuffAllWithKeyword,
     GrantKeywordRandomFriendly,
+    BuffSelfWhenFriendlyBattlecryPlaced,
     BuffAllFriendlyMinions,
     BuffRandomOtherFriendlyCombat,
     DealDamageRandomEnemyMinion,
@@ -316,7 +342,7 @@ Effect = Union[
     DealHeroDamage,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
-    KangorSummonCopy,
+    SummonFirstDeadFriendlyMechsThisCombat,
     BattlecryMultiplierAura,
     DeathrattleMultiplierAura,
     SummonMultiplierAura,
@@ -342,10 +368,12 @@ __all__ = [
     "SummonEffect",
     "SummonRandomMinionEffect",
     "BuffRandomFriendly",
+    "BuffOnePerListedTribeFriendly",
     "BuffAllOtherOfTribe",
     "BuffAllFriendlyOfTribe",
     "BuffAllWithKeyword",
     "GrantKeywordRandomFriendly",
+    "BuffSelfWhenFriendlyBattlecryPlaced",
     "BuffAllFriendlyMinions",
     "BuffRandomOtherFriendlyCombat",
     "DealDamageRandomEnemyMinion",
@@ -364,7 +392,7 @@ __all__ = [
     "DealHeroDamage",
     "BuffSelf",
     "BuffSelfFromHeroDamageTaken",
-    "KangorSummonCopy",
+    "SummonFirstDeadFriendlyMechsThisCombat",
     "BattlecryMultiplierAura",
     "DeathrattleMultiplierAura",
     "SummonMultiplierAura",

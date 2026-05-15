@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import pytest
 
 from src.agents import RandomAgent
@@ -81,6 +84,79 @@ def test_minibg_pool_self_play_wraps_learner():
     )
     opp = pool.sample_opponent(0)
     assert isinstance(opp, SelfPlayOpponent)
+
+
+def test_frozen_pool_evicts_lowest_winrate_and_oldest_on_tie():
+    """max_frozen_agents caps pool; remove min EMA win rate, then lowest episode when tied."""
+    cfg = SelfPlayConfig(
+        start_episode=0,
+        current_self_fraction=0.0,
+        past_self_fraction=1.0,
+        max_frozen_agents=2,
+        save_every=100,
+        frozen_ema_beta=0.05,
+    )
+    pool = OpponentPool(
+        device="cpu",
+        seed=0,
+        self_play_config=cfg,
+        scripted=ScriptedOpponentsSpec("minibg", {"t1_random": 1.0}),
+    )
+    paths = []
+    try:
+        for _ in range(3):
+            fd, p = tempfile.mkstemp(suffix=".pt")
+            os.close(fd)
+            paths.append(p)
+        pool.add_frozen_agent(paths[0], episode=100)
+        pool.add_frozen_agent(paths[1], episode=200)
+        pool.add_frozen_agent(paths[2], episode=300)
+        assert len(pool.frozen_agents) == 2
+        eps = {fa.episode for fa in pool.frozen_agents}
+        assert eps == {200, 300}
+    finally:
+        for p in paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+def test_frozen_pool_evicts_lower_ema_when_winrates_differ():
+    cfg = SelfPlayConfig(
+        start_episode=0,
+        current_self_fraction=0.0,
+        past_self_fraction=1.0,
+        max_frozen_agents=2,
+        save_every=100,
+        frozen_ema_beta=0.05,
+    )
+    pool = OpponentPool(
+        device="cpu",
+        seed=0,
+        self_play_config=cfg,
+        scripted=ScriptedOpponentsSpec("minibg", {"t1_random": 1.0}),
+    )
+    paths = []
+    try:
+        for _ in range(3):
+            fd, p = tempfile.mkstemp(suffix=".pt")
+            os.close(fd)
+            paths.append(p)
+        pool.add_frozen_agent(paths[0], episode=10)
+        pool.add_frozen_agent(paths[1], episode=20)
+        pool.frozen_agents[0].ema_win_rate = 0.9
+        pool.frozen_agents[1].ema_win_rate = 0.1
+        pool.add_frozen_agent(paths[2], episode=30)
+        assert len(pool.frozen_agents) == 2
+        eps = {fa.episode for fa in pool.frozen_agents}
+        assert eps == {10, 30}
+    finally:
+        for p in paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 
 def test_checkpoint_skips_frozen_when_no_self_play_config():

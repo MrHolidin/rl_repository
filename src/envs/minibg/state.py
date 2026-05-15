@@ -97,7 +97,10 @@ class PlayerState:
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
     pending_choice: Optional["PendingChoice"] = None
+    # Replay snapshot; kept aligned with placed_minion_pending_after when that is set.
     placed_minion_board_index: Optional[int] = None
+    # Same Minion instance as on board until ON_PLACE modals finish and AFTER_PLACE fires.
+    placed_minion_pending_after: Optional["Minion"] = None
     # Queued after playing a golden from a triple when a murloc/adapt modal is active first.
     triple_reward_discover_pending: bool = False
 

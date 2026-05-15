@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO, Union
 
@@ -15,17 +16,20 @@ def _keyword_names(kw: frozenset[Keyword]) -> List[str]:
     return sorted(k.name for k in kw)
 
 
+def _jsonify_for_replay(x: Any) -> Any:
+    """Recursively make values JSON-serializable (Enums → name; containers preserved as list/dict)."""
+    if isinstance(x, Enum):
+        return x.name
+    if isinstance(x, dict):
+        return {str(k): _jsonify_for_replay(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_jsonify_for_replay(v) for v in x]
+    return x
+
+
 def _effect_dict(eff: Effect) -> Dict[str, Any]:
     d = asdict(eff)
-    if d.get("tribe") is not None and hasattr(d["tribe"], "name"):
-        d["tribe"] = d["tribe"].name
-    if d.get("keyword") is not None and hasattr(d["keyword"], "name"):
-        d["keyword"] = d["keyword"].name
-    if d.get("race_filter") is not None and hasattr(d["race_filter"], "name"):
-        d["race_filter"] = d["race_filter"].name
-    if d.get("filter_race") is not None and hasattr(d["filter_race"], "name"):
-        d["filter_race"] = d["filter_race"].name
-    return d
+    return _jsonify_for_replay(d)  # nested tribe tuples / filter_race etc.
 
 
 def _ability_dict(ab: Ability) -> Dict[str, Any]:
@@ -60,6 +64,13 @@ def minion_to_dict(m: Minion) -> Dict[str, Any]:
     }
 
 
+def _placed_minion_idx_for_replay(p: PlayerState) -> Optional[int]:
+    ref = p.placed_minion_pending_after
+    if ref is not None and ref in p.board:
+        return p.board.index(ref)
+    return None
+
+
 def player_to_dict(p: PlayerState) -> Dict[str, Any]:
     pend = None
     if p.pending_choice is not None:
@@ -81,7 +92,7 @@ def player_to_dict(p: PlayerState) -> Dict[str, Any]:
         "shop_freeze_next_round": p.shop_freeze_next_round,
         "pending": pend,
         "triple_reward_pending": p.triple_reward_discover_pending,
-        "placed_idx": p.placed_minion_board_index,
+        "placed_idx": _placed_minion_idx_for_replay(p),
         "board": [minion_to_dict(m) for m in p.board],
         "shop": [
             None if x is None else minion_to_dict(x) for x in p.shop
