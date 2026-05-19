@@ -1,10 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum, IntEnum, auto
+from dataclasses import dataclass
+from enum import IntEnum, auto
 from typing import List, Optional, Tuple
 
+from src.bg_core.minion import Minion, Race
+
 from .effects import Ability, Keyword
+
+# Re-export core minion types for existing ``from .state import Minion, Race`` paths.
+__all__ = [
+    "Minion",
+    "PlayerState",
+    "MiniBGState",
+    "PlayerPhase",
+    "Race",
+    "ROTATION_SHOP_TRIBES",
+    "CNT_ACTIVE_SHOP_TRIBES",
+    "PendingChoiceKind",
+    "PendingChoice",
+]
 
 
 class PlayerPhase(IntEnum):
@@ -28,14 +43,6 @@ class PendingChoice:
     extra_modals_after: int
 
 
-class Race(Enum):
-    BEAST = auto()
-    DEMON = auto()
-    MECHANICAL = auto()
-    MURLOC = auto()
-    ALL = auto()
-
-
 # Tavern pool: per episode one of these is excluded (see ``MiniBGState.shop_excluded_race``).
 # Neutrals (`race is None`) and ``Race.ALL`` minions are never excluded.
 ROTATION_SHOP_TRIBES: Tuple[Race, Race, Race, Race] = (
@@ -45,40 +52,6 @@ ROTATION_SHOP_TRIBES: Tuple[Race, Race, Race, Race] = (
     Race.MURLOC,
 )
 CNT_ACTIVE_SHOP_TRIBES = len(ROTATION_SHOP_TRIBES) - 1
-
-
-@dataclass
-class Minion:
-    card_id: str
-    base_attack: int
-    base_health: int
-    tier: int
-    # Catalog / card display name — for replays, logs, heuristics (not used in obs).
-    name: str = ""
-    bonus_attack: int = 0
-    bonus_health: int = 0
-    race: Optional[Race] = None
-    keywords: frozenset[Keyword] = field(default_factory=frozenset)
-    granted_keywords: frozenset[Keyword] = field(default_factory=frozenset)
-    abilities: Tuple[Ability, ...] = ()
-    has_shield: bool = False
-    is_token: bool = False
-    is_golden: bool = False
-    """Set when this minion was forged from three non-golden copies; grants one discover after play."""
-    from_triple_merge: bool = False
-    dbf_id: Optional[int] = None
-
-    @property
-    def all_keywords(self) -> frozenset[Keyword]:
-        return self.keywords | self.granted_keywords
-
-    @property
-    def max_health(self) -> int:
-        return self.base_health + self.bonus_health
-
-    @property
-    def raw_attack(self) -> int:
-        return self.base_attack + self.bonus_attack
 
 
 @dataclass
@@ -120,16 +93,3 @@ class MiniBGState:
     done: bool
     # ``None`` = all four rotation tribes in the tavern (no exclusion).
     shop_excluded_race: Optional[Race] = None
-
-
-__all__ = [
-    "Minion",
-    "PlayerState",
-    "MiniBGState",
-    "PlayerPhase",
-    "Race",
-    "ROTATION_SHOP_TRIBES",
-    "CNT_ACTIVE_SHOP_TRIBES",
-    "PendingChoiceKind",
-    "PendingChoice",
-]

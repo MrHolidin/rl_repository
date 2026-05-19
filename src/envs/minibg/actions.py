@@ -119,6 +119,8 @@ GOLD_PER_ROUND: dict[int, int] = {
 GOLD_AT_CAP = 10
 
 DAMAGE_CAP = 15
+# Max living minions per side during combat (retail BG board space).
+COMBAT_BOARD_MAX = 7
 
 
 def gold_for_round(round_number: int) -> int:
@@ -188,6 +190,7 @@ __all__ = [
     "GOLD_PER_ROUND",
     "GOLD_AT_CAP",
     "DAMAGE_CAP",
+    "COMBAT_BOARD_MAX",
     "gold_for_round",
     "buy_slot_action",
     "sell_board_action",

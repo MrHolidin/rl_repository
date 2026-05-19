@@ -160,7 +160,9 @@ class StructuredHeuristicBot(HeuristicBot):
         )
         t = copy(bm)
         mg = copy(hm)
-        MiniBGGame.merge_magnetic_inplace(t, mg)
+        from src.bg_recruitment.place import merge_magnetic_inplace
+
+        merge_magnetic_inplace(t, mg)
         v_after = minion_shop_value(
             t, rounds_left=rl, dominant=dom, board_len=bl, round_number=rn, tavern_tier_cap=cap
         )

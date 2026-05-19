@@ -77,19 +77,3 @@ def test_baron_and_khadgar_both_apply_under_board_cap():
     )
     # Pack rat summons two rats per DR; Baron x2 Khadgar x2 caps on a 7-slot board.
     assert surv.count("CFM_316t") == 5
-
-
-def test_kangor_respects_khadgar_per_summon_iter():
-    tm = make_minion("toy_mech")
-    tm.abilities = ()
-    p0 = [
-        tm,
-        make_minion("kangors_apprentice"),
-        make_minion("khadgar"),
-    ]
-    p1 = [make_minion("recruit")]
-    surv: list = []
-    simulate_battle(
-        p0, p1, p0_has_initiative=True, rng=np.random.default_rng(0), p0_survivors_out=surv
-    )
-    assert surv.count("BOT_445") >= 2

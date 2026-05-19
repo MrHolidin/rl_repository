@@ -1,4 +1,4 @@
-from src.envs.minibg.actions import HAND_SIZE, LEVEL_UP_COSTS
+from src.envs.minibg.actions import COMBAT_BOARD_MAX, DAMAGE_CAP, HAND_SIZE, LEVEL_UP_COSTS
 from src.envs.minibg.battle import (
     BattleMinion,
     BattleSide,
@@ -94,7 +94,12 @@ def test_summon_effect_on_death_appends_token():
     bm = BattleMinion.from_minion(pack_rat, 1)
     bm.current_health = 0
     side = BattleSide(minions=[bm])
-    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(0))
+    rt = _CombatRuntime(
+        sides=(side, BattleSide()),
+        rng=np.random.default_rng(0),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, bm, 0)
     assert len(side.minions) == 3
     rats = [m for m in side.minions if m.template.card_id == "CFM_316t"]
@@ -111,7 +116,12 @@ def test_summon_effect_skipped_when_alive_count_at_cap():
         for i in range(2, 9)
     ]
     side = BattleSide(minions=[bm, *extras])
-    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(0))
+    rt = _CombatRuntime(
+        sides=(side, BattleSide()),
+        rng=np.random.default_rng(0),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, bm, 0)
     rat_summons = [m for m in side.minions if m.template.card_id == "CFM_316t"]
     assert rat_summons == []
@@ -122,7 +132,12 @@ def test_the_beast_summons_finkle_on_opponent_side_during_dr():
     beast.current_health = 0
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=[])
-    rt = _CombatRuntime(sides=(side0, side1), rng=np.random.default_rng(0))
+    rt = _CombatRuntime(
+        sides=(side0, side1),
+        rng=np.random.default_rng(0),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, beast, 0)
     assert len(side1.minions) == 1
     assert side1.minions[0].template.card_id == "EX1_finkle"
@@ -134,7 +149,12 @@ def test_opponent_summon_skipped_when_target_side_at_combat_cap():
     extras = [BattleMinion.from_minion(make_minion("recruit"), i) for i in range(2, 9)]
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=extras)
-    rt = _CombatRuntime(sides=(side0, side1), rng=np.random.default_rng(0))
+    rt = _CombatRuntime(
+        sides=(side0, side1),
+        rng=np.random.default_rng(0),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, beast, 0)
     assert not any(m.template.card_id == "EX1_finkle" for m in side1.minions)
     assert side1.alive_count() == 7
@@ -227,7 +247,12 @@ def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
     kang = BattleMinion.from_minion(kang_tpl, 3)
     kang.current_health = 0
     side = BattleSide(minions=[m1, m2, kang])
-    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(0))
+    rt = _CombatRuntime(
+        sides=(side, BattleSide()),
+        rng=np.random.default_rng(0),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, kang, 0)
     alive_ids = [m.template.card_id for m in side.minions if m.alive]
     assert alive_ids.count("BOT_445") == 1
@@ -241,7 +266,12 @@ def test_golden_selfless_hero_grants_two_divine_shields():
     dead = BattleMinion.from_minion(sh, 3)
     dead.current_health = 0
     side = BattleSide(minions=[a, b, dead])
-    rt = _CombatRuntime(sides=(side, BattleSide()), rng=np.random.default_rng(1))
+    rt = _CombatRuntime(
+        sides=(side, BattleSide()),
+        rng=np.random.default_rng(1),
+        combat_board_max=COMBAT_BOARD_MAX,
+        damage_cap=DAMAGE_CAP,
+    )
     _fire_deathrattle(rt, dead, 0)
     assert Keyword.SHIELD in a.template.keywords and a.shield_armed
     assert Keyword.SHIELD in b.template.keywords and b.shield_armed
