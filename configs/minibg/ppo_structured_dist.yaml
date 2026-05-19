@@ -1,5 +1,9 @@
-# MiniBG PPO with structured legal actions + order head (`minibg_structured` actor-critic).
-# Trainer вызывает legal_structured_actions / step_structured; obs — плоский вектор OBS_DIM (см. obs.py).
+# MiniBG PPO distributed: те же гиперпараметры и train-блок, что в ppo_structured.yaml,
+# но agent.device=cuda, host обновляет политику на GPU, воркеры собирают rollout на CPU.
+# Запуск:
+#   python -m src.cli.train_distributed \
+#       --config configs/minibg/ppo_structured_dist.yaml \
+#       --run_dir runs/dist_ppo_001
 seed: 13
 
 game:
@@ -43,11 +47,11 @@ agent:
     rollout_steps: 8096
     ppo_epochs: 4
     minibatch_size: 512
-    device: cpu
+    device: cuda
 
 train:
   max_episodes: 10000000
-  total_steps: 4000000
+  total_steps: 2000000
   deterministic: false
   track_timings: false
   start_policy: random
@@ -70,12 +74,18 @@ train:
     - type: checkpoint
       params:
         interval: 50000
-        prefix: minibg_ppo_structured
+        prefix: dist_minibg_ppo
     - type: metrics_file
       params:
-        interval: 16384
+        interval: 1
 
 eval:
   enabled: false
   num_episodes: 100
   deterministic: true
+
+distributed:
+  workers: 12
+  worker_device: cpu
+  # host device comes from agent.params.device (cuda above)
+  # checkpoint: checkpoints/some.pt  # optional — omit to start from scratch

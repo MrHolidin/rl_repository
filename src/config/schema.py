@@ -56,12 +56,28 @@ class EvalConfig:
 
 
 @dataclass
+class DistributedConfig:
+    workers: int = 4
+    worker_device: str = "cpu"
+    checkpoint: Optional[str] = None  # path to starting .pt; None → fresh start
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DistributedConfig":
+        return cls(
+            workers=int(data.get("workers", 4)),
+            worker_device=str(data.get("worker_device", "cpu")),
+            checkpoint=str(data["checkpoint"]) if data.get("checkpoint") else None,
+        )
+
+
+@dataclass
 class AppConfig:
     game: GameConfig
     agent: AgentConfig
     train: TrainConfig
     eval: EvalConfig = field(default_factory=EvalConfig)
     seed: Optional[int] = None
+    distributed: Optional[DistributedConfig] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
@@ -111,7 +127,10 @@ class AppConfig:
         if seed is not None:
             seed = int(seed)
 
-        return cls(game=game, agent=agent, train=train, eval=eval_cfg, seed=seed)
+        dist_data = data.get("distributed")
+        distributed = DistributedConfig.from_dict(dist_data) if dist_data else None
+
+        return cls(game=game, agent=agent, train=train, eval=eval_cfg, seed=seed, distributed=distributed)
 
 
 def load_config(path: Union[str, Path]) -> AppConfig:

@@ -146,7 +146,7 @@ class AgentPerspectiveEnv(SingleAgentEnv):
             if hasattr(self._opponent, "epsilon"):
                 setattr(self._opponent, "epsilon", 0.0)
 
-            obs, _r, drain_done = self._drain_opponent(obs)
+            obs, _r, drain_done, _ = self._drain_opponent(obs)
             if drain_done:
                 # Opponent ended the episode on its own; agent had no decision
                 # point. Retry with a fresh episode.
@@ -169,15 +169,23 @@ class AgentPerspectiveEnv(SingleAgentEnv):
             self._done = True
             return StepResult(step.obs, reward, True, False, step.info)
 
-        obs, opp_reward, drain_done = self._drain_opponent(step.obs)
+        obs, opp_reward, drain_done, drain_info = self._drain_opponent(step.obs)
         if drain_done:
             self._done = True
+            if drain_info is None:
+                raise RuntimeError(
+                    "AgentPerspectiveEnv.step: episode ended in opponent drain "
+                    "but terminal info is missing"
+                )
+            out_info = drain_info
+        else:
+            out_info = step.info
         return StepResult(
             obs=obs,
             reward=reward + opp_reward,
             terminated=drain_done,
             truncated=False,
-            info=step.info,
+            info=out_info,
         )
 
     def step_structured(
@@ -200,15 +208,23 @@ class AgentPerspectiveEnv(SingleAgentEnv):
             self._done = True
             return StepResult(step.obs, reward, True, False, step.info)
 
-        obs, opp_reward, drain_done = self._drain_opponent(step.obs)
+        obs, opp_reward, drain_done, drain_info = self._drain_opponent(step.obs)
         if drain_done:
             self._done = True
+            if drain_info is None:
+                raise RuntimeError(
+                    "AgentPerspectiveEnv.step_structured: episode ended in opponent drain "
+                    "but terminal info is missing"
+                )
+            out_info = drain_info
+        else:
+            out_info = step.info
         return StepResult(
             obs=obs,
             reward=reward + opp_reward,
             terminated=drain_done,
             truncated=False,
-            info=step.info,
+            info=out_info,
         )
 
     def notify_episode_end(self, info: Dict[str, Any]) -> None:
@@ -228,7 +244,15 @@ class AgentPerspectiveEnv(SingleAgentEnv):
     # Internals
     # ------------------------------------------------------------------
 
-    def _drain_opponent(self, obs: np.ndarray) -> Tuple[np.ndarray, float, bool]:
+    def _drain_opponent(
+        self, obs: np.ndarray
+    ) -> Tuple[np.ndarray, float, bool, Optional[Dict[str, Any]]]:
+        """Drain opponent plies until agent's turn or episode end.
+
+        If the episode ends on an opponent ply, returns that ply's ``info`` as the
+        fourth element so ``step`` / ``step_structured`` do not surface a stale
+        pre-drain ``info`` without ``winner``.
+        """
         accumulated = 0.0
         steps = 0
         while (
@@ -251,8 +275,9 @@ class AgentPerspectiveEnv(SingleAgentEnv):
             obs = opp_step.obs
             accumulated += self._reward_in_agent_perspective(opp_step, agent_acted=False)
             if opp_step.done:
-                return obs, accumulated, True
-        return obs, accumulated, False
+                term = opp_step.info if isinstance(opp_step.info, dict) else {}
+                return obs, accumulated, True, term
+        return obs, accumulated, False, None
 
     def _reward_in_agent_perspective(self, step: StepResult, agent_acted: bool) -> float:
         if step.done:

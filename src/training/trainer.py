@@ -25,6 +25,62 @@ from src.envs.base import SingleAgentEnv, StepResult
 from src.training.opponent_sampler import OpponentSampler
 
 
+class BaseTrainer:
+    """Shared state and helpers for single-process and distributed trainers."""
+
+    def __init__(
+        self,
+        *,
+        callbacks: Optional[Iterable["TrainerCallback"]] = None,
+        max_episodes: Optional[int] = None,
+        opponent_sampler: Optional[Any] = None,
+    ) -> None:
+        self.callbacks: List["TrainerCallback"] = list(callbacks) if callbacks else []
+        self.global_step = 0
+        self.episode_index = 0
+        self.stop_training = False
+        self.max_episodes: Optional[int] = (
+            int(max_episodes) if max_episodes is not None else None
+        )
+        self.opponent_sampler = opponent_sampler
+        self._target_total_steps = 0
+
+    def _should_continue_training(self, total_steps: int) -> bool:
+        if self.stop_training:
+            return False
+        if self.global_step >= total_steps:
+            return False
+        if self.max_episodes is not None and self.episode_index >= self.max_episodes:
+            return False
+        return True
+
+    @staticmethod
+    def _merge_metrics(dst: Dict[str, float], src: Dict[str, float]) -> None:
+        for key, value in src.items():
+            if (
+                key in dst
+                and isinstance(dst[key], (int, float))
+                and isinstance(value, (int, float))
+            ):
+                dst[key] = 0.5 * (dst[key] + value)
+            else:
+                dst[key] = value
+
+    @staticmethod
+    def _agent_relative_result(
+        winner: Optional[int], agent_token: int
+    ) -> Optional[int]:
+        if winner is None:
+            return None
+        if winner == 0:
+            return 0
+        if winner == agent_token:
+            return 1
+        if winner == -agent_token:
+            return -1
+        return None
+
+
 @dataclass
 class Transition:
     """Container for a single agent decision-point transition."""
@@ -79,7 +135,7 @@ class TrainerCallback:
         pass
 
 
-class Trainer:
+class Trainer(BaseTrainer):
     """Generic single-agent training loop.
 
     The environment is expected to expose the `SingleAgentEnv` contract:
@@ -99,23 +155,17 @@ class Trainer:
         max_episodes: Optional[int] = None,
         opponent_sampler: Optional[OpponentSampler] = None,
     ) -> None:
+        super().__init__(
+            callbacks=callbacks,
+            max_episodes=max_episodes,
+            opponent_sampler=opponent_sampler,
+        )
         self.env = env
         self.agent = agent
-        self.callbacks: List[TrainerCallback] = list(callbacks) if callbacks else []
-        self.global_step = 0
-        self.episode_index = 0
-        self.stop_training = False
         self.track_timings = track_timings
         self._timings: Dict[str, float] = {"total": 0.0, "core": 0.0, "callbacks": 0.0}
         self.timing_report: Optional[Dict[str, float]] = None
         self.data_augment_fn = data_augment_fn
-        self.max_episodes: Optional[int] = (
-            int(max_episodes) if max_episodes is not None else None
-        )
-        # Kept for callback access (e.g. CheckpointCallback.on_checkpoint).
-        # Trainer itself never drives the sampler -- `AgentPerspectiveEnv` does.
-        self.opponent_sampler = opponent_sampler
-        self._target_total_steps = 0
 
     # ------------------------------------------------------------------
     # Public API
@@ -216,15 +266,6 @@ class Trainer:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _should_continue_training(self, total_steps: int) -> bool:
-        if self.stop_training:
-            return False
-        if self.global_step >= total_steps:
-            return False
-        if self.max_episodes is not None and self.episode_index >= self.max_episodes:
-            return False
-        return True
-
     def _observe_and_update(self, transition: Transition) -> Dict[str, float]:
         metrics: Dict[str, float] = {}
 
@@ -245,18 +286,6 @@ class Trainer:
         update_metrics = self.agent.update() or {}
         self._merge_metrics(metrics, update_metrics)
         return metrics
-
-    @staticmethod
-    def _merge_metrics(dst: Dict[str, float], src: Dict[str, float]) -> None:
-        for key, value in src.items():
-            if (
-                key in dst
-                and isinstance(dst[key], (int, float))
-                and isinstance(value, (int, float))
-            ):
-                dst[key] = 0.5 * (dst[key] + value)
-            else:
-                dst[key] = value
 
     def _after_transition(
         self,
@@ -298,18 +327,6 @@ class Trainer:
             callback.on_episode_end(self, self.episode_index, episode_info)
         self.env.notify_episode_end(info if isinstance(info, dict) else {})
         self.episode_index += 1
-
-    @staticmethod
-    def _agent_relative_result(winner: Optional[int], agent_token: int) -> Optional[int]:
-        if winner is None:
-            return None
-        if winner == 0:
-            return 0
-        if winner == agent_token:
-            return 1
-        if winner == -agent_token:
-            return -1
-        return None
 
     @staticmethod
     def _as_bool_mask(mask: Optional[np.ndarray]) -> Optional[np.ndarray]:
@@ -357,6 +374,7 @@ class Trainer:
 
 
 __all__ = [
+    "BaseTrainer",
     "StartPolicy",
     "Trainer",
     "TrainerCallback",
