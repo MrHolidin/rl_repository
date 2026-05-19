@@ -48,7 +48,7 @@ def test_render_hand_finish_then_order_submit_each_frame():
     from src.envs.minibg.actions import Action as GA
 
     pl = (
-        '"hp":30,"gold":0,"tier":1,"phase":"ORDER","shop_done":false,"shop_acts":3,'
+        '"hp":30,"gold":0,"tier":1,"phase":"SHOP","shop_done":false,"shop_acts":3,'
         f'"board":[],"shop":[null,null,null,null,null,null],"hand":{_HAND5}'
     )
     fin = (

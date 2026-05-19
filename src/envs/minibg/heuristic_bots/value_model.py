@@ -6,7 +6,7 @@ from collections import Counter
 from typing import Dict, Optional, Sequence, Tuple
 
 from ..actions import MAX_ROUNDS, MAX_TIER
-from ..effects import (
+from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
@@ -22,8 +22,8 @@ from ..effects import (
     TribalOtherStatAura,
     Trigger,
     ZappTargeting,
+    Keyword,
 )
-from ..effects import Keyword
 from ..state import Minion, PlayerState, Race
 
 

@@ -38,7 +38,8 @@ from src.bg_recruitment import shop as recruitment_shop
 from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.shop_triggers import ShopTriggers
 
-from .battle import simulate_battle
+from . import board_order as minibg_board_order
+from . import round as minibg_round
 from .state import (
     MiniBGState,
     Minion,
@@ -109,13 +110,6 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player = state.players[state.current_player_index]
         if player.phase == PlayerPhase.DONE:
             return []
-
-        if player.phase == PlayerPhase.ORDER:
-            # Order phase: a permutation must be submitted. The reorder is
-            # produced by the env layer (`reorder_board(...)`) and immediately
-            # followed by ``apply_action(FINISH)``; the only "game-level"
-            # action emitted from the order phase is ``FINISH``.
-            return [int(Action.FINISH)]
 
         # Shop phase — pending Discover / Adapt blocks other actions.
         if player.pending_choice is not None:
@@ -206,23 +200,16 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         idx = new_state.current_player_index
         player = new_state.players[idx]
 
-        if player.phase == PlayerPhase.ORDER:
-            # FINISH from order phase finalizes the round for this player.
-            assert action_int == int(Action.FINISH)
+        if action_int == int(Action.FINISH):
+            player.shop_freeze_next_round = False
             self._submit_order(player)
             self._after_player_finished(new_state, idx)
             return new_state
 
-        # Shop phase.
-        if action_int == int(Action.FINISH):
-            # Phase flip only — same player keeps the turn to submit order.
-            self._enter_order_phase(player)
-            player.shop_freeze_next_round = False
-            return new_state
-
         if action_int == int(Action.FINISH_FREEZE_SHOP):
-            self._enter_order_phase(player)
             player.shop_freeze_next_round = True
+            self._submit_order(player)
+            self._after_player_finished(new_state, idx)
             return new_state
 
         consumes_budget = False
@@ -277,11 +264,6 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
 
         if consumes_budget:
             player.shop_actions_used += 1
-            if player.shop_actions_used >= MAX_SHOP_ACTIONS:
-                # Budget exhausted -> auto-flip to order phase. Player still
-                # owes order-phase moves (swap / finish) on their next turn.
-                self._enter_order_phase(player)
-                player.shop_freeze_next_round = False
 
         return new_state
 
@@ -291,24 +273,13 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player_idx: int,
         perm: Sequence[int],
     ) -> MiniBGState:
-        if state.done:
-            raise ValueError("Cannot reorder in terminal state")
-        if len(perm) != BOARD_SIZE:
-            raise ValueError(f"perm must have length {BOARD_SIZE}, got {len(perm)}")
-        if sorted(perm) != list(range(BOARD_SIZE)):
-            raise ValueError(
-                f"perm must be a permutation of 0..{BOARD_SIZE - 1}: got {tuple(perm)}"
-            )
-
-        new_state = self._copy_state(state)
-        player = new_state.players[player_idx]
-        k = len(player.board)
-        # Compact-after-permute: only old positions < k correspond to real
-        # minions. Take their target positions in order, drop empties.
-        # For k = BOARD_SIZE this is a normal reorder; for k < BOARD_SIZE
-        # all 24 perms collapse into k! distinct outcomes.
-        player.board = [player.board[p] for p in perm if p < k]
-        return new_state
+        return minibg_board_order.reorder_board(
+            state,
+            player_idx,
+            perm,
+            board_size=BOARD_SIZE,
+            copy_state=self._copy_state,
+        )
 
     def swap_board_adjacent(
         self,
@@ -316,41 +287,25 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         player_idx: int,
         i: int,
     ) -> MiniBGState:
-        if state.done:
-            raise ValueError("Cannot swap board in terminal state")
-        new_state = self._copy_state(state)
-        player = new_state.players[player_idx]
-        if player.phase != PlayerPhase.ORDER:
-            raise ValueError("swap_board_adjacent only valid in ORDER phase")
-        b = player.board
-        if not (0 <= i < len(b) - 1):
-            raise ValueError(
-                f"swap index {i} invalid for board length {len(b)}"
-            )
-        b[i], b[i + 1] = b[i + 1], b[i]
-        return new_state
+        return minibg_board_order.swap_board_adjacent(
+            state, player_idx, i, copy_state=self._copy_state
+        )
 
     # ------------------------------------------------------------------
     # Phase helpers
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _enter_order_phase(player: PlayerState) -> None:
-        if player.phase == PlayerPhase.SHOP:
-            player.phase = PlayerPhase.ORDER
-
-    @staticmethod
     def _submit_order(player: PlayerState) -> None:
         player.phase = PlayerPhase.DONE
 
     def _after_player_finished(self, state: MiniBGState, idx: int) -> None:
-        """Called after a player transitions to DONE."""
-        self._shop_triggers.fire_on_turn_end(state.players[idx])
-        other_idx = 1 - idx
-        if state.players[other_idx].phase != PlayerPhase.DONE:
-            state.current_player_index = other_idx
-        else:
-            self._resolve_battle_and_advance(state)
+        minibg_round.after_player_finished(
+            state,
+            idx,
+            fire_on_turn_end=self._shop_triggers.fire_on_turn_end,
+            resolve_battle_and_advance=self._resolve_battle_and_advance,
+        )
 
     # ------------------------------------------------------------------
     # Shop primitives
@@ -419,62 +374,19 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
     # Round resolution
 
     def _resolve_battle_and_advance(self, state: MiniBGState) -> None:
-        p0_has_initiative = (state.round_number % 2 == 1) == (state.initiative_player == 0)
-        dmg_p0, dmg_p1 = simulate_battle(
-            state.players[0].board,
-            state.players[1].board,
-            p0_has_initiative=p0_has_initiative,
+        minibg_round.resolve_battle_and_advance(
+            state,
             rng=self._rng,
             combat_board_max=COMBAT_BOARD_MAX,
             damage_cap=DAMAGE_CAP,
-            max_board_slots=BOARD_SIZE,
-            p0_tavern_tier=state.players[0].tavern_tier,
-            p1_tavern_tier=state.players[1].tavern_tier,
+            board_size=BOARD_SIZE,
+            max_rounds=MAX_ROUNDS,
+            max_tier=MAX_TIER,
+            level_up_discount_per_round=LEVEL_UP_DISCOUNT_PER_ROUND,
+            fire_on_turn_start=self._shop_triggers.fire_on_turn_start,
+            refresh_shop=self._refresh_shop,
+            refresh_shop_fill_empty_slots=self._refresh_shop_fill_empty_slots,
         )
-        # Retail BG: combat only determines hero damage; recruitment boards are unchanged.
-        state.players[0].health -= dmg_p0
-        state.players[1].health -= dmg_p1
-
-        p0_dead = state.players[0].health <= 0
-        p1_dead = state.players[1].health <= 0
-
-        if p0_dead or p1_dead:
-            state.done = True
-            if p0_dead and p1_dead:
-                state.winner = 0
-            elif p0_dead:
-                state.winner = -1
-            else:
-                state.winner = 1
-            return
-
-        if state.round_number >= MAX_ROUNDS:
-            state.done = True
-            state.winner = 0
-            return
-
-        state.round_number += 1
-        for p in state.players:
-            if p.tavern_tier < MAX_TIER:
-                p.next_tier_up_cost = max(
-                    0, p.next_tier_up_cost - LEVEL_UP_DISCOUNT_PER_ROUND
-                )
-            p.gold = gold_for_round(state.round_number)
-            p.phase = PlayerPhase.SHOP
-            p.shop_actions_used = 0
-            p.pending_choice = None
-            p.triple_reward_discover_pending = False
-            p.placed_minion_board_index = None
-            p.placed_minion_pending_after = None
-            # Start-of-recruitment: board (L→R) then hand; then shop (full reroll or
-            # reuse frozen offers and fill empties).
-            self._shop_triggers.fire_on_turn_start(p)
-            if p.shop_freeze_next_round:
-                self._refresh_shop_fill_empty_slots(p, state.shop_excluded_race)
-                p.shop_freeze_next_round = False
-            else:
-                self._refresh_shop(p, state.shop_excluded_race)
-        state.current_player_index = 0
 
     def _fresh_player(
         self, round_number: int, shop_excluded_race: Optional[Race]

@@ -1,13 +1,13 @@
 from src.envs.minibg.actions import COMBAT_BOARD_MAX, DAMAGE_CAP, HAND_SIZE, LEVEL_UP_COSTS
-from src.envs.minibg.battle import (
+from src.bg_catalog.cards import make_minion
+from src.bg_combat.battle import (
     BattleMinion,
     BattleSide,
     _CombatRuntime,
     _fire_deathrattle,
     attack_with_auras,
 )
-from src.envs.minibg.cards import make_minion
-from src.envs.minibg.effects import (
+from src.bg_core.effects import (
     Ability,
     Keyword,
     SummonFirstDeadFriendlyMechsThisCombat,

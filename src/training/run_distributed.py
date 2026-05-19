@@ -151,7 +151,7 @@ def run_distributed(
     sp = dict((app_cfg.train.opponent_sampler.params.get("self_play") or {}))
     current_fraction = float(sp.get("current_self_fraction", 0.4))
     past_fraction = float(sp.get("past_self_fraction", 0.4))
-    scripted_fraction = max(0.0, 1.0 - current_fraction - past_fraction)
+    start_episode = int(sp.get("start_episode", 0))
     max_pool_size = int(sp.get("max_frozen_agents", 20))
     ema_beta = float(sp.get("frozen_ema_beta", 0.05))
 
@@ -205,10 +205,11 @@ def run_distributed(
         game_kwargs=dict(game_params),
         callbacks=callbacks,
         current_fraction=current_fraction,
-        scripted_fraction=scripted_fraction,
+        past_fraction=past_fraction,
         scripted_distribution=scripted_distribution,
         max_pool_size=max_pool_size,
         ema_beta=ema_beta,
+        start_episode=start_episode,
     )
 
     _current_trainer = trainer

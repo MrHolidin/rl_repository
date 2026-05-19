@@ -9,7 +9,7 @@ import numpy as np
 from src.bg_core.effects import DiscoverMurlocEffect, Trigger
 from src.bg_core.minion import Minion, Race
 from src.envs.minibg.actions import HAND_SIZE
-from src.envs.minibg.discover_pool import (
+from src.bg_recruitment.discover_pool import (
     apply_adapt_key_to_minion,
     is_murloc_board_minion,
     roll_adapt_triple,

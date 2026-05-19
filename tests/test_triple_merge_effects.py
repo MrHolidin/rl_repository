@@ -2,9 +2,9 @@
 
 from dataclasses import replace
 
-from src.envs.minibg.card_pool import EFFECTS, triple_merge_golden_abilities
-from src.envs.minibg.effects import SummonEffect, SummonMultiplierAura
-from src.envs.minibg.game import MiniBGGame
+from src.bg_catalog.card_pool import EFFECTS, triple_merge_golden_abilities
+from src.bg_core.effects import SummonEffect, SummonMultiplierAura
+from src.bg_recruitment.triples import merge_three_non_golden_into_golden
 from src.envs.minibg.state import Minion
 
 
@@ -38,7 +38,7 @@ def test_merge_three_non_golden_into_golden_replaces_abilities_from_canonical_ta
     )
     b = replace(a)
     c = replace(a)
-    g = MiniBGGame._merge_three_non_golden_into_golden("FP1_031", a, b, c)
+    g = merge_three_non_golden_into_golden("FP1_031", a, b, c)
     assert g.abilities == EFFECTS["TB_BaconUps_055"]
     assert len(g.abilities) == 1
 
@@ -54,7 +54,7 @@ def test_merge_three_summon_multiplier_is_singleton_golden_three():
     )
     b = replace(a)
     c = replace(a)
-    g = MiniBGGame._merge_three_non_golden_into_golden("DAL_575", a, b, c)
+    g = merge_three_non_golden_into_golden("DAL_575", a, b, c)
     assert len(g.abilities) == 1
     assert isinstance(g.abilities[0].effect, SummonMultiplierAura)
     assert g.abilities[0].effect.factor == 3

@@ -5,9 +5,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any, List, Optional
 
-from .card_pool import EFFECTS, GOLDEN_REWARD_IDS, TOKEN_IDS
-from .effects import Trigger
-from .patch_catalog import load_tavern_minions
+from src.bg_catalog.card_pool import EFFECTS, GOLDEN_REWARD_IDS, TOKEN_IDS
+from src.bg_catalog.patch_catalog import load_tavern_minions
+from src.bg_core.effects import Trigger
 from .state import Race
 
 

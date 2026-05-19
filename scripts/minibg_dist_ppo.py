@@ -164,7 +164,7 @@ def main() -> None:
         game_kwargs={"battle_damage_shaping": battle_shaping},
         callbacks=callbacks,
         current_fraction=current_frac,
-        scripted_fraction=scripted_frac,
+        past_fraction=max(0.0, 1.0 - current_frac - scripted_frac),
         scripted_distribution=scripted_dist,
         max_pool_size=max_pool,
         ema_beta=ema_beta,

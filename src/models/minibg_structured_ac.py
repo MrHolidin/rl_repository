@@ -13,7 +13,7 @@ from torch.distributions import Categorical
 from src.envs.minibg.actions import BOARD_SIZE
 from src.envs.minibg.structured_actions import StructAction, StructActionType
 
-from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 
 from src.envs.minibg.obs import (
     EFFECT_OFFSET as _EFFECT_OFFSET,

@@ -83,8 +83,8 @@ def test_structured_illegal_complete_turn_without_perm():
     assert r.info.get("invalid_action") is True
 
 
-def test_structured_complete_turn_matches_finish_twice_in_order_phase():
-    """Structured COMPLETE_TURN with perm matches shop FINISH + order FINISH for k=0."""
+def test_structured_complete_turn_matches_finish():
+    """Structured COMPLETE_TURN with perm matches a single shop FINISH for k=0."""
     env_s = MiniBGEnv(seed=42)
     env_i = MiniBGEnv(seed=42)
     env_s.reset()
@@ -95,31 +95,22 @@ def test_structured_complete_turn_matches_finish_twice_in_order_phase():
         StructAction(StructActionType.COMPLETE_TURN), board_perm=perm
     )
     env_i.step(A_FINISH)
-    env_i.step(A_FINISH)
     assert env_s.get_state_hash() == env_i.get_state_hash()
 
 
-def test_structured_order_phase_only_complete_turn():
+def test_structured_complete_turn_after_budget_exhaustion():
     env = MiniBGEnv(seed=0)
     env.reset()
     from src.envs.minibg.actions import MAX_SHOP_ACTIONS
 
-    for _ in range(MAX_SHOP_ACTIONS + 5):
-        if env.done:
-            break
-        p = env.state.players[env.current_player()]
-        if p.phase == PlayerPhase.ORDER:
-            break
-        legal = env.get_legal_actions()
-        if not legal:
-            break
-        env.step(legal[0])
+    env._state.players[0].gold = 1000
+    for _ in range(MAX_SHOP_ACTIONS):
+        env.step(env.get_legal_actions()[0])
 
-    if env.state.players[env.current_player()].phase != PlayerPhase.ORDER:
-        return
-
-    legal_s = env.legal_structured_actions()
-    assert legal_s == [StructAction(StructActionType.COMPLETE_TURN)]
+    p = env.state.players[env.current_player()]
+    assert p.phase == PlayerPhase.SHOP
+    assert p.shop_actions_used >= MAX_SHOP_ACTIONS
+    assert StructAction(StructActionType.COMPLETE_TURN) in env.legal_structured_actions()
     h_before = env.get_state_hash()
     env.step_structured(
         StructAction(StructActionType.COMPLETE_TURN), board_perm=tuple(range(BOARD_SIZE))

@@ -2,7 +2,7 @@
 
 Loads a checkpoint and plays N episodes vs `t1_random` and vs `t_up_random`. For
 every state the agent acts in, records:
-  - phase (SHOP | ORDER)
+  - phase (SHOP | budget exhausted)
   - num_legal actions
   - q_spread = max(legal Q) - min(legal Q)
   - top1 - top2 (greedy gap)
@@ -76,7 +76,7 @@ def run_episodes(agent: DQNAgent, opponent: HeuristicBot, n: int, seed: int):
     env = MiniBGEnv(seed=base_seed, battle_damage_shaping=0.0)
 
     # Per-phase records: list of dicts.
-    records: Dict[str, List[dict]] = {"SHOP": [], "ORDER": []}
+    records: Dict[str, List[dict]] = {"SHOP": [], "BUDGET_DONE": []}
     outcomes = collections.Counter()
     total_steps = 0
     agent_steps = 0
@@ -118,8 +118,14 @@ def run_episodes(agent: DQNAgent, opponent: HeuristicBot, n: int, seed: int):
                     "q_min": float(legal_q.min()),
                     "chosen_kind": action_kind(chosen),
                 }
-                if phase == PlayerPhase.ORDER:
-                    records["ORDER"].append(rec)
+                from src.envs.minibg.actions import MAX_SHOP_ACTIONS
+
+                if (
+                    phase == PlayerPhase.SHOP
+                    and env.state.players[env.current_player()].shop_actions_used
+                    >= MAX_SHOP_ACTIONS
+                ):
+                    records["BUDGET_DONE"].append(rec)
                 else:
                     records["SHOP"].append(rec)
                 action = chosen
@@ -145,7 +151,7 @@ def summarize(name: str, records: Dict[str, List[dict]], outcomes, total_steps, 
     print(f"\n=== vs {name}  ({n} episodes) ===")
     print(f"  outcomes: win={outcomes['win']} draw={outcomes['draw']} loss={outcomes['loss']}")
     print(f"  total env steps={total_steps}  agent decisions={agent_steps}")
-    for phase in ("SHOP", "ORDER"):
+    for phase in ("SHOP", "BUDGET_DONE"):
         rs = records[phase]
         if not rs:
             print(f"  [{phase}] no records")

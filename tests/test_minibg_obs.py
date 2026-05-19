@@ -13,7 +13,7 @@ from src.envs.minibg.actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.envs.minibg.cards import make_minion
+from src.bg_catalog.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     BOARD_SAME_CARD_COUNT_OFFSET,
@@ -295,7 +295,9 @@ def test_build_observation_hand_block_and_phase_indicator():
 
     phase_off = PENDING_CHOICE_DIM + PHASE_DIM
     assert obs[-phase_off] == 0.0
-    s.players[0].phase = PlayerPhase.ORDER
+    from src.envs.minibg.actions import MAX_SHOP_ACTIONS
+
+    s.players[0].shop_actions_used = MAX_SHOP_ACTIONS
     assert build_observation(s, 0, 0.0, [])[-phase_off] == 1.0
 
 

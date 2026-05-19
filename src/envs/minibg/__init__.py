@@ -45,15 +45,15 @@ from .actions import (
     gold_for_round,
     shop_offers_count,
 )
-from .battle import (
+from src.bg_catalog.cards import CARD_TEMPLATES, make_minion, shop_minion_allowed_with_exclusion, shop_pool_for_tier
+from src.bg_combat.battle import (
     BattleMinion,
     BattleSide,
     attack_with_auras,
     build_battle_side,
     simulate_battle,
 )
-from .cards import CARD_TEMPLATES, make_minion, shop_minion_allowed_with_exclusion, shop_pool_for_tier
-from .effects import (
+from src.bg_core.effects import (
     Ability,
     BuffRandomFriendly,
     Effect,

@@ -24,7 +24,7 @@ from src.envs.minibg.obs import (
     PENDING_HEADER_OFFSET as _PENDING_HEADER_OFFSET,
     PENDING_OPTIONS_OFFSET as _PENDING_OPTIONS_OFFSET,
 )
-from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL
+from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 
 _OWN_LEN = BOARD_SIZE
 _SHOP_LEN = MAX_SHOP_SLOTS

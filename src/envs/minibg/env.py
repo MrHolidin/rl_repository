@@ -248,14 +248,11 @@ class MiniBGEnv(TurnBasedEnv):
         )
 
     def legal_structured_actions(self) -> List[StructAction]:
-        """Legal structured tokens for the current player (shop + COMPLETE_TURN, or ORDER-only COMPLETE_TURN)."""
+        """Legal structured tokens for the current player (shop actions + COMPLETE_TURN)."""
         if self._state is None or self._state.done:
             return []
 
         player = self._state.players[self._state.current_player_index]
-        if player.phase == PlayerPhase.ORDER:
-            return [StructAction(StructActionType.COMPLETE_TURN)]
-
         legal_game = set(int(a) for a in self._game.legal_actions(self._state))
         out: List[StructAction] = []
 
@@ -448,18 +445,18 @@ class MiniBGEnv(TurnBasedEnv):
         *,
         shop_phase_finish: int,
     ) -> MiniBGState:
-        """Shop exit (FINISH or FINISH_FREEZE_SHOP) if needed → reorder_board → ORDER FINISH."""
+        """Optional ``reorder_board`` then shop exit (FINISH or FINISH_FREEZE_SHOP)."""
         player = state.players[acting_idx]
-        new_state = state
-        if player.phase == PlayerPhase.SHOP:
-            new_state = self._game.apply_action(new_state, shop_phase_finish)
-        elif player.phase != PlayerPhase.ORDER:
+        if player.phase != PlayerPhase.SHOP:
             raise ValueError(
                 f"COMPLETE_TURN invalid phase {player.phase.name}"
             )
-        new_state = self._game.reorder_board(new_state, acting_idx, perm)
-        new_state = self._game.apply_action(new_state, int(GameAction.FINISH))
-        return new_state
+        new_state = state
+        k = len(player.board)
+        identity = tuple(range(BOARD_SIZE))
+        if perm != identity and k > 0:
+            new_state = self._game.reorder_board(new_state, acting_idx, perm)
+        return self._game.apply_action(new_state, shop_phase_finish)
 
     @staticmethod
     def _struct_action_to_game_action(action: StructAction) -> int:
@@ -489,13 +486,11 @@ class MiniBGEnv(TurnBasedEnv):
 
         player = self._state.players[self._state.current_player_index]
 
-        if player.phase == PlayerPhase.ORDER:
-            mask[A_FINISH] = True
+        if player.phase == PlayerPhase.SHOP:
             k = len(player.board)
             for i in range(NUM_SWAP_ADJ):
                 if i + 1 < k:
                     mask[A_SWAP_BOARD_0 + i] = True
-            return mask
 
         # Shop phase: bridge from game's legal_actions.
         legal_game = set(int(a) for a in self._game.legal_actions(self._state))

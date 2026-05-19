@@ -9,6 +9,7 @@ import numpy as np
 
 from ..action_map import (
     A_DISCOVER_BASE,
+    A_FINISH,
     A_LEVEL_UP,
     A_PLACE_BASE,
     A_ROLL,
@@ -22,10 +23,10 @@ from ..action_map import (
     sell_pos,
 )
 from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS, MAX_TIER
-from ..cards import make_minion
+from src.bg_catalog.cards import make_minion
 from ..env import MiniBGEnv
 from ..game import MiniBGGame
-from ..state import PendingChoiceKind, PlayerPhase, PlayerState
+from ..state import PendingChoiceKind, PlayerState
 
 from .bots import (
     HeuristicBot,
@@ -64,8 +65,9 @@ class StructuredHeuristicBot(HeuristicBot):
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
-        if p.phase == PlayerPhase.ORDER:
-            return choose_final_order(p.board, mask, order_key_structured)
+        swap = choose_final_order(p.board, mask, order_key_structured)
+        if swap != A_FINISH:
+            return swap
         for i in range(HAND_SIZE):
             if bool(mask[A_PLACE_BASE + i]):
                 return A_PLACE_BASE + i
@@ -220,9 +222,6 @@ class StructuredHeuristicBot(HeuristicBot):
     def choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
-        if p.phase == PlayerPhase.ORDER:
-            return self._finish(env)
-
         legal = legal_env_indices(mask)
         disc = [a for a in legal if is_discover_pick(a)]
         if disc:

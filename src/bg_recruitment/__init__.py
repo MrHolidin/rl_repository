@@ -1,7 +1,8 @@
 """Recruitment phase: shop, economy, triggers, place, discover, triples."""
 
-from . import discover, economy, place, shop, triples
+from . import discover, discover_pool, economy, place, shop, triples
 from .discover import discover_cards_to_receive, resolve_discover_pick, roll_pending_modal
+from .discover_pool import ADAPT_KEYS_ALL, apply_adapt_key_to_minion, roll_adapt_triple
 from .economy import buy_from_shop, level_up_tavern, roll_shop, sell_from_board
 from .place import (
     hand_minion_can_magnetize,

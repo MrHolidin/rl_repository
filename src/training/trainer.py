@@ -285,6 +285,8 @@ class Trainer(BaseTrainer):
 
         update_metrics = self.agent.update() or {}
         self._merge_metrics(metrics, update_metrics)
+        if self.opponent_sampler is not None and "policy_loss" in update_metrics:
+            self.opponent_sampler.on_rollout_end(update_metrics)
         return metrics
 
     def _after_transition(

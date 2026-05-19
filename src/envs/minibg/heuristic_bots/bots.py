@@ -21,7 +21,7 @@ from ..action_map import (
 )
 from ..actions import BOARD_SIZE, BUY_COST, HAND_SIZE, MAX_SHOP_SLOTS, SELL_REWARD
 from ..env import MiniBGEnv
-from ..state import PlayerPhase, PlayerState
+from ..state import PlayerState
 
 from .common import (
     choose_final_order,
@@ -129,9 +129,10 @@ class HeuristicBot(ABC):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
 
-        if p.phase == PlayerPhase.ORDER:
-            key = order_key_token if self.order_style == "token" else order_key_default
-            return choose_final_order(p.board, mask, key)
+        key = order_key_token if self.order_style == "token" else order_key_default
+        swap_finish = choose_final_order(p.board, mask, key)
+        if swap_finish != A_FINISH:
+            return swap_finish
 
         for i in range(HAND_SIZE):
             if bool(mask[A_PLACE_BASE + i]):
@@ -156,8 +157,6 @@ class Tier1RandomBot(HeuristicBot):
     def choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
-        if p.phase == PlayerPhase.ORDER:
-            return self._finish(env)
         legal = legal_env_indices(mask)
         disc = [a for a in legal if is_discover_pick(a)]
         if disc:
@@ -197,8 +196,6 @@ class TierUpRandomBot(HeuristicBot):
     def choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
-        if p.phase == PlayerPhase.ORDER:
-            return self._finish(env)
         legal = legal_env_indices(mask)
         disc = [a for a in legal if is_discover_pick(a)]
         if disc:

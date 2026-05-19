@@ -11,7 +11,7 @@ from src.bg_catalog.cards import CARD_TEMPLATES
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion, Race
 from src.envs.minibg.actions import HAND_SIZE
-from src.envs.minibg.discover_pool import roll_triple_reward_discover_triple
+from src.bg_recruitment.discover_pool import roll_triple_reward_discover_triple
 from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerState
 
 

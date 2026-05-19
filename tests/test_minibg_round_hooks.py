@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from src.envs.minibg.battle import simulate_battle
-from src.envs.minibg.cards import make_minion
-from src.envs.minibg.effects import Ability, BuffSelf, Trigger
+from src.bg_catalog.cards import make_minion
+from src.bg_core.effects import Ability, BuffSelf, Trigger
+from tests.minibg_helpers import simulate_battle
 from src.envs.minibg.game import MiniBGGame
 
 

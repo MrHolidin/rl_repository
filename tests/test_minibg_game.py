@@ -10,7 +10,7 @@ from src.envs.minibg.actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.envs.minibg.cards import make_minion
+from src.bg_catalog.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import MiniBGState, PlayerPhase
 
@@ -29,8 +29,8 @@ def _make_game(seed=0):
 
 def _submit_order_identity(g: MiniBGGame, s: MiniBGState) -> MiniBGState:
     if s.players[s.current_player_index].phase == PlayerPhase.SHOP:
-        s = g.apply_action(s, int(Action.FINISH))
-    return g.apply_action(s, int(Action.FINISH))
+        return g.apply_action(s, int(Action.FINISH))
+    return s
 
 
 def test_initial_state_basic_invariants():
@@ -133,17 +133,13 @@ def test_sell_returns_one_gold_and_compacts_board():
     assert p0.gold == SELL_REWARD
 
 
-def test_finish_in_shop_only_flips_phase():
+def test_finish_in_shop_submits_turn():
     g, s = _make_game()
     s2 = g.apply_action(s, int(Action.FINISH))
-    assert s2.players[0].phase == PlayerPhase.ORDER
+    assert s2.players[0].phase == PlayerPhase.DONE
     assert s2.players[0].shop_freeze_next_round is False
-    assert s2.current_player_index == 0  # turn stays
-    # Order phase: only FINISH legal; submitting it passes turn.
-    assert set(g.legal_actions(s2)) == {int(Action.FINISH)}
-    s3 = g.apply_action(s2, int(Action.FINISH))
-    assert s3.players[0].phase == PlayerPhase.DONE
-    assert s3.current_player_index == 1
+    assert s2.current_player_index == 1
+    assert g.legal_actions(s2)  # opponent's shop turn
 
 
 def test_finish_freeze_shop_carry_offers_through_round_transition():
@@ -152,7 +148,6 @@ def test_finish_freeze_shop_carry_offers_through_round_transition():
     before = tuple(m.card_id if m else None for m in s.players[0].shop[:4])
     s = g.apply_action(s, int(Action.FINISH_FREEZE_SHOP))
     assert s.players[0].shop_freeze_next_round is True
-    s = g.apply_action(s, int(Action.FINISH))
     s = _submit_order_identity(g, s)
 
     ids_p0_now = tuple(m.card_id if m else None for m in s.players[0].shop[:4])
@@ -260,9 +255,7 @@ def test_annihilan_gains_stats_from_cumulative_hero_damage():
     g = MiniBGGame(seed=0)
     s = g.initial_state()
     s.players[0].board = [make_minion("mentor"), make_minion("toy_mech")]
-    s_flip = g.apply_action(s, int(Action.FINISH))    # shop -> order only
-    assert s_flip.players[0].board[1].bonus_attack == 0
-    s_done = g.apply_action(s_flip, int(Action.FINISH))  # submit
+    s_done = g.apply_action(s, int(Action.FINISH))
     assert s_done.players[0].board[1].card_id == "BOT_445"
     assert s_done.players[0].board[1].bonus_attack == 2
     assert s_done.players[0].board[1].bonus_health == 2

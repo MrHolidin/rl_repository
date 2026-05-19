@@ -4,7 +4,7 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
@@ -12,31 +12,57 @@ from src.agents.base_agent import BaseAgent
 from src.envs.base import StepResult
 from src.utils import freeze_agent
 
+from .league_policy import OpponentKind, decide_opponent_kind, pfsp_sample, sample_scripted_key, self_play_enabled
+from .league_state import LeagueController, SLOT_CURRENT, SLOT_SCRIPTED
+
 
 @dataclass
 class FrozenAgentInfo:
-    """Metadata for one frozen checkpoint + running stats vs the learner."""
+    """Frozen checkpoint entry; stats live in ``LeagueController``."""
 
+    slot_id: int
     checkpoint_path: str
     episode: int
-    loaded_agent: Optional[BaseAgent] = None  # lazy loading (DQN / PPO / …)
-    # EMA of P(frozen wins the match). Starts at 0.5; updated once per game vs this frozen.
-    ema_win_rate: float = 0.5
-    last_used: int = 0  # шаг/эпизод последнего использования
-    games: int = 0
-    wins: int = 0  # frozen wins (learner lost)
-    losses: int = 0  # frozen losses (learner won)
-    draws: int = 0
+    loaded_agent: Optional[BaseAgent] = None
+    last_used: int = 0
+    _league: LeagueController = None  # type: ignore[assignment]
+
+    def _slot(self):
+        slot = self._league.get_slot(self.slot_id)
+        if slot is None:
+            raise RuntimeError(f"missing league slot {self.slot_id}")
+        return slot
+
+    @property
+    def games(self) -> int:
+        return self._slot().games
+
+    @property
+    def wins(self) -> int:
+        return self._slot().wins
+
+    @property
+    def losses(self) -> int:
+        return self._slot().losses
+
+    @property
+    def draws(self) -> int:
+        return self._slot().draws
+
+    @property
+    def ema_win_rate(self) -> float:
+        return self._slot().ema_win_rate
+
+    @ema_win_rate.setter
+    def ema_win_rate(self, value: float) -> None:
+        self._slot().ema_win_rate = float(value)
 
     @property
     def cumulative_win_rate(self) -> float:
-        if self.games <= 0:
-            return 0.5
-        return self.wins / self.games
+        return self._slot().cumulative_win_rate
 
     @property
     def win_rate(self) -> float:
-        """Sampling weight input: recent frozen strength (EMA), not lifetime ratio."""
         return self.ema_win_rate
 
 
@@ -49,7 +75,6 @@ class SelfPlayConfig:
     past_self_fraction: float = 0.3
     max_frozen_agents: int = 10
     save_every: int = 1000
-    # EMA update for FrozenAgentInfo.ema_win_rate after each match vs a frozen checkpoint.
     frozen_ema_beta: float = 0.05
 
     def __post_init__(self) -> None:
@@ -74,7 +99,7 @@ ScriptedMode = Literal["classic", "minibg"]
 
 @dataclass(frozen=True)
 class ScriptedOpponentsSpec:
-    """Weights for sampling a non-learned opponent **inside the scripted branch** (after self-play rolls)."""
+    """Weights for sampling a non-learned opponent **inside the scripted branch**."""
 
     mode: ScriptedMode
     distribution: Dict[str, float]
@@ -104,9 +129,6 @@ class SelfPlayOpponent(BaseAgent):
     ) -> int:
         use_det = deterministic or self._greedy
         base = self._base_agent
-        # Greedy / deterministic play must use mean weights for NoisyLinear
-        # (same as frozen checkpoints). The learner stays in train(); toggle only
-        # for this forward so exploration noise does not distort the opponent.
         if use_det and getattr(base, "use_noisy_nets", False):
             was_training = base.training
             base.eval()
@@ -125,7 +147,6 @@ class SelfPlayOpponent(BaseAgent):
         legal_mask: Optional[Any] = None,
         deterministic: bool = False,
     ) -> StepResult:
-        """Delegates structured opponents (MiniBG structured PPO) to ``base.opponent_step``."""
         use_det = deterministic or self._greedy
         base = self._base_agent
         if use_det and getattr(base, "use_noisy_nets", False):
@@ -144,11 +165,11 @@ class SelfPlayOpponent(BaseAgent):
         opp_action = base.act(obs, legal_mask=legal_mask, deterministic=use_det)
         return env.step(opp_action)
 
-    def save(self, path: str) -> None:  # pragma: no cover - not used
+    def save(self, path: str) -> None:  # pragma: no cover
         return None
 
     @classmethod
-    def load(cls, path: str, **kwargs: Any) -> "SelfPlayOpponent":  # pragma: no cover - unused
+    def load(cls, path: str, **kwargs: Any) -> "SelfPlayOpponent":  # pragma: no cover
         raise NotImplementedError("SelfPlayOpponent cannot be loaded from disk.")
 
     def eval(self) -> None:
@@ -159,12 +180,7 @@ class SelfPlayOpponent(BaseAgent):
 
 
 class OpponentPool:
-    """
-    Pool of opponents for self-play training.
-
-    The **scripted** branch (``ScriptedOpponentsSpec``) mixes game-specific static opponents:
-    classic board presets or MiniBG bot ids, with optional ``random`` key for ``RandomAgent``.
-    """
+    """Pool of opponents for self-play training."""
 
     def __init__(
         self,
@@ -188,30 +204,24 @@ class OpponentPool:
                         f"expected 'random' or {sorted(valid)}"
                     )
 
-        # Self-play settings
         self.self_play_config = self_play_config
         self.max_frozen_agents = (
             self_play_config.max_frozen_agents if self_play_config is not None else 0
         )
         self.current_agent = current_agent
 
-        # List of frozen agents
+        beta = float(self_play_config.frozen_ema_beta) if self_play_config else 0.05
+        self._league = LeagueController(ema_beta=beta)
+        self._league.register_meta_slot(SLOT_CURRENT)
+        self._league.register_meta_slot(SLOT_SCRIPTED)
+
         self.frozen_agents: List[FrozenAgentInfo] = []
-
-    # ---------- SCRIPTED (NON-LEARNED) OPPONENTS ----------
-
-    def _sample_scripted_key(self) -> str:
-        r = random.random()
-        acc = 0.0
-        dist = self._scripted.distribution
-        for name, p in dist.items():
-            acc += p
-            if r <= acc:
-                return name
-        return list(dist.keys())[-1]
+        self._last_sample_slot_id: int = SLOT_SCRIPTED
+        self._pending_outcomes: List[Tuple[int, int]] = []
+        self._rng = random.Random(seed)
 
     def _create_scripted_opponent(self, episode: int):
-        key = self._sample_scripted_key()
+        key = sample_scripted_key(self._scripted.distribution, self._rng)
         if self._scripted.mode == "minibg":
             from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
             from src.envs.minibg.heuristic_bots.tournament import make_bot
@@ -231,101 +241,53 @@ class OpponentPool:
         if key == "othello_heuristic":
             return OthelloHeuristicAgent(seed=opp_seed)
         raise ValueError(f"Unknown scripted opponent type: {key}")
-    
-    # ---------- FROZEN CHECKPOINT AGENTS (DQN / PPO) ----------
 
-    def _drop_worst_frozen_until_cap(self) -> None:
-        """If over ``max_frozen_agents``, remove entries with lowest ``win_rate`` (EMA)."""
-        cap = self.max_frozen_agents
-        if cap <= 0:
-            return
-        while len(self.frozen_agents) > cap:
-            worst = min(
-                self.frozen_agents,
-                key=lambda fa: (fa.win_rate, fa.episode),
-            )
-            self.frozen_agents.remove(worst)
-
-    def add_frozen_agent(self, checkpoint_path: str, episode: int):
-        """
-        Add a new frozen agent to the pool.
-        
-        Args:
-            checkpoint_path: Path to checkpoint file
-            episode: Episode number when this checkpoint was saved
-        """
+    def add_frozen_agent(self, checkpoint_path: str, episode: int) -> None:
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
-        
-        info = FrozenAgentInfo(checkpoint_path=checkpoint_path, episode=episode)
+
+        slot_id = self._league.add_frozen_checkpoint(checkpoint_path, episode)
+        info = FrozenAgentInfo(
+            slot_id=slot_id,
+            checkpoint_path=checkpoint_path,
+            episode=episode,
+            _league=self._league,
+        )
         self.frozen_agents.append(info)
-        self._drop_worst_frozen_until_cap()
+        self._league.evict_worst_ema(self.max_frozen_agents)
+        self._sync_frozen_list()
 
-    def apply_episode_result(
-        self,
-        opponent: Optional[BaseAgent],
-        agent_result: Optional[int],
-    ) -> None:
-        """
-        After a full episode: if ``opponent`` was a frozen loaded agent, update
-        cumulative W/L/D and EMA win-rate (one update per match).
-        ``agent_result``: 1 = learner won, -1 = learner lost, 0 = draw.
-        """
-        if opponent is None or agent_result is None:
-            return
-        cfg = self.self_play_config
-        beta = float(cfg.frozen_ema_beta) if cfg is not None else 0.05
+    def _sync_frozen_list(self) -> None:
+        live = {s.slot_id for s in self._league.frozen_slots()}
+        self.frozen_agents = [fa for fa in self.frozen_agents if fa.slot_id in live]
 
-        for info in self.frozen_agents:
-            if info.loaded_agent is not opponent:
-                continue
-            info.games += 1
-            if agent_result == 1:
-                info.losses += 1
-                y = 0.0
-            elif agent_result == -1:
-                info.wins += 1
-                y = 1.0
-            elif agent_result == 0:
-                info.draws += 1
-                y = 0.5
-            else:
-                return
-            info.ema_win_rate = (1.0 - beta) * info.ema_win_rate + beta * y
+    def apply_outcomes(self, outcomes: List[Tuple[int, int]]) -> None:
+        """Batch-update league stats (call after rollout, not per episode)."""
+        self._league.apply_outcomes(outcomes)
+
+    def record_episode_outcome(self, agent_result: Optional[int]) -> None:
+        """Record one game outcome for the last sampled opponent (pending until flush)."""
+        if agent_result is None:
             return
+        self._pending_outcomes.append((self._last_sample_slot_id, int(agent_result)))
+
+    def flush_pending_outcomes(self) -> None:
+        if self._pending_outcomes:
+            self.apply_outcomes(self._pending_outcomes)
+            self._pending_outcomes.clear()
 
     def _sample_frozen_info(self) -> Optional[FrozenAgentInfo]:
-        """Sample a frozen agent with PFSP-like weights (hard: prefer strong opponents)."""
         if not self.frozen_agents:
             return None
-
-        weights: List[float] = []
-        eps = 1e-2  # чтобы никто не выпадал совсем
+        slot_ids = [fa.slot_id for fa in self.frozen_agents]
+        rates = [self._league.get_slot(sid).ema_win_rate for sid in slot_ids]  # type: ignore[union-attr]
+        chosen = pfsp_sample(slot_ids, rates, self._rng)
         for info in self.frozen_agents:
-            p = info.win_rate  
-            w = max(p, eps) ** 2
-            weights.append(w)
-
-        total = sum(weights)
-        if total <= 0:
-            return random.choice(self.frozen_agents)
-
-        r = random.random() * total
-        acc = 0.0
-        for info, weight in zip(self.frozen_agents, weights):
-            acc += weight
-            if r <= acc:
+            if info.slot_id == chosen:
                 return info
-
         return self.frozen_agents[-1]
 
-    
     def _get_loaded_frozen_agent(self, info: FrozenAgentInfo, step: int) -> BaseAgent:
-        """
-        Lazy loading с ограничением числа моделей в памяти (LRU).
-
-        Loads DQN or PPO via ``load_training_agent_checkpoint`` (same as offline eval).
-        """
         if info.loaded_agent is not None:
             info.last_used = step
             return info.loaded_agent
@@ -345,80 +307,52 @@ class OpponentPool:
         freeze_agent(agent)
         info.loaded_agent = agent
         info.last_used = step
-
         return agent
-    
-    # ---------- PUBLIC INTERFACE ----------
-    
+
     def sample_scripted_opponent(self, episode: int):
-        """Sample from ``scripted`` only (ignores self-play / frozen)."""
         return self._create_scripted_opponent(episode)
 
     def sample_heuristic_opponent(self, episode: int):
-        """Deprecated name for :meth:`sample_scripted_opponent`."""
         return self.sample_scripted_opponent(episode)
-    
+
     def sample_opponent(self, episode: int):
-        """
-        Sample an opponent for the given episode.
-        """
         config = self.self_play_config
-        use_self_play = config is not None and episode >= (config.start_episode if config else 0)
+        use_self_play = self_play_enabled(
+            episode=episode,
+            start_episode=config.start_episode if config else 0,
+            has_self_play_config=config is not None,
+        )
 
         if use_self_play and config is not None:
-            roll = random.random()
-            threshold_current = config.current_self_fraction
-            threshold_past = config.current_self_fraction + config.past_self_fraction
-
-            if self.current_agent is not None and (roll < threshold_current or len(self.frozen_agents) == 0):
-                return SelfPlayOpponent(self.current_agent, greedy=True)
-
-            if roll < threshold_past and self.frozen_agents:
+            kind = decide_opponent_kind(
+                self._rng.random(),
+                current_fraction=config.current_self_fraction,
+                past_fraction=config.past_self_fraction,
+                frozen_nonempty=bool(self.frozen_agents),
+                has_current_agent=self.current_agent is not None,
+            )
+            if kind == OpponentKind.CURRENT:
+                self._last_sample_slot_id = SLOT_CURRENT
+                return SelfPlayOpponent(self.current_agent, greedy=True)  # type: ignore[arg-type]
+            if kind == OpponentKind.FROZEN:
                 info = self._sample_frozen_info()
                 if info is not None:
+                    self._last_sample_slot_id = info.slot_id
                     return self._get_loaded_frozen_agent(info, step=episode)
 
+        self._last_sample_slot_id = SLOT_SCRIPTED
         return self._create_scripted_opponent(episode)
 
     def get_pool_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the opponent pool.
-        
-        Returns:
-            Dictionary with pool statistics
-        """
         loaded_count = sum(1 for info in self.frozen_agents if info.loaded_agent is not None)
-        
         return {
             "frozen_agents_count": len(self.frozen_agents),
             "loaded_agents_count": loaded_count,
             "self_play_enabled": self.self_play_config is not None,
             "self_play_ready": (
-                self.self_play_config is not None 
-                and len(self.frozen_agents) > 0
+                self.self_play_config is not None and len(self.frozen_agents) > 0
             ),
         }
 
     def get_frozen_stats_for_status(self) -> List[Dict[str, Any]]:
-        """Per-frozen-agent stats (sofar) and current selection probability. Same weights as _sample_frozen_info."""
-        if not self.frozen_agents:
-            return []
-        eps = 1e-2
-        weights = [max(info.win_rate, eps) ** 2 for info in self.frozen_agents]
-        total = sum(weights)
-        probs = [w / total for w in weights] if total > 0 else [1.0 / len(self.frozen_agents)] * len(self.frozen_agents)
-        out = []
-        for info, p in zip(self.frozen_agents, probs):
-            out.append({
-                "checkpoint": os.path.basename(info.checkpoint_path),
-                "episode": info.episode,
-                "games": info.games,
-                "wins": info.wins,
-                "losses": info.losses,
-                "draws": info.draws,
-                "ema_win_rate": round(info.ema_win_rate, 4),
-                "cumulative_win_rate": round(info.cumulative_win_rate, 4),
-                "win_rate": round(info.ema_win_rate, 4),
-                "selection_probability": round(p, 4),
-            })
-        return out
+        return self._league.get_frozen_stats_for_status()

@@ -16,9 +16,8 @@ from .actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from .cards import CARD_TEMPLATES
-from .discover_pool import ADAPT_KEYS_ALL
-from .effects import (
+from src.bg_catalog.cards import CARD_TEMPLATES
+from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
@@ -36,6 +35,7 @@ from .effects import (
     Trigger,
     ZappTargeting,
 )
+from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 from .state import (
     CNT_ACTIVE_SHOP_TRIBES,
     MiniBGState,
@@ -433,7 +433,12 @@ def build_observation(
         else np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     )
     last_battle = np.array([last_battle_signed], dtype=np.float32)
-    phase_val = 1.0 if me.phase == PlayerPhase.ORDER else 0.0
+    # 1.0 when shop action budget is exhausted but the player may still swap / finish.
+    phase_val = (
+        1.0
+        if me.phase == PlayerPhase.SHOP and me.shop_actions_used >= MAX_SHOP_ACTIONS
+        else 0.0
+    )
     phase_arr = np.array([phase_val], dtype=np.float32)
     pending_arr = encode_pending_choice(me)
 

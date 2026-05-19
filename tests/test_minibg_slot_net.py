@@ -2,7 +2,7 @@ import torch
 
 import src.models  # noqa: F401 — triggers network registry
 from src.envs.minibg.actions import BOARD_SIZE, MAX_SHOP_SLOTS
-from src.envs.minibg.cards import make_minion
+from src.bg_catalog.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     GLOBAL_DIM,

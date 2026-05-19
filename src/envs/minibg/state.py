@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 from src.bg_core.minion import Minion, Race
 
-from .effects import Ability, Keyword
+from src.bg_core.effects import Ability, Keyword
 
 # Re-export core minion types for existing ``from .state import Minion, Race`` paths.
 __all__ = [
@@ -24,8 +24,7 @@ __all__ = [
 
 class PlayerPhase(IntEnum):
     SHOP = 0
-    ORDER = 1
-    DONE = 2
+    DONE = 1
 
 
 class PendingChoiceKind(IntEnum):
@@ -79,7 +78,7 @@ class PlayerState:
 
     @property
     def shopping_finished(self) -> bool:
-        """``True`` once the player finished the recruitment order phase (submitted board)."""
+        """``True`` once the player finished shopping for this round (submitted board)."""
         return self.phase == PlayerPhase.DONE
 
 

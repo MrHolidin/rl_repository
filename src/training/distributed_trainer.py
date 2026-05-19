@@ -3,18 +3,17 @@
 Worker protocol
 ---------------
 Host → Worker:
-  ("load", sd_bytes)                    update agent weights; frozen pool unchanged
-  ("add_to_pool", slot_id, sd_bytes)    add frozen snapshot with given slot identifier
-  ("set_weights", {slot_id: win_rate})  update PFSP opponent sampling weights (raw EMA rates)
-  ("play", round_idx)                   collect games; reply with rollout + outcomes
-  ("stop",)                             terminate
+  ("load", sd_bytes)                         update learner weights
+  ("sync_league", {slot_id: sd_bytes}, rates) authoritative frozen pool + PFSP EMA rates
+  ("play", round_idx)                        collect games; reply with rollout + outcomes
+  ("stop",)                                  terminate
 
 Worker → Host (after "play"):
   ("rollout", n_games, n_steps, n_payload_bytes, play_s, upload_s, payload, outcomes)
   outcomes = List[Tuple[int, int]]: (slot_id, agent_result) per game
   agent_result: +1 learner won, −1 learner lost, 0 draw
-  slot_id == _SLOT_CURRENT (-1) → current (always-updated) agent
-  slot_id == _SLOT_SCRIPTED (-2) → scripted/random opponent (not in frozen pool)
+  slot_id == SLOT_CURRENT (-1) → current (always-updated) agent
+  slot_id == SLOT_SCRIPTED (-2) → scripted/random opponent (not in frozen pool)
 
 Opponent sampling per game (within each worker):
   1. With prob current_fraction     → current self (latest weights)
@@ -24,9 +23,9 @@ Opponent sampling per game (within each worker):
      only when frozen_pool is non-empty (matches ``OpponentPool.sample_opponent``: no
      scripted opponents until at least one frozen agent exists; empty pool → pure self-play).
 
-Host maintains DistributedPoolStats: central EMA win-rate per pool slot,
-updated each round from all workers' game outcomes.  PFSP weights are sent
-to workers so every worker uses the same sampling distribution.
+Host maintains ``LeagueController``: central EMA win-rate per pool slot,
+updated each round **after** rollout from all workers' outcomes. Workers only
+apply ``sync_league`` snapshots from the host (no local stat updates).
 """
 
 from __future__ import annotations
@@ -54,117 +53,43 @@ from src.envs import RewardConfig
 from src.registry import make_game
 from src.training.agent_perspective_env import AgentPerspectiveEnv, make_minibg_shaping_fn
 from src.training.opponent_sampler import OpponentSampler
+from src.training.selfplay.league_policy import (
+    OpponentKind,
+    decide_opponent_kind,
+    pfsp_sample,
+    sample_scripted_key,
+    self_play_enabled,
+)
+from src.training.selfplay.league_state import (
+    LeagueController,
+    SLOT_CURRENT,
+    SLOT_SCRIPTED,
+)
 from src.training.trainer import BaseTrainer, TrainerCallback, Transition
 
-_SLOT_CURRENT: int = -1   # game against the always-updated current agent
-_SLOT_SCRIPTED: int = -2  # game against a scripted/random opponent
-
-
-# ---------------------------------------------------------------------------
-# Pool statistics (host-side, centralized)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class _SlotStats:
-    slot_id: int
-    games: int = 0
-    wins: int = 0    # opponent won (learner lost)
-    losses: int = 0  # opponent lost (learner won)
-    draws: int = 0
-    ema_win_rate: float = 0.5
-
-    @property
-    def cumulative_win_rate(self) -> float:
-        if self.games <= 0:
-            return 0.5
-        return self.wins / self.games
-
-
-class DistributedPoolStats:
-    """Central EMA win-rate tracker for all opponent pool slots (host-side).
-
-    Workers report (slot_id, agent_result) per game.  Host calls apply_outcomes()
-    each round so stats never drift across workers.
-    """
-
-    def __init__(self, ema_beta: float = 0.05) -> None:
-        self._beta = ema_beta
-        self._slots: Dict[int, _SlotStats] = {}
-
-    def register_slot(self, slot_id: int) -> None:
-        self._slots[slot_id] = _SlotStats(slot_id=slot_id)
-
-    def apply_outcomes(self, outcomes: List[Tuple[int, int]]) -> None:
-        for slot_id, agent_result in outcomes:
-            stats = self._slots.get(slot_id)
-            if stats is None:
-                continue
-            stats.games += 1
-            if agent_result == 1:
-                stats.losses += 1
-                y = 0.0
-            elif agent_result == -1:
-                stats.wins += 1
-                y = 1.0
-            else:
-                stats.draws += 1
-                y = 0.5
-            stats.ema_win_rate = (1.0 - self._beta) * stats.ema_win_rate + self._beta * y
-
-    def win_rates(self) -> Dict[int, float]:
-        """Raw EMA win rates for real frozen slots only (sent to workers for PFSP)."""
-        return {sid: s.ema_win_rate for sid, s in self._slots.items() if sid >= 0}
-
-    def get_stats(self, *, pfsp_eps: float = 1e-2) -> List[Dict[str, Any]]:
-        """Frozen-slot table for status JSON; includes PFSP selection_probability (same as ``_pfsp_choice``)."""
-        frozen = [s for s in self._slots.values() if s.slot_id >= 0]
-        frozen.sort(key=lambda s: s.slot_id)
-        weights = [max(s.ema_win_rate, pfsp_eps) ** 2 for s in frozen]
-        total_w = sum(weights)
-        if total_w > 0:
-            probs = [w / total_w for w in weights]
-        elif frozen:
-            probs = [1.0 / len(frozen)] * len(frozen)
-        else:
-            probs = []
-
-        out: List[Dict[str, Any]] = []
-        for s, p in zip(frozen, probs):
-            out.append(
-                {
-                    "slot_id": s.slot_id,
-                    "games": s.games,
-                    "wins": s.wins,
-                    "losses": s.losses,
-                    "draws": s.draws,
-                    "ema_win_rate": round(s.ema_win_rate, 4),
-                    "cumulative_win_rate": round(s.cumulative_win_rate, 4),
-                    "selection_probability": round(p, 4),
-                }
-            )
-        return out
+# Backward-compatible alias
+DistributedPoolStats = LeagueController
 
 
 class _PoolStatusAdapter:
     """Thin shim so StatusFileCallback._write_self_play_frozen works unchanged."""
 
-    def __init__(self, pool_stats: DistributedPoolStats) -> None:
-        self._pool_stats = pool_stats
+    def __init__(self, league: LeagueController) -> None:
+        self._league = league
 
     @property
     def frozen_agents(self) -> List[Dict[str, Any]]:
-        return self._pool_stats.get_stats()
+        return self._league.get_frozen_stats_for_status()
 
     def get_frozen_stats_for_status(self) -> List[Dict[str, Any]]:
-        return self._pool_stats.get_stats()
+        return self._league.get_frozen_stats_for_status()
 
 
 class _DistributedOpponentSamplerAdapter:
     """Makes DistributedTrainer.opponent_sampler compatible with CheckpointCallback / StatusFileCallback."""
 
-    def __init__(self, pool_stats: DistributedPoolStats) -> None:
-        self.opponent_pool = _PoolStatusAdapter(pool_stats)
+    def __init__(self, league: LeagueController) -> None:
+        self.opponent_pool = _PoolStatusAdapter(league)
 
     def on_checkpoint(self, path: "str | Path", episode_index: int) -> None:
         pass  # DistributedTrainer.train() drives add_to_pool via checkpoint_saved metric
@@ -269,40 +194,6 @@ def _load_state_dict_bytes(agent: MiniBGPPOStructuredAgent, payload: bytes) -> N
     agent.policy_net.load_state_dict(sd)
 
 
-def _pfsp_choice(
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    rng: _random.Random,
-    eps: float = 1e-2,
-) -> int:
-    """PFSP-weighted choice: prefer opponents with higher win rate (stronger = more training signal)."""
-    slots = list(frozen_pool.keys())
-    weights = [max(slot_win_rates.get(s, 0.5), eps) ** 2 for s in slots]
-    total = sum(weights)
-    if total <= 0:
-        return rng.choice(slots)
-    r = rng.random() * total
-    acc = 0.0
-    for s, w in zip(slots, weights):
-        acc += w
-        if r <= acc:
-            return s
-    return slots[-1]
-
-
-def _sample_scripted_key(dist: Dict[str, float], rng: _random.Random) -> str:
-    keys = list(dist.keys())
-    weights = [dist[k] for k in keys]
-    total = sum(weights)
-    r = rng.random() * total
-    acc = 0.0
-    for k, w in zip(keys, weights):
-        acc += w
-        if r <= acc:
-            return k
-    return keys[-1]
-
-
 def _create_scripted_opponent(key: str, *, seed: int) -> Any:
     from src.agents import RandomAgent
     if key == "random":
@@ -322,10 +213,12 @@ def _collect_until_steps(
     frozen_pool: Dict[int, bytes],
     slot_win_rates: Dict[int, float],
     current_fraction: float,
-    scripted_fraction: float,
+    past_fraction: float,
     scripted_distribution: Dict[str, float],
     game_rng: _random.Random,
     seed: int,
+    round_idx: int,
+    start_episode: int,
 ) -> Tuple[int, int, StructuredMiniBGRolloutBuffer, List[Tuple[int, int]]]:
     """Collect games until rollout buffer has >= min_steps transitions.
 
@@ -351,33 +244,45 @@ def _collect_until_steps(
 
     game_outcomes: List[Tuple[int, int]] = []
     n_games = 0
-    # Fraction that goes to frozen pool (what's left after current + scripted).
-    frozen_fraction = max(0.0, 1.0 - current_fraction - scripted_fraction)
+    use_self_play = self_play_enabled(
+        episode=round_idx,
+        start_episode=start_episode,
+        has_self_play_config=True,
+    )
 
     while len(agent.rollout_buffer) < min_steps:
-        r = game_rng.random()
-
-        if (
-            frozen_pool
-            and r >= 1.0 - scripted_fraction
-            and scripted_fraction > 0
-            and scripted_distribution
-        ):
-            # Scripted only once frozen pool exists (parity with OpponentPool.sample_opponent).
-            key = _sample_scripted_key(scripted_distribution, game_rng)
+        if not use_self_play:
+            key = sample_scripted_key(scripted_distribution, game_rng)
             scripted_opp = _create_scripted_opponent(key, seed=seed + n_games * 997)
             opp_sampler.set_opponent(scripted_opp)
-            opp_slot_id = _SLOT_SCRIPTED
-        elif frozen_pool and r >= current_fraction:
-            # Frozen checkpoint — PFSP-weighted by host-reported win rates
-            opp_slot_id = _pfsp_choice(frozen_pool, slot_win_rates, game_rng)
-            _load_state_dict_bytes(ppo_opponent, frozen_pool[opp_slot_id])
-            opp_sampler.set_opponent(ppo_opponent)
-        else:
-            # Current self-play
+            opp_slot_id = SLOT_SCRIPTED
+        elif not frozen_pool:
             _load_state_dict_bytes(ppo_opponent, current_sd)
             opp_sampler.set_opponent(ppo_opponent)
-            opp_slot_id = _SLOT_CURRENT
+            opp_slot_id = SLOT_CURRENT
+        else:
+            kind = decide_opponent_kind(
+                game_rng.random(),
+                current_fraction=current_fraction,
+                past_fraction=past_fraction,
+                frozen_nonempty=bool(frozen_pool),
+                has_current_agent=True,
+            )
+            if kind == OpponentKind.SCRIPTED:
+                key = sample_scripted_key(scripted_distribution, game_rng)
+                scripted_opp = _create_scripted_opponent(key, seed=seed + n_games * 997)
+                opp_sampler.set_opponent(scripted_opp)
+                opp_slot_id = SLOT_SCRIPTED
+            elif kind == OpponentKind.FROZEN:
+                slot_ids = list(frozen_pool.keys())
+                rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
+                opp_slot_id = pfsp_sample(slot_ids, rates, game_rng)
+                _load_state_dict_bytes(ppo_opponent, frozen_pool[opp_slot_id])
+                opp_sampler.set_opponent(ppo_opponent)
+            else:
+                _load_state_dict_bytes(ppo_opponent, current_sd)
+                opp_sampler.set_opponent(ppo_opponent)
+                opp_slot_id = SLOT_CURRENT
 
         obs = env.reset()
         last_info: dict = {}
@@ -442,9 +347,9 @@ def _worker_main(
     mg: dict,
     device: str,
     current_fraction: float,
-    scripted_fraction: float,
+    past_fraction: float,
     scripted_distribution: Dict[str, float],
-    max_pool_size: int,
+    start_episode: int,
     cmd_conn: Any,
 ) -> None:
     import torch
@@ -463,9 +368,7 @@ def _worker_main(
     agent.train()
 
     current_sd: bytes = _state_dict_bytes(agent, map_cpu=False)
-    # frozen_pool: slot_id → sd_bytes; insertion-ordered for FIFO eviction
     frozen_pool: Dict[int, bytes] = {}
-    # PFSP win rates sent by host (raw EMA rates, not normalized)
     slot_win_rates: Dict[int, float] = {}
 
     game_rng = _random.Random(seed + worker_id * 777_777)
@@ -479,16 +382,9 @@ def _worker_main(
             _load_state_dict_bytes(agent, msg[1])
             current_sd = msg[1]
 
-        elif tag == "add_to_pool":
-            slot_id: int = msg[1]
-            slot_sd: bytes = msg[2]
-            if len(frozen_pool) >= max_pool_size:
-                oldest = next(iter(frozen_pool))
-                del frozen_pool[oldest]
-            frozen_pool[slot_id] = slot_sd
-
-        elif tag == "set_weights":
-            slot_win_rates = dict(msg[1])
+        elif tag == "sync_league":
+            frozen_pool = dict(msg[1])
+            slot_win_rates = dict(msg[2])
 
         elif tag == "play":
             round_idx: int = msg[1]
@@ -502,10 +398,12 @@ def _worker_main(
                 frozen_pool=frozen_pool,
                 slot_win_rates=slot_win_rates,
                 current_fraction=current_fraction,
-                scripted_fraction=scripted_fraction,
+                past_fraction=past_fraction,
                 scripted_distribution=scripted_distribution,
                 game_rng=game_rng,
                 seed=round_seed_base + round_idx * 1_000_003,
+                round_idx=round_idx,
+                start_episode=start_episode,
             )
             play_s = time.perf_counter() - t0
             t1 = time.perf_counter()
@@ -608,8 +506,8 @@ class DistributedTrainer(BaseTrainer):
       - frozen_fraction    → frozen past checkpoints, PFSP-weighted
       - scripted_fraction  → scripted/heuristic bots
 
-    Win-rate statistics are tracked centrally on the host (DistributedPoolStats)
-    and PFSP weights are broadcast to workers after every round.
+    Win-rate statistics are tracked centrally on the host (``LeagueController``)
+    and the frozen pool + PFSP weights are broadcast after every round.
 
     on_step_end callbacks are fired once per round (not per transition).
     Use DistributedCheckpointCallback (not the standard CheckpointCallback)
@@ -631,17 +529,19 @@ class DistributedTrainer(BaseTrainer):
         game_kwargs: Optional[Dict[str, Any]] = None,
         callbacks: Optional[Iterable[TrainerCallback]] = None,
         current_fraction: float = 0.4,
-        scripted_fraction: float = 0.2,
+        past_fraction: float = 0.4,
         scripted_distribution: Optional[Dict[str, float]] = None,
         max_pool_size: int = 20,
         ema_beta: float = 0.05,
+        start_episode: int = 0,
     ) -> None:
-        self._pool_stats = DistributedPoolStats(ema_beta=ema_beta)
-        self._pool_stats.register_slot(_SLOT_SCRIPTED)
-        self._pool_stats.register_slot(_SLOT_CURRENT)
+        self._league = LeagueController(ema_beta=ema_beta)
+        self._league.register_meta_slot(SLOT_SCRIPTED)
+        self._league.register_meta_slot(SLOT_CURRENT)
+        self._frozen_pool: Dict[int, bytes] = {}
         super().__init__(
             callbacks=callbacks,
-            opponent_sampler=_DistributedOpponentSamplerAdapter(self._pool_stats),
+            opponent_sampler=_DistributedOpponentSamplerAdapter(self._league),
         )
         self.agent = agent
         self._worker_ckpt_path = Path(worker_ckpt_path)
@@ -653,12 +553,12 @@ class DistributedTrainer(BaseTrainer):
         self._seed = seed
         self._game_kwargs: Dict[str, Any] = dict(game_kwargs or {})
         self._current_fraction = current_fraction
-        self._scripted_fraction = scripted_fraction
+        self._past_fraction = past_fraction
         self._scripted_distribution: Dict[str, float] = dict(
             scripted_distribution or {"random": 1.0}
         )
         self._max_pool_size = max_pool_size
-        self._next_slot_id = 0
+        self._start_episode = int(start_episode)
         self._conns: List[Any] = []
         self._procs: List[mp.Process] = []
 
@@ -725,12 +625,10 @@ class DistributedTrainer(BaseTrainer):
 
         sd_bytes = _state_dict_bytes(self.agent, map_cpu=True)
 
-        # Update pool stats, compute PFSP weights, broadcast to workers.
-        self._pool_stats.apply_outcomes(all_outcomes)
-        win_rates = self._pool_stats.win_rates()
+        self._league.apply_outcomes(all_outcomes)
         for conn in self._conns:
             conn.send(("load", sd_bytes))
-            conn.send(("set_weights", win_rates))
+        self._broadcast_sync_league()
 
         return DistributedRoundResult(
             round_idx=round_idx,
@@ -745,11 +643,18 @@ class DistributedTrainer(BaseTrainer):
         )
 
     def _add_to_pool(self, sd_bytes: bytes) -> None:
-        slot_id = self._next_slot_id
-        self._next_slot_id += 1
-        self._pool_stats.register_slot(slot_id)
+        slot_id = self._league.add_frozen_bytes(sd_bytes)
+        self._frozen_pool[slot_id] = sd_bytes
+        self._league.evict_worst_ema(self._max_pool_size)
+        live = {s.slot_id for s in self._league.frozen_slots()}
+        self._frozen_pool = {k: v for k, v in self._frozen_pool.items() if k in live}
+        self._broadcast_sync_league()
+
+    def _broadcast_sync_league(self) -> None:
+        win_rates = self._league.win_rates()
+        payload = dict(self._frozen_pool)
         for conn in self._conns:
-            conn.send(("add_to_pool", slot_id, sd_bytes))
+            conn.send(("sync_league", payload, win_rates))
 
     def _spawn_workers(self) -> None:
         per_worker = math.ceil(self._rollout_steps / self._workers)
@@ -769,9 +674,9 @@ class DistributedTrainer(BaseTrainer):
                     self._game_kwargs,
                     self._worker_device,
                     self._current_fraction,
-                    self._scripted_fraction,
+                    self._past_fraction,
                     self._scripted_distribution,
-                    self._max_pool_size,
+                    self._start_episode,
                     child,
                 ),
                 daemon=True,
@@ -799,4 +704,7 @@ __all__ = [
     "DistributedRoundResult",
     "DistributedTrainer",
     "FixedOpponentSampler",
+    "LeagueController",
+    "SLOT_CURRENT",
+    "SLOT_SCRIPTED",
 ]

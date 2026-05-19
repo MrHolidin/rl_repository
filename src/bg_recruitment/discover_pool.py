@@ -6,31 +6,36 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .actions import MAX_TIER
-from .cards import CARD_TEMPLATES, shop_minion_allowed_with_exclusion, shop_pool_for_tier
-from .effects import Ability, Keyword, SummonEffect, Trigger
-from .state import Minion, Race
+from src.bg_catalog.cards import (
+    CARD_TEMPLATES,
+    shop_minion_allowed_with_exclusion,
+    shop_pool_for_tier,
+)
+from src.bg_core.effects import Ability, Keyword, SummonEffect, Trigger
+from src.bg_core.minion import Minion, Race
+
+# Retail BG max tavern tier (recruitment discover heuristics).
+_MAX_TIER = 6
 
 # Keys for Gentle Megasaur–style Adapt (HS Journey to Un'Goro set).
 ADAPT_KEYS_ALL: Tuple[str, ...] = (
-    "adapt_volcanic_might",  # +1/+1
-    "adapt_crackling_shield",  # Divine Shield
-    "adapt_flaming_claws",  # +3 Attack
-    "adapt_living_spore",  # Deathrattle: summon two 2/2 tokens
-    "adapt_lightning_speed",  # Windfury
-    "adapt_razor_claws",  # +1 Attack
-    "adapt_rocky_carapace",  # +3 Health
-    "adapt_rockshell_armadillo",  # +1/+3 Taunt
-    "adapt_massive",  # +3/+3
-    "adapt_molten_blade",  # +1/+2
+    "adapt_volcanic_might",
+    "adapt_crackling_shield",
+    "adapt_flaming_claws",
+    "adapt_living_spore",
+    "adapt_lightning_speed",
+    "adapt_razor_claws",
+    "adapt_rocky_carapace",
+    "adapt_rockshell_armadillo",
+    "adapt_massive",
+    "adapt_molten_blade",
 )
 
 assert len(ADAPT_KEYS_ALL) == 10
 
-# Approximate BG discover: offered tiers cluster around tavern tier (patch-era heuristic).
-# For tavern T, eligible discover tiers are 1..min(T+1, MAX_TIER) with higher weight at T.
+
 def _tier_weights(tavern_tier: int) -> Dict[int, float]:
-    hi = min(MAX_TIER, tavern_tier + 1)
+    hi = min(_MAX_TIER, tavern_tier + 1)
     w: Dict[int, float] = {}
     for t in range(1, hi + 1):
         dist = abs(t - tavern_tier)
@@ -51,8 +56,7 @@ def roll_discover_murloc_triple(
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
 ) -> Tuple[str, str, str]:
-    """Three distinct discover options; tier-weighted by current tavern tier (BG-style)."""
-    cap = min(MAX_TIER, tavern_tier + 1)
+    cap = min(_MAX_TIER, tavern_tier + 1)
     if shop_excluded_race == Race.MURLOC:
         eligible: List[str] = []
     else:
@@ -77,15 +81,13 @@ def roll_discover_murloc_triple(
 
 
 def roll_adapt_triple(rng: np.random.Generator) -> Tuple[str, str, str]:
-    """Three distinct random options from the ten Adapt choices."""
     idx = rng.choice(len(ADAPT_KEYS_ALL), size=3, replace=False)
     keys = [ADAPT_KEYS_ALL[int(i)] for i in idx]
     return (keys[0], keys[1], keys[2])
 
 
 def triple_reward_discover_tier(tavern_tier: int) -> int:
-    """Discover pool tier = current tavern tier + 1 (capped); at T6 use T6."""
-    return min(MAX_TIER, int(tavern_tier) + 1)
+    return min(_MAX_TIER, int(tavern_tier) + 1)
 
 
 def roll_triple_reward_discover_triple(
@@ -93,7 +95,6 @@ def roll_triple_reward_discover_triple(
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
 ) -> Tuple[str, str, str]:
-    """Three distinct options from minions of tier ``tavern_tier + 1`` when possible."""
     tgt = triple_reward_discover_tier(tavern_tier)
     eligible_exact = [
         cid
@@ -102,9 +103,7 @@ def roll_triple_reward_discover_triple(
     ]
     eligible = eligible_exact
     if len(eligible) < 3:
-        eligible = list(
-            shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race)
-        )
+        eligible = list(shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race))
     if len(eligible) < 3:
         eligible = [
             cid
@@ -131,7 +130,6 @@ def is_murloc_board_minion(m: Minion) -> bool:
 
 
 def apply_adapt_key_to_minion(m: Minion, key: str) -> None:
-    """Apply one Adapt choice to a single minion (Gentle Megasaur battlecry on each Murloc)."""
     if key == "adapt_volcanic_might":
         m.bonus_attack += 1
         m.bonus_health += 1
@@ -169,11 +167,11 @@ def apply_adapt_key_to_minion(m: Minion, key: str) -> None:
 
 __all__ = [
     "ADAPT_KEYS_ALL",
+    "apply_adapt_key_to_minion",
+    "is_murloc_board_minion",
     "murloc_discover_card_ids",
-    "roll_discover_murloc_triple",
     "roll_adapt_triple",
+    "roll_discover_murloc_triple",
     "roll_triple_reward_discover_triple",
     "triple_reward_discover_tier",
-    "is_murloc_board_minion",
-    "apply_adapt_key_to_minion",
 ]

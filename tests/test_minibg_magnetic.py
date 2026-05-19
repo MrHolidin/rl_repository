@@ -2,8 +2,8 @@
 
 from src.envs.minibg.action_map import A_MAGNET_BASE
 from src.envs.minibg.actions import magnet_game_action
-from src.envs.minibg.cards import make_minion
-from src.envs.minibg.effects import Keyword, Trigger
+from src.bg_catalog.cards import make_minion
+from src.bg_core.effects import Keyword, Trigger
 from src.envs.minibg.env import MiniBGEnv
 from src.envs.minibg.game import MiniBGGame
 

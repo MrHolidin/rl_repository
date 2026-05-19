@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO, Union
 
-from .effects import Ability, Effect, Keyword
+from src.bg_core.effects import Ability, Effect, Keyword
 from .state import Minion, MiniBGState, PlayerState
 
 

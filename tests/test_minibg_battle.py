@@ -1,13 +1,13 @@
 import numpy as np
 
-from src.envs.minibg.battle import (
+from src.bg_catalog.cards import make_minion
+from src.bg_combat.battle import (
     _decide_first_side,
     _pick_target,
     attack_with_auras,
     build_battle_side,
-    simulate_battle,
 )
-from src.envs.minibg.cards import make_minion
+from tests.minibg_helpers import simulate_battle
 
 
 def _board(*card_ids):
@@ -180,7 +180,7 @@ def test_death_log_side0_before_side1_on_simultaneous_kill():
 def test_poisonous_kills_minion_that_survives_initial_hit():
     from copy import copy
 
-    from src.envs.minibg.effects import Keyword
+    from src.bg_core.effects import Keyword
 
     tank = copy(make_minion("recruit"))
     tank.keywords = frozenset()
@@ -241,7 +241,7 @@ def test_pick_target_zapp_prefers_minimum_attack_among_legal():
 def test_pick_target_zapp_respects_taunt_then_lowest_attack():
     from copy import copy
 
-    from src.envs.minibg.effects import Keyword
+    from src.bg_core.effects import Keyword
 
     zapp_side = build_battle_side(_board("zapp_slywick"))
     zapp = zapp_side.minions[0]
@@ -287,7 +287,7 @@ def test_cave_hydra_cleave_hits_adjacent_around_taunt():
 
 
 def test_attack_during_death_resolution_ignores_stat_aura():
-    from src.envs.minibg.battle import attack_value, build_battle_side
+    from src.bg_combat.battle import attack_value, build_battle_side
 
     mal = make_minion("mal_ganis")
     imp = make_minion("imp_demon")
@@ -308,7 +308,7 @@ def test_dire_wolf_buffs_immediate_board_neighbors():
 
 def test_tombstone_keeps_slots_dire_wolf_no_nearest_living_fallthrough():
     """BG combat: corpses occupy fixed slots; adjacency is index ±1 (not nearest living)."""
-    from src.envs.minibg.battle import BattleMinion, BattleSide, attack_with_auras
+    from src.bg_combat.battle import BattleMinion, BattleSide, attack_with_auras
 
     wolf = BattleMinion.from_minion(make_minion("dire_wolf_alpha"), 1)
     rat = BattleMinion.from_minion(make_minion("pack_rat"), 2)
@@ -320,7 +320,7 @@ def test_tombstone_keeps_slots_dire_wolf_no_nearest_living_fallthrough():
 
 
 def test_malganis_health_bonus_drops_when_aura_source_dies():
-    from src.envs.minibg.battle import BattleMinion, BattleSide, _sync_health_aura_side, health_aura_bonus
+    from src.bg_combat.battle import BattleMinion, BattleSide, _sync_health_aura_side, health_aura_bonus
 
     mal = BattleMinion.from_minion(make_minion("mal_ganis"), 1)
     imp = BattleMinion.from_minion(make_minion("imp_demon"), 2)

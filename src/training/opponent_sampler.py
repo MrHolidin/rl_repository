@@ -23,6 +23,9 @@ class OpponentSampler(ABC):
     def on_episode_end(self, episode_index: int, info: Optional[dict] = None) -> None:
         """Hook invoked after an episode finishes."""
 
+    def on_rollout_end(self, metrics: Optional[dict] = None) -> None:
+        """Hook invoked after a PPO rollout update (stats flush point)."""
+
     def on_checkpoint(self, path: str | Path, episode_index: int) -> None:
         """Hook invoked when a new checkpoint is saved."""
 
@@ -70,15 +73,14 @@ class OpponentPoolSampler(OpponentSampler):
         return opponent
 
     def on_episode_end(self, episode_index: int, info: Optional[dict] = None) -> None:
-        if self._current_opponent is None or info is None:
+        if info is None:
             return
-
         agent_result = info.get("agent_result")
-        if agent_result is None:
-            return
-
-        self.opponent_pool.apply_episode_result(self._current_opponent, agent_result)
+        self.opponent_pool.record_episode_outcome(agent_result)  # type: ignore[operator]
         self._current_opponent = None
+
+    def on_rollout_end(self, metrics: Optional[dict] = None) -> None:
+        self.opponent_pool.flush_pending_outcomes()  # type: ignore[operator]
 
     def on_checkpoint(self, path: str | Path, episode_index: int) -> None:
         pool = self.opponent_pool

@@ -1,8 +1,8 @@
 """Discover (tier-weighted Murloc) and Gentle Megasaur Adapt."""
 
 from src.envs.minibg.actions import Action, HAND_SIZE
-from src.envs.minibg.cards import make_minion
-from src.envs.minibg.discover_pool import ADAPT_KEYS_ALL, murloc_discover_card_ids
+from src.bg_catalog.cards import make_minion
+from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL, murloc_discover_card_ids
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import PendingChoiceKind
 

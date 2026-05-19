@@ -1,4 +1,4 @@
-from src.envs.minibg.patch_catalog import (
+from src.bg_catalog.patch_catalog import (
     catalog_path,
     load_patch_catalog,
     load_tavern_minions,
@@ -58,7 +58,7 @@ def test_emperor_cobra_constructed_pool_has_tier():
 
 
 def test_minion_from_catalog_poison_and_race():
-    from src.envs.minibg.effects import Keyword
+    from src.bg_core.effects import Keyword
     from src.envs.minibg.obs import (
         KEYWORD_OFFSET,
         TIER_OFFSET,

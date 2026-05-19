@@ -1,6 +1,6 @@
 import pytest
 
-from src.envs.minibg.cards import (
+from src.bg_catalog.cards import (
     CARD_TEMPLATES,
     LEGACY_CARD_ID_ALIASES,
     make_minion,
