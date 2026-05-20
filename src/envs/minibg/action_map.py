@@ -24,18 +24,24 @@ A_MAGNET_HAND_0_BOARD_0 = int(Action.MAGNET_HAND_0_BOARD_0)
 A_MAGNET_HAND_LAST_BOARD_LAST = int(Action.MAGNET_HAND_4_BOARD_6)
 A_DISCOVER_PICK_0 = int(Action.DISCOVER_PICK_0)
 A_DISCOVER_PICK_LAST = int(Action.DISCOVER_PICK_2)
+A_TARGET_BOARD_0 = int(Action.TARGET_BOARD_0)
+A_TARGET_BOARD_LAST = int(Action.TARGET_BOARD_6)
 
 NUM_SWAP_ADJ = BOARD_SIZE - 1
 A_SWAP_BOARD_0 = NUM_ACTIONS
 A_SWAP_BOARD_LAST = A_SWAP_BOARD_0 + NUM_SWAP_ADJ - 1
 
-NUM_ENV_ACTIONS = NUM_ACTIONS + NUM_SWAP_ADJ
+# RL-only: skip second adjacent target during staged place (not a game ``Action``).
+A_APPLY_EFFECT_SKIP = A_SWAP_BOARD_LAST + 1
+
+NUM_ENV_ACTIONS = A_APPLY_EFFECT_SKIP + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0
 A_PLACE_BASE = A_PLACE_HAND_0
 A_MAGNET_BASE = A_MAGNET_HAND_0_BOARD_0
 A_DISCOVER_BASE = A_DISCOVER_PICK_0
+A_TARGET_BOARD_BASE = A_TARGET_BOARD_0
 
 A_SELECT_ORDER_BASE = A_SWAP_BOARD_0
 
@@ -116,6 +122,22 @@ def discover_pick_slot(env_action: int) -> int:
     return a - A_DISCOVER_BASE
 
 
+def is_apply_effect_skip(env_action: int) -> bool:
+    return int(env_action) == A_APPLY_EFFECT_SKIP
+
+
+def is_target_board(env_action: int) -> bool:
+    a = int(env_action)
+    return A_TARGET_BOARD_0 <= a <= A_TARGET_BOARD_LAST
+
+
+def target_board_slot(env_action: int) -> int:
+    a = int(env_action)
+    if not is_target_board(a):
+        raise ValueError(f"not a TARGET_BOARD action: {env_action}")
+    return a - A_TARGET_BOARD_BASE
+
+
 def is_finish(env_action: int) -> bool:
     return int(env_action) == A_FINISH
 
@@ -128,6 +150,8 @@ def env_action_to_game_action(env_action: int) -> int:
     a = int(env_action)
     if is_swap_board(a):
         raise ValueError(f"env action {a} is SWAP_BOARD, not a primitive game action")
+    if is_apply_effect_skip(a):
+        raise ValueError(f"env action {a} is APPLY_EFFECT_SKIP, not a primitive game action")
     if not (0 <= a < NUM_ACTIONS):
         raise ValueError(f"invalid env action index: {env_action} (NUM_ACTIONS={NUM_ACTIONS})")
     return a
@@ -149,6 +173,7 @@ def _iter_primitive_actions(*, tavern_tier: int) -> Iterable[int]:
     yield from range(A_PLACE_HAND_0, A_PLACE_HAND_LAST + 1)
     yield from range(A_MAGNET_HAND_0_BOARD_0, A_MAGNET_HAND_LAST_BOARD_LAST + 1)
     yield from range(A_DISCOVER_PICK_0, A_DISCOVER_PICK_LAST + 1)
+    yield from range(A_TARGET_BOARD_0, A_TARGET_BOARD_LAST + 1)
 
 
 def build_fixed_env_legal_mask(*, tavern_tier: int) -> list[bool]:
@@ -164,8 +189,15 @@ FIXED_ENV_LEGAL_MASK: list[bool] = build_fixed_env_legal_mask(tavern_tier=STARTI
 
 
 __all__ = [
+    "A_APPLY_EFFECT_SKIP",
     "A_BUY_BASE",
     "A_DISCOVER_BASE",
+    "A_TARGET_BOARD_BASE",
+    "A_TARGET_BOARD_0",
+    "A_TARGET_BOARD_LAST",
+    "is_apply_effect_skip",
+    "is_target_board",
+    "target_board_slot",
     "A_FINISH",
     "A_FINISH_FREEZE_SHOP",
     "A_LEVEL_UP",

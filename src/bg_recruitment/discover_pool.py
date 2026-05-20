@@ -90,12 +90,12 @@ def triple_reward_discover_tier(tavern_tier: int) -> int:
     return min(_MAX_TIER, int(tavern_tier) + 1)
 
 
-def roll_triple_reward_discover_triple(
+def roll_triple_reward_discover_at_target_tier(
     rng: np.random.Generator,
-    tavern_tier: int,
+    target_tier: int,
     shop_excluded_race: Optional[Race] = None,
 ) -> Tuple[str, str, str]:
-    tgt = triple_reward_discover_tier(tavern_tier)
+    tgt = min(_MAX_TIER, max(1, int(target_tier)))
     eligible_exact = [
         cid
         for cid in shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race)
@@ -123,6 +123,16 @@ def roll_triple_reward_discover_triple(
         j = int(rng.integers(0, len(pool)))
         picks.append(pool.pop(j))
     return (picks[0], picks[1], picks[2])
+
+
+def roll_triple_reward_discover_triple(
+    rng: np.random.Generator,
+    tavern_tier: int,
+    shop_excluded_race: Optional[Race] = None,
+) -> Tuple[str, str, str]:
+    return roll_triple_reward_discover_at_target_tier(
+        rng, triple_reward_discover_tier(tavern_tier), shop_excluded_race
+    )
 
 
 def is_murloc_board_minion(m: Minion) -> bool:
@@ -172,6 +182,7 @@ __all__ = [
     "murloc_discover_card_ids",
     "roll_adapt_triple",
     "roll_discover_murloc_triple",
+    "roll_triple_reward_discover_at_target_tier",
     "roll_triple_reward_discover_triple",
     "triple_reward_discover_tier",
 ]

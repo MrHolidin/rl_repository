@@ -34,5 +34,5 @@ def test_tournament_smoke() -> None:
     names = ["t1_random", "t_up_random"]
     res = run_tournament(names, games_per_pair=1, base_seed=7)
     assert len(res) == 1
-    for v in res.values():
-        assert sum(v) == 2
+    for wa, wb, d, to in res.values():
+        assert wa + wb + d + to == 2

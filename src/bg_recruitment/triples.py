@@ -1,7 +1,8 @@
-"""Triple merge (forge golden) and triple-reward discover queue."""
+"""Triple merge (forge golden) and triple-reward discover spell."""
 
 from __future__ import annotations
 
+from copy import copy
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -10,9 +11,25 @@ from src.bg_catalog.card_pool import triple_merge_golden_abilities
 from src.bg_catalog.cards import CARD_TEMPLATES
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion, Race
+from src.bg_recruitment.discover_pool import (
+    roll_triple_reward_discover_at_target_tier,
+    triple_reward_discover_tier,
+)
 from src.envs.minibg.actions import HAND_SIZE
-from src.bg_recruitment.discover_pool import roll_triple_reward_discover_triple
 from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerState
+
+TRIPLE_REWARD_SPELL_CARD_ID = "triple_reward_discover"
+
+
+def is_triple_reward_discover_spell(m: Minion) -> bool:
+    return m.is_triple_reward_spell or m.card_id == TRIPLE_REWARD_SPELL_CARD_ID
+
+
+def make_triple_reward_discover_spell(*, discover_tier: int) -> Minion:
+    spell = copy(CARD_TEMPLATES[TRIPLE_REWARD_SPELL_CARD_ID])
+    spell.triple_discover_tier = int(discover_tier)
+    spell.is_triple_reward_spell = True
+    return spell
 
 
 def hand_has_free_slot(player: PlayerState) -> bool:
@@ -54,13 +71,37 @@ def merge_three_non_golden_into_golden(
     )
 
 
+def grant_triple_reward_discover_spell(
+    player: PlayerState,
+    *,
+    discover_tier: int,
+) -> bool:
+    """Put discover spell in hand. Returns False if no slot (caller sets pending)."""
+    slot = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
+    if slot is None:
+        return False
+    player.hand[slot] = make_triple_reward_discover_spell(discover_tier=discover_tier)
+    return True
+
+
+def queue_triple_reward_discover_spell(
+    player: PlayerState, *, discover_tier: int
+) -> None:
+    player.triple_reward_discover_pending = True
+    player.triple_reward_spell_tier = int(discover_tier)
+
+
 def resolve_one_triple(player: PlayerState) -> bool:
     groups: Dict[str, List[Tuple[str, int, Minion]]] = {}
     for i, m in enumerate(player.board):
-        if not m.is_golden:
+        if not m.is_golden and not is_triple_reward_discover_spell(m):
             groups.setdefault(m.card_id, []).append(("b", i, m))
     for i, hm in enumerate(player.hand):
-        if hm is not None and not hm.is_golden:
+        if (
+            hm is not None
+            and not hm.is_golden
+            and not is_triple_reward_discover_spell(hm)
+        ):
             groups.setdefault(hm.card_id, []).append(("h", i, hm))
     candidate: Optional[str] = None
     for cid in sorted(groups.keys()):
@@ -81,6 +122,9 @@ def resolve_one_triple(player: PlayerState) -> bool:
     hslot = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
     assert hslot is not None, "triple merge with full hand (bug)"
     player.hand[hslot] = merged
+    discover_tier = triple_reward_discover_tier(player.tavern_tier)
+    if not grant_triple_reward_discover_spell(player, discover_tier=discover_tier):
+        queue_triple_reward_discover_spell(player, discover_tier=discover_tier)
     return True
 
 
@@ -90,21 +134,39 @@ def resolve_triples_loop(player: PlayerState) -> None:
             break
 
 
-def try_open_triple_reward_discover(
+def open_triple_reward_discover_modal(
     player: PlayerState,
+    shop_excluded_race: Optional[Race],
+    *,
+    discover_tier: int,
+    rng: np.random.Generator,
+) -> bool:
+    from src.bg_recruitment.discover import try_open_hand_discover_modal
+
+    opts = roll_triple_reward_discover_at_target_tier(
+        rng, discover_tier, shop_excluded_race
+    )
+    return try_open_hand_discover_modal(
+        player,
+        PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
+        opts,
+        0,
+    )
+
+
+def play_triple_reward_discover_spell_from_hand(
+    player: PlayerState,
+    hand_slot: int,
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
 ) -> None:
-    if not hand_has_free_slot(player):
-        player.triple_reward_discover_pending = True
-        return
-    player.triple_reward_discover_pending = False
-    opts = roll_triple_reward_discover_triple(
-        rng, player.tavern_tier, shop_excluded_race
-    )
-    player.pending_choice = PendingChoice(
-        PendingChoiceKind.TRIPLE_REWARD_DISCOVER, opts, 0
+    spell = player.hand[hand_slot]
+    assert spell is not None and is_triple_reward_discover_spell(spell)
+    tier = spell.triple_discover_tier or triple_reward_discover_tier(player.tavern_tier)
+    player.hand[hand_slot] = None
+    open_triple_reward_discover_modal(
+        player, shop_excluded_race, discover_tier=tier, rng=rng
     )
 
 
@@ -114,5 +176,31 @@ def flush_triple_reward_queue_if_idle(
     *,
     rng: np.random.Generator,
 ) -> None:
-    if player.pending_choice is None and player.triple_reward_discover_pending:
-        try_open_triple_reward_discover(player, shop_excluded_race, rng=rng)
+    if player.pending_choice is not None or not player.triple_reward_discover_pending:
+        return
+    tier = player.triple_reward_spell_tier or triple_reward_discover_tier(
+        player.tavern_tier
+    )
+    if grant_triple_reward_discover_spell(player, discover_tier=tier):
+        player.triple_reward_discover_pending = False
+        player.triple_reward_spell_tier = 0
+
+
+# Backward-compatible alias
+try_open_triple_reward_discover = open_triple_reward_discover_modal
+
+__all__ = [
+    "TRIPLE_REWARD_SPELL_CARD_ID",
+    "flush_triple_reward_queue_if_idle",
+    "grant_triple_reward_discover_spell",
+    "hand_has_free_slot",
+    "is_triple_reward_discover_spell",
+    "make_triple_reward_discover_spell",
+    "merge_three_non_golden_into_golden",
+    "open_triple_reward_discover_modal",
+    "play_triple_reward_discover_spell_from_hand",
+    "queue_triple_reward_discover_spell",
+    "resolve_one_triple",
+    "resolve_triples_loop",
+    "try_open_triple_reward_discover",
+]

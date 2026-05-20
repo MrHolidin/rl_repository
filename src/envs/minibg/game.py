@@ -114,12 +114,15 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         # Shop phase — pending Discover / Adapt blocks other actions.
         if player.pending_choice is not None:
             pc = player.pending_choice
-            if pc.kind in (
-                PendingChoiceKind.DISCOVER_MURLOC,
-                PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
-            ):
+            if recruitment_discover.is_hand_discover_kind(pc.kind):
                 if not recruitment_triples.hand_has_free_slot(player):
-                    return []
+                    from src.envs.minibg.invariants import assert_shop_has_legal_actions
+
+                    assert_shop_has_legal_actions(
+                        state,
+                        [],
+                        where="game.legal_actions.hand_discover_full_hand",
+                    )
             return [
                 int(Action.DISCOVER_PICK_0),
                 int(Action.DISCOVER_PICK_1),
@@ -147,17 +150,21 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 if pos < len(player.board):
                     actions.append(int(Action.SELL_BOARD_0) + pos)
 
-            if not board_full:
-                bc_mult = ShopTriggers.battlecry_multiplier(player.board)
-                for h in range(HAND_SIZE):
-                    hm = player.hand[h]
-                    if hm is None:
-                        continue
-                    needs = recruitment_discover.discover_cards_to_receive(hm, bc_mult)
-                    free = sum(1 for s in player.hand if s is None) + 1
-                    if needs > free:
-                        continue
+            for h in range(HAND_SIZE):
+                hm = player.hand[h]
+                if hm is None:
+                    continue
+                if recruitment_triples.is_triple_reward_discover_spell(hm):
                     actions.append(int(Action.PLACE_HAND_0) + h)
+                    continue
+                if board_full:
+                    continue
+                bc_mult = ShopTriggers.battlecry_multiplier(player.board)
+                needs = recruitment_discover.discover_cards_to_receive(hm, bc_mult)
+                free = sum(1 for s in player.hand if s is None) + 1
+                if needs > free:
+                    continue
+                actions.append(int(Action.PLACE_HAND_0) + h)
 
             for h in range(HAND_SIZE):
                 hm = player.hand[h]
@@ -468,6 +475,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             placed_minion_board_index=placed_idx,
             placed_minion_pending_after=remapped_pending,
             triple_reward_discover_pending=p.triple_reward_discover_pending,
+            triple_reward_spell_tier=p.triple_reward_spell_tier,
             pogo_hoppers_played=p.pogo_hoppers_played,
         )
 

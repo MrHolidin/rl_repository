@@ -36,7 +36,7 @@ from .bots import (
     _prefer_growth_then_finish,
     _replacement_sell_actions,
 )
-from .common import choose_final_order, legal_env_indices
+from .common import choose_final_order, legal_env_indices, masked_finish
 from .value_model import (
     adapt_choice_score,
     board_power,
@@ -66,12 +66,12 @@ class StructuredHeuristicBot(HeuristicBot):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
         swap = choose_final_order(p.board, mask, order_key_structured)
-        if swap != A_FINISH:
+        if swap != A_FINISH and bool(mask[swap]):
             return swap
         for i in range(HAND_SIZE):
             if bool(mask[A_PLACE_BASE + i]):
                 return A_PLACE_BASE + i
-        return A_FINISH
+        return masked_finish(mask)
 
     def _ctx(self, env: MiniBGEnv) -> tuple[int, PlayerState]:
         p = _me(env)
@@ -219,7 +219,7 @@ class StructuredHeuristicBot(HeuristicBot):
 
         return False
 
-    def choose_action(self, env: MiniBGEnv) -> int:
+    def _choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
         legal = legal_env_indices(mask)

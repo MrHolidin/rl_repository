@@ -17,6 +17,8 @@ from src.bg_catalog.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     BOARD_SAME_CARD_COUNT_OFFSET,
+    TRIPLE_DISCOVER_TIER_OFFSET,
+    TRIPLE_REWARD_SPELL_OFFSET,
     CARD_ID_TO_DENSE,
     CARD_IDX_OFFSET,
     EFFECT_OFFSET,
@@ -67,7 +69,7 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 54
+    assert SLOT_DIM == 57
     assert GLOBAL_DIM == 16
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -86,6 +88,63 @@ def test_encode_minion_golden_flag():
     m.is_golden = True
     v = encode_minion(m)
     assert v[GOLDEN_OFFSET] == 1.0
+
+
+def test_encode_minion_triple_reward_spell_in_hand():
+    from src.bg_recruitment.triples import make_triple_reward_discover_spell
+
+    spell = make_triple_reward_discover_spell(discover_tier=3)
+    v = encode_minion(spell)
+    assert v[0] == 1.0
+    assert v[TRIPLE_REWARD_SPELL_OFFSET] == 1.0
+    assert v[TRIPLE_DISCOVER_TIER_OFFSET] == pytest.approx(3.0 / float(MAX_TIER))
+    assert v[TIER_OFFSET : TIER_OFFSET + NUM_TIER_ONEHOT].sum() == 0.0
+
+
+def test_build_observation_hand_encodes_triple_reward_spell():
+    from src.bg_recruitment.triples import make_triple_reward_discover_spell
+    from src.envs.minibg.state import MiniBGState, PlayerPhase, PlayerState
+
+    spell = make_triple_reward_discover_spell(discover_tier=4)
+    p0 = PlayerState(
+        health=40,
+        gold=10,
+        tavern_tier=3,
+        next_tier_up_cost=5,
+        board=[],
+        shop=[None] * MAX_SHOP_SLOTS,
+        hand=[spell, None, None, None, None],
+        phase=PlayerPhase.SHOP,
+        shop_actions_used=0,
+    )
+    p1 = PlayerState(
+        health=40,
+        gold=10,
+        tavern_tier=3,
+        next_tier_up_cost=5,
+        board=[],
+        shop=[None] * MAX_SHOP_SLOTS,
+        hand=[None] * HAND_SIZE,
+        phase=PlayerPhase.SHOP,
+        shop_actions_used=0,
+    )
+    s = MiniBGState(
+        players=(p0, p1),
+        round_number=1,
+        current_player_index=0,
+        initiative_player=0,
+        winner=None,
+        done=False,
+    )
+    obs = build_observation(s, 0, 0.0, [])
+    hand_start = GLOBAL_DIM + BOARD_SIZE * SLOT_DIM + MAX_SHOP_SLOTS * SLOT_DIM
+    hand_blk = obs[hand_start : hand_start + HAND_LEN * SLOT_DIM].reshape(
+        HAND_LEN, SLOT_DIM
+    )
+    assert hand_blk[0][TRIPLE_REWARD_SPELL_OFFSET] == 1.0
+    assert hand_blk[0][TRIPLE_DISCOVER_TIER_OFFSET] == pytest.approx(
+        4.0 / float(MAX_TIER)
+    )
 
 
 def test_encode_minion_mecharoo_layout():

@@ -84,6 +84,7 @@ def resolve_battle_and_advance(
         p.shop_actions_used = 0
         p.pending_choice = None
         p.triple_reward_discover_pending = False
+        p.triple_reward_spell_tier = 0
         p.placed_minion_board_index = None
         p.placed_minion_pending_after = None
         fire_on_turn_start(p)

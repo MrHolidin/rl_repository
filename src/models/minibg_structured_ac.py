@@ -24,7 +24,9 @@ from src.envs.minibg.obs import (
 )
 
 from src.envs.minibg.obs import (
+    PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
     PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
+    PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
 )
 
 from .minibg_slot_ac import (
@@ -135,6 +137,10 @@ def role_for_struct(a: StructAction) -> int:
         return _ROLE_HAND
     if t == StructActionType.DISCOVER_PICK:
         return _ROLE_PENDING
+    if t == StructActionType.APPLY_EFFECT:
+        return _ROLE_BOARD
+    if t == StructActionType.APPLY_EFFECT_SKIP:
+        return _ROLE_BOARD
     return _ROLE_NONE
 
 
@@ -162,6 +168,17 @@ def _struct_action_codes(a: StructAction) -> Tuple[int, int, int, int, int, int]
         )
     if t == StructActionType.DISCOVER_PICK:
         return (int(t), _ROLE_PENDING, _REGION_PENDING, int(a.args[0]), _REGION_NULL, 0)
+    if t == StructActionType.APPLY_EFFECT:
+        return (
+            int(t),
+            _ROLE_BOARD,
+            _REGION_NULL,
+            0,
+            _REGION_OWN,
+            int(a.args[0]),
+        )
+    if t == StructActionType.APPLY_EFFECT_SKIP:
+        return (int(t), _ROLE_BOARD, _REGION_NULL, 0, _REGION_NULL, 0)
     # ROLL / LEVEL_UP / COMPLETE_TURN: null entity on both sides.
     return (int(t), _ROLE_NONE, _REGION_NULL, 0, _REGION_NULL, 0)
 
@@ -329,7 +346,7 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.global_to_entity_token = None
 
         self._pending_feat_dim = (
-            _PENDING_CONT_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
+            _PENDING_CHOICE_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
         )
         trunk_in = (
             _TOTAL_SLOTS * self.slot_hidden
@@ -542,10 +559,12 @@ class MiniBGStructuredActorCritic(nn.Module):
         B = x.size(0)
         device = x.device
         dtype = E_own.dtype
-        cont = pending[..., :_PENDING_DISCOVER_IDX_OFFSET]
+        cont = pending[..., :_PENDING_CHOICE_DIM]
         opt_stack = _pending_three_option_emb(
             pending, self.card_emb, self.adapt_choice_emb
         )
+        is_apply = pending[..., _PENDING_IS_APPLY_OFFSET : _PENDING_IS_APPLY_OFFSET + 1] > 0.5
+        opt_stack = opt_stack.masked_fill(is_apply.unsqueeze(-1), 0.0)
         pending_feat = torch.cat([cont, opt_stack.flatten(-2)], dim=-1)
         E_pending = self._add_pos_region(
             self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING

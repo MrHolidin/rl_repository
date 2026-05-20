@@ -32,8 +32,11 @@ class Minion:
     has_shield: bool = False
     is_token: bool = False
     is_golden: bool = False
-    """Set when this minion was forged from three non-golden copies; grants one discover after play."""
+    """Set when forged from three non-golden copies (golden minion only, not the reward spell)."""
     from_triple_merge: bool = False
+    is_triple_reward_spell: bool = False
+    """Hand spell: PLACE consumes it and opens triple-reward discover (see ``triple_discover_tier``)."""
+    triple_discover_tier: int = 0
     dbf_id: Optional[int] = None
 
     @property

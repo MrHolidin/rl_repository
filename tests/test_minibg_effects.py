@@ -188,12 +188,14 @@ def test_two_malganis_buff_each_other_and_stack_on_third_demon():
 
 
 def test_defender_argus_buffs_adjacent_in_shop():
+    from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
+
     g = MiniBGGame(seed=0)
     left = make_minion("recruit")
     right = make_minion("recruit")
     argus = make_minion("defender_argus")
     p = _player(board=[left, argus, right])
-    g._fire_on_place(argus, p, None)
+    apply_targeted_on_place_battlecries(g._shop_triggers, p, argus, rng=g._rng)
     assert left.bonus_attack == 1 and left.bonus_health == 1
     assert Keyword.TAUNT in left.keywords
     assert right.bonus_attack == 1 and Keyword.TAUNT in right.keywords

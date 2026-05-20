@@ -11,8 +11,9 @@ from src.envs.minibg.state import PlayerState
 from .shop_triggers import ShopTriggers
 from .triples import (
     flush_triple_reward_queue_if_idle,
+    is_triple_reward_discover_spell,
+    play_triple_reward_discover_spell_from_hand,
     resolve_triples_loop,
-    try_open_triple_reward_discover,
 )
 
 
@@ -53,18 +54,42 @@ def place_from_hand(
     board_size: int,
     triggers: ShopTriggers,
     rng,
+    insert_at: Optional[int] = None,
+    apply_targeted_effects: bool = True,
+    forced_buff_target: Optional[Minion] = None,
 ) -> None:
     minion = player.hand[hand_slot]
     assert minion is not None
+
+    if is_triple_reward_discover_spell(minion):
+        play_triple_reward_discover_spell_from_hand(
+            player, hand_slot, shop_excluded_race, rng=rng
+        )
+        flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
+        return
+
     assert len(player.board) < board_size
-    queued_triple_reward = minion.is_golden and minion.from_triple_merge
     player.hand[hand_slot] = None
-    player.board.append(minion)
+    if insert_at is None:
+        player.board.append(minion)
+    else:
+        pos = max(0, min(int(insert_at), len(player.board)))
+        player.board.insert(pos, minion)
     triggers.fire_shop_friendly_summoned(player, minion)
     player.placed_minion_board_index = len(player.board) - 1
     player.placed_minion_pending_after = minion
     triggers.fire_on_place(minion, player, shop_excluded_race)
-    if player.pending_choice is None:
+    if apply_targeted_effects and player.pending_choice is None:
+        from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
+
+        apply_targeted_on_place_battlecries(
+            triggers,
+            player,
+            minion,
+            rng=rng,
+            forced_buff_target=forced_buff_target,
+        )
+    if player.pending_choice is None and apply_targeted_effects:
         try:
             idx = player.board.index(minion)
         except ValueError:
@@ -74,16 +99,11 @@ def place_from_hand(
         player.placed_minion_board_index = None
         player.placed_minion_pending_after = None
 
-    resolve_triples_loop(player)
-
-    if queued_triple_reward and minion in player.board and minion.is_golden:
-        if player.pending_choice is None:
-            try_open_triple_reward_discover(player, shop_excluded_race, rng=rng)
-        else:
-            player.triple_reward_discover_pending = True
-        minion.from_triple_merge = False
-
-    flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
+    # Resolve triples only after discover/adapt modals close — otherwise a merge can
+    # fill the hand while pending_choice is still set and soft-lock the shop (no legal actions).
+    if player.pending_choice is None:
+        resolve_triples_loop(player)
+        flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
 
 
 def magnet_from_hand(
@@ -99,4 +119,5 @@ def magnet_from_hand(
     assert hand_minion_can_magnetize(magnet)
     player.hand[hand_slot] = None
     merge_magnetic_inplace(target, magnet)
-    resolve_triples_loop(player)
+    if player.pending_choice is None:
+        resolve_triples_loop(player)

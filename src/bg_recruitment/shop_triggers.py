@@ -22,6 +22,7 @@ from src.bg_core.effects import (
     BuffSelfFromHeroDamageTaken,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSummonedIfRace,
+    BuffTargetFriendlyBattlecry,
     DealHeroDamage,
     DiscoverMurlocEffect,
     Effect,
@@ -199,7 +200,8 @@ class ShopTriggers:
             player.board.insert(insert_at, tok)
             self.fire_shop_friendly_summoned(player, tok)
             insert_at += 1
-        self._on_triples(player)
+        if player.pending_choice is None:
+            self._on_triples(player)
 
     def fire_shop_friendly_summoned(self, player: PlayerState, summoned: Minion) -> None:
         for m in player.board:
@@ -241,8 +243,6 @@ class ShopTriggers:
             source.bonus_health += effect.health
         elif isinstance(effect, BuffSelfFromHeroDamageTaken):
             source.bonus_health += player.hero_damage_taken_total
-        elif isinstance(effect, BuffAdjacentBattlecry):
-            self.apply_buff_adjacent(player, source, effect)
         elif isinstance(effect, BuffAllOtherOfTribe):
             self.apply_buff_all_other_tribe(player, source, effect)
         elif isinstance(effect, BuffAllFriendlyOfTribe):
@@ -289,9 +289,15 @@ class ShopTriggers:
                 opts = roll_discover_murloc_triple(
                     self._rng, player.tavern_tier, shop_excluded_race
                 )
-                player.pending_choice = PendingChoice(
-                    PendingChoiceKind.DISCOVER_MURLOC, opts, total - 1
-                )
+                from src.bg_recruitment.discover import try_open_hand_discover_modal
+
+                if try_open_hand_discover_modal(
+                    player,
+                    PendingChoiceKind.DISCOVER_MURLOC,
+                    opts,
+                    total - 1,
+                ):
+                    return
                 return
             if isinstance(e, AdaptAllMurlocsEffect):
                 total = mult * e.repeats

@@ -83,9 +83,16 @@ class Action(IntEnum):
     DISCOVER_PICK_1 = 57
     DISCOVER_PICK_2 = 58
     FINISH_FREEZE_SHOP = 59
+    TARGET_BOARD_0 = 60
+    TARGET_BOARD_1 = 61
+    TARGET_BOARD_2 = 62
+    TARGET_BOARD_3 = 63
+    TARGET_BOARD_4 = 64
+    TARGET_BOARD_5 = 65
+    TARGET_BOARD_6 = 66
 
 
-NUM_ACTIONS = 60
+NUM_ACTIONS = 67
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE
@@ -164,6 +171,14 @@ def discover_pick_index(action_int: int) -> int:
     return action_int - int(Action.DISCOVER_PICK_0)
 
 
+def is_target_board_game_action(action_int: int) -> bool:
+    return int(Action.TARGET_BOARD_0) <= action_int <= int(Action.TARGET_BOARD_6)
+
+
+def target_board_index(action_int: int) -> int:
+    return action_int - int(Action.TARGET_BOARD_0)
+
+
 __all__ = [
     "Action",
     "MAGNET_ACTION_BASE",
@@ -200,4 +215,6 @@ __all__ = [
     "magnet_game_action",
     "is_discover_pick_game_action",
     "discover_pick_index",
+    "is_target_board_game_action",
+    "target_board_index",
 ]

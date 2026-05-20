@@ -242,6 +242,16 @@ class BuffAdjacentBattlecry:
 
 
 @dataclass(frozen=True)
+class BuffTargetFriendlyBattlecry:
+    """Shop battlecry: player picks another friendly on board (modal if 2+ eligible)."""
+
+    attack: int = 1
+    health: int = 1
+    exclude_self: bool = True
+    filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
 class HeroImmuneAura:
     """While this aura source is alive on your board, ``_damage_hero`` is blocked (BG Mal'Ganis)."""
 
@@ -338,6 +348,7 @@ Effect = Union[
     KeywordStatAura,
     AdjacentStatAura,
     BuffAdjacentBattlecry,
+    BuffTargetFriendlyBattlecry,
     HeroImmuneAura,
     DealHeroDamage,
     BuffSelf,
@@ -388,6 +399,7 @@ __all__ = [
     "KeywordStatAura",
     "AdjacentStatAura",
     "BuffAdjacentBattlecry",
+    "BuffTargetFriendlyBattlecry",
     "HeroImmuneAura",
     "DealHeroDamage",
     "BuffSelf",

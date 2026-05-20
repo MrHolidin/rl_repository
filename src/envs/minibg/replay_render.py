@@ -12,6 +12,7 @@ from .action_map import (
     A_ROLL,
     NUM_ENV_ACTIONS,
     buy_slot,
+    is_apply_effect_skip,
     is_buy,
     is_discover_pick,
     is_finish,
@@ -20,6 +21,8 @@ from .action_map import (
     is_place,
     is_sell,
     is_swap_board,
+    is_target_board,
+    target_board_slot,
     magnet_hand_board,
     discover_pick_slot,
     place_slot,
@@ -89,6 +92,10 @@ def decode_env_action(a: int) -> str:
         return f"MAGNET_HAND_{h}_BOARD_{b}"
     if is_discover_pick(a):
         return f"DISCOVER_PICK_{discover_pick_slot(a)}"
+    if is_target_board(a):
+        return f"APPLY_EFFECT_{target_board_slot(a)}"
+    if is_apply_effect_skip(a):
+        return "APPLY_EFFECT_SKIP"
     if is_finish(a):
         return "FINISH"
     if is_finish_freeze_shop(a):
@@ -117,6 +124,10 @@ def decode_env_action_compact(a: int) -> str:
         return "MAGNET"
     if is_discover_pick(a):
         return "DISCOVER"
+    if is_target_board(a):
+        return "APPLY_EFFECT"
+    if is_apply_effect_skip(a):
+        return "APPLY_SKIP"
     if is_finish(a):
         return "FINISH"
     if is_finish_freeze_shop(a):

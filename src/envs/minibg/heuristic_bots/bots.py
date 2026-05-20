@@ -26,6 +26,7 @@ from ..state import PlayerState
 from .common import (
     choose_final_order,
     legal_env_indices,
+    masked_finish,
     order_key_default,
     order_key_token,
 )
@@ -131,17 +132,31 @@ class HeuristicBot(ABC):
 
         key = order_key_token if self.order_style == "token" else order_key_default
         swap_finish = choose_final_order(p.board, mask, key)
-        if swap_finish != A_FINISH:
+        if swap_finish != A_FINISH and bool(mask[swap_finish]):
             return swap_finish
 
         for i in range(HAND_SIZE):
             if bool(mask[A_PLACE_BASE + i]):
                 return A_PLACE_BASE + i
 
-        return A_FINISH
+        return masked_finish(mask)
+
+    def choose_action(self, env: MiniBGEnv) -> int:
+        action = self._choose_action(env)
+        from src.envs.minibg.invariants import assert_action_in_legal_mask
+
+        rl_pending = getattr(env, "_rl_pending", None) is not None
+        assert_action_in_legal_mask(
+            env.state,
+            action,
+            env.legal_actions_mask,
+            where=f"{self.name}.choose_action",
+            rl_pending=rl_pending,
+        )
+        return action
 
     @abstractmethod
-    def choose_action(self, env: MiniBGEnv) -> int:
+    def _choose_action(self, env: MiniBGEnv) -> int:
         raise NotImplementedError
 
 
@@ -154,7 +169,7 @@ class Tier1RandomBot(HeuristicBot):
     def __init__(self, seed: Optional[int] = None) -> None:
         self._rng = np.random.default_rng(seed)
 
-    def choose_action(self, env: MiniBGEnv) -> int:
+    def _choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
         legal = legal_env_indices(mask)
@@ -193,7 +208,7 @@ class TierUpRandomBot(HeuristicBot):
     def __init__(self, seed: Optional[int] = None) -> None:
         self._rng = np.random.default_rng(seed)
 
-    def choose_action(self, env: MiniBGEnv) -> int:
+    def _choose_action(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
         legal = legal_env_indices(mask)

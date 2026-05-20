@@ -20,6 +20,56 @@ from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerState
 
 from .triples import flush_triple_reward_queue_if_idle, hand_has_free_slot, resolve_triples_loop
 
+HAND_DISCOVER_KINDS = frozenset(
+    {
+        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
+    }
+)
+
+
+def is_hand_discover_kind(kind: PendingChoiceKind) -> bool:
+    return kind in HAND_DISCOVER_KINDS
+
+
+def is_hand_discover_pending(player: PlayerState) -> bool:
+    pc = player.pending_choice
+    return pc is not None and is_hand_discover_kind(pc.kind)
+
+
+def try_open_hand_discover_modal(
+    player: PlayerState,
+    kind: PendingChoiceKind,
+    options: tuple,
+    extra_modals_after: int,
+) -> bool:
+    """Open a hand-discover modal only if the player can take at least one pick now."""
+    if not is_hand_discover_kind(kind):
+        raise ValueError(f"not a hand-discover kind: {kind!r}")
+    if not hand_has_free_slot(player):
+        return False
+    player.pending_choice = PendingChoice(kind, options, extra_modals_after)
+    return True
+
+
+def try_open_hand_discover_chain(
+    player: PlayerState,
+    kind: PendingChoiceKind,
+    extra_modals_after: int,
+    shop_excluded_race: Optional[Race],
+    *,
+    rng: np.random.Generator,
+) -> bool:
+    """Roll and open the next hand-discover modal; reject if no hand slot."""
+    if not is_hand_discover_kind(kind):
+        raise ValueError(f"not a hand-discover kind: {kind!r}")
+    if not hand_has_free_slot(player):
+        return False
+    player.pending_choice = roll_pending_modal(
+        rng, player, kind, extra_modals_after, shop_excluded_race
+    )
+    return True
+
 
 def discover_cards_to_receive(placed: Minion, battlecry_mult: int) -> int:
     n_need = 0
@@ -66,10 +116,7 @@ def resolve_discover_pick(
     assert 0 <= pick_slot <= 2
     choice_token = pc.options[pick_slot]
     extra = pc.extra_modals_after
-    hand_discover = pc.kind in (
-        PendingChoiceKind.DISCOVER_MURLOC,
-        PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
-    )
+    hand_discover = is_hand_discover_kind(pc.kind)
     if hand_discover:
         h = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
         if h is None:
@@ -77,22 +124,31 @@ def resolve_discover_pick(
                 "DISCOVER pick with full hand; legal mask must require a free hand slot"
             )
         player.hand[h] = make_minion(choice_token)
-        resolve_triples_loop(player)
     else:
         for m in player.board:
             if is_murloc_board_minion(m):
                 apply_adapt_key_to_minion(m, choice_token)
 
     chain_next = extra > 0
-    if chain_next and hand_discover and not hand_has_free_slot(player):
-        chain_next = False
-
     if chain_next:
-        player.pending_choice = roll_pending_modal(
-            rng, player, pc.kind, extra - 1, shop_excluded_race
-        )
-    else:
+        if hand_discover:
+            if not try_open_hand_discover_chain(
+                player,
+                pc.kind,
+                extra - 1,
+                shop_excluded_race,
+                rng=rng,
+            ):
+                chain_next = False
+        else:
+            player.pending_choice = roll_pending_modal(
+                rng, player, pc.kind, extra - 1, shop_excluded_race
+            )
+
+    if not chain_next:
         player.pending_choice = None
+        if hand_discover:
+            resolve_triples_loop(player)
         ref = player.placed_minion_pending_after
         if ref is not None:
             if ref in player.board:

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum, auto
+from enum import IntEnum
 from typing import List, Optional, Tuple
 
 from src.bg_core.minion import Minion, Race
 
-from src.bg_core.effects import Ability, Keyword
-
-# Re-export core minion types for existing ``from .state import Minion, Race`` paths.
 __all__ = [
     "Minion",
     "PlayerState",
@@ -19,6 +16,8 @@ __all__ = [
     "CNT_ACTIVE_SHOP_TRIBES",
     "PendingChoiceKind",
     "PendingChoice",
+    "CasterKind",
+    "CasterRef",
 ]
 
 
@@ -42,8 +41,22 @@ class PendingChoice:
     extra_modals_after: int
 
 
-# Tavern pool: per episode one of these is excluded (see ``MiniBGState.shop_excluded_race``).
-# Neutrals (`race is None`) and ``Race.ALL`` minions are never excluded.
+class CasterKind(IntEnum):
+    NONE = 0
+    BOARD = 1
+    HAND = 2
+    HERO = 3
+
+
+@dataclass(frozen=True)
+class CasterRef:
+    """Who triggered a shop effect (replay / RL bookkeeping)."""
+
+    kind: CasterKind
+    board_idx: Optional[int] = None
+    hand_idx: Optional[int] = None
+
+
 ROTATION_SHOP_TRIBES: Tuple[Race, Race, Race, Race] = (
     Race.BEAST,
     Race.DEMON,
@@ -58,7 +71,6 @@ class PlayerState:
     health: int
     gold: int
     tavern_tier: int
-    # Current tier-up gold price; drops by 1 each new round (after battle) until bought.
     next_tier_up_cost: int
     board: List[Minion]
     shop: List[Optional[Minion]]
@@ -69,16 +81,15 @@ class PlayerState:
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
     pending_choice: Optional["PendingChoice"] = None
-    # Replay snapshot; kept aligned with placed_minion_pending_after when that is set.
     placed_minion_board_index: Optional[int] = None
-    # Same Minion instance as on board until ON_PLACE modals finish and AFTER_PLACE fires.
     placed_minion_pending_after: Optional["Minion"] = None
-    # Queued after playing a golden from a triple when a murloc/adapt modal is active first.
     triple_reward_discover_pending: bool = False
+    """True when triple-reward discover spell could not fit in hand; grant when a slot opens."""
+    triple_reward_spell_tier: int = 0
+    """Discover pool tier for a pending spell grant (``tavern_tier + 1`` at forge time)."""
 
     @property
     def shopping_finished(self) -> bool:
-        """``True`` once the player finished shopping for this round (submitted board)."""
         return self.phase == PlayerPhase.DONE
 
 
@@ -90,5 +101,4 @@ class MiniBGState:
     initiative_player: int
     winner: Optional[int]
     done: bool
-    # ``None`` = all four rotation tribes in the tavern (no exclusion).
     shop_excluded_race: Optional[Race] = None

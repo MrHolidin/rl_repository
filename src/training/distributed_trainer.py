@@ -65,6 +65,7 @@ from src.training.selfplay.league_state import (
     SLOT_CURRENT,
     SLOT_SCRIPTED,
 )
+from src.training.stack_trace_diag import enable_stack_dump_on_signal
 from src.training.trainer import BaseTrainer, TrainerCallback, Transition
 
 # Backward-compatible alias
@@ -288,6 +289,14 @@ def _collect_until_steps(
         last_info: dict = {}
         while not env.done:
             legal_list = env.legal_structured_actions()
+            if not legal_list:
+                from src.envs.minibg.invariants import assert_shop_has_legal_actions
+
+                assert_shop_has_legal_actions(
+                    env.state,
+                    [],
+                    where="distributed_trainer._collect_until_steps.agent_turn",
+                )
             struct_act, board_perm, idx = agent.act_structured(
                 obs, legal_list, env, deterministic=False
             )
@@ -351,8 +360,13 @@ def _worker_main(
     scripted_distribution: Dict[str, float],
     start_episode: int,
     cmd_conn: Any,
+    run_dir: str,
 ) -> None:
+    import os
     import torch
+
+    os.environ["RL_RUN_DIR"] = run_dir
+    enable_stack_dump_on_signal()
     torch.set_num_threads(1)
 
     agent = MiniBGPPOStructuredAgent.load(ck_path, device=device, seed=seed + worker_id)
@@ -534,6 +548,7 @@ class DistributedTrainer(BaseTrainer):
         max_pool_size: int = 20,
         ema_beta: float = 0.05,
         start_episode: int = 0,
+        run_dir: Optional[str] = None,
     ) -> None:
         self._league = LeagueController(ema_beta=ema_beta)
         self._league.register_meta_slot(SLOT_SCRIPTED)
@@ -559,6 +574,7 @@ class DistributedTrainer(BaseTrainer):
         )
         self._max_pool_size = max_pool_size
         self._start_episode = int(start_episode)
+        self._run_dir = str(run_dir) if run_dir else ""
         self._conns: List[Any] = []
         self._procs: List[mp.Process] = []
 
@@ -567,6 +583,11 @@ class DistributedTrainer(BaseTrainer):
     # ------------------------------------------------------------------
 
     def train(self, total_steps: int) -> None:
+        import os
+
+        if self._run_dir:
+            os.environ["RL_RUN_DIR"] = self._run_dir
+        enable_stack_dump_on_signal()
         self._target_total_steps = total_steps
         self._spawn_workers()
 
@@ -678,6 +699,7 @@ class DistributedTrainer(BaseTrainer):
                     self._scripted_distribution,
                     self._start_episode,
                     child,
+                    self._run_dir,
                 ),
                 daemon=True,
             )

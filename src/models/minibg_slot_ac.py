@@ -22,6 +22,7 @@ from src.envs.minibg.obs import (
     PHASE_DIM as _PHASE_DIM,
     SLOT_DIM as _SLOT_DIM,
     PENDING_HEADER_OFFSET as _PENDING_HEADER_OFFSET,
+    PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
     PENDING_OPTIONS_OFFSET as _PENDING_OPTIONS_OFFSET,
 )
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
@@ -66,8 +67,10 @@ def _encode_pending_with_card_emb(
 ) -> torch.Tensor:
     """Flatten pending + per-option embeddings (discover vs ADAPT‑key table)."""
 
-    cont = pending[..., :_PENDING_DISCOVER_IDX_OFFSET]
+    cont = pending[..., :_PENDING_CHOICE_DIM]
     emb_stack = _pending_three_option_emb(pending, card_emb, adapt_emb)
+    is_apply = pending[..., _PENDING_IS_APPLY_OFFSET : _PENDING_IS_APPLY_OFFSET + 1] > 0.5
+    emb_stack = emb_stack.masked_fill(is_apply.unsqueeze(-1), 0.0)
     return torch.cat([cont, emb_stack.flatten(-2)], dim=-1)
 
 
@@ -136,7 +139,7 @@ class MiniBGSlotActorCritic(nn.Module):
                 self.slot_hidden, self.slot_hidden, kernel_size=1
             )
 
-        pending_feat_dim = _PENDING_CONT_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
+        pending_feat_dim = _PENDING_CHOICE_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
         trunk_in = (
             _TOTAL_SLOTS * self.slot_hidden
             + _GLOBAL_DIM

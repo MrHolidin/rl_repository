@@ -19,6 +19,8 @@ class StructActionType(IntEnum):
     MAGNET = 6
     DISCOVER_PICK = 7
     COMPLETE_TURN_FREEZE_SHOP = 8
+    APPLY_EFFECT = 9
+    APPLY_EFFECT_SKIP = 10
 
 
 @dataclass(frozen=True)
@@ -94,6 +96,17 @@ def validate_struct_action(a: StructAction) -> None:
         s = a.args[0]
         if s < 0 or s > 2:
             raise ValueError(f"DISCOVER_PICK slot out of range [0,2]: {s}")
+    elif t == StructActionType.APPLY_EFFECT:
+        if len(a.args) != 1:
+            raise ValueError(
+                f"APPLY_EFFECT expects args (target_board_idx,), got {a.args}"
+            )
+        tgt = a.args[0]
+        if tgt < 0 or tgt >= BOARD_SIZE:
+            raise ValueError(f"APPLY_EFFECT target_board_idx out of range: {tgt}")
+    elif t == StructActionType.APPLY_EFFECT_SKIP:
+        if a.args != ():
+            raise ValueError(f"APPLY_EFFECT_SKIP expects args (), got {a.args}")
     elif t == StructActionType.COMPLETE_TURN or t == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
         if a.args != ():
             raise ValueError(f"{t.name} expects args (); pass board_perm to env.step_structured")
@@ -133,6 +146,14 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
     if a.type == StructActionType.DISCOVER_PICK:
         return int(A_DISCOVER_BASE + a.args[0])
+    if a.type == StructActionType.APPLY_EFFECT:
+        from .action_map import A_TARGET_BOARD_BASE
+
+        return int(A_TARGET_BOARD_BASE + a.args[0])
+    if a.type == StructActionType.APPLY_EFFECT_SKIP:
+        from .action_map import A_APPLY_EFFECT_SKIP
+
+        return int(A_APPLY_EFFECT_SKIP)
     if a.type == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
         return int(A_FINISH_FREEZE_SHOP)
     if a.type == StructActionType.COMPLETE_TURN:

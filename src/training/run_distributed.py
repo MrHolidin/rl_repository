@@ -210,6 +210,7 @@ def run_distributed(
         max_pool_size=max_pool_size,
         ema_beta=ema_beta,
         start_episode=start_episode,
+        run_dir=str(run_dir),
     )
 
     _current_trainer = trainer

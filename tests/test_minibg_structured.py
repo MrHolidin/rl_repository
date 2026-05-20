@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import torch
 
 from src.envs.minibg import MiniBGEnv
@@ -79,8 +80,8 @@ def test_structured_illegal_complete_turn_without_perm():
     env.reset()
     legal = env.legal_structured_actions()
     assert any(a.type == StructActionType.COMPLETE_TURN for a in legal)
-    r = env.step_structured(StructAction(StructActionType.COMPLETE_TURN))
-    assert r.info.get("invalid_action") is True
+    with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
+        env.step_structured(StructAction(StructActionType.COMPLETE_TURN))
 
 
 def test_structured_complete_turn_matches_finish():

@@ -97,11 +97,11 @@ def test_illegal_swap_for_single_minion_is_rejected():
     env = MiniBGEnv(seed=0)
     env._state.players[0].board = [make_minion("recruit")]
     snapshot = env.get_state_hash()
-    res = env.step(A_SWAP_BOARD_0)
-    assert res.info["invalid_action"] is True
+    with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
+        env.step(A_SWAP_BOARD_0)
     assert env.get_state_hash() == snapshot
     res = env.step(A_FINISH)
-    assert res.info["invalid_action"] is False
+    assert not res.info.get("invalid_action")
     assert env._state.players[0].phase == PlayerPhase.DONE
     assert [m.card_id for m in env._state.players[0].board] == ["EX1_162"]
 
@@ -121,8 +121,8 @@ def test_action_budget_exhaustion_stays_in_shop():
 def test_swap_action_with_empty_board_is_illegal():
     env = MiniBGEnv(seed=0)
     snapshot = env.get_state_hash()
-    res = env.step(A_SWAP_BOARD_0)
-    assert res.info["invalid_action"] is True
+    with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
+        env.step(A_SWAP_BOARD_0)
     assert env.get_state_hash() == snapshot
 
 
@@ -155,10 +155,8 @@ def test_make_game_passes_battle_damage_shaping():
     assert env._battle_damage_shaping == pytest.approx(0.2)
 
 
-def test_reward_config_invalid_action_override():
-    rc = RewardConfig(invalid_action=-2.0)
-    env = MiniBGEnv(seed=0, reward_config=rc)
+def test_illegal_action_raises_not_soft_penalty():
+    env = MiniBGEnv(seed=0)
     env.reset(seed=0)
-    r = env.step(NUM_ENV_ACTIONS)
-    assert r.info.get("invalid_action") is True
-    assert r.reward == -2.0
+    with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
+        env.step(NUM_ENV_ACTIONS)

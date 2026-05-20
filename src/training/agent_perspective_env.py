@@ -262,6 +262,14 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         ):
             steps += 1
             opp_mask = self.base.legal_actions_mask
+            if not bool(opp_mask.any()):
+                from src.envs.minibg.invariants import assert_shop_has_legal_actions
+
+                assert_shop_has_legal_actions(
+                    self.base.state,
+                    [],
+                    where=f"AgentPerspectiveEnv._drain_opponent step={steps}",
+                )
             if hasattr(self._opponent, "opponent_step"):
                 opp_step = self._opponent.opponent_step(
                     self.base,
@@ -271,6 +279,15 @@ class AgentPerspectiveEnv(SingleAgentEnv):
                 )
             else:
                 opp_action = self._opponent.act(obs, legal_mask=opp_mask, deterministic=False)
+                from src.envs.minibg.invariants import assert_action_in_legal_mask
+
+                assert_action_in_legal_mask(
+                    self.base.state,
+                    int(opp_action),
+                    opp_mask,
+                    where=f"AgentPerspectiveEnv._drain_opponent step={steps}",
+                    rl_pending=getattr(self.base, "_rl_pending", None) is not None,
+                )
                 opp_step = self.base.step(opp_action)
             obs = opp_step.obs
             accumulated += self._reward_in_agent_perspective(opp_step, agent_acted=False)

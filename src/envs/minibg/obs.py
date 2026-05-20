@@ -23,6 +23,7 @@ from src.bg_core.effects import (
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
     BuffSummonedIfRace,
+    BuffTargetFriendlyBattlecry,
     CleaveOnAttack,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
@@ -73,7 +74,7 @@ RACE_ONEHOT_DIM = len(_RACE_ORDER)
 
 NUM_KEYWORD_CHANNELS = 6  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC
 NUM_TRIGGER_CHANNELS = 12  # see TRIGGER_INDEX below
-NUM_EFFECT_CHANNELS = 14  # see EFFECT_INDEX below
+NUM_EFFECT_CHANNELS = 15  # see EFFECT_INDEX below
 
 # Slot layout offsets (single source of truth — tests / nets pull these in directly).
 PRESENCE_OFFSET = 0
@@ -89,7 +90,9 @@ EFFECT_OFFSET = TRIGGER_OFFSET + NUM_TRIGGER_CHANNELS
 # Non-golden copies of the same ``card_id`` elsewhere (triple / buy planning); normalized.
 HAND_SAME_CARD_COUNT_OFFSET = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
 BOARD_SAME_CARD_COUNT_OFFSET = HAND_SAME_CARD_COUNT_OFFSET + 1
-SLOT_DIM = BOARD_SAME_CARD_COUNT_OFFSET + 1
+TRIPLE_REWARD_SPELL_OFFSET = BOARD_SAME_CARD_COUNT_OFFSET + 1
+TRIPLE_DISCOVER_TIER_OFFSET = TRIPLE_REWARD_SPELL_OFFSET + 1
+SLOT_DIM = TRIPLE_DISCOVER_TIER_OFFSET + 1
 
 # Trigger channel mapping (preserve historical positions 0..6, 8..10; fill 7=ON_TURN_START, add ON_OVERKILL).
 TRIGGER_INDEX: Dict[Trigger, int] = {
@@ -125,6 +128,7 @@ _EFFECT_CLASSES: Tuple[type, ...] = (
     PogoHopperBattlecry,
     DiscoverMurlocEffect,
     AdaptAllMurlocsEffect,
+    BuffTargetFriendlyBattlecry,
 )
 assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS
 EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
@@ -143,10 +147,29 @@ GLOBAL_DIM = GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM
 PENDING_HEADER_DIM = 3
 PENDING_OPTIONS_DIM = 3
 PENDING_DISCOVER_IDX_DIM = 3
-PENDING_CHOICE_DIM = PENDING_HEADER_DIM + PENDING_OPTIONS_DIM + PENDING_DISCOVER_IDX_DIM
+PENDING_ELIGIBLE_DIM = BOARD_SIZE
 PENDING_HEADER_OFFSET = 0
 PENDING_OPTIONS_OFFSET = PENDING_HEADER_OFFSET + PENDING_HEADER_DIM
 PENDING_DISCOVER_IDX_OFFSET = PENDING_OPTIONS_OFFSET + PENDING_OPTIONS_DIM
+# RL pending apply-effect block (see ``MiniBGEnv._rl_pending``): kind + scalars + mask.
+PENDING_IS_APPLY_OFFSET = PENDING_DISCOVER_IDX_OFFSET + PENDING_DISCOVER_IDX_DIM
+PENDING_EFFECT_KIND_OFFSET = PENDING_IS_APPLY_OFFSET + 1
+PENDING_EFFECT_ATK_OFFSET = PENDING_EFFECT_KIND_OFFSET + 1
+PENDING_EFFECT_HP_OFFSET = PENDING_EFFECT_ATK_OFFSET + 1
+PENDING_EFFECT_TAUNT_OFFSET = PENDING_EFFECT_HP_OFFSET + 1
+PENDING_CAN_SKIP_OFFSET = PENDING_EFFECT_TAUNT_OFFSET + 1
+PENDING_APPLY_REMAINING_OFFSET = PENDING_CAN_SKIP_OFFSET + 1
+PENDING_PICKED_OFFSET = PENDING_APPLY_REMAINING_OFFSET + 1
+PENDING_ELIGIBLE_OFFSET = PENDING_PICKED_OFFSET + PENDING_ELIGIBLE_DIM
+PENDING_APPLY_SECTION_DIM = (
+    1 + 5 + 1 + PENDING_ELIGIBLE_DIM + PENDING_ELIGIBLE_DIM
+)
+PENDING_CHOICE_DIM = (
+    PENDING_HEADER_DIM
+    + PENDING_OPTIONS_DIM
+    + PENDING_DISCOVER_IDX_DIM
+    + PENDING_APPLY_SECTION_DIM
+)
 
 LAST_BATTLE_DIM = 1
 HAND_LEN = HAND_SIZE
@@ -195,8 +218,49 @@ def _encode_race(m: Minion) -> np.ndarray:
     return block
 
 
-def encode_pending_choice(me: PlayerState) -> np.ndarray:
+def encode_pending_choice(
+    me: PlayerState,
+    rl_pending: Optional["RlPendingEffect"] = None,
+) -> np.ndarray:
     v = np.zeros(PENDING_CHOICE_DIM, dtype=np.float32)
+    if rl_pending is not None:
+        from src.bg_core.effects import (
+            BuffAdjacentBattlecry,
+            BuffTargetFriendlyBattlecry,
+        )
+        from src.envs.minibg.rl_effects import RlEffectKind
+
+        v[PENDING_HEADER_OFFSET] = 1.0
+        total = rl_pending.apply_steps_total
+        rem_norm = float(rl_pending.remaining) / float(total) if total > 0 else 0.0
+        v[PENDING_HEADER_OFFSET + 2] = rem_norm
+        v[PENDING_IS_APPLY_OFFSET] = 1.0
+        n_kinds = len(RlEffectKind)
+        if n_kinds <= 1:
+            v[PENDING_EFFECT_KIND_OFFSET] = 0.0
+        else:
+            v[PENDING_EFFECT_KIND_OFFSET] = float(rl_pending.kind.value) / float(
+                n_kinds - 1
+            )
+        if isinstance(rl_pending.params, BuffTargetFriendlyBattlecry):
+            v[PENDING_EFFECT_ATK_OFFSET] = float(rl_pending.params.attack) / _STAT_NORM
+            v[PENDING_EFFECT_HP_OFFSET] = float(rl_pending.params.health) / _STAT_NORM
+        elif isinstance(rl_pending.params, BuffAdjacentBattlecry):
+            v[PENDING_EFFECT_ATK_OFFSET] = float(rl_pending.params.attack) / _STAT_NORM
+            v[PENDING_EFFECT_HP_OFFSET] = float(rl_pending.params.health) / _STAT_NORM
+            if rl_pending.params.grant_taunt:
+                v[PENDING_EFFECT_TAUNT_OFFSET] = 1.0
+        if rl_pending.can_skip_second_adjacent():
+            v[PENDING_CAN_SKIP_OFFSET] = 1.0
+        v[PENDING_APPLY_REMAINING_OFFSET] = rem_norm
+        for i in rl_pending.picks:
+            if 0 <= i < BOARD_SIZE:
+                v[PENDING_PICKED_OFFSET + i] = 1.0
+        for i in rl_pending.eligible_on_board_live(me.board):
+            if 0 <= i < BOARD_SIZE:
+                v[PENDING_ELIGIBLE_OFFSET + i] = 1.0
+        return v
+
     pc = me.pending_choice
     if pc is None:
         return v
@@ -308,6 +372,11 @@ def encode_minion(
     v[BOARD_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_board_elsewhere) / float(
         BOARD_SIZE
     )
+    if minion.is_triple_reward_spell:
+        v[TRIPLE_REWARD_SPELL_OFFSET] = 1.0
+        tier = minion.triple_discover_tier
+        if tier > 0:
+            v[TRIPLE_DISCOVER_TIER_OFFSET] = float(tier) / float(MAX_TIER)
     return v
 
 
@@ -395,6 +464,8 @@ def build_observation(
     player_idx: int,
     last_battle_signed: float,
     enemy_last_seen_board: Optional[List[Minion]],
+    *,
+    rl_pending: Optional["RlPendingEffect"] = None,
 ) -> np.ndarray:
     me = state.players[player_idx]
     enemy = state.players[1 - player_idx]
@@ -440,7 +511,7 @@ def build_observation(
         else 0.0
     )
     phase_arr = np.array([phase_val], dtype=np.float32)
-    pending_arr = encode_pending_choice(me)
+    pending_arr = encode_pending_choice(me, rl_pending=rl_pending)
 
     return np.concatenate(
         [
@@ -480,6 +551,8 @@ __all__ = [
     "EFFECT_OFFSET",
     "HAND_SAME_CARD_COUNT_OFFSET",
     "BOARD_SAME_CARD_COUNT_OFFSET",
+    "TRIPLE_REWARD_SPELL_OFFSET",
+    "TRIPLE_DISCOVER_TIER_OFFSET",
     "SLOT_DIM",
     "GLOBAL_DIM",
     "GLOBAL_CORE_DIM",
@@ -494,6 +567,17 @@ __all__ = [
     "PENDING_HEADER_OFFSET",
     "PENDING_OPTIONS_OFFSET",
     "PENDING_DISCOVER_IDX_OFFSET",
+    "PENDING_IS_APPLY_OFFSET",
+    "PENDING_EFFECT_KIND_OFFSET",
+    "PENDING_EFFECT_ATK_OFFSET",
+    "PENDING_EFFECT_HP_OFFSET",
+    "PENDING_EFFECT_TAUNT_OFFSET",
+    "PENDING_CAN_SKIP_OFFSET",
+    "PENDING_APPLY_REMAINING_OFFSET",
+    "PENDING_PICKED_OFFSET",
+    "PENDING_ELIGIBLE_OFFSET",
+    "PENDING_ELIGIBLE_DIM",
+    "PENDING_APPLY_SECTION_DIM",
     "OBS_DIM",
     "encode_minion",
     "encode_slots",

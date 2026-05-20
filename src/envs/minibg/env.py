@@ -22,8 +22,13 @@ from .action_map import (
     NUM_ENV_ACTIONS,
     NUM_SWAP_ADJ,
     env_action_to_game_action,
+    is_apply_effect_skip,
+    is_place,
+    is_target_board,
     is_swap_board,
+    place_slot,
     swap_adj_index_from_env_action,
+    target_board_slot,
 )
 from .actions import (
     BOARD_SIZE,
@@ -36,6 +41,12 @@ from .actions import (
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
 from .state import MiniBGState, Minion, PlayerPhase, Race
+from .rl_place import (
+    RlPlacePlan,
+    commit_rl_place_plan,
+    commit_simple_place_from_hand,
+    open_rl_place_plan,
+)
 from .structured_actions import (
     StructAction,
     StructActionType,
@@ -43,6 +54,7 @@ from .structured_actions import (
     structured_legal_set,
     validate_board_perm,
 )
+from src.bg_recruitment.triples import flush_triple_reward_queue_if_idle
 
 
 INVALID_ACTION_REWARD = -1.0
@@ -53,7 +65,7 @@ class MiniBGEnv(TurnBasedEnv):
 
     Observation: self-centric, fixed-length vector (see obs.py).
     Terminal reward: +1 / -1 / 0 from the acting player's perspective.
-    Illegal actions use ``reward_config.invalid_action``.
+    Illegal actions raise ``RuntimeError`` (see ``invariants.raise_illegal_env_action``).
     On each battle, ``info["battle_signed"] = (signed_p0, signed_p1)`` is emitted
     so symmetric per-player shaping can be applied externally (see
     ``src.training.agent_perspective_env``). The constructor still accepts
@@ -92,6 +104,8 @@ class MiniBGEnv(TurnBasedEnv):
         self._replay_sink: Any = None
         self._replay_episode = -1
         self._replay_frame = 0
+        self._rl_pending: Optional[RlPlacePlan] = None
+        self._rl_place_budget_pending = False
         if replay_path is not None:
             from .replay import ReplayJsonlSink
 
@@ -124,6 +138,8 @@ class MiniBGEnv(TurnBasedEnv):
                 shop_full_tribes=self._shop_full_tribes,
             )
         self._state = self._game.initial_state()
+        self._rl_pending = None
+        self._rl_place_budget_pending = False
         self._last_seen_enemy_board = [[], []]
         self._last_battle_signed = [0.0, 0.0]
         if self._replay_sink is not None:
@@ -146,35 +162,15 @@ class MiniBGEnv(TurnBasedEnv):
         action_int = int(action)
         acting_idx_before = self._state.current_player_index
         legal_mask = self.legal_actions_mask
-        if (
-            action_int < 0
-            or action_int >= NUM_ENV_ACTIONS
-            or not bool(legal_mask[action_int])
-        ):
-            info: Dict[str, Any] = {
-                "winner": None,
-                "termination_reason": "illegal",
-                "invalid_action": True,
-            }
-            if self._replay_sink is not None:
-                assert self._state is not None
-                self._replay_frame += 1
-                self._replay_sink.frame(
-                    episode=self._replay_episode,
-                    frame=self._replay_frame,
-                    acting_idx=acting_idx_before,
-                    action=action_int,
-                    illegal=True,
-                    state=self._state,
-                    info=info,
-                )
-            return StepResult(
-                obs=self._get_obs(),
-                reward=float(self.reward_config.invalid_action),
-                terminated=False,
-                truncated=False,
-                info=info,
-            )
+        from src.envs.minibg.invariants import assert_action_in_legal_mask
+
+        assert_action_in_legal_mask(
+            self._state,
+            action_int,
+            legal_mask,
+            where="MiniBGEnv.step",
+            rl_pending=self._rl_pending is not None,
+        )
 
         acting_idx = self._state.current_player_index
         acting_token = PLAYER_TOKENS[acting_idx]
@@ -185,12 +181,57 @@ class MiniBGEnv(TurnBasedEnv):
             self._state.players[1].health,
         )
 
-        if is_swap_board(action_int):
-            i = swap_adj_index_from_env_action(action_int)
-            self._state = self._game.swap_board_adjacent(self._state, acting_idx, i)
-        else:
-            game_action = env_action_to_game_action(action_int)
-            self._state = self._game.apply_action(self._state, game_action)
+        from src.envs.minibg.invariants import raise_illegal_env_action
+
+        try:
+            if is_swap_board(action_int):
+                i = swap_adj_index_from_env_action(action_int)
+                self._state = self._game.swap_board_adjacent(self._state, acting_idx, i)
+            elif self._rl_pending is not None:
+                if is_apply_effect_skip(action_int):
+                    if not self._rl_pending.can_skip_second_adjacent():
+                        raise_illegal_env_action(
+                            self._state,
+                            where="MiniBGEnv.step.rl_pending",
+                            action=action_int,
+                            mask=legal_mask,
+                            detail="APPLY_EFFECT_SKIP not allowed",
+                            rl_pending=True,
+                        )
+                    self._apply_rl_effect_skip()
+                elif is_target_board(action_int):
+                    self._apply_rl_effect_pick(target_board_slot(action_int))
+                else:
+                    raise_illegal_env_action(
+                        self._state,
+                        where="MiniBGEnv.step.rl_pending",
+                        action=action_int,
+                        mask=legal_mask,
+                        detail="expected TARGET_BOARD or SKIP during rl_pending",
+                        rl_pending=True,
+                    )
+            elif is_place(action_int):
+                if not self._try_place_hand_rl(place_slot(action_int)):
+                    raise_illegal_env_action(
+                        self._state,
+                        where="MiniBGEnv.step.place",
+                        action=action_int,
+                        mask=legal_mask,
+                        detail="PLACE failed",
+                        rl_pending=False,
+                    )
+            else:
+                game_action = env_action_to_game_action(action_int)
+                self._state = self._game.apply_action(self._state, game_action)
+        except ValueError as exc:
+            raise_illegal_env_action(
+                self._state,
+                where="MiniBGEnv.step.apply",
+                action=action_int,
+                mask=legal_mask,
+                detail=str(exc),
+                rl_pending=self._rl_pending is not None,
+            )
 
         battle_happened = (
             self._state.round_number != prev_round
@@ -256,6 +297,14 @@ class MiniBGEnv(TurnBasedEnv):
         legal_game = set(int(a) for a in self._game.legal_actions(self._state))
         out: List[StructAction] = []
 
+        if self._rl_pending is not None:
+            eligible = self._rl_pending.eligible_on_board_live(player.board)
+            for tgt in eligible:
+                out.append(StructAction(StructActionType.APPLY_EFFECT, (tgt,)))
+            if self._rl_pending.can_skip_second_adjacent():
+                out.append(StructAction(StructActionType.APPLY_EFFECT_SKIP))
+            return out
+
         if player.pending_choice is not None:
             for i in range(3):
                 if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
@@ -285,11 +334,23 @@ class MiniBGEnv(TurnBasedEnv):
                 if mg in legal_game:
                     out.append(StructAction(StructActionType.MAGNET, (h, b)))
 
-        if int(GameAction.FINISH) in legal_game:
-            out.append(StructAction(StructActionType.COMPLETE_TURN))
-        if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
-            out.append(StructAction(StructActionType.COMPLETE_TURN_FREEZE_SHOP))
+        if (
+            self._rl_pending is None
+            and player.placed_minion_pending_after is None
+        ):
+            if int(GameAction.FINISH) in legal_game:
+                out.append(StructAction(StructActionType.COMPLETE_TURN))
+            if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
+                out.append(StructAction(StructActionType.COMPLETE_TURN_FREEZE_SHOP))
 
+        if not out and not legal_game:
+            from src.envs.minibg.invariants import assert_shop_has_legal_actions
+
+            assert_shop_has_legal_actions(
+                self._state,
+                [],
+                where="MiniBGEnv.legal_structured_actions",
+            )
         return out
 
     def step_structured(
@@ -307,48 +368,47 @@ class MiniBGEnv(TurnBasedEnv):
         acting_idx_before = self._state.current_player_index
         legal = structured_legal_set(tuple(self.legal_structured_actions()))
 
-        def _illegal_reply() -> StepResult:
-            info_il: Dict[str, Any] = {
-                "winner": None,
-                "termination_reason": "illegal",
-                "invalid_action": True,
-            }
-            if self._replay_sink is not None:
-                assert self._state is not None
-                self._replay_frame += 1
-                rep_a = structured_action_to_replay_env_int(action)
-                self._replay_sink.frame(
-                    episode=self._replay_episode,
-                    frame=self._replay_frame,
-                    acting_idx=acting_idx_before,
-                    action=rep_a,
-                    illegal=True,
-                    state=self._state,
-                    info=info_il,
-                )
-            return StepResult(
-                obs=self._get_obs(),
-                reward=float(self.reward_config.invalid_action),
-                terminated=False,
-                truncated=False,
-                info=info_il,
-            )
+        from src.envs.minibg.invariants import raise_illegal_env_action
 
         if action not in legal:
-            return _illegal_reply()
+            raise_illegal_env_action(
+                self._state,
+                where="MiniBGEnv.step_structured",
+                structured_action=repr(action),
+                detail="not in legal_structured_actions",
+                rl_pending=self._rl_pending is not None,
+            )
 
         if action.type in (
             StructActionType.COMPLETE_TURN,
             StructActionType.COMPLETE_TURN_FREEZE_SHOP,
         ):
             if board_perm is None:
-                return _illegal_reply()
+                raise_illegal_env_action(
+                    self._state,
+                    where="MiniBGEnv.step_structured",
+                    structured_action=repr(action),
+                    detail="COMPLETE_TURN requires board_perm",
+                    rl_pending=self._rl_pending is not None,
+                )
             try:
                 validate_board_perm(tuple(board_perm))
-            except ValueError:
-                return _illegal_reply()
+            except ValueError as exc:
+                raise_illegal_env_action(
+                    self._state,
+                    where="MiniBGEnv.step_structured",
+                    structured_action=repr(action),
+                    detail=f"invalid board_perm: {exc}",
+                    rl_pending=self._rl_pending is not None,
+                )
         elif board_perm is not None:
-            return _illegal_reply()
+            raise_illegal_env_action(
+                self._state,
+                where="MiniBGEnv.step_structured",
+                structured_action=repr(action),
+                detail="board_perm only allowed for COMPLETE_TURN",
+                rl_pending=self._rl_pending is not None,
+            )
 
         acting_idx = self._state.current_player_index
         acting_token = PLAYER_TOKENS[acting_idx]
@@ -377,11 +437,43 @@ class MiniBGEnv(TurnBasedEnv):
                     perm_tuple,
                     shop_phase_finish=int(shop_finish),
                 )
+            elif action.type == StructActionType.APPLY_EFFECT:
+                if self._rl_pending is None:
+                    raise_illegal_env_action(
+                        self._state,
+                        where="MiniBGEnv.step_structured.apply",
+                        structured_action=repr(action),
+                        detail="APPLY_EFFECT without rl_pending",
+                    )
+                self._apply_rl_effect_pick(action.args[0])
+            elif action.type == StructActionType.APPLY_EFFECT_SKIP:
+                if self._rl_pending is None:
+                    raise_illegal_env_action(
+                        self._state,
+                        where="MiniBGEnv.step_structured.apply",
+                        structured_action=repr(action),
+                        detail="APPLY_EFFECT_SKIP without rl_pending",
+                    )
+                self._apply_rl_effect_skip()
+            elif action.type == StructActionType.PLACE:
+                if not self._try_place_hand_rl(action.args[0]):
+                    raise_illegal_env_action(
+                        self._state,
+                        where="MiniBGEnv.step_structured.place",
+                        structured_action=repr(action),
+                        detail="PLACE failed",
+                    )
             else:
                 ga = self._struct_action_to_game_action(action)
                 self._state = self._game.apply_action(self._state, ga)
-        except ValueError:
-            return _illegal_reply()
+        except ValueError as exc:
+            raise_illegal_env_action(
+                self._state,
+                where="MiniBGEnv.step_structured.apply",
+                structured_action=repr(action),
+                detail=str(exc),
+                rl_pending=self._rl_pending is not None,
+            )
 
         battle_happened = (
             self._state.round_number != prev_round
@@ -474,6 +566,8 @@ class MiniBGEnv(TurnBasedEnv):
             return int(magnet_game_action(action.args[0], action.args[1]))
         if action.type == StructActionType.DISCOVER_PICK:
             return int(GameAction.DISCOVER_PICK_0) + action.args[0]
+        if action.type == StructActionType.APPLY_EFFECT:
+            return int(GameAction.TARGET_BOARD_0) + action.args[0]
         raise ValueError(f"not a shop-phase structured action: {action}")
 
     @property
@@ -486,7 +580,19 @@ class MiniBGEnv(TurnBasedEnv):
 
         player = self._state.players[self._state.current_player_index]
 
-        if player.phase == PlayerPhase.SHOP:
+        from .action_map import A_APPLY_EFFECT_SKIP, A_TARGET_BOARD_BASE
+
+        if self._rl_pending is not None:
+            for i in self._rl_pending.eligible_on_board_live(player.board):
+                mask[A_TARGET_BOARD_BASE + i] = True
+            if self._rl_pending.can_skip_second_adjacent():
+                mask[A_APPLY_EFFECT_SKIP] = True
+            return mask
+
+        if (
+            player.phase == PlayerPhase.SHOP
+            and player.pending_choice is None
+        ):
             k = len(player.board)
             for i in range(NUM_SWAP_ADJ):
                 if i + 1 < k:
@@ -508,9 +614,10 @@ class MiniBGEnv(TurnBasedEnv):
             if (int(GameAction.SELL_BOARD_0) + pos) in legal_game:
                 mask[A_SELL_BASE + pos] = True
 
-        for h in range(HAND_SIZE):
-            if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
-                mask[A_PLACE_BASE + h] = True
+        if self._rl_pending is None:
+            for h in range(HAND_SIZE):
+                if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
+                    mask[A_PLACE_BASE + h] = True
 
         for h in range(HAND_SIZE):
             for b in range(BOARD_SIZE):
@@ -522,10 +629,15 @@ class MiniBGEnv(TurnBasedEnv):
             if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
                 mask[A_DISCOVER_BASE + i] = True
 
-        if int(GameAction.FINISH) in legal_game:
-            mask[A_FINISH] = True
-        if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
-            mask[A_FINISH_FREEZE_SHOP] = True
+        for i in range(BOARD_SIZE):
+            if int(GameAction.TARGET_BOARD_0) + i in legal_game:
+                mask[A_TARGET_BOARD_BASE + i] = True
+
+        if player.placed_minion_pending_after is None:
+            if int(GameAction.FINISH) in legal_game:
+                mask[A_FINISH] = True
+            if int(GameAction.FINISH_FREEZE_SHOP) in legal_game:
+                mask[A_FINISH_FREEZE_SHOP] = True
 
         return mask
 
@@ -631,7 +743,83 @@ class MiniBGEnv(TurnBasedEnv):
             idx,
             self._last_battle_signed[idx],
             self._last_seen_enemy_board[idx],
+            rl_pending=self._rl_pending,
         )
+
+    def _try_place_hand_rl(self, hand_slot: int) -> bool:
+        assert self._state is not None
+        if self._rl_pending is not None:
+            return False
+        player = self._state.players[self._state.current_player_index]
+        legal = set(int(a) for a in self._game.legal_actions(self._state))
+        if int(GameAction.PLACE_HAND_0) + hand_slot not in legal:
+            return False
+        if player.hand[hand_slot] is None:
+            return False
+        self._rl_place_budget_pending = True
+        plan = open_rl_place_plan(player, hand_slot)
+        if plan is None:
+            commit_simple_place_from_hand(
+                player,
+                hand_slot,
+                self._state.shop_excluded_race,
+                board_size=BOARD_SIZE,
+                triggers=self._game._shop_triggers,
+                rng=self._game._rng,
+            )
+            self._finish_rl_place_after_effects()
+            return True
+        self._rl_pending = plan
+        return True
+
+    def _apply_rl_effect_pick(self, board_idx: int) -> None:
+        assert self._state is not None and self._rl_pending is not None
+        player = self._state.players[self._state.current_player_index]
+        self._rl_pending.record_pick_live(player.board, board_idx)
+        if self._rl_pending.is_complete():
+            self._commit_rl_place_plan()
+
+    def _apply_rl_effect_skip(self) -> None:
+        assert self._state is not None and self._rl_pending is not None
+        self._rl_pending.record_skip_second()
+        if self._rl_pending.is_complete():
+            self._commit_rl_place_plan()
+
+    def _commit_rl_place_plan(self) -> None:
+        assert self._state is not None and self._rl_pending is not None
+        idx = self._state.current_player_index
+        plan = self._rl_pending
+        self._rl_pending = None
+        self._state = commit_rl_place_plan(
+            self._state,
+            idx,
+            plan,
+            board_size=BOARD_SIZE,
+            shop_excluded_race=self._state.shop_excluded_race,
+            triggers=self._game._shop_triggers,
+            rng=self._game._rng,
+            reorder_board=self._game.reorder_board,
+        )
+        self._finish_rl_place_after_effects()
+
+    def _finish_rl_place_after_effects(self) -> None:
+        assert self._state is not None
+        player = self._state.players[self._state.current_player_index]
+        ref = player.placed_minion_pending_after
+        if (
+            ref is not None
+            and ref in player.board
+            and player.pending_choice is None
+        ):
+            self._game._shop_triggers.fire_after_friendly_minion_placed(player, ref)
+        player.placed_minion_board_index = None
+        player.placed_minion_pending_after = None
+        flush_triple_reward_queue_if_idle(
+            player, self._state.shop_excluded_race, rng=self._game._rng
+        )
+        if self._rl_place_budget_pending:
+            player.shop_actions_used += 1
+            self._rl_place_budget_pending = False
 
     @staticmethod
     def _minion_repr(m: Minion) -> str:

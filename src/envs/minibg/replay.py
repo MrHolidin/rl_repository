@@ -60,6 +60,8 @@ def minion_to_dict(m: Minion) -> Dict[str, Any]:
         "token": m.is_token,
         "golden": m.is_golden,
         "from_triple_merge": m.from_triple_merge,
+        "is_triple_reward_spell": m.is_triple_reward_spell,
+        "triple_discover_tier": m.triple_discover_tier,
         "abilities": [_ability_dict(a) for a in m.abilities],
     }
 

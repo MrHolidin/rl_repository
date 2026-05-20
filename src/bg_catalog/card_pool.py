@@ -19,6 +19,7 @@ from src.bg_core.effects import (
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffRandomOtherFriendlyCombat,
+    BuffTargetFriendlyBattlecry,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
     BuffSelfWhenFriendlyBattlecryPlaced,
@@ -143,6 +144,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_PLACE,
             BuffAdjacentBattlecry(attack=1, health=1, grant_taunt=True),
         ),
+    ),
+    "target_buffer": (
+        Ability(Trigger.ON_PLACE, BuffTargetFriendlyBattlecry(attack=1, health=1)),
     ),
     "BOT_312": (
         Ability(
@@ -459,6 +463,24 @@ def build_card_templates() -> Dict[str, Minion]:
         tier=1,
         name="Plant",
         is_token=True,
+    )
+    out["target_buffer"] = Minion(
+        card_id="target_buffer",
+        base_attack=2,
+        base_health=2,
+        tier=1,
+        name="Target Buffer",
+        abilities=EFFECTS["target_buffer"],
+        is_token=True,
+    )
+    out["triple_reward_discover"] = Minion(
+        card_id="triple_reward_discover",
+        base_attack=0,
+        base_health=0,
+        tier=0,
+        name="Discover (Triple Reward)",
+        is_token=True,
+        is_triple_reward_spell=True,
     )
     return out
 

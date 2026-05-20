@@ -54,6 +54,8 @@ LEGACY_CARD_ID_ALIASES: Dict[str, str] = {
     "phalanx_commander": "ULD_179",
     "dire_wolf_alpha": "EX1_162",
     "defender_argus": "EX1_093",
+    "target_buffer": "target_buffer",
+    "triple_reward_discover": "triple_reward_discover",
     "finkle_einhorn": "EX1_finkle",
     "the_beast": "EX1_577",
 }
@@ -69,6 +71,8 @@ def make_minion(card_id: str) -> Minion:
     fresh.has_shield = Keyword.SHIELD in template.all_keywords
     fresh.is_golden = template.is_golden
     fresh.from_triple_merge = False
+    fresh.is_triple_reward_spell = template.is_triple_reward_spell
+    fresh.triple_discover_tier = template.triple_discover_tier
     return fresh
 
 
