@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+AgentOutcome = Union[int, float]
 
 from .league_policy import selection_probabilities
 
 SLOT_CURRENT: int = -1
 SLOT_SCRIPTED: int = -2
+
+
+def normalize_agent_score(agent_result: AgentOutcome) -> float:
+    """Map legacy ±1/0 or a [0, 1] score to learner performance in [0, 1]."""
+    if isinstance(agent_result, float):
+        return max(0.0, min(1.0, agent_result))
+    if agent_result == 1:
+        return 1.0
+    if agent_result == -1:
+        return 0.0
+    return 0.5
 
 
 @dataclass
@@ -84,21 +97,20 @@ class LeagueController:
     def remove_slot(self, slot_id: int) -> None:
         self._slots.pop(slot_id, None)
 
-    def apply_outcomes(self, outcomes: List[Tuple[int, int]]) -> None:
+    def apply_outcomes(self, outcomes: List[Tuple[int, AgentOutcome]]) -> None:
         for slot_id, agent_result in outcomes:
             stats = self._slots.get(slot_id)
             if stats is None:
                 continue
+            score = normalize_agent_score(agent_result)
             stats.games += 1
-            if agent_result == 1:
+            if score > 0.5:
                 stats.losses += 1
-                y = 0.0
-            elif agent_result == -1:
+            elif score < 0.5:
                 stats.wins += 1
-                y = 1.0
             else:
                 stats.draws += 1
-                y = 0.5
+            y = 1.0 - score
             stats.ema_win_rate = (1.0 - self._beta) * stats.ema_win_rate + self._beta * y
         if outcomes:
             self._epoch += 1
@@ -151,9 +163,11 @@ class LeagueController:
 
 
 __all__ = [
+    "AgentOutcome",
     "LeagueController",
     "LeagueSlot",
     "LeagueSnapshot",
     "SLOT_CURRENT",
     "SLOT_SCRIPTED",
+    "normalize_agent_score",
 ]

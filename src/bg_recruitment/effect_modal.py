@@ -6,7 +6,7 @@ from typing import List, Optional, Sequence, Tuple
 
 from src.bg_core.effects import BuffAdjacentBattlecry, BuffTargetFriendlyBattlecry, Keyword
 from src.bg_core.minion import Minion, Race
-from src.envs.minibg.state import CasterKind, CasterRef
+from src.bg_lobby.player import CasterKind, CasterRef
 
 
 def minion_matches_tribe(m: Minion, tribe) -> bool:

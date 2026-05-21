@@ -3,6 +3,7 @@
 from .base import StepResult, TurnBasedEnv
 from .connect4 import Connect4Env
 from .minibg import MiniBGEnv
+from .bglike.lobby_env import BGLobbySingleAgentEnv, make_bglike_env
 from .othello import OthelloEnv
 from .reward_config import RewardConfig
 from .toy import ChainMDP
@@ -17,7 +18,11 @@ if "othello" not in list_games():
 if "minibg" not in list_games():
     register_game("minibg", MiniBGEnv)
 
+if "bglike" not in list_games():
+    register_game("bglike", make_bglike_env)
+
 __all__ = [
+    "BGLobbySingleAgentEnv",
     "Connect4Env",
     "MiniBGEnv",
     "OthelloEnv",
@@ -25,5 +30,6 @@ __all__ = [
     "StepResult",
     "TurnBasedEnv",
     "ChainMDP",
+    "make_bglike_env",
 ]
 

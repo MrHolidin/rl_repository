@@ -15,8 +15,11 @@ from src.bg_recruitment.discover_pool import (
     roll_triple_reward_discover_at_target_tier,
     triple_reward_discover_tier,
 )
-from src.envs.minibg.actions import HAND_SIZE
-from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerState
+from .hand_slots import first_free_hand_slot
+from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
+from src.bg_lobby.shared_pool import SharedCardPool
+
+from .pool_ledger import on_sell_minion
 
 TRIPLE_REWARD_SPELL_CARD_ID = "triple_reward_discover"
 
@@ -77,7 +80,7 @@ def grant_triple_reward_discover_spell(
     discover_tier: int,
 ) -> bool:
     """Put discover spell in hand. Returns False if no slot (caller sets pending)."""
-    slot = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
+    slot = first_free_hand_slot(player)
     if slot is None:
         return False
     player.hand[slot] = make_triple_reward_discover_spell(discover_tier=discover_tier)
@@ -91,7 +94,11 @@ def queue_triple_reward_discover_spell(
     player.triple_reward_spell_tier = int(discover_tier)
 
 
-def resolve_one_triple(player: PlayerState) -> bool:
+def resolve_one_triple(
+    player: PlayerState,
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> bool:
     groups: Dict[str, List[Tuple[str, int, Minion]]] = {}
     for i, m in enumerate(player.board):
         if not m.is_golden and not is_triple_reward_discover_spell(m):
@@ -114,12 +121,20 @@ def resolve_one_triple(player: PlayerState) -> bool:
         groups[candidate], key=lambda t: (0 if t[0] == "b" else 1, t[1])
     )[:3]
     m0, m1, m2 = ordered[0][2], ordered[1][2], ordered[2][2]
+    if shared_pool is not None:
+        for m in (m0, m1, m2):
+            on_sell_minion(shared_pool, m)
     merged = merge_three_non_golden_into_golden(candidate, m0, m1, m2)
+    if shared_pool is not None:
+        if not shared_pool.acquire_new(merged.card_id, 3):
+            raise RuntimeError(
+                f"shared pool: cannot reserve 3 copies for golden {merged.card_id!r}"
+            )
     for _, idx, _ in sorted((t for t in ordered if t[0] == "b"), key=lambda t: -t[1]):
         del player.board[idx]
     for _, idx, _ in sorted((t for t in ordered if t[0] == "h"), key=lambda t: -t[1]):
         player.hand[idx] = None
-    hslot = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
+    hslot = first_free_hand_slot(player)
     assert hslot is not None, "triple merge with full hand (bug)"
     player.hand[hslot] = merged
     discover_tier = triple_reward_discover_tier(player.tavern_tier)
@@ -128,9 +143,13 @@ def resolve_one_triple(player: PlayerState) -> bool:
     return True
 
 
-def resolve_triples_loop(player: PlayerState) -> None:
+def resolve_triples_loop(
+    player: PlayerState,
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> None:
     for _ in range(24):
-        if not resolve_one_triple(player):
+        if not resolve_one_triple(player, shared_pool=shared_pool):
             break
 
 
@@ -140,17 +159,24 @@ def open_triple_reward_discover_modal(
     *,
     discover_tier: int,
     rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> bool:
     from src.bg_recruitment.discover import try_open_hand_discover_modal
 
     opts = roll_triple_reward_discover_at_target_tier(
-        rng, discover_tier, shop_excluded_race
+        rng,
+        discover_tier,
+        shop_excluded_race,
+        shared_pool=shared_pool,
     )
+    if opts is None:
+        return False
     return try_open_hand_discover_modal(
         player,
         PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
         opts,
         0,
+        shared_pool=shared_pool,
     )
 
 
@@ -160,13 +186,18 @@ def play_triple_reward_discover_spell_from_hand(
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     spell = player.hand[hand_slot]
     assert spell is not None and is_triple_reward_discover_spell(spell)
     tier = spell.triple_discover_tier or triple_reward_discover_tier(player.tavern_tier)
     player.hand[hand_slot] = None
     open_triple_reward_discover_modal(
-        player, shop_excluded_race, discover_tier=tier, rng=rng
+        player,
+        shop_excluded_race,
+        discover_tier=tier,
+        rng=rng,
+        shared_pool=shared_pool,
     )
 
 

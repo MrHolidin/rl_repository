@@ -32,6 +32,10 @@ from src.training.agent_perspective_env import (
     AgentPerspectiveEnv,
     make_minibg_shaping_fn,
 )
+from src.training.bglike_perspective import (
+    make_bglike_agent_perspective_env,
+    make_bglike_shaping_fn,
+)
 from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 from src.training.othello_augmentations import make_othello_d4_augmenter
@@ -231,34 +235,40 @@ def _build_scripted_spec(game_id: str, p: Dict[str, Any]) -> "ScriptedOpponentsS
             out[key] = max(0.0, float(v))
         return out
 
-    if g == "minibg":
+    if g in ("minibg", "bglike"):
+        if g == "minibg":
+            valid_src = default_bot_constructors
+        else:
+            from src.envs.bglike.heuristic_bots import default_bot_constructors as valid_src
+
+        valid_bg = frozenset(valid_src().keys())
         if dist_in:
             w = _as_weights(dist_in)
             for name in w:
                 if name != "random" and name not in valid_bg:
                     raise ValueError(
-                        f"minibg scripted.distribution: unknown key {name!r}; "
-                        f"use 'random' or a bot id from {sorted(valid_bg)}"
+                        f"{g} scripted.distribution: unknown key {name!r}; "
+                        f"use 'random' or {sorted(valid_bg)}"
                     )
-            return ScriptedOpponentsSpec("minibg", w)
+            return ScriptedOpponentsSpec(g, w)
 
         raw_bots = p.get("minibg_bots") or p.get("bots")
         bots = [str(x).strip() for x in (raw_bots or []) if str(x).strip()]
         if not bots:
             raise ValueError(
-                "game.id minibg: set opponent_sampler.params.scripted.distribution, "
+                f"game.id {g}: set opponent_sampler.params.scripted.distribution, "
                 "or legacy minibg_bots / bots (non-empty)"
             )
         for b in bots:
             if b not in valid_bg:
-                raise ValueError(f"minibg unknown bot {b!r}; valid: {sorted(valid_bg)}")
+                raise ValueError(f"{g} unknown bot {b!r}; valid: {sorted(valid_bg)}")
         if bool(p.get("equal_opponent_mass", False)):
-            share = 1.0 / (1.0 + len(bots))
+            share = 1.0 / (1 + len(bots))
             dweights = {"random": share}
             per = (1.0 - share) / len(bots)
             for b in bots:
                 dweights[b] = per
-            return ScriptedOpponentsSpec("minibg", dweights)
+            return ScriptedOpponentsSpec(g, dweights)
         rf = p.get("minibg_random_fraction", p.get("random_fraction"))
         if rf is None:
             rf = 0.5
@@ -268,7 +278,7 @@ def _build_scripted_spec(game_id: str, p: Dict[str, Any]) -> "ScriptedOpponentsS
             per = (1.0 - rf) / len(bots)
             for b in bots:
                 dweights[b] = per
-        return ScriptedOpponentsSpec("minibg", dweights)
+        return ScriptedOpponentsSpec(g, dweights)
 
     if dist_in:
         return ScriptedOpponentsSpec("classic", _as_weights(dist_in))
@@ -315,7 +325,7 @@ def _build_opponent_sampler(
         game_id = (app_cfg.game.id or "").strip().lower()
         sp_raw = p.get("self_play")
         if not sp_raw:
-            if game_id == "minibg":
+            if game_id in ("minibg", "bglike"):
                 self_play_config = None
             else:
                 sp = {}
@@ -397,19 +407,33 @@ def run(
     game_params = dict(app_cfg.game.params or {})
     # Legacy/no-op param: control flow is handled by AgentPerspectiveEnv now.
     game_params.pop("control_driver", None)
-    base_env = make_game(app_cfg.game.id, **game_params)
-    legal_mask = getattr(base_env, "legal_actions_mask", None)
-    if legal_mask is None:
-        raise ValueError("Environment must expose legal_actions_mask.")
-    num_actions = int(len(legal_mask))
+    game_id = (app_cfg.game.id or "").strip().lower()
 
     agent_params: Dict[str, Any] = dict(app_cfg.agent.params)
-    agent_params.setdefault("num_actions", num_actions)
-    agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-    obs_builder = getattr(base_env, "observation_builder", None)
-    if obs_builder is not None:
-        agent_params.setdefault("observation_shape", obs_builder.observation_shape)
-        agent_params.setdefault("observation_type", getattr(obs_builder, "observation_type", "board"))
+    base_env = None
+    if game_id == "bglike":
+        from src.envs.bglike.action_map import NUM_ENV_ACTIONS
+        from src.envs.bglike.obs import OBS_DIM
+
+        num_actions = int(NUM_ENV_ACTIONS)
+        agent_params.setdefault("num_actions", num_actions)
+        agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
+        agent_params.setdefault("observation_shape", (OBS_DIM,))
+        agent_params.setdefault("observation_type", "vector")
+    else:
+        base_env = make_game(app_cfg.game.id, **game_params)
+        legal_mask = getattr(base_env, "legal_actions_mask", None)
+        if legal_mask is None:
+            raise ValueError("Environment must expose legal_actions_mask.")
+        num_actions = int(len(legal_mask))
+        agent_params.setdefault("num_actions", num_actions)
+        agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
+        obs_builder = getattr(base_env, "observation_builder", None)
+        if obs_builder is not None:
+            agent_params.setdefault("observation_shape", obs_builder.observation_shape)
+            agent_params.setdefault(
+                "observation_type", getattr(obs_builder, "observation_type", "board")
+            )
 
     device = _resolve_device(agent_params.get("device"))
     agent_params["device"] = device
@@ -452,7 +476,6 @@ def run(
     ro = getattr(app_cfg.train, "random_opening", None)
     random_opening_config = RandomOpeningConfig(**ro) if ro else None
 
-    game_id = app_cfg.game.id.lower()
     data_augment_fn: Optional[Callable] = None
     if getattr(app_cfg.train, "apply_augmentation", False):
         if game_id == "connect4":
@@ -471,15 +494,36 @@ def run(
         shaping_fn = make_minibg_shaping_fn(
             float(game_params.get("battle_damage_shaping", 0.0))
         )
+    elif game_id == "bglike":
+        shaping_fn = make_bglike_shaping_fn(
+            float(game_params.get("battle_damage_shaping", 0.0))
+        )
 
-    env = AgentPerspectiveEnv(
-        base_env=base_env,
-        opponent_sampler=opponent_sampler,
-        agent_first_probability=_start_policy_to_probability(start_policy),
-        rng=rng,
-        random_opening_config=random_opening_config,
-        shaping_fn=shaping_fn,
-    )
+    if game_id == "bglike":
+        lobby_kw = {
+            k: v
+            for k, v in game_params.items()
+            if k not in ("num_current_seats", "battle_damage_shaping", "seed")
+        }
+        env_seed = app_cfg.seed if app_cfg.seed is not None else game_params.get("seed")
+        env = make_bglike_agent_perspective_env(
+            opponent_sampler,
+            num_current_seats=int(game_params.get("num_current_seats", 1)),
+            seed=env_seed,
+            shaping_fn=shaping_fn,
+            rng=rng,
+            **lobby_kw,
+        )
+        env.set_learner_agent(agent)
+    else:
+        env = AgentPerspectiveEnv(
+            base_env=base_env,
+            opponent_sampler=opponent_sampler,
+            agent_first_probability=_start_policy_to_probability(start_policy),
+            rng=rng,
+            random_opening_config=random_opening_config,
+            shaping_fn=shaping_fn,
+        )
 
     trainer = Trainer(
         env,

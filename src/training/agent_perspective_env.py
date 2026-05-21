@@ -15,6 +15,8 @@ import numpy as np
 from src.agents.base_agent import BaseAgent
 from src.envs.minibg.structured_actions import StructAction
 from src.envs.base import SingleAgentEnv, StepResult, TurnBasedEnv
+
+BaseEnvType = TurnBasedEnv | SingleAgentEnv
 from src.envs.reward_config import RewardConfig
 from src.training.opponent_sampler import OpponentSampler
 from src.training.random_opening import RandomOpeningConfig, maybe_apply_random_opening
@@ -61,7 +63,7 @@ class AgentPerspectiveEnv(SingleAgentEnv):
 
     def __init__(
         self,
-        base_env: TurnBasedEnv,
+        base_env: BaseEnvType,
         opponent_sampler: OpponentSampler,
         *,
         agent_first_probability: float = 0.5,
@@ -244,6 +246,9 @@ class AgentPerspectiveEnv(SingleAgentEnv):
     # Internals
     # ------------------------------------------------------------------
 
+    def _delegates_opponent_play(self) -> bool:
+        return bool(getattr(self.base, "delegates_opponent_play", False))
+
     def _drain_opponent(
         self, obs: np.ndarray
     ) -> Tuple[np.ndarray, float, bool, Optional[Dict[str, Any]]]:
@@ -253,6 +258,12 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         fourth element so ``step`` / ``step_structured`` do not surface a stale
         pre-drain ``info`` without ``winner``.
         """
+        if self._delegates_opponent_play():
+            if self.base.done:
+                last = getattr(self.base, "_last_info", {})
+                return obs, 0.0, True, last if isinstance(last, dict) else {}
+            return obs, 0.0, False, None
+
         accumulated = 0.0
         steps = 0
         while (
@@ -304,6 +315,17 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         return float(self.shaping_fn(step.info, self._agent_token))
 
     def _final_reward_for_agent(self, info: Dict[str, Any]) -> float:
+        if isinstance(info, dict) and info.get("placement_reward") is not None:
+            return float(info["placement_reward"])
+        if isinstance(info, dict) and info.get("placements_current"):
+            placements = info["placements_current"]
+            if placements:
+                from src.envs.bglike.placement import placement_reward
+
+                return float(
+                    sum(placement_reward(int(p)) for p in placements.values())
+                    / len(placements)
+                )
         winner = info.get("winner") if isinstance(info, dict) else None
         rc = self.reward_config
         if rc is not None:
@@ -330,6 +352,9 @@ class AgentPerspectiveEnv(SingleAgentEnv):
         return None
 
     def _is_agent_turn(self) -> bool:
+        if self._delegates_opponent_play():
+            acting = getattr(self.base, "acting_seat", None)
+            return not self.base.done and acting is not None
         token = getattr(self.base, "current_player_token", None)
         if token is None:
             return self._agent_token == 1
@@ -346,6 +371,7 @@ class AgentPerspectiveEnv(SingleAgentEnv):
 
 __all__ = [
     "AgentPerspectiveEnv",
+    "BaseEnvType",
     "ShapingFn",
     "make_minibg_shaping_fn",
 ]

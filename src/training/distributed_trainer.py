@@ -10,18 +10,19 @@ Host → Worker:
 
 Worker → Host (after "play"):
   ("rollout", n_games, n_steps, n_payload_bytes, play_s, upload_s, payload, outcomes)
-  outcomes = List[Tuple[int, int]]: (slot_id, agent_result) per game
-  agent_result: +1 learner won, −1 learner lost, 0 draw
+  outcomes = List[Tuple[int, AgentOutcome]]: (slot_id, agent_result) per game
+  agent_result: legacy ±1/0 or placement score in [0, 1] for BGLike
   slot_id == SLOT_CURRENT (-1) → current (always-updated) agent
   slot_id == SLOT_SCRIPTED (-2) → scripted/random opponent (not in frozen pool)
 
-Opponent sampling per game (within each worker):
+Opponent sampling (within each worker):
+  MiniBG: one opponent per 2p game (same fractions as below).
+  BGLike: independent sample per non-current lobby seat (8 − num_current_seats).
+
+  Per sample:
   1. With prob current_fraction     → current self (latest weights)
-  2. With prob frozen_fraction      → frozen checkpoint, PFSP-weighted by host-reported win rates
-     (only if frozen_pool non-empty; otherwise this mass is current self-play)
-  3. With prob scripted_fraction    → scripted bot sampled from scripted_distribution
-     only when frozen_pool is non-empty (matches ``OpponentPool.sample_opponent``: no
-     scripted opponents until at least one frozen agent exists; empty pool → pure self-play).
+  2. With prob frozen_fraction      → frozen checkpoint, PFSP-weighted (if pool non-empty)
+  3. Remaining mass                 → scripted (includes past_fraction when pool is empty)
 
 Host maintains ``LeagueController``: central EMA win-rate per pool slot,
 updated each round **after** rollout from all workers' outcomes. Workers only
@@ -30,6 +31,7 @@ apply ``sync_league`` snapshots from the host (no local stat updates).
 
 from __future__ import annotations
 
+import copy
 import math
 import multiprocessing as mp
 import pickle
@@ -39,10 +41,11 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
+from src.agents.ppo_agent import PPOAgent, RolloutBuffer
 from src.agents.ppo_structured_minibg_agent import (
     INFO_STRUCT_LEGAL,
     INFO_STRUCT_NEXT_LEGAL,
@@ -52,6 +55,12 @@ from src.agents.ppo_structured_minibg_agent import (
 from src.envs import RewardConfig
 from src.registry import make_game
 from src.training.agent_perspective_env import AgentPerspectiveEnv, make_minibg_shaping_fn
+from src.training.bglike_perspective import (
+    apply_bglike_segment_closures_after_observe,
+    make_bglike_agent_perspective_env,
+    make_bglike_shaping_fn,
+)
+from src.training.selfplay.league_state import AgentOutcome, normalize_agent_score
 from src.training.opponent_sampler import OpponentSampler
 from src.training.selfplay.league_policy import (
     OpponentKind,
@@ -123,6 +132,138 @@ class _MutableOpponentSampler(OpponentSampler):
         pass
 
 
+class _DistributedBglikeOpponentSampler(OpponentSampler):
+    """Independent per-seat opponent sampling for 8p BGLike (distributed workers)."""
+
+    def __init__(self, **sample_kwargs: Any) -> None:
+        self._sample_kwargs = sample_kwargs
+        self._slot_by_seat: Dict[int, int] = {}
+
+    def prepare(self, episode_index: int) -> None:
+        self._sample_kwargs["game_index"] = episode_index
+        self._slot_by_seat = {}
+
+    def sample(self) -> Any:
+        raise RuntimeError("BGLike distributed training uses sample_for_seats()")
+
+    def sample_for_seats(self, seats: Sequence[int]) -> Dict[int, Any]:
+        agents: Dict[int, Any] = {}
+        slots: Dict[int, int] = {}
+        for seat in seats:
+            s = int(seat)
+            opp, slot_id = _sample_distributed_opponent(
+                seat_index=s,
+                **self._sample_kwargs,
+            )
+            agents[s] = opp
+            slots[s] = slot_id
+        self._slot_by_seat = slots
+        return agents
+
+    @property
+    def _episode_slot_by_seat(self) -> Dict[int, int]:
+        return self._slot_by_seat
+
+
+def _sample_distributed_opponent(
+    *,
+    game_rng: _random.Random,
+    use_self_play: bool,
+    frozen_pool: Dict[int, bytes],
+    slot_win_rates: Dict[int, float],
+    current_fraction: float,
+    past_fraction: float,
+    scripted_distribution: Dict[str, float],
+    seed: int,
+    game_index: int,
+    seat_index: int,
+    gid: str,
+    current_sd: bytes,
+    ppo_opponent: Any,
+) -> Tuple[Any, int]:
+    """Sample one opponent agent and league slot_id (per non-current lobby seat)."""
+    if not use_self_play:
+        key = sample_scripted_key(scripted_distribution, game_rng)
+        opp = _create_scripted_opponent(
+            key,
+            seed=seed + game_index * 997 + seat_index * 17,
+            game_id=gid,
+        )
+        return opp, SLOT_SCRIPTED
+
+    kind = decide_opponent_kind(
+        game_rng.random(),
+        current_fraction=current_fraction,
+        past_fraction=past_fraction,
+        frozen_nonempty=bool(frozen_pool),
+        has_current_agent=True,
+    )
+    if kind == OpponentKind.SCRIPTED:
+        key = sample_scripted_key(scripted_distribution, game_rng)
+        opp = _create_scripted_opponent(
+            key,
+            seed=seed + game_index * 997 + seat_index * 17,
+            game_id=gid,
+        )
+        return opp, SLOT_SCRIPTED
+    opp = copy.deepcopy(ppo_opponent)
+    if kind == OpponentKind.FROZEN:
+        slot_ids = list(frozen_pool.keys())
+        rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
+        slot_id = pfsp_sample(slot_ids, rates, game_rng)
+        _load_state_dict_bytes(opp, frozen_pool[slot_id])
+    else:
+        slot_id = SLOT_CURRENT
+        _load_state_dict_bytes(opp, current_sd)
+    opp.eval()
+    if hasattr(opp, "epsilon"):
+        opp.epsilon = 0.0
+    return opp, slot_id
+
+
+def _assign_minibg_opponent(
+    opp_sampler: _MutableOpponentSampler,
+    ppo_opponent: Any,
+    *,
+    current_sd: bytes,
+    frozen_pool: Dict[int, bytes],
+    slot_win_rates: Dict[int, float],
+    current_fraction: float,
+    past_fraction: float,
+    scripted_distribution: Dict[str, float],
+    game_rng: _random.Random,
+    seed: int,
+    game_index: int,
+    gid: str,
+) -> int:
+    """Pick opponent kind, wire ``opp_sampler`` / ``ppo_opponent``; return league slot_id."""
+    kind = decide_opponent_kind(
+        game_rng.random(),
+        current_fraction=current_fraction,
+        past_fraction=past_fraction,
+        frozen_nonempty=bool(frozen_pool),
+        has_current_agent=True,
+    )
+    if kind == OpponentKind.SCRIPTED:
+        key = sample_scripted_key(scripted_distribution, game_rng)
+        scripted_opp = _create_scripted_opponent(
+            key, seed=seed + game_index * 997, game_id=gid
+        )
+        opp_sampler.set_opponent(scripted_opp)
+        return SLOT_SCRIPTED
+    opp = ppo_opponent
+    if kind == OpponentKind.FROZEN:
+        slot_ids = list(frozen_pool.keys())
+        rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
+        slot_id = pfsp_sample(slot_ids, rates, game_rng)
+        _load_state_dict_bytes(opp, frozen_pool[slot_id])
+    else:
+        slot_id = SLOT_CURRENT
+        _load_state_dict_bytes(opp, current_sd)
+    opp_sampler.set_opponent(opp)
+    return int(slot_id)
+
+
 # Keep for external use / backward compat
 class FixedOpponentSampler(OpponentSampler):
     """Always returns the same opponent agent object."""
@@ -140,8 +281,21 @@ class FixedOpponentSampler(OpponentSampler):
         pass
 
 
+def _game_id(mg: dict) -> str:
+    return str(mg.get("game_id", "minibg")).strip().lower()
+
+
+def _minibg_game_kwargs(mg: dict) -> dict:
+    skip = frozenset({"game_id", "use_structured", "num_current_seats"})
+    return {k: v for k, v in mg.items() if k not in skip}
+
+
+def _use_structured_collect(mg: dict) -> bool:
+    return _game_id(mg) == "minibg" and bool(mg.get("use_structured", True))
+
+
 def _apply_ppo_hparams(
-    agent: MiniBGPPOStructuredAgent,
+    agent: Any,
     *,
     rollout_steps: int,
     ppo_epochs: int,
@@ -152,33 +306,58 @@ def _apply_ppo_hparams(
     agent.minibatch_size = int(minibatch_size)
 
 
-def _buffer_to_payload(buf: StructuredMiniBGRolloutBuffer) -> bytes:
+def _new_rollout_buffer(mg: dict) -> Any:
+    if _use_structured_collect(mg):
+        return StructuredMiniBGRolloutBuffer()
+    return RolloutBuffer()
+
+
+def _buffer_to_payload(buf: Any) -> bytes:
     return pickle.dumps(buf, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def _payload_to_buffer(data: bytes) -> StructuredMiniBGRolloutBuffer:
-    return pickle.loads(data)
+def _payload_to_buffer(data: bytes, mg: dict) -> Any:
+    buf = pickle.loads(data)
+    if _use_structured_collect(mg) and not isinstance(buf, StructuredMiniBGRolloutBuffer):
+        raise TypeError("expected StructuredMiniBGRolloutBuffer payload")
+    if not _use_structured_collect(mg) and not isinstance(buf, RolloutBuffer):
+        raise TypeError("expected RolloutBuffer payload")
+    return buf
 
 
-def _merge_buffers(buffers: List[StructuredMiniBGRolloutBuffer]) -> StructuredMiniBGRolloutBuffer:
-    out = StructuredMiniBGRolloutBuffer()
+def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
+    if _use_structured_collect(mg):
+        out = StructuredMiniBGRolloutBuffer()
+        for buf in buffers:
+            out.obs.extend(buf.obs)
+            out.legal_lists.extend(buf.legal_lists)
+            out.action_indices.extend(buf.action_indices)
+            out.complete_turn.extend(buf.complete_turn)
+            out.occupied_masks.extend(buf.occupied_masks)
+            out.order_picks.extend(buf.order_picks)
+            out.rewards.extend(buf.rewards)
+            out.dones.extend(buf.dones)
+            out.values.extend(buf.values)
+            out.log_probs.extend(buf.log_probs)
+            out.next_obs.extend(buf.next_obs)
+            out.next_legal_lists.extend(buf.next_legal_lists)
+        return out
+    out = RolloutBuffer()
     for buf in buffers:
         out.obs.extend(buf.obs)
-        out.legal_lists.extend(buf.legal_lists)
-        out.action_indices.extend(buf.action_indices)
-        out.complete_turn.extend(buf.complete_turn)
-        out.occupied_masks.extend(buf.occupied_masks)
-        out.order_picks.extend(buf.order_picks)
+        out.actions.extend(buf.actions)
         out.rewards.extend(buf.rewards)
         out.dones.extend(buf.dones)
         out.values.extend(buf.values)
         out.log_probs.extend(buf.log_probs)
+        out.legal_masks.extend(buf.legal_masks)
         out.next_obs.extend(buf.next_obs)
-        out.next_legal_lists.extend(buf.next_legal_lists)
+        out.next_legal_masks.extend(buf.next_legal_masks)
+        out.seat_ids.extend(buf.seat_ids)
     return out
 
 
-def _state_dict_bytes(agent: MiniBGPPOStructuredAgent, *, map_cpu: bool = False) -> bytes:
+def _state_dict_bytes(agent: Any, *, map_cpu: bool = False) -> bytes:
     import torch
     sd = agent.policy_net.state_dict()
     if map_cpu:
@@ -188,23 +367,241 @@ def _state_dict_bytes(agent: MiniBGPPOStructuredAgent, *, map_cpu: bool = False)
     return bio.getvalue()
 
 
-def _load_state_dict_bytes(agent: MiniBGPPOStructuredAgent, payload: bytes) -> None:
+def _load_state_dict_bytes(agent: Any, payload: bytes) -> None:
     import torch
     bio = BytesIO(payload)
     sd = torch.load(bio, map_location=agent.device, weights_only=True)
     agent.policy_net.load_state_dict(sd)
 
 
-def _create_scripted_opponent(key: str, *, seed: int) -> Any:
+def _load_dist_agent(
+    ck_path: str,
+    *,
+    device: str,
+    seed: int,
+    mg: dict,
+) -> Any:
+    if _use_structured_collect(mg):
+        return MiniBGPPOStructuredAgent.load(ck_path, device=device, seed=seed)
+    return PPOAgent.load(ck_path, device=device, seed=seed)
+
+
+def _create_scripted_opponent(key: str, *, seed: int, game_id: str) -> Any:
     from src.agents import RandomAgent
     if key == "random":
         return RandomAgent(seed=seed)
+    gid = game_id.strip().lower()
+    if gid == "bglike":
+        from src.envs.bglike.heuristic_bots import make_heuristic_agent
+
+        return make_heuristic_agent(key, seed=seed)
     from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
     from src.envs.minibg.heuristic_bots.tournament import make_bot
+
     return MiniBGHeuristicAgent(make_bot(key, seed))
 
 
-def _collect_until_steps(
+def _make_collect_env(
+    mg: dict,
+    opp_sampler: OpponentSampler,
+    *,
+    seed: int,
+) -> Any:
+    gid = _game_id(mg)
+    if gid == "bglike":
+        lobby_kw = {
+            k: v
+            for k, v in mg.items()
+            if k
+            not in (
+                "game_id",
+                "use_structured",
+                "num_current_seats",
+                "battle_damage_shaping",
+                "seed",
+            )
+        }
+        return make_bglike_agent_perspective_env(
+            opp_sampler,
+            num_current_seats=int(mg.get("num_current_seats", 1)),
+            seed=seed,
+            shaping_fn=make_bglike_shaping_fn(float(mg.get("battle_damage_shaping", 0.0))),
+            **lobby_kw,
+        )
+    base = make_game("minibg", reward_config=RewardConfig(), **_minibg_game_kwargs(mg))
+    shaping = make_minibg_shaping_fn(float(mg.get("battle_damage_shaping", 0.0)))
+    return AgentPerspectiveEnv(
+        base,
+        opp_sampler,
+        agent_first_probability=0.5,
+        shaping_fn=shaping,
+    )
+
+
+def _episode_agent_score(env: Any, last_info: dict, mg: dict) -> AgentOutcome:
+    if _game_id(mg) == "bglike":
+        from src.envs.bglike.placement import placement_score
+
+        info = last_info if isinstance(last_info, dict) else {}
+        placements = info.get("placements_current") or {}
+        seat = info.get("acting_seat")
+        if seat is None and hasattr(env, "_bg_base"):
+            acting = getattr(env._bg_base, "acting_seat", None)
+            if acting is not None:
+                seat = acting
+            elif getattr(env._bg_base, "current_seats", None):
+                seat = env._bg_base.current_seats[0]
+        if seat is not None and seat in placements:
+            return placement_score(int(placements[seat]))
+        place = info.get("placement")
+        if place is not None:
+            return placement_score(int(place))
+        return 0.5
+    winner = last_info.get("winner")
+    agent_token = int(getattr(env, "agent_token", 1))
+    if winner is None:
+        raise RuntimeError(
+            "DistributedTrainer: terminal step missing info['winner']; "
+            "ensure AgentPerspectiveEnv propagates opponent-drain terminal info."
+        )
+    if winner == agent_token:
+        return 1
+    if winner == -agent_token:
+        return -1
+    return 0
+
+
+def _collect_until_steps_flat(
+    agent: PPOAgent,
+    ppo_opponent: PPOAgent,
+    *,
+    min_steps: int,
+    mg: dict,
+    current_sd: bytes,
+    frozen_pool: Dict[int, bytes],
+    slot_win_rates: Dict[int, float],
+    current_fraction: float,
+    past_fraction: float,
+    scripted_distribution: Dict[str, float],
+    game_rng: _random.Random,
+    seed: int,
+    round_idx: int,
+    start_episode: int,
+) -> Tuple[int, int, RolloutBuffer, List[Tuple[int, AgentOutcome]]]:
+    import torch
+
+    torch.set_num_threads(1)
+    agent.train()
+    ppo_opponent.eval()
+
+    gid = _game_id(mg)
+    use_self_play = self_play_enabled(
+        episode=round_idx,
+        start_episode=start_episode,
+        has_self_play_config=True,
+    )
+    if gid == "bglike":
+        opp_sampler = _DistributedBglikeOpponentSampler(
+            game_rng=game_rng,
+            use_self_play=use_self_play,
+            frozen_pool=frozen_pool,
+            slot_win_rates=slot_win_rates,
+            current_fraction=current_fraction,
+            past_fraction=past_fraction,
+            scripted_distribution=scripted_distribution,
+            seed=seed,
+            game_index=0,
+            gid=gid,
+            current_sd=current_sd,
+            ppo_opponent=ppo_opponent,
+        )
+    else:
+        opp_sampler = _MutableOpponentSampler()
+    env = _make_collect_env(mg, opp_sampler, seed=seed)
+    env.set_learner_agent(agent)
+
+    game_outcomes: List[Tuple[int, AgentOutcome]] = []
+    n_games = 0
+
+    while len(agent.rollout_buffer) < min_steps:
+        if gid != "bglike":
+            if not use_self_play:
+                key = sample_scripted_key(scripted_distribution, game_rng)
+                scripted_opp = _create_scripted_opponent(
+                    key, seed=seed + n_games * 997, game_id=gid
+                )
+                opp_sampler.set_opponent(scripted_opp)
+                opp_slot_id = SLOT_SCRIPTED
+            else:
+                opp_slot_id = _assign_minibg_opponent(
+                    opp_sampler,
+                    ppo_opponent,
+                    current_sd=current_sd,
+                    frozen_pool=frozen_pool,
+                    slot_win_rates=slot_win_rates,
+                    current_fraction=current_fraction,
+                    past_fraction=past_fraction,
+                    scripted_distribution=scripted_distribution,
+                    game_rng=game_rng,
+                    seed=seed,
+                    game_index=n_games,
+                    gid=gid,
+                )
+
+        obs = env.reset()
+        last_info: dict = {}
+        while not env.done:
+            legal = np.asarray(env.legal_actions_mask, dtype=bool)
+            if not bool(legal.any()):
+                break
+            action = int(agent.act(obs, legal_mask=legal, deterministic=False))
+            step = env.step(action)
+            info = step.info if isinstance(step.info, dict) else {}
+            step_done = bool(
+                env.done
+                or info.get("lobby_episode_done")
+            )
+            next_legal = (
+                np.zeros_like(legal)
+                if step_done
+                else np.asarray(env.legal_actions_mask, dtype=bool)
+            )
+            transition = Transition(
+                obs=obs,
+                action=action,
+                reward=float(step.reward),
+                next_obs=step.obs,
+                terminated=step.terminated,
+                truncated=step.truncated,
+                info=info,
+                legal_mask=legal,
+                next_legal_mask=next_legal,
+            )
+            agent.observe(transition)
+            closure_outcomes = apply_bglike_segment_closures_after_observe(env, info)
+            if gid == "bglike" and closure_outcomes:
+                game_outcomes.extend(
+                    (int(slot_id), normalize_agent_score(score))
+                    for slot_id, score in closure_outcomes
+                )
+            obs = step.obs
+            if step_done:
+                last_info = info
+                break
+
+        if gid != "bglike":
+            score = _episode_agent_score(env, last_info, mg)
+            game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
+        env.notify_episode_end(last_info)
+        n_games += 1
+
+    buf = agent.rollout_buffer
+    n_steps = len(buf)
+    agent.rollout_buffer = RolloutBuffer()
+    return n_games, n_steps, buf, game_outcomes
+
+
+def _collect_until_steps_structured(
     agent: MiniBGPPOStructuredAgent,
     ppo_opponent: MiniBGPPOStructuredAgent,
     *,
@@ -220,7 +617,7 @@ def _collect_until_steps(
     seed: int,
     round_idx: int,
     start_episode: int,
-) -> Tuple[int, int, StructuredMiniBGRolloutBuffer, List[Tuple[int, int]]]:
+) -> Tuple[int, int, StructuredMiniBGRolloutBuffer, List[Tuple[int, AgentOutcome]]]:
     """Collect games until rollout buffer has >= min_steps transitions.
 
     Returns (n_games, n_steps, buffer, outcomes).
@@ -234,16 +631,9 @@ def _collect_until_steps(
         ppo_opponent.epsilon = 0.0
 
     opp_sampler = _MutableOpponentSampler()
-    base = make_game("minibg", reward_config=RewardConfig(), **mg)
-    shaping = make_minibg_shaping_fn(float(mg.get("battle_damage_shaping", 0.0)))
-    env = AgentPerspectiveEnv(
-        base,
-        opp_sampler,
-        agent_first_probability=0.5,
-        shaping_fn=shaping,
-    )
+    env = _make_collect_env(mg, opp_sampler, seed=seed)
 
-    game_outcomes: List[Tuple[int, int]] = []
+    game_outcomes: List[Tuple[int, AgentOutcome]] = []
     n_games = 0
     use_self_play = self_play_enabled(
         episode=round_idx,
@@ -254,36 +644,26 @@ def _collect_until_steps(
     while len(agent.rollout_buffer) < min_steps:
         if not use_self_play:
             key = sample_scripted_key(scripted_distribution, game_rng)
-            scripted_opp = _create_scripted_opponent(key, seed=seed + n_games * 997)
+            scripted_opp = _create_scripted_opponent(
+                key, seed=seed + n_games * 997, game_id="minibg"
+            )
             opp_sampler.set_opponent(scripted_opp)
             opp_slot_id = SLOT_SCRIPTED
-        elif not frozen_pool:
-            _load_state_dict_bytes(ppo_opponent, current_sd)
-            opp_sampler.set_opponent(ppo_opponent)
-            opp_slot_id = SLOT_CURRENT
         else:
-            kind = decide_opponent_kind(
-                game_rng.random(),
+            opp_slot_id = _assign_minibg_opponent(
+                opp_sampler,
+                ppo_opponent,
+                current_sd=current_sd,
+                frozen_pool=frozen_pool,
+                slot_win_rates=slot_win_rates,
                 current_fraction=current_fraction,
                 past_fraction=past_fraction,
-                frozen_nonempty=bool(frozen_pool),
-                has_current_agent=True,
+                scripted_distribution=scripted_distribution,
+                game_rng=game_rng,
+                seed=seed,
+                game_index=n_games,
+                gid="minibg",
             )
-            if kind == OpponentKind.SCRIPTED:
-                key = sample_scripted_key(scripted_distribution, game_rng)
-                scripted_opp = _create_scripted_opponent(key, seed=seed + n_games * 997)
-                opp_sampler.set_opponent(scripted_opp)
-                opp_slot_id = SLOT_SCRIPTED
-            elif kind == OpponentKind.FROZEN:
-                slot_ids = list(frozen_pool.keys())
-                rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
-                opp_slot_id = pfsp_sample(slot_ids, rates, game_rng)
-                _load_state_dict_bytes(ppo_opponent, frozen_pool[opp_slot_id])
-                opp_sampler.set_opponent(ppo_opponent)
-            else:
-                _load_state_dict_bytes(ppo_opponent, current_sd)
-                opp_sampler.set_opponent(ppo_opponent)
-                opp_slot_id = SLOT_CURRENT
 
         obs = env.reset()
         last_info: dict = {}
@@ -322,20 +702,8 @@ def _collect_until_steps(
             if step.done:
                 last_info = step.info if isinstance(step.info, dict) else {}
 
-        winner = last_info.get("winner")
-        agent_token = int(getattr(env, "agent_token", 1))
-        if winner is None:
-            raise RuntimeError(
-                "DistributedTrainer: terminal step missing info['winner']; "
-                "ensure AgentPerspectiveEnv propagates opponent-drain terminal info."
-            )
-        elif winner == agent_token:
-            result = 1
-        elif winner == -agent_token:
-            result = -1
-        else:
-            result = 0
-        game_outcomes.append((opp_slot_id, result))
+        score = _episode_agent_score(env, last_info, mg)
+        game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
         env.notify_episode_end(last_info)
         n_games += 1
 
@@ -343,6 +711,58 @@ def _collect_until_steps(
     n_steps = len(buf)
     agent.rollout_buffer = StructuredMiniBGRolloutBuffer()
     return n_games, n_steps, buf, game_outcomes
+
+
+def _collect_until_steps(
+    agent: Any,
+    ppo_opponent: Any,
+    *,
+    min_steps: int,
+    mg: dict,
+    current_sd: bytes,
+    frozen_pool: Dict[int, bytes],
+    slot_win_rates: Dict[int, float],
+    current_fraction: float,
+    past_fraction: float,
+    scripted_distribution: Dict[str, float],
+    game_rng: _random.Random,
+    seed: int,
+    round_idx: int,
+    start_episode: int,
+) -> Tuple[int, int, Any, List[Tuple[int, AgentOutcome]]]:
+    if _use_structured_collect(mg):
+        return _collect_until_steps_structured(
+            agent,
+            ppo_opponent,
+            min_steps=min_steps,
+            mg=mg,
+            current_sd=current_sd,
+            frozen_pool=frozen_pool,
+            slot_win_rates=slot_win_rates,
+            current_fraction=current_fraction,
+            past_fraction=past_fraction,
+            scripted_distribution=scripted_distribution,
+            game_rng=game_rng,
+            seed=seed,
+            round_idx=round_idx,
+            start_episode=start_episode,
+        )
+    return _collect_until_steps_flat(
+        agent,
+        ppo_opponent,
+        min_steps=min_steps,
+        mg=mg,
+        current_sd=current_sd,
+        frozen_pool=frozen_pool,
+        slot_win_rates=slot_win_rates,
+        current_fraction=current_fraction,
+        past_fraction=past_fraction,
+        scripted_distribution=scripted_distribution,
+        game_rng=game_rng,
+        seed=seed,
+        round_idx=round_idx,
+        start_episode=start_episode,
+    )
 
 
 def _worker_main(
@@ -369,9 +789,11 @@ def _worker_main(
     enable_stack_dump_on_signal()
     torch.set_num_threads(1)
 
-    agent = MiniBGPPOStructuredAgent.load(ck_path, device=device, seed=seed + worker_id)
-    ppo_opponent = MiniBGPPOStructuredAgent.load(
-        ck_path, device=device, seed=seed + worker_id + 913_123
+    agent = _load_dist_agent(
+        ck_path, device=device, seed=seed + worker_id, mg=mg
+    )
+    ppo_opponent = _load_dist_agent(
+        ck_path, device=device, seed=seed + worker_id + 913_123, mg=mg
     )
     _apply_ppo_hparams(
         agent,
@@ -490,7 +912,7 @@ class DistributedRoundResult:
     host_s: float
     upload_bytes: int
     sd_bytes: bytes                      # updated state dict (already broadcast to workers)
-    outcomes: List[Tuple[int, int]]      # (slot_id, agent_result) for every game this round
+    outcomes: List[Tuple[int, AgentOutcome]]
 
 
 # ---------------------------------------------------------------------------
@@ -531,7 +953,7 @@ class DistributedTrainer(BaseTrainer):
 
     def __init__(
         self,
-        agent: MiniBGPPOStructuredAgent,
+        agent: Any,
         worker_ckpt_path: "str | Path",
         *,
         workers: int = 4,
@@ -627,8 +1049,13 @@ class DistributedTrainer(BaseTrainer):
             assert tag == "rollout"
             play_data.append((play_s, upload_s, payload, ng, nsteps, nbytes, outcomes))
 
-        merged = _merge_buffers([_payload_to_buffer(p[2]) for p in play_data])
-        all_outcomes: List[Tuple[int, int]] = [o for p in play_data for o in p[6]]
+        merged = _merge_buffers(
+            [_payload_to_buffer(p[2], self._game_kwargs) for p in play_data],
+            self._game_kwargs,
+        )
+        all_outcomes: List[Tuple[int, AgentOutcome]] = [
+            o for p in play_data for o in p[6]
+        ]
 
         n_steps = len(merged)  # capture BEFORE update() clears the buffer
         if n_steps < self._rollout_steps:

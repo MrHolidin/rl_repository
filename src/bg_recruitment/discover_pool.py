@@ -13,6 +13,7 @@ from src.bg_catalog.cards import (
 )
 from src.bg_core.effects import Ability, Keyword, SummonEffect, Trigger
 from src.bg_core.minion import Minion, Race
+from src.bg_lobby.shared_pool import SharedCardPool
 
 # Retail BG max tavern tier (recruitment discover heuristics).
 _MAX_TIER = 6
@@ -55,7 +56,9 @@ def roll_discover_murloc_triple(
     rng: np.random.Generator,
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
-) -> Tuple[str, str, str]:
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> Optional[Tuple[str, str, str]]:
     cap = min(_MAX_TIER, tavern_tier + 1)
     if shop_excluded_race == Race.MURLOC:
         eligible: List[str] = []
@@ -65,7 +68,11 @@ def roll_discover_murloc_triple(
             for cid in murloc_discover_card_ids()
             if CARD_TEMPLATES[cid].tier <= cap
         ]
+    if shared_pool is not None:
+        eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
     if len(eligible) < 3:
+        if shared_pool is not None:
+            return None
         raise RuntimeError(
             f"need at least 3 murlocs for discover (tavern {tavern_tier}), got {len(eligible)}"
         )
@@ -94,7 +101,9 @@ def roll_triple_reward_discover_at_target_tier(
     rng: np.random.Generator,
     target_tier: int,
     shop_excluded_race: Optional[Race] = None,
-) -> Tuple[str, str, str]:
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> Optional[Tuple[str, str, str]]:
     tgt = min(_MAX_TIER, max(1, int(target_tier)))
     eligible_exact = [
         cid
@@ -113,7 +122,11 @@ def roll_triple_reward_discover_at_target_tier(
             and m.tier <= tgt
             and shop_minion_allowed_with_exclusion(m, shop_excluded_race)
         ]
+    if shared_pool is not None:
+        eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
     if len(eligible) < 3:
+        if shared_pool is not None:
+            return None
         raise RuntimeError(
             f"need at least 3 cards for triple-reward discover (tier {tgt}), got {len(eligible)}"
         )
@@ -129,9 +142,14 @@ def roll_triple_reward_discover_triple(
     rng: np.random.Generator,
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
-) -> Tuple[str, str, str]:
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> Optional[Tuple[str, str, str]]:
     return roll_triple_reward_discover_at_target_tier(
-        rng, triple_reward_discover_tier(tavern_tier), shop_excluded_race
+        rng,
+        triple_reward_discover_tier(tavern_tier),
+        shop_excluded_race,
+        shared_pool=shared_pool,
     )
 
 

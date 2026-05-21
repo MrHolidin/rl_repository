@@ -1,0 +1,71 @@
+# BGLike 8p lobby: DQN (flat MLP) vs heuristic pool + optional self-play.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.06
+    num_current_seats: 1
+
+agent:
+  id: dqn
+  params:
+    network_type: minibg_mlp
+    observation_shape: [1359]
+    observation_type: vector
+    mlp_hidden_size: 512
+    dueling: true
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    use_noisy_nets: true
+    noisy_sigma: 0.5
+    epsilon: 1.0
+    epsilon_decay: 0.999995
+    epsilon_min: 0.08
+    batch_size: 64
+    replay_buffer_size: 200000
+    target_update_freq: 1000
+    soft_update: false
+    tau: 0.01
+    device: gpu
+    metrics_interval: 500
+    update_every: 4
+    grad_clip_norm: 5.0
+    n_step: 1
+    use_twin_q: true
+
+train:
+  max_episodes: 10000000
+  total_steps: 2000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      scripted:
+        distribution:
+          random: 0.25
+          t1_random: 0.25
+          t_up_random: 0.25
+          structured: 0.25
+      self_play:
+        start_episode: 500
+        current_self_fraction: 0.2
+        past_self_fraction: 0.2
+        max_frozen_agents: 5
+        save_every: 2000
+        frozen_ema_beta: 0.05
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 50000
+        prefix: bglike_dqn
+    - type: metrics_file
+      params:
+        interval: 5000
+
+eval:
+  enabled: false

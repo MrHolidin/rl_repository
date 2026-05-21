@@ -112,6 +112,7 @@ if "dqn" not in list_agents():
             if dueling is None:
                 dueling = True
             hidden_size = int(kwargs.pop("mlp_hidden_size", 256))
+            kwargs.pop("noisy_sigma", None)
             network = SimpleMLP(
                 input_size=int(obs_shape[0]),
                 num_actions=num_actions,
@@ -225,8 +226,30 @@ if "ppo" not in list_agents():
 
         is_minibg = network_type == PPO_NETWORK_MINIBG_SLOT
         is_minibg_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
+        is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
         obs_type = kwargs.get("observation_type")
+
+        if is_flat_mlp:
+            if obs_shape is None or num_actions is None:
+                raise ValueError(
+                    "PPO network_type minibg_mlp/flat_mlp requires observation_shape [D] "
+                    "and num_actions from the environment config."
+                )
+            hidden_size = int(kwargs.pop("mlp_hidden_size", 256))
+            net = build_ppo_actor_critic(
+                "flat_mlp",
+                tuple(obs_shape),
+                int(num_actions),
+                mlp_hidden_size=hidden_size,
+            )
+            kwargs["observation_type"] = obs_type or "vector"
+            ppo_kw = dict(net.get_constructor_kwargs())
+            kwargs["network"] = net
+            kwargs["ppo_network_type"] = ppo_network_type_for_save("flat_mlp")
+            kwargs["ppo_network_kwargs"] = ppo_kw
+            kwargs.pop("action_space", None)
+            return PPOAgent(**_filter_ppo_agent_kwargs(kwargs))
 
         if is_minibg_structured:
             if obs_shape is None or num_actions is None:

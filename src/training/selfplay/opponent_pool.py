@@ -4,7 +4,7 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
@@ -13,7 +13,7 @@ from src.envs.base import StepResult
 from src.utils import freeze_agent
 
 from .league_policy import OpponentKind, decide_opponent_kind, pfsp_sample, sample_scripted_key, self_play_enabled
-from .league_state import LeagueController, SLOT_CURRENT, SLOT_SCRIPTED
+from .league_state import AgentOutcome, LeagueController, SLOT_CURRENT, SLOT_SCRIPTED, normalize_agent_score
 
 
 @dataclass
@@ -94,7 +94,7 @@ class SelfPlayConfig:
             raise ValueError("frozen_ema_beta must be in (0, 1]")
 
 
-ScriptedMode = Literal["classic", "minibg"]
+ScriptedMode = Literal["classic", "minibg", "bglike"]
 
 
 @dataclass(frozen=True)
@@ -193,14 +193,17 @@ class OpponentPool:
         self.device = device
         self.seed = seed
         self._scripted = scripted
-        if scripted.mode == "minibg":
-            from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+        if scripted.mode in ("minibg", "bglike"):
+            if scripted.mode == "minibg":
+                from src.envs.minibg.heuristic_bots.bots import default_bot_constructors
+            else:
+                from src.envs.bglike.heuristic_bots import default_bot_constructors
 
             valid = frozenset(default_bot_constructors().keys())
             for name in scripted.distribution:
                 if name != "random" and name not in valid:
                     raise ValueError(
-                        f"minibg scripted distribution: unknown key {name!r}; "
+                        f"{scripted.mode} scripted distribution: unknown key {name!r}; "
                         f"expected 'random' or {sorted(valid)}"
                     )
 
@@ -217,7 +220,7 @@ class OpponentPool:
 
         self.frozen_agents: List[FrozenAgentInfo] = []
         self._last_sample_slot_id: int = SLOT_SCRIPTED
-        self._pending_outcomes: List[Tuple[int, int]] = []
+        self._pending_outcomes: List[Tuple[int, float]] = []
         self._rng = random.Random(seed)
 
     def _create_scripted_opponent(self, episode: int):
@@ -230,6 +233,14 @@ class OpponentPool:
             if key == "random":
                 return RandomAgent(seed=self.seed + 200000 + episode)
             return MiniBGHeuristicAgent(make_bot(key, rng_ep + 31))
+
+        if self._scripted.mode == "bglike":
+            from src.envs.bglike.heuristic_bots import make_heuristic_agent
+
+            rng_ep = self.seed + 100000 + episode
+            if key == "random":
+                return RandomAgent(seed=self.seed + 200000 + episode)
+            return make_heuristic_agent(key, seed=rng_ep + 31)
 
         opp_seed = self.seed + 100000 + episode
         if key == "random":
@@ -261,15 +272,23 @@ class OpponentPool:
         live = {s.slot_id for s in self._league.frozen_slots()}
         self.frozen_agents = [fa for fa in self.frozen_agents if fa.slot_id in live]
 
-    def apply_outcomes(self, outcomes: List[Tuple[int, int]]) -> None:
+    def apply_outcomes(self, outcomes: List[Tuple[int, AgentOutcome]]) -> None:
         """Batch-update league stats (call after rollout, not per episode)."""
         self._league.apply_outcomes(outcomes)
 
-    def record_episode_outcome(self, agent_result: Optional[int]) -> None:
+    def record_episode_outcome(self, agent_result: Optional[Union[int, float]]) -> None:
         """Record one game outcome for the last sampled opponent (pending until flush)."""
+        self.record_outcome_for_slot(self._last_sample_slot_id, agent_result)
+
+    def record_outcome_for_slot(
+        self,
+        slot_id: int,
+        agent_result: Optional[Union[int, float]],
+    ) -> None:
+        """Record learner outcome vs a specific league slot (pending until flush)."""
         if agent_result is None:
             return
-        self._pending_outcomes.append((self._last_sample_slot_id, int(agent_result)))
+        self._pending_outcomes.append((int(slot_id), normalize_agent_score(agent_result)))
 
     def flush_pending_outcomes(self) -> None:
         if self._pending_outcomes:

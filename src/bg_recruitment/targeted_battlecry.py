@@ -17,7 +17,7 @@ from src.bg_recruitment.effect_modal import (
     caster_ref_from_board_minion,
     compute_eligible_buff_target,
 )
-from src.envs.minibg.state import PlayerState
+from src.bg_lobby.player import PlayerState
 
 from .shop_triggers import ShopTriggers
 

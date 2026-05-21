@@ -35,15 +35,37 @@ def test_decide_kind_with_frozen_pool(roll, expected):
     assert kind == expected
 
 
-def test_empty_frozen_pool_forces_current():
-    kind = decide_opponent_kind(
-        0.99,
-        current_fraction=0.3,
-        past_fraction=0.4,
-        frozen_nonempty=False,
-        has_current_agent=True,
+def test_empty_frozen_pool_redistributes_past_to_scripted():
+    assert (
+        decide_opponent_kind(
+            0.1,
+            current_fraction=0.3,
+            past_fraction=0.4,
+            frozen_nonempty=False,
+            has_current_agent=True,
+        )
+        == OpponentKind.CURRENT
     )
-    assert kind == OpponentKind.CURRENT
+    assert (
+        decide_opponent_kind(
+            0.5,
+            current_fraction=0.3,
+            past_fraction=0.4,
+            frozen_nonempty=False,
+            has_current_agent=True,
+        )
+        == OpponentKind.SCRIPTED
+    )
+    assert (
+        decide_opponent_kind(
+            0.99,
+            current_fraction=0.3,
+            past_fraction=0.4,
+            frozen_nonempty=False,
+            has_current_agent=True,
+        )
+        == OpponentKind.SCRIPTED
+    )
 
 
 def test_pfsp_prefers_stronger():

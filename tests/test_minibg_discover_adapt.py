@@ -6,10 +6,13 @@ from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL, murloc_discover_car
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import PendingChoiceKind
 
+from tests.minibg_helpers import set_acting_player
+
 
 def test_primalfin_blocks_shop_until_discover_pick():
     g = MiniBGGame(seed=42, shop_full_tribes=True)
     s = g.initial_state()
+    set_acting_player(s, 0)
     p = s.players[0]
     p.board = []
     p.hand[0] = make_minion("primalfin_lookout")
@@ -38,6 +41,7 @@ def test_primalfin_blocks_shop_until_discover_pick():
 def test_gentle_megasaur_adapt_all_murlocs():
     g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
+    set_acting_player(s, 0)
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
     p.hand[0] = make_minion("gentle_megasaur")
@@ -57,6 +61,7 @@ def test_gentle_megasaur_adapt_all_murlocs():
 def test_golden_megasaur_two_adapt_rounds():
     g = MiniBGGame(seed=1, shop_full_tribes=True)
     s = g.initial_state()
+    set_acting_player(s, 0)
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
     p.hand[0] = make_minion("gentle_megasaur_golden")
@@ -71,6 +76,7 @@ def test_golden_megasaur_two_adapt_rounds():
 def test_place_primalfin_illegal_if_discover_overflow_hand():
     g = MiniBGGame(seed=0, shop_full_tribes=True)
     s = g.initial_state()
+    set_acting_player(s, 0)
     p = s.players[0]
     p.board = [make_minion("brann")]
     p.hand = [None] * HAND_SIZE

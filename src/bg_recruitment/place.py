@@ -6,7 +6,7 @@ from typing import Optional
 
 from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion, Race
-from src.envs.minibg.state import PlayerState
+from src.bg_lobby.player import PlayerState
 
 from .shop_triggers import ShopTriggers
 from .triples import (
@@ -57,13 +57,18 @@ def place_from_hand(
     insert_at: Optional[int] = None,
     apply_targeted_effects: bool = True,
     forced_buff_target: Optional[Minion] = None,
+    shared_pool=None,
 ) -> None:
     minion = player.hand[hand_slot]
     assert minion is not None
 
     if is_triple_reward_discover_spell(minion):
         play_triple_reward_discover_spell_from_hand(
-            player, hand_slot, shop_excluded_race, rng=rng
+            player,
+            hand_slot,
+            shop_excluded_race,
+            rng=rng,
+            shared_pool=shared_pool,
         )
         flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
         return
@@ -78,7 +83,9 @@ def place_from_hand(
     triggers.fire_shop_friendly_summoned(player, minion)
     player.placed_minion_board_index = len(player.board) - 1
     player.placed_minion_pending_after = minion
-    triggers.fire_on_place(minion, player, shop_excluded_race)
+    triggers.fire_on_place(
+        minion, player, shop_excluded_race, shared_pool=shared_pool
+    )
     if apply_targeted_effects and player.pending_choice is None:
         from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
 

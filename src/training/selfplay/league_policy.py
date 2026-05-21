@@ -25,13 +25,15 @@ def decide_opponent_kind(
     frozen_nonempty: bool,
     has_current_agent: bool,
 ) -> OpponentKind:
-    """Match ``OpponentPool.sample_opponent`` branch order and thresholds."""
+    """Sample opponent kind; when frozen pool is empty, ``past_fraction`` → scripted."""
     threshold_current = current_fraction
-    threshold_past = current_fraction + past_fraction
+    threshold_past = (
+        current_fraction + past_fraction if frozen_nonempty else threshold_current
+    )
 
-    if has_current_agent and (roll < threshold_current or not frozen_nonempty):
+    if has_current_agent and roll < threshold_current:
         return OpponentKind.CURRENT
-    if roll < threshold_past and frozen_nonempty:
+    if frozen_nonempty and roll < threshold_past:
         return OpponentKind.FROZEN
     return OpponentKind.SCRIPTED
 

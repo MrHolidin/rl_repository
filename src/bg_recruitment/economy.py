@@ -6,12 +6,10 @@ from typing import Callable, List, Optional
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
 from src.bg_core.minion import Minion, Race
 
 from src.envs.minibg.actions import (
     BUY_COST,
-    HAND_SIZE,
     LEVEL_UP_COSTS,
     MAX_SHOP_SLOTS,
     MAX_TIER,
@@ -19,9 +17,12 @@ from src.envs.minibg.actions import (
     SELL_REWARD,
     shop_offers_count,
 )
-from src.envs.minibg.state import PlayerState
+from src.bg_lobby.player import PlayerState
+from src.bg_lobby.shared_pool import SharedCardPool
 
-from .shop import refresh_shop, tavern_card_pool
+from .hand_slots import first_free_hand_slot
+from .pool_ledger import on_sell_minion
+from .shop import clear_shop_slot, fill_shop_slot, refresh_shop, tavern_card_pool
 
 
 def buy_from_shop(
@@ -30,12 +31,13 @@ def buy_from_shop(
     *,
     on_bought: Callable[[Minion, PlayerState], None],
     on_triples: Callable[[PlayerState], None],
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     minion = player.shop[slot]
     assert minion is not None
     player.gold -= BUY_COST
-    player.shop[slot] = None
-    h = next((i for i in range(HAND_SIZE) if player.hand[i] is None), None)
+    clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
+    h = first_free_hand_slot(player)
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
     player.hand[h] = minion
     on_bought(minion, player)
@@ -47,7 +49,10 @@ def sell_from_board(
     pos: int,
     *,
     on_triples: Callable[[PlayerState], None],
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
+    sold = player.board[pos]
+    on_sell_minion(shared_pool, sold)
     del player.board[pos]
     player.gold += SELL_REWARD
     on_triples(player)
@@ -58,9 +63,12 @@ def roll_shop(
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     player.gold -= ROLL_COST
-    refresh_shop(player, shop_excluded_race, rng=rng)
+    refresh_shop(
+        player, shop_excluded_race, rng=rng, shared_pool=shared_pool
+    )
 
 
 def level_up_tavern(
@@ -68,6 +76,7 @@ def level_up_tavern(
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     cost = player.next_tier_up_cost
     player.gold -= cost
@@ -77,9 +86,13 @@ def level_up_tavern(
         player.next_tier_up_cost = LEVEL_UP_COSTS[player.tavern_tier]
     old_n = shop_offers_count(old_tier)
     new_n = shop_offers_count(player.tavern_tier)
-    pool = tavern_card_pool(player.tavern_tier, shop_excluded_race)
     while len(player.shop) < MAX_SHOP_SLOTS:
         player.shop.append(None)
     for i in range(old_n, new_n):
-        card_id = pool[int(rng.integers(0, len(pool)))]
-        player.shop[i] = make_minion(card_id)
+        fill_shop_slot(
+            player,
+            i,
+            shop_excluded_race,
+            rng=rng,
+            shared_pool=shared_pool,
+        )

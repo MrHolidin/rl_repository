@@ -14,6 +14,8 @@ from src.bg_catalog.cards import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import MiniBGState, PlayerPhase
 
+from tests.minibg_helpers import set_acting_player
+
 
 def _force_shop(state: MiniBGState, player_idx: int, *card_ids):
     p = state.players[player_idx]
@@ -135,10 +137,12 @@ def test_sell_returns_one_gold_and_compacts_board():
 
 def test_finish_in_shop_submits_turn():
     g, s = _make_game()
+    order = s.shop_turn_order
+    assert s.current_player_index == order[0]
     s2 = g.apply_action(s, int(Action.FINISH))
-    assert s2.players[0].phase == PlayerPhase.DONE
-    assert s2.players[0].shop_freeze_next_round is False
-    assert s2.current_player_index == 1
+    assert s2.players[order[0]].phase == PlayerPhase.DONE
+    assert s2.players[order[0]].shop_freeze_next_round is False
+    assert s2.current_player_index == order[1]
     assert g.legal_actions(s2)  # opponent's shop turn
 
 
@@ -175,6 +179,7 @@ def test_hand_persists_across_rounds():
 def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
     g = MiniBGGame(seed=1234)
     s = g.initial_state()
+    set_acting_player(s, 0)
     s.players[0].board = [make_minion("murloc_warleader")]
     _force_shop(s, 0, "buffer", None, None)
     s.players[0].gold = 10
@@ -191,6 +196,7 @@ def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
 
     g = MiniBGGame(seed=1234)
     s = g.initial_state()
+    set_acting_player(s, 0)
     s.players[0].hand[0] = make_minion("recruit")
     _force_shop(s, 0, "buffer", None, None)
     s.players[0].gold = 10

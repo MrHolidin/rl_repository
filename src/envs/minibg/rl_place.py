@@ -13,6 +13,7 @@ from src.bg_core.effects import (
 )
 from src.bg_core.minion import Minion, Race
 from src.bg_recruitment.effect_modal import compute_eligible_buff_target
+from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment.place import place_from_hand
 from src.bg_recruitment.shop_triggers import ShopTriggers
 from src.envs.minibg.state import CasterKind, CasterRef, MiniBGState, PlayerState
@@ -219,6 +220,7 @@ def commit_rl_place_plan(
     triggers: ShopTriggers,
     rng,
     reorder_board,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> MiniBGState:
     """Commit staged play: reorder (adjacent only) + ``place_from_hand`` + game battlecries."""
     player = state.players[player_idx]
@@ -252,6 +254,7 @@ def commit_rl_place_plan(
         insert_at=insert_at,
         apply_targeted_effects=True,
         forced_buff_target=forced_buff_target,
+        shared_pool=shared_pool,
     )
     return state
 
@@ -264,6 +267,7 @@ def commit_simple_place_from_hand(
     board_size: int,
     triggers: ShopTriggers,
     rng,
+    shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     place_from_hand(
         player,
@@ -273,6 +277,7 @@ def commit_simple_place_from_hand(
         triggers=triggers,
         rng=rng,
         apply_targeted_effects=True,
+        shared_pool=shared_pool,
     )
 
 

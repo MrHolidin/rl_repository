@@ -35,6 +35,7 @@ class RolloutBuffer:
         self.legal_masks: List[Optional[np.ndarray]] = []
         self.next_obs: List[np.ndarray] = []
         self.next_legal_masks: List[np.ndarray] = []
+        self.seat_ids: List[int] = []
 
     def add(
         self,
@@ -47,6 +48,7 @@ class RolloutBuffer:
         legal_mask: Optional[np.ndarray],
         next_obs: np.ndarray,
         next_legal_mask: np.ndarray,
+        seat_id: int = -1,
     ) -> None:
         self.obs.append(obs)
         self.actions.append(int(action))
@@ -60,6 +62,7 @@ class RolloutBuffer:
             self.legal_masks.append(np.asarray(legal_mask, dtype=bool))
         self.next_obs.append(np.asarray(next_obs, copy=True, dtype=np.float32))
         self.next_legal_masks.append(np.asarray(next_legal_mask, dtype=bool))
+        self.seat_ids.append(int(seat_id))
 
     def __len__(self) -> int:
         return len(self.obs)
@@ -74,6 +77,42 @@ class RolloutBuffer:
         self.legal_masks.clear()
         self.next_obs.clear()
         self.next_legal_masks.clear()
+        self.seat_ids.clear()
+
+
+def compute_gae_advantages(
+    rewards: np.ndarray,
+    values: np.ndarray,
+    dones: np.ndarray,
+    seat_ids: np.ndarray,
+    *,
+    discount_factor: float,
+    gae_lambda: float,
+    last_next_value: float = 0.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """GAE with zero bootstrap across ``seat_id`` boundaries (independent learner segments)."""
+    n = int(len(rewards))
+    advantages = np.zeros(n, dtype=np.float32)
+    gae = 0.0
+    for t in reversed(range(n)):
+        if t == n - 1:
+            if bool(dones[t]):
+                next_value = 0.0
+                cont = 0.0
+            else:
+                next_value = float(last_next_value)
+                cont = 1.0
+        elif bool(dones[t]) or int(seat_ids[t]) != int(seat_ids[t + 1]):
+            next_value = 0.0
+            cont = 0.0
+        else:
+            next_value = float(values[t + 1])
+            cont = 1.0
+        delta = rewards[t] + discount_factor * next_value * cont - values[t]
+        gae = delta + discount_factor * gae_lambda * cont * gae
+        advantages[t] = gae
+    returns = advantages + values
+    return advantages, returns
 
 
 class PPOAgent(BaseAgent):
@@ -269,6 +308,7 @@ class PPOAgent(BaseAgent):
             return {}
 
         # Разбираем Transition, как в DQNAgent
+        seat_id = -1
         if hasattr(transition, "obs"):
             obs = transition.obs
             action = transition.action
@@ -277,6 +317,10 @@ class PPOAgent(BaseAgent):
             done = transition.terminated or transition.truncated
             legal_mask = transition.legal_mask
             next_legal_mask = transition.next_legal_mask
+            if isinstance(getattr(transition, "info", None), dict):
+                acting = transition.info.get("acting_seat")
+                if acting is not None:
+                    seat_id = int(acting)
         else:
             obs, action, reward, next_obs, done, *_rest = transition
             if len(_rest) >= 2:
@@ -291,6 +335,13 @@ class PPOAgent(BaseAgent):
         if cache is None or cache["action"] != int(action):
             self.step_count += 1
             return {}
+
+        buf = self.rollout_buffer
+        if buf.seat_ids and seat_id >= 0:
+            prev_seat = int(buf.seat_ids[-1])
+            if prev_seat != int(seat_id) and not buf.dones[-1]:
+                buf.dones[-1] = True
+                buf.next_obs[-1] = np.asarray(buf.obs[-1], dtype=np.float32)
 
         if next_legal_mask is None:
             next_legal_mask = np.ones(self.num_actions, dtype=bool)
@@ -307,11 +358,29 @@ class PPOAgent(BaseAgent):
             legal_mask=legal_mask,
             next_obs=np.asarray(next_obs, dtype=np.float32),
             next_legal_mask=next_legal_mask,
+            seat_id=seat_id,
         )
         self._last_action_cache = None
         self.step_count += 1
 
         return {}  # все метрики отдаём из update()
+
+    def close_segment(self, seat: int, terminal_reward: float) -> bool:
+        """Mark the last rollout step for ``seat`` as segment-terminal with ``terminal_reward``.
+
+        Returns True if a matching rollout step was found and updated.
+        """
+        if not self.training:
+            return False
+        buf = self.rollout_buffer
+        seat = int(seat)
+        for idx in range(len(buf.seat_ids) - 1, -1, -1):
+            if buf.seat_ids[idx] == seat:
+                buf.rewards[idx] = float(terminal_reward)
+                buf.dones[idx] = True
+                buf.next_obs[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
+                return True
+        return False
 
     def update(self) -> Dict[str, float]:
         """
@@ -369,42 +438,31 @@ class PPOAgent(BaseAgent):
         else:
             legal_mask_tensor = torch.ones(N, self.num_actions, dtype=torch.bool, device=device)
 
-        # ---------- GAE ----------
-        advantages = torch.zeros_like(rewards_tensor, device=device)
-        gae = torch.zeros((), device=device, dtype=torch.float32)
+        # ---------- GAE (zero bootstrap across seat_id segment boundaries) ----------
+        last_next_value = 0.0
+        if N > 0 and not bool(dones_arr[-1]):
+            with torch.no_grad():
+                no = next_obs_tensor[N - 1 : N]
+                nlm = next_legal_tensor[N - 1 : N]
+                _, v_last = self.policy_net(no, legal_mask=nlm)
+            last_next_value = float(v_last.reshape(()).item())
 
-        for t in reversed(range(N)):
-            if t == N - 1:
-                if bool(dones_tensor[t].item()):
-                    next_value = torch.zeros((), device=device, dtype=torch.float32)
-                else:
-                    no = next_obs_tensor[t : t + 1]
-                    nlm = next_legal_tensor[t : t + 1]
-                    with torch.no_grad():
-                        _, v_next = self.policy_net(no, legal_mask=nlm)
-                    next_value = v_next.reshape(())
-                next_non_terminal = (
-                    torch.zeros((), device=device, dtype=torch.float32)
-                    if bool(dones_tensor[t].item())
-                    else torch.ones((), device=device, dtype=torch.float32)
-                )
-            else:
-                next_value = values_tensor[t + 1]
-                next_non_terminal = (
-                    torch.zeros((), device=device, dtype=torch.float32)
-                    if bool(dones_tensor[t].item())
-                    else torch.ones((), device=device, dtype=torch.float32)
-                )
-
-            delta = (
-                rewards_tensor[t]
-                + self.discount_factor * next_value * next_non_terminal
-                - values_tensor[t]
-            )
-            gae = delta + self.discount_factor * self.gae_lambda * next_non_terminal * gae
-            advantages[t] = gae
-
-        returns = advantages + values_tensor
+        seat_ids_arr = (
+            np.array(self.rollout_buffer.seat_ids, dtype=np.int64)
+            if self.rollout_buffer.seat_ids
+            else np.full(N, -1, dtype=np.int64)
+        )
+        adv_np, ret_np = compute_gae_advantages(
+            rewards_arr,
+            values_arr,
+            dones_arr,
+            seat_ids_arr,
+            discount_factor=self.discount_factor,
+            gae_lambda=self.gae_lambda,
+            last_next_value=last_next_value,
+        )
+        advantages = torch.as_tensor(adv_np, dtype=torch.float32, device=device)
+        returns = torch.as_tensor(ret_np, dtype=torch.float32, device=device)
         # Нормируем advantages (классический трюк)
         advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
 

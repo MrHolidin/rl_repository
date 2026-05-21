@@ -108,8 +108,9 @@ def test_rl_brann_one_apply_buffs_twice():
 def test_finish_blocked_while_rl_effect_pending():
     env = MiniBGEnv(seed=3)
     env.reset()
-    env._state.players[0].board = [make_minion("recruit"), make_minion("guard")]
-    env._state.players[0].hand[0] = make_minion("target_buffer")
+    idx = env._state.current_player_index
+    env._state.players[idx].board = [make_minion("recruit"), make_minion("guard")]
+    env._state.players[idx].hand[0] = make_minion("target_buffer")
     from src.envs.minibg.action_map import A_PLACE_BASE, A_FINISH
 
     env.step(A_PLACE_BASE)

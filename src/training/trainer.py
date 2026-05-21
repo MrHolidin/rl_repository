@@ -22,6 +22,7 @@ from src.agents.ppo_structured_minibg_agent import (
     MiniBGPPOStructuredAgent,
 )
 from src.envs.base import SingleAgentEnv, StepResult
+from src.training.bglike_perspective import apply_bglike_segment_closures_after_observe
 from src.training.opponent_sampler import OpponentSampler
 
 
@@ -244,10 +245,18 @@ class Trainer(BaseTrainer):
                 )
 
             metrics = self._observe_and_update(transition)
+            apply_bglike_segment_closures_after_observe(self.env, transition.info)
             core_done = perf_counter() if self.track_timings else None
             self._after_transition(transition, metrics, iteration_start, core_done)
 
-            if step.done:
+            lobby_done = bool(
+                self.env.done
+                or (
+                    isinstance(step.info, dict)
+                    and step.info.get("lobby_episode_done")
+                )
+            )
+            if lobby_done:
                 self._handle_episode_end(episode_reward, episode_length, step.info)
                 episode_reward = 0.0
                 episode_length = 0

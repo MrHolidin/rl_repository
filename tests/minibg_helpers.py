@@ -6,6 +6,14 @@ from typing import Any
 
 from src.bg_combat.battle import simulate_battle as _simulate_battle
 from src.envs.minibg.actions import BOARD_SIZE, COMBAT_BOARD_MAX, DAMAGE_CAP
+from src.envs.minibg.state import MiniBGState
+
+
+def set_acting_player(state: MiniBGState, idx: int) -> None:
+    """Force shop turn order so ``idx`` is the active shopper (tests only)."""
+    other = 1 - idx
+    state.shop_turn_order = (idx, other)
+    state.current_player_index = idx
 
 
 def simulate_battle(

@@ -37,7 +37,7 @@ from src.bg_core.effects import (
 from src.bg_core.minion import Minion, Race
 from src.envs.minibg.actions import BOARD_SIZE
 from src.bg_recruitment.discover_pool import roll_adapt_triple, roll_discover_murloc_triple
-from src.envs.minibg.state import PendingChoice, PendingChoiceKind, PlayerState
+from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
 
 
 class ShopTriggers:
@@ -275,6 +275,8 @@ class ShopTriggers:
         placed: Minion,
         player: PlayerState,
         shop_excluded_race: Optional[Race],
+        *,
+        shared_pool=None,
     ) -> None:
         mult = self.battlecry_multiplier(player.board)
         for ab in placed.abilities:
@@ -287,8 +289,13 @@ class ShopTriggers:
                 if total <= 0:
                     return
                 opts = roll_discover_murloc_triple(
-                    self._rng, player.tavern_tier, shop_excluded_race
+                    self._rng,
+                    player.tavern_tier,
+                    shop_excluded_race,
+                    shared_pool=shared_pool,
                 )
+                if opts is None:
+                    return
                 from src.bg_recruitment.discover import try_open_hand_discover_modal
 
                 if try_open_hand_discover_modal(
@@ -296,6 +303,7 @@ class ShopTriggers:
                     PendingChoiceKind.DISCOVER_MURLOC,
                     opts,
                     total - 1,
+                    shared_pool=shared_pool,
                 ):
                     return
                 return

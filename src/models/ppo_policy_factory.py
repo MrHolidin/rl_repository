@@ -8,11 +8,13 @@ import torch.nn as nn
 
 from .author_critic_network import ActorCriticCNN
 from .minibg_slot_ac import MiniBGSlotActorCritic, _OBS_DIM
+from .flat_mlp_ac import FlatMLPActorCritic
 from .minibg_structured_ac import MiniBGStructuredActorCritic
 
 PPO_NETWORK_ACTOR_CRITIC_CNN = "actor_critic_cnn"
 PPO_NETWORK_MINIBG_SLOT = "minibg_slot"
 PPO_NETWORK_MINIBG_STRUCTURED = "minibg_structured"
+PPO_NETWORK_FLAT_MLP = "flat_mlp"
 
 
 def build_ppo_actor_critic(
@@ -24,6 +26,7 @@ def build_ppo_actor_critic(
     trunk_hidden_size: int = 256,
     region_conv2_kernel: int = 1,
     card_emb_dim: int = 16,
+    mlp_hidden_size: int = 256,
 ) -> nn.Module:
     nt = network_type.strip().lower()
     if nt in ("board_cnn", "actor_critic_cnn", PPO_NETWORK_ACTOR_CRITIC_CNN):
@@ -61,10 +64,20 @@ def build_ppo_actor_critic(
             region_conv2_kernel=int(region_conv2_kernel),
             card_emb_dim=int(card_emb_dim),
         )
+    if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
+        if len(observation_shape) != 1:
+            raise ValueError(
+                f"network_type {network_type!r} requires observation_shape [D] (flat vector)"
+            )
+        return FlatMLPActorCritic(
+            input_size=int(observation_shape[0]),
+            num_actions=int(num_actions),
+            hidden_size=int(mlp_hidden_size),
+        )
     raise ValueError(
         f"Unknown PPO network_type {network_type!r}. "
         f"Try {PPO_NETWORK_ACTOR_CRITIC_CNN!r}, 'board_cnn', {PPO_NETWORK_MINIBG_SLOT!r}, "
-        f"or {PPO_NETWORK_MINIBG_STRUCTURED!r}."
+        f"{PPO_NETWORK_MINIBG_STRUCTURED!r}, or {PPO_NETWORK_FLAT_MLP!r}."
     )
 
 
@@ -95,6 +108,12 @@ def restore_ppo_actor_critic(
             region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
             card_emb_dim=int(kw.get("card_emb_dim", 16)),
         )
+    if ct == PPO_NETWORK_FLAT_MLP:
+        return FlatMLPActorCritic(
+            input_size=int(observation_shape[0]),
+            num_actions=int(num_actions),
+            hidden_size=int(kw.get("hidden_size", 256)),
+        )
     if ct == PPO_NETWORK_MINIBG_STRUCTURED:
         return MiniBGStructuredActorCritic(
             slot_hidden=int(kw.get("slot_hidden", 32)),
@@ -120,6 +139,8 @@ def restore_ppo_actor_critic(
 
 def default_ppo_network_kwargs(network_type: str, module: nn.Module) -> Dict[str, Any]:
     """Serializer kwargs for checkpoint reload (excluding num_actions / obs shape)."""
+    if isinstance(module, FlatMLPActorCritic):
+        return dict(module.get_constructor_kwargs())
     if isinstance(module, MiniBGSlotActorCritic):
         return {k: v for k, v in module.get_constructor_kwargs().items() if k != "num_actions"}
     if isinstance(module, MiniBGStructuredActorCritic):
@@ -142,6 +163,8 @@ def ppo_network_type_for_save(network_type: str) -> str:
         return PPO_NETWORK_MINIBG_SLOT
     if nt == PPO_NETWORK_MINIBG_STRUCTURED:
         return PPO_NETWORK_MINIBG_STRUCTURED
+    if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
+        return PPO_NETWORK_FLAT_MLP
     if nt == PPO_NETWORK_ACTOR_CRITIC_CNN:
         return PPO_NETWORK_ACTOR_CRITIC_CNN
     return nt
@@ -155,4 +178,5 @@ __all__ = [
     "PPO_NETWORK_ACTOR_CRITIC_CNN",
     "PPO_NETWORK_MINIBG_SLOT",
     "PPO_NETWORK_MINIBG_STRUCTURED",
+    "PPO_NETWORK_FLAT_MLP",
 ]

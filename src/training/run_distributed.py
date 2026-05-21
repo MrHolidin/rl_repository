@@ -10,6 +10,7 @@ from typing import Any, Callable, Optional, Union
 from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
 from src.config import load_config
 from src.features.action_space import DiscreteActionSpace
+from src.models.ppo_policy_factory import PPO_NETWORK_MINIBG_STRUCTURED
 from src.registry import make_agent, make_game
 from src.training.callbacks import MetricsFileCallback, StatusFileCallback
 from src.training.distributed_trainer import (
@@ -99,24 +100,44 @@ def run_distributed(
         _set_seed(app_cfg.seed)
     seed: int = app_cfg.seed if app_cfg.seed is not None else 42
 
-    # --- Agent creation (identical to run.py) ---
+    # --- Agent / env sizing (mirrors run.py; workers read game_id from game_params) ---
+    game_id = (app_cfg.game.id or "").strip().lower()
     game_params = dict(app_cfg.game.params or {})
     game_params.pop("control_driver", None)
-    base_env = make_game(app_cfg.game.id, **game_params)
-    legal_mask = getattr(base_env, "legal_actions_mask", None)
-    if legal_mask is None:
-        raise ValueError("Environment must expose legal_actions_mask.")
-    num_actions = int(len(legal_mask))
+    game_params["game_id"] = game_id
 
     agent_params = dict(app_cfg.agent.params)
+    network_type = str(agent_params.get("network_type", "")).strip().lower()
+    use_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
+    game_params["use_structured"] = use_structured
+
+    if game_id == "bglike":
+        from src.envs.bglike.action_map import NUM_ENV_ACTIONS
+        from src.envs.bglike.obs import OBS_DIM
+
+        num_actions = int(NUM_ENV_ACTIONS)
+        agent_params.setdefault("observation_shape", (OBS_DIM,))
+        agent_params.setdefault("observation_type", "vector")
+        if use_structured:
+            raise ValueError(
+                "distributed BGLike requires flat PPO (network_type: minibg_mlp or flat_mlp), "
+                "not minibg_structured"
+            )
+    else:
+        base_env = make_game(app_cfg.game.id, **game_params)
+        legal_mask = getattr(base_env, "legal_actions_mask", None)
+        if legal_mask is None:
+            raise ValueError("Environment must expose legal_actions_mask.")
+        num_actions = int(len(legal_mask))
+        obs_builder = getattr(base_env, "observation_builder", None)
+        if obs_builder is not None:
+            agent_params.setdefault("observation_shape", obs_builder.observation_shape)
+            agent_params.setdefault(
+                "observation_type", getattr(obs_builder, "observation_type", "board")
+            )
+
     agent_params.setdefault("num_actions", num_actions)
     agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-    obs_builder = getattr(base_env, "observation_builder", None)
-    if obs_builder is not None:
-        agent_params.setdefault("observation_shape", obs_builder.observation_shape)
-        agent_params.setdefault(
-            "observation_type", getattr(obs_builder, "observation_type", "board")
-        )
     device = _resolve_device(agent_params.get("device"))
     agent_params["device"] = device
 
@@ -130,7 +151,12 @@ def run_distributed(
     # Load from checkpoint or create fresh; either way workers get a file path.
     ck_path = Path(dist_cfg.checkpoint).resolve() if dist_cfg.checkpoint else None
     if ck_path is not None and ck_path.is_file():
-        agent = MiniBGPPOStructuredAgent.load(str(ck_path), device=device, seed=seed)
+        if use_structured:
+            agent = MiniBGPPOStructuredAgent.load(str(ck_path), device=device, seed=seed)
+        else:
+            from src.agents.ppo_agent import PPOAgent
+
+            agent = PPOAgent.load(str(ck_path), device=device, seed=seed)
         worker_ckpt_path = ck_path
         print(f"[dist_ppo] loading checkpoint: {ck_path.name}", flush=True)
     else:

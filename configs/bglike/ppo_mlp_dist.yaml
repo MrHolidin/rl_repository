@@ -1,0 +1,74 @@
+# BGLike 8p distributed PPO (flat MLP, not structured).
+#   python -m src.cli.train_distributed \
+#       --config configs/bglike/ppo_mlp_dist.yaml \
+#       --run_dir runs/bglike/dist_ppo_001
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.06
+    num_current_seats: 4
+
+agent:
+  id: ppo
+  params:
+    network_type: minibg_mlp
+    observation_shape: [1359]
+    observation_type: vector
+    mlp_hidden_size: 256
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.95
+    ppo_clip_eps: 0.2
+    clip_value_loss: true
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 1.0
+    max_grad_norm: 1.0
+    rollout_steps: 8096
+    ppo_epochs: 4
+    minibatch_size: 512
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 5000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        current_self_fraction: 0.0
+        past_self_fraction: 0.6
+        max_frozen_agents: 20
+        save_every: 1000
+        frozen_ema_beta: 0.05
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 0.25
+          t_up_random: 0.25
+          structured: 0.25
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 50000
+        prefix: dist_bglike_ppo
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 8
+  worker_device: cpu
