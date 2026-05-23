@@ -61,12 +61,17 @@ def describe_seat_controller(
     slot_map = getattr(controller_env, "_opponent_slot_by_seat", None) or {}
     slot_id = slot_map.get(seat)
     if slot_id is not None:
-        from src.training.selfplay.league_state import SLOT_CURRENT, SLOT_SCRIPTED
+        from src.training.selfplay.league_state import SLOT_CURRENT
 
-        if slot_id == SLOT_SCRIPTED:
-            parts.append("slot=SCRIPTED")
-        elif slot_id == SLOT_CURRENT:
+        key_map = getattr(controller_env, "_slot_id_to_scripted_key", None) or {}
+        if slot_id == SLOT_CURRENT:
             parts.append("slot=CURRENT")
+        elif slot_id in key_map:
+            parts.append(f"slot=SCRIPTED/{key_map[slot_id]}")
+        elif slot_id < 0:
+            # Meta slot we don't recognize (legacy SLOT_SCRIPTED sentinel or
+            # other scripted variant for which the key map wasn't propagated).
+            parts.append(f"slot=SCRIPTED#{slot_id}")
         else:
             parts.append(f"slot=FROZEN#{slot_id}")
     parts.append(f"id={id(agent)}")

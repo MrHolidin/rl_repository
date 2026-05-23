@@ -24,3 +24,5 @@ tyro>=0.5.0
 pytest>=7.0.0
 pytest-cov>=3.0.0
 
+# League rating (optional TrueSkill backend)
+trueskill>=0.4.5

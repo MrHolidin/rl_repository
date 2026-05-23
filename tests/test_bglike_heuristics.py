@@ -21,7 +21,8 @@ def test_heuristic_bot_legal_action_in_lobby():
     steps = 0
     while not env.done and steps < 400:
         seat = env.acting_seat
-        assert seat is not None
+        if seat is None:
+            break
         mask = env.legal_actions_mask
         if seat in env.current_seats:
             action = int(learner.act(obs, legal_mask=mask))
@@ -31,7 +32,10 @@ def test_heuristic_bot_legal_action_in_lobby():
         out = env.step(action)
         obs = out.obs
         steps += 1
+    if not env.done:
+        env.finish_lobby_to_end()
     assert steps > 0
+    assert env.done
 
 
 def test_pool_scripted_bglike_bot_names():

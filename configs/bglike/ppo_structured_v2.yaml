@@ -1,7 +1,7 @@
-# BGLike 8p distributed PPO (structured policy; board order on COMPLETE_TURN).
+# BGLike 8p distributed PPO — structured v2, league-based opponent pool.
 #   python -m src.cli.train_distributed \
-#       --config configs/bglike/ppo_structured_dist.yaml \
-#       --run_dir runs/bglike/dist_ppo_001
+#       --config configs/bglike/ppo_structured_v2.yaml \
+#       --run_dir runs/bglike/dist_ppo_v2_001
 seed: 13
 
 game:
@@ -54,17 +54,27 @@ train:
       seed: 103
       self_play:
         start_episode: 0
-        current_self_fraction: 0.0
-        past_self_fraction: 0.6
-        max_frozen_agents: 20
+        max_frozen_agents: 15
         save_every: 1000
-        frozen_ema_beta: 0.05
       scripted:
         mode: bglike
         distribution:
-          t1_random: 0.25
-          t_up_random: 0.25
-          structured: 0.25
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
   callbacks:
     - type: checkpoint
       params:

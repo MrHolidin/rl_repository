@@ -338,17 +338,24 @@ def _build_opponent_sampler(
                     max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
                     save_every=max(1, save_every),
                     frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
+                    rating=str(sp.get("rating", "ema")),
+                    trueskill=dict(sp.get("trueskill") or {}) or None,
                 )
         else:
             sp = dict(sp_raw)
             save_every = int(sp.get("save_every", 1000))
+            from src.training.selfplay.league_config import parse_league_settings
+
+            league_settings = parse_league_settings(p)
             self_play_config = SelfPlayConfig(
                 start_episode=int(sp.get("start_episode", 0)),
-                current_self_fraction=float(sp.get("current_self_fraction", 0.3)),
-                past_self_fraction=float(sp.get("past_self_fraction", 0.3)),
+                current_self_fraction=league_settings.sampler.current_self_fraction,
+                past_self_fraction=league_settings.sampler.past_self_fraction,
                 max_frozen_agents=int(sp.get("max_frozen_agents", 10)),
                 save_every=max(1, save_every),
-                frozen_ema_beta=float(sp.get("frozen_ema_beta", 0.05)),
+                frozen_ema_beta=league_settings.rating.ema_beta,
+                rating=league_settings.rating.kind,
+                trueskill=league_settings.rating.trueskill,
             )
         scripted = _build_scripted_spec(game_id, p)
         pool = OpponentPool(

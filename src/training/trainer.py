@@ -22,7 +22,10 @@ from src.agents.ppo_structured_minibg_agent import (
     MiniBGPPOStructuredAgent,
 )
 from src.envs.base import SingleAgentEnv, StepResult
-from src.training.bglike_perspective import apply_bglike_segment_closures_after_observe
+from src.training.bglike_perspective import (
+    apply_bglike_segment_closures_after_observe,
+    collect_bglike_lobby_league_outcome,
+)
 from src.training.opponent_sampler import OpponentSampler
 
 
@@ -193,6 +196,19 @@ class Trainer(BaseTrainer):
                         "and step_structured() (MiniBGEnv or AgentPerspectiveEnv wrapping it)."
                     )
                 legal_list = self.env.legal_structured_actions()
+                if not legal_list:
+                    if hasattr(self.env, "finish_lobby_to_end"):
+                        self._handle_episode_end(
+                            episode_reward,
+                            episode_length,
+                            {},
+                        )
+                        episode_reward = 0.0
+                        episode_length = 0
+                        if self._should_continue_training(total_steps):
+                            obs = self.env.reset()
+                        continue
+                    raise RuntimeError("env returned no legal structured actions")
                 struct_act, board_perm, idx = self.agent.act_structured(
                     obs, legal_list, self.env, deterministic=deterministic
                 )
@@ -249,13 +265,7 @@ class Trainer(BaseTrainer):
             core_done = perf_counter() if self.track_timings else None
             self._after_transition(transition, metrics, iteration_start, core_done)
 
-            lobby_done = bool(
-                self.env.done
-                or (
-                    isinstance(step.info, dict)
-                    and step.info.get("lobby_episode_done")
-                )
-            )
+            lobby_done = bool(self.env.done)
             if lobby_done:
                 self._handle_episode_end(episode_reward, episode_length, step.info)
                 episode_reward = 0.0
@@ -324,6 +334,11 @@ class Trainer(BaseTrainer):
         episode_length: int,
         info: Dict[str, Any],
     ) -> None:
+        if hasattr(self.env, "finish_lobby_to_end"):
+            info, _ = collect_bglike_lobby_league_outcome(
+                self.env,
+                info if isinstance(info, dict) else {},
+            )
         agent_token = int(getattr(self.env, "agent_token", 1))
         winner = info.get("winner") if isinstance(info, dict) else None
         agent_result = self._agent_relative_result(winner, agent_token)

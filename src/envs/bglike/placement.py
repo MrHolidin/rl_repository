@@ -32,6 +32,15 @@ def placement_score(place: int) -> float:
     return (placement_reward(place) + 1.0) / 2.0
 
 
+def pairwise_learner_score(learner_place: int, opponent_place: int) -> float:
+    """Learner performance vs one opponent: 1.0 win, 0.0 loss, 0.5 tie (lower place is better)."""
+    if learner_place < opponent_place:
+        return 1.0
+    if learner_place > opponent_place:
+        return 0.0
+    return 0.5
+
+
 def placement_reward_to_score(reward: float) -> float:
     """Map training placement reward [-1, 1] to league score [0, 1]."""
     return max(0.0, min(1.0, (float(reward) + 1.0) / 2.0))
@@ -60,4 +69,5 @@ __all__ = [
     "placement_reward_for_seat",
     "placement_reward_to_score",
     "placement_score",
+    "pairwise_learner_score",
 ]

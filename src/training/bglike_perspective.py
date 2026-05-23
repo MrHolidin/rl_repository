@@ -2,7 +2,7 @@
 
 Each learner seat is an independent decision segment (shared weights, no merged
 credit assignment). Segment boundaries: learner elimination or switch to another
-learner seat. League outcomes are recorded per segment closure, not averaged.
+learner seat. League outcomes are recorded once per lobby at episode end.
 """
 
 from __future__ import annotations
@@ -16,7 +16,11 @@ from src.envs.bglike.action_map import NUM_ENV_ACTIONS
 from src.envs.bglike.actions import NUM_PLAYERS
 from src.envs.bglike.obs import OBS_DIM
 from src.envs.bglike.lobby_env import BGLobbyMultiCurrentEnv, make_bglike_training_env
-from src.envs.bglike.placement import placement_reward, placement_score
+from src.envs.bglike.placement import placement_reward
+from src.training.selfplay.game_record import (
+    GameRecord,
+    game_record_for_lobby_end,
+)
 from src.envs.reward_config import RewardConfig
 from src.training.agent_perspective_env import AgentPerspectiveEnv, ShapingFn
 from src.training.opponent_sampler import OpponentSampler
@@ -45,35 +49,16 @@ def read_opponent_slot_by_seat(opponent_sampler: Any) -> Dict[int, int]:
     return {}
 
 
-def league_outcomes_for_segment_closures(
-    closures: Sequence[Dict[str, Any]],
-    slot_by_seat: Dict[int, int],
-) -> List[Tuple[int, float]]:
-    """One league update per unique opponent slot per finished learner segment."""
-    if not closures or not slot_by_seat:
-        return []
-    unique_slots = sorted(set(int(v) for v in slot_by_seat.values()))
-    out: List[Tuple[int, float]] = []
-    for item in closures:
-        place = item.get("placement")
-        if place is None:
-            continue
-        score = placement_score(int(place))
-        for slot_id in unique_slots:
-            out.append((slot_id, score))
-    return out
-
-
-def record_league_outcomes_to_sampler(
+def submit_game_records_to_sampler(
     opponent_sampler: Any,
-    outcomes: Sequence[Tuple[int, float]],
+    records: Sequence[GameRecord],
 ) -> None:
-    if not outcomes or opponent_sampler is None:
+    if not records or opponent_sampler is None:
         return
     pool = getattr(opponent_sampler, "opponent_pool", None)
-    if pool is not None and hasattr(pool, "record_outcome_for_slot"):
-        for slot_id, score in outcomes:
-            pool.record_outcome_for_slot(int(slot_id), score)  # type: ignore[operator]
+    if pool is not None and hasattr(pool, "submit"):
+        for record in records:
+            pool.submit(record)  # type: ignore[operator]
 
 
 class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
@@ -101,6 +86,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._num_current = num_current_seats
         self._learner: Optional[BaseAgent] = None
         self._opponent_slot_by_seat: Dict[int, int] = {}
+        self._lobby_league_recorded: bool = False
 
     @property
     def supports_seat_segments(self) -> bool:
@@ -145,6 +131,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
 
             self._agent_token = 1
             self._done = False
+            self._lobby_league_recorded = False
             return obs
         raise RuntimeError(
             "BGLikeAgentPerspectiveEnv: could not obtain a non-terminal initial state."
@@ -172,6 +159,13 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
                     "Current-seat shop turns must go through the learner act/observe path."
                 )
 
+    def finish_lobby_to_end(self) -> Dict[str, Any]:
+        """Auto-play opponents until lobby completes; apply pending segment closures."""
+        info = self._bg_base.finish_lobby_to_end()
+        self.apply_pending_segment_closures(info)
+        self._done = bool(self._bg_base.done)
+        return info
+
     def step(self, action: int) -> StepResult:
         if self._done:
             raise RuntimeError("Episode is done; call reset() first.")
@@ -179,7 +173,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         base_step = self._bg_base.step(action)
         info = dict(base_step.info) if isinstance(base_step.info, dict) else {}
 
-        lobby_done = bool(self._bg_base.done or info.get("lobby_episode_done"))
+        lobby_done = bool(self._bg_base.done)
         if lobby_done:
             reward = self._final_reward_for_agent(info)
         else:
@@ -207,7 +201,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         base_step = self._bg_base.step_structured(action, board_perm=board_perm)
         info = dict(base_step.info) if isinstance(base_step.info, dict) else {}
 
-        lobby_done = bool(self._bg_base.done or info.get("lobby_episode_done"))
+        lobby_done = bool(self._bg_base.done)
         if lobby_done:
             reward = self._final_reward_for_agent(info)
         else:
@@ -250,9 +244,6 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             self._episode_index += 1
             return
 
-        # League outcomes are recorded per segment closure only (see
-        # apply_bglike_segment_closures_after_observe); avoid duplicate/wrong-slot
-        # updates via record_episode_outcome(_last_sample_slot_id).
         placements = info.get("placements_current") or {}
         self.opponent_sampler.on_episode_end(
             self._episode_index,
@@ -296,28 +287,66 @@ def make_bglike_agent_perspective_env(
 __all__ = [
     "BGLikeAgentPerspectiveEnv",
     "apply_bglike_segment_closures_after_observe",
-    "league_outcomes_for_segment_closures",
+    "collect_bglike_lobby_league_outcome",
+    "finalize_bglike_lobby_league_record",
     "make_bglike_agent_perspective_env",
     "make_bglike_shaping_fn",
     "read_opponent_slot_by_seat",
-    "record_league_outcomes_to_sampler",
+    "submit_game_records_to_sampler",
 ]
 
 
 def apply_bglike_segment_closures_after_observe(
     env: Any, info: Any
-) -> List[Tuple[int, float]]:
-    """After ``observe()``: close learner segments and record per-segment league outcomes."""
+) -> None:
+    """After ``observe()``: close learner segments (training only, no league update)."""
     if not isinstance(info, dict):
-        return []
+        return
     apply = getattr(env, "apply_pending_segment_closures", None)
     if apply is not None:
         apply(info)
-    closures = info.get("segment_closures") or ()
+
+
+def finalize_bglike_lobby_league_record(env: Any, info: Any) -> Optional[GameRecord]:
+    """Build one lobby-end ``GameRecord`` after the lobby has finished."""
+    if not isinstance(info, dict):
+        return None
+    placements_full = info.get("placements_full") or {}
     slot_by_seat = getattr(env, "_opponent_slot_by_seat", None) or {}
     if not slot_by_seat and hasattr(env, "opponent_sampler"):
         slot_by_seat = read_opponent_slot_by_seat(env.opponent_sampler)
-    outcomes = league_outcomes_for_segment_closures(closures, slot_by_seat)
-    if outcomes and hasattr(env, "opponent_sampler"):
-        record_league_outcomes_to_sampler(env.opponent_sampler, outcomes)
-    return outcomes
+    current_seats = info.get("current_seats")
+    if current_seats is None:
+        bg = getattr(env, "_bg_base", None)
+        current_seats = getattr(bg, "current_seats", ()) if bg is not None else ()
+    key_map = getattr(env, "_slot_id_to_scripted_key", None)
+    if not key_map and hasattr(env, "opponent_sampler"):
+        key_map = getattr(env.opponent_sampler, "_slot_id_to_scripted_key", None)
+    record = game_record_for_lobby_end(
+        current_seats=current_seats,
+        slot_by_seat=slot_by_seat,
+        placements_full=placements_full,
+        slot_id_to_scripted_key=key_map or {},
+    )
+    if record is not None and hasattr(env, "opponent_sampler"):
+        submit_game_records_to_sampler(env.opponent_sampler, records=[record])
+    return record
+
+
+def collect_bglike_lobby_league_outcome(
+    env: Any, last_info: Dict[str, Any]
+) -> Tuple[Dict[str, Any], Optional[GameRecord]]:
+    """Finish lobby if needed and return one league record for the full lobby."""
+    if getattr(env, "_lobby_league_recorded", False):
+        return dict(last_info or {}), None
+    info = dict(last_info or {})
+    if not getattr(env, "done", False):
+        finish = getattr(env, "finish_lobby_to_end", None)
+        if finish is not None:
+            info = finish()
+    if not getattr(env, "done", False):
+        return info, None
+    record = finalize_bglike_lobby_league_record(env, info)
+    if record is not None:
+        env._lobby_league_recorded = True
+    return info, record

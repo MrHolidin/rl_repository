@@ -111,15 +111,22 @@ class StatusFileCallback(TrainerCallback):
         if sampler is None:
             return
         pool = getattr(sampler, "opponent_pool", None)
-        if pool is None or not getattr(pool, "frozen_agents", None):
+        if pool is None:
             return
         try:
-            stats = pool.get_frozen_stats_for_status()
+            if hasattr(pool, "get_status_file_data"):
+                data = pool.get_status_file_data()
+                if not (data.get("agents") or data.get("frozen_agents")):
+                    return
+            else:
+                if not getattr(pool, "frozen_agents", None):
+                    return
+                stats = pool.get_pool_stats_for_status()
+                if not stats:
+                    return
+                data = {"frozen_agents": stats}
         except Exception:
             return
-        if not stats:
-            return
-        data = {"frozen_agents": stats}
         self._atomic_write(self.self_play_frozen_path, data)
 
     def _atomic_write(self, path: Path, data: Dict[str, Any]) -> None:

@@ -10,10 +10,10 @@ Host → Worker:
 
 Worker → Host (after "play"):
   ("rollout", n_games, n_steps, n_payload_bytes, play_s, upload_s, payload, outcomes)
-  outcomes = List[Tuple[int, AgentOutcome]]: (slot_id, agent_result) per game
-  agent_result: legacy ±1/0 or placement score in [0, 1] for BGLike
+  outcomes = List[GameRecord]: one record per game or segment closure batch
   slot_id == SLOT_CURRENT (-1) → current (always-updated) agent
-  slot_id == SLOT_SCRIPTED (-2) → scripted/random opponent (not in frozen pool)
+  slot_id < -1 → per-key scripted bot meta slots (-2, -3, ...)
+  slot_id >= 0 → frozen checkpoint pool slot
 
 Opponent sampling (within each worker):
   MiniBG: one opponent per 2p game (same fractions as below).
@@ -57,23 +57,27 @@ from src.registry import make_game
 from src.training.agent_perspective_env import AgentPerspectiveEnv, make_minibg_shaping_fn
 from src.training.bglike_perspective import (
     apply_bglike_segment_closures_after_observe,
+    collect_bglike_lobby_league_outcome,
     make_bglike_agent_perspective_env,
     make_bglike_shaping_fn,
 )
-from src.training.selfplay.league_state import AgentOutcome, normalize_agent_score
-from src.training.opponent_sampler import OpponentSampler
-from src.training.selfplay.league_policy import (
-    OpponentKind,
-    decide_opponent_kind,
-    pfsp_sample,
-    sample_scripted_key,
-    self_play_enabled,
+from src.training.selfplay.game_record import (
+    GameRecord,
+    SLOT_SCRIPTED,
+    build_scripted_slot_map,
+    invert_scripted_slot_map,
+    minibg_record_from_learner_score,
 )
+from src.training.selfplay.league_config import LeagueSamplerConfig, LeagueSettings
+from src.training.selfplay.league_sampler import LeagueSyncState, sample_league_opponent
 from src.training.selfplay.league_state import (
+    AgentOutcome,
     LeagueController,
     SLOT_CURRENT,
-    SLOT_SCRIPTED,
+    normalize_agent_score,
 )
+from src.training.opponent_sampler import OpponentSampler
+from src.training.selfplay.league_policy import self_play_enabled
 from src.training.stack_trace_diag import enable_stack_dump_on_signal
 from src.training.trainer import BaseTrainer, TrainerCallback, Transition
 
@@ -89,10 +93,13 @@ class _PoolStatusAdapter:
 
     @property
     def frozen_agents(self) -> List[Dict[str, Any]]:
-        return self._league.get_frozen_stats_for_status()
+        return self._league.get_pool_stats_for_status()
 
-    def get_frozen_stats_for_status(self) -> List[Dict[str, Any]]:
-        return self._league.get_frozen_stats_for_status()
+    def get_pool_stats_for_status(self) -> List[Dict[str, Any]]:
+        return self._league.get_pool_stats_for_status()
+
+    def get_status_file_data(self) -> Dict[str, Any]:
+        return self._league.get_status_file_data()
 
 
 class _DistributedOpponentSamplerAdapter:
@@ -138,6 +145,9 @@ class _DistributedBglikeOpponentSampler(OpponentSampler):
     def __init__(self, **sample_kwargs: Any) -> None:
         self._sample_kwargs = sample_kwargs
         self._slot_by_seat: Dict[int, int] = {}
+        self._slot_id_to_scripted_key: Dict[int, str] = dict(
+            sample_kwargs.get("slot_id_to_scripted_key") or {}
+        )
 
     def prepare(self, episode_index: int) -> None:
         self._sample_kwargs["game_index"] = episode_index
@@ -169,11 +179,11 @@ def _sample_distributed_opponent(
     *,
     game_rng: _random.Random,
     use_self_play: bool,
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    current_fraction: float,
-    past_fraction: float,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     seed: int,
     game_index: int,
     seat_index: int,
@@ -182,39 +192,31 @@ def _sample_distributed_opponent(
     ppo_opponent: Any,
 ) -> Tuple[Any, int]:
     """Sample one opponent agent and league slot_id (per non-current lobby seat)."""
-    if not use_self_play:
-        key = sample_scripted_key(scripted_distribution, game_rng)
-        opp = _create_scripted_opponent(
-            key,
-            seed=seed + game_index * 997 + seat_index * 17,
-            game_id=gid,
-        )
-        return opp, SLOT_SCRIPTED
-
-    kind = decide_opponent_kind(
-        game_rng.random(),
-        current_fraction=current_fraction,
-        past_fraction=past_fraction,
-        frozen_nonempty=bool(frozen_pool),
-        has_current_agent=True,
+    frozen_pool = league_sync.frozen_pool
+    sample = sample_league_opponent(
+        game_rng=game_rng,
+        use_self_play=use_self_play,
+        sync=league_sync,
+        sampler=sampler,
+        scripted_distribution=scripted_distribution,
+        scripted_slot_ids=scripted_slot_ids,
+        slot_id_to_scripted_key=slot_id_to_scripted_key,
+        frozen_pool=frozen_pool,
     )
-    if kind == OpponentKind.SCRIPTED:
-        key = sample_scripted_key(scripted_distribution, game_rng)
-        opp = _create_scripted_opponent(
-            key,
-            seed=seed + game_index * 997 + seat_index * 17,
-            game_id=gid,
-        )
-        return opp, SLOT_SCRIPTED
-    opp = copy.deepcopy(ppo_opponent)
-    if kind == OpponentKind.FROZEN:
-        slot_ids = list(frozen_pool.keys())
-        rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
-        slot_id = pfsp_sample(slot_ids, rates, game_rng)
+    slot_id = int(sample.slot_id)
+    if slot_id == SLOT_CURRENT:
+        opp = copy.deepcopy(ppo_opponent)
+        _load_state_dict_bytes(opp, current_sd)
+    elif slot_id in frozen_pool:
+        opp = copy.deepcopy(ppo_opponent)
         _load_state_dict_bytes(opp, frozen_pool[slot_id])
     else:
-        slot_id = SLOT_CURRENT
-        _load_state_dict_bytes(opp, current_sd)
+        key = sample.scripted_key or slot_id_to_scripted_key.get(slot_id, "random")
+        opp = _create_scripted_opponent(
+            key,
+            seed=seed + game_index * 997 + seat_index * 17,
+            game_id=gid,
+        )
     opp.eval()
     if hasattr(opp, "epsilon"):
         opp.epsilon = 0.0
@@ -225,43 +227,41 @@ def _assign_minibg_opponent(
     opp_sampler: _MutableOpponentSampler,
     ppo_opponent: Any,
     *,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
     current_sd: bytes,
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    current_fraction: float,
-    past_fraction: float,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     game_rng: _random.Random,
     seed: int,
     game_index: int,
     gid: str,
-) -> int:
-    """Pick opponent kind, wire ``opp_sampler`` / ``ppo_opponent``; return league slot_id."""
-    kind = decide_opponent_kind(
-        game_rng.random(),
-        current_fraction=current_fraction,
-        past_fraction=past_fraction,
-        frozen_nonempty=bool(frozen_pool),
-        has_current_agent=True,
+    use_self_play: bool,
+) -> Tuple[int, Optional[str]]:
+    """Pick opponent kind, wire ``opp_sampler``; return league slot_id and scripted key."""
+    sample = sample_league_opponent(
+        game_rng=game_rng,
+        use_self_play=use_self_play,
+        sync=league_sync,
+        sampler=sampler,
+        scripted_distribution=scripted_distribution,
+        scripted_slot_ids=scripted_slot_ids,
+        slot_id_to_scripted_key=slot_id_to_scripted_key,
+        frozen_pool=league_sync.frozen_pool,
     )
-    if kind == OpponentKind.SCRIPTED:
-        key = sample_scripted_key(scripted_distribution, game_rng)
-        scripted_opp = _create_scripted_opponent(
-            key, seed=seed + game_index * 997, game_id=gid
-        )
-        opp_sampler.set_opponent(scripted_opp)
-        return SLOT_SCRIPTED
-    opp = ppo_opponent
-    if kind == OpponentKind.FROZEN:
-        slot_ids = list(frozen_pool.keys())
-        rates = [slot_win_rates.get(s, 0.5) for s in slot_ids]
-        slot_id = pfsp_sample(slot_ids, rates, game_rng)
-        _load_state_dict_bytes(opp, frozen_pool[slot_id])
-    else:
-        slot_id = SLOT_CURRENT
+    slot_id = int(sample.slot_id)
+    if slot_id == SLOT_CURRENT:
+        opp = ppo_opponent
         _load_state_dict_bytes(opp, current_sd)
+    elif slot_id in league_sync.frozen_pool:
+        opp = ppo_opponent
+        _load_state_dict_bytes(opp, league_sync.frozen_pool[slot_id])
+    else:
+        key = sample.scripted_key or slot_id_to_scripted_key.get(slot_id, "random")
+        opp = _create_scripted_opponent(key, seed=seed + game_index * 997, game_id=gid)
     opp_sampler.set_opponent(opp)
-    return int(slot_id)
+    return slot_id, sample.scripted_key
 
 
 # Keep for external use / backward compat
@@ -475,6 +475,36 @@ def _episode_agent_score(env: Any, last_info: dict, mg: dict) -> AgentOutcome:
     return 0
 
 
+def _make_bglike_opp_sampler(
+    *,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
+    scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
+    game_rng: _random.Random,
+    use_self_play: bool,
+    seed: int,
+    gid: str,
+    current_sd: bytes,
+    ppo_opponent: Any,
+) -> "_DistributedBglikeOpponentSampler":
+    return _DistributedBglikeOpponentSampler(
+        game_rng=game_rng,
+        use_self_play=use_self_play,
+        league_sync=league_sync,
+        sampler=sampler,
+        scripted_distribution=scripted_distribution,
+        scripted_slot_ids=scripted_slot_ids,
+        slot_id_to_scripted_key=slot_id_to_scripted_key,
+        seed=seed,
+        game_index=0,
+        gid=gid,
+        current_sd=current_sd,
+        ppo_opponent=ppo_opponent,
+    )
+
+
 def _collect_until_steps_flat(
     agent: PPOAgent,
     ppo_opponent: PPOAgent,
@@ -482,16 +512,16 @@ def _collect_until_steps_flat(
     min_steps: int,
     mg: dict,
     current_sd: bytes,
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    current_fraction: float,
-    past_fraction: float,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     game_rng: _random.Random,
     seed: int,
     round_idx: int,
     start_episode: int,
-) -> Tuple[int, int, RolloutBuffer, List[Tuple[int, AgentOutcome]]]:
+) -> Tuple[int, int, RolloutBuffer, List[GameRecord]]:
     import torch
 
     torch.set_num_threads(1)
@@ -505,16 +535,15 @@ def _collect_until_steps_flat(
         has_self_play_config=True,
     )
     if gid == "bglike":
-        opp_sampler = _DistributedBglikeOpponentSampler(
+        opp_sampler = _make_bglike_opp_sampler(
+            league_sync=league_sync,
+            sampler=sampler,
+            scripted_distribution=scripted_distribution,
+            scripted_slot_ids=scripted_slot_ids,
+            slot_id_to_scripted_key=slot_id_to_scripted_key,
             game_rng=game_rng,
             use_self_play=use_self_play,
-            frozen_pool=frozen_pool,
-            slot_win_rates=slot_win_rates,
-            current_fraction=current_fraction,
-            past_fraction=past_fraction,
-            scripted_distribution=scripted_distribution,
             seed=seed,
-            game_index=0,
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
@@ -524,33 +553,27 @@ def _collect_until_steps_flat(
     env = _make_collect_env(mg, opp_sampler, seed=seed)
     env.set_learner_agent(agent)
 
-    game_outcomes: List[Tuple[int, AgentOutcome]] = []
+    game_outcomes: List[GameRecord] = []
     n_games = 0
+    opp_scripted_key: Optional[str] = None
 
     while len(agent.rollout_buffer) < min_steps:
         if gid != "bglike":
-            if not use_self_play:
-                key = sample_scripted_key(scripted_distribution, game_rng)
-                scripted_opp = _create_scripted_opponent(
-                    key, seed=seed + n_games * 997, game_id=gid
-                )
-                opp_sampler.set_opponent(scripted_opp)
-                opp_slot_id = SLOT_SCRIPTED
-            else:
-                opp_slot_id = _assign_minibg_opponent(
-                    opp_sampler,
-                    ppo_opponent,
-                    current_sd=current_sd,
-                    frozen_pool=frozen_pool,
-                    slot_win_rates=slot_win_rates,
-                    current_fraction=current_fraction,
-                    past_fraction=past_fraction,
-                    scripted_distribution=scripted_distribution,
-                    game_rng=game_rng,
-                    seed=seed,
-                    game_index=n_games,
-                    gid=gid,
-                )
+            opp_slot_id, opp_scripted_key = _assign_minibg_opponent(
+                opp_sampler,
+                ppo_opponent,
+                league_sync=league_sync,
+                sampler=sampler,
+                current_sd=current_sd,
+                scripted_distribution=scripted_distribution,
+                scripted_slot_ids=scripted_slot_ids,
+                slot_id_to_scripted_key=slot_id_to_scripted_key,
+                game_rng=game_rng,
+                seed=seed,
+                game_index=n_games,
+                gid=gid,
+                use_self_play=use_self_play,
+            )
 
         obs = env.reset()
         last_info: dict = {}
@@ -561,10 +584,7 @@ def _collect_until_steps_flat(
             action = int(agent.act(obs, legal_mask=legal, deterministic=False))
             step = env.step(action)
             info = step.info if isinstance(step.info, dict) else {}
-            step_done = bool(
-                env.done
-                or info.get("lobby_episode_done")
-            )
+            step_done = bool(env.done)
             next_legal = (
                 np.zeros_like(legal)
                 if step_done
@@ -582,20 +602,25 @@ def _collect_until_steps_flat(
                 next_legal_mask=next_legal,
             )
             agent.observe(transition)
-            closure_outcomes = apply_bglike_segment_closures_after_observe(env, info)
-            if gid == "bglike" and closure_outcomes:
-                game_outcomes.extend(
-                    (int(slot_id), normalize_agent_score(score))
-                    for slot_id, score in closure_outcomes
-                )
+            apply_bglike_segment_closures_after_observe(env, info)
             obs = step.obs
             if step_done:
                 last_info = info
                 break
 
-        if gid != "bglike":
+        if gid == "bglike":
+            last_info, lobby_record = collect_bglike_lobby_league_outcome(env, last_info)
+            if lobby_record is not None:
+                game_outcomes.append(lobby_record)
+        else:
             score = _episode_agent_score(env, last_info, mg)
-            game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
+            game_outcomes.append(
+                minibg_record_from_learner_score(
+                    opp_slot_id,
+                    normalize_agent_score(score),
+                    scripted_key=opp_scripted_key,
+                )
+            )
         env.notify_episode_end(last_info)
         n_games += 1
 
@@ -612,20 +637,20 @@ def _collect_until_steps_structured(
     min_steps: int,
     mg: dict,
     current_sd: bytes,
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    current_fraction: float,
-    past_fraction: float,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     game_rng: _random.Random,
     seed: int,
     round_idx: int,
     start_episode: int,
-) -> Tuple[int, int, StructuredMiniBGRolloutBuffer, List[Tuple[int, AgentOutcome]]]:
+) -> Tuple[int, int, StructuredMiniBGRolloutBuffer, List[GameRecord]]:
     """Collect games until rollout buffer has >= min_steps transitions.
 
     Returns (n_games, n_steps, buffer, outcomes).
-    outcomes: list of (slot_id, agent_result) per game.
+    outcomes: list of GameRecord per game or segment closure.
     """
     import torch
     torch.set_num_threads(1)
@@ -641,16 +666,15 @@ def _collect_until_steps_structured(
         has_self_play_config=True,
     )
     if gid == "bglike":
-        opp_sampler = _DistributedBglikeOpponentSampler(
+        opp_sampler = _make_bglike_opp_sampler(
+            league_sync=league_sync,
+            sampler=sampler,
+            scripted_distribution=scripted_distribution,
+            scripted_slot_ids=scripted_slot_ids,
+            slot_id_to_scripted_key=slot_id_to_scripted_key,
             game_rng=game_rng,
             use_self_play=use_self_play,
-            frozen_pool=frozen_pool,
-            slot_win_rates=slot_win_rates,
-            current_fraction=current_fraction,
-            past_fraction=past_fraction,
-            scripted_distribution=scripted_distribution,
             seed=seed,
-            game_index=0,
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
@@ -661,33 +685,26 @@ def _collect_until_steps_structured(
     if gid == "bglike":
         env.set_learner_agent(agent)
 
-    game_outcomes: List[Tuple[int, AgentOutcome]] = []
+    game_outcomes: List[GameRecord] = []
     n_games = 0
+    opp_scripted_key: Optional[str] = None
 
     while len(agent.rollout_buffer) < min_steps:
-        if gid == "bglike":
-            opp_slot_id = 0
-        elif not use_self_play:
-            key = sample_scripted_key(scripted_distribution, game_rng)
-            scripted_opp = _create_scripted_opponent(
-                key, seed=seed + n_games * 997, game_id=gid
-            )
-            opp_sampler.set_opponent(scripted_opp)
-            opp_slot_id = SLOT_SCRIPTED
-        else:
-            opp_slot_id = _assign_minibg_opponent(
+        if gid != "bglike":
+            opp_slot_id, opp_scripted_key = _assign_minibg_opponent(
                 opp_sampler,
                 ppo_opponent,
+                league_sync=league_sync,
+                sampler=sampler,
                 current_sd=current_sd,
-                frozen_pool=frozen_pool,
-                slot_win_rates=slot_win_rates,
-                current_fraction=current_fraction,
-                past_fraction=past_fraction,
                 scripted_distribution=scripted_distribution,
+                scripted_slot_ids=scripted_slot_ids,
+                slot_id_to_scripted_key=slot_id_to_scripted_key,
                 game_rng=game_rng,
                 seed=seed,
                 game_index=n_games,
                 gid=gid,
+                use_self_play=use_self_play,
             )
 
         obs = env.reset()
@@ -709,10 +726,7 @@ def _collect_until_steps_structured(
             )
             step = env.step_structured(struct_act, board_perm=board_perm)
             info = step.info if isinstance(step.info, dict) else {}
-            step_done = bool(
-                env.done
-                or info.get("lobby_episode_done")
-            )
+            step_done = bool(env.done)
             next_sl: List[Any] = (
                 [] if step_done else list(env.legal_structured_actions())
             )
@@ -732,20 +746,25 @@ def _collect_until_steps_structured(
                 next_legal_mask=None,
             )
             agent.observe(transition)
-            closure_outcomes = apply_bglike_segment_closures_after_observe(env, info)
-            if gid == "bglike" and closure_outcomes:
-                game_outcomes.extend(
-                    (int(slot_id), normalize_agent_score(score))
-                    for slot_id, score in closure_outcomes
-                )
+            apply_bglike_segment_closures_after_observe(env, info)
             obs = step.obs
             if step_done:
                 last_info = info
                 break
 
-        if gid != "bglike":
+        if gid == "bglike":
+            last_info, lobby_record = collect_bglike_lobby_league_outcome(env, last_info)
+            if lobby_record is not None:
+                game_outcomes.append(lobby_record)
+        else:
             score = _episode_agent_score(env, last_info, mg)
-            game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
+            game_outcomes.append(
+                minibg_record_from_learner_score(
+                    opp_slot_id,
+                    normalize_agent_score(score),
+                    scripted_key=opp_scripted_key,
+                )
+            )
         env.notify_episode_end(last_info)
         n_games += 1
 
@@ -762,16 +781,16 @@ def _collect_until_steps(
     min_steps: int,
     mg: dict,
     current_sd: bytes,
-    frozen_pool: Dict[int, bytes],
-    slot_win_rates: Dict[int, float],
-    current_fraction: float,
-    past_fraction: float,
+    league_sync: LeagueSyncState,
+    sampler: LeagueSamplerConfig,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     game_rng: _random.Random,
     seed: int,
     round_idx: int,
     start_episode: int,
-) -> Tuple[int, int, Any, List[Tuple[int, AgentOutcome]]]:
+) -> Tuple[int, int, Any, List[GameRecord]]:
     if _use_structured_collect(mg):
         return _collect_until_steps_structured(
             agent,
@@ -779,11 +798,11 @@ def _collect_until_steps(
             min_steps=min_steps,
             mg=mg,
             current_sd=current_sd,
-            frozen_pool=frozen_pool,
-            slot_win_rates=slot_win_rates,
-            current_fraction=current_fraction,
-            past_fraction=past_fraction,
+            league_sync=league_sync,
+            sampler=sampler,
             scripted_distribution=scripted_distribution,
+            scripted_slot_ids=scripted_slot_ids,
+            slot_id_to_scripted_key=slot_id_to_scripted_key,
             game_rng=game_rng,
             seed=seed,
             round_idx=round_idx,
@@ -795,11 +814,11 @@ def _collect_until_steps(
         min_steps=min_steps,
         mg=mg,
         current_sd=current_sd,
-        frozen_pool=frozen_pool,
-        slot_win_rates=slot_win_rates,
-        current_fraction=current_fraction,
-        past_fraction=past_fraction,
+        league_sync=league_sync,
+        sampler=sampler,
         scripted_distribution=scripted_distribution,
+        scripted_slot_ids=scripted_slot_ids,
+        slot_id_to_scripted_key=slot_id_to_scripted_key,
         game_rng=game_rng,
         seed=seed,
         round_idx=round_idx,
@@ -817,9 +836,10 @@ def _worker_main(
     seed: int,
     mg: dict,
     device: str,
-    current_fraction: float,
-    past_fraction: float,
+    sampler: LeagueSamplerConfig,
     scripted_distribution: Dict[str, float],
+    scripted_slot_ids: Dict[str, int],
+    slot_id_to_scripted_key: Dict[int, str],
     start_episode: int,
     cmd_conn: Any,
     run_dir: str,
@@ -846,8 +866,7 @@ def _worker_main(
     agent.train()
 
     current_sd: bytes = _state_dict_bytes(agent, map_cpu=False)
-    frozen_pool: Dict[int, bytes] = {}
-    slot_win_rates: Dict[int, float] = {}
+    league_sync = LeagueSyncState(frozen_pool={}, win_rates={})
 
     game_rng = _random.Random(seed + worker_id * 777_777)
     round_seed_base = seed + worker_id * 10_000
@@ -861,8 +880,7 @@ def _worker_main(
             current_sd = msg[1]
 
         elif tag == "sync_league":
-            frozen_pool = dict(msg[1])
-            slot_win_rates = dict(msg[2])
+            league_sync = msg[1]
 
         elif tag == "play":
             round_idx: int = msg[1]
@@ -873,11 +891,11 @@ def _worker_main(
                 min_steps=min_steps,
                 mg=mg,
                 current_sd=current_sd,
-                frozen_pool=frozen_pool,
-                slot_win_rates=slot_win_rates,
-                current_fraction=current_fraction,
-                past_fraction=past_fraction,
+                league_sync=league_sync,
+                sampler=sampler,
                 scripted_distribution=scripted_distribution,
+                scripted_slot_ids=scripted_slot_ids,
+                slot_id_to_scripted_key=slot_id_to_scripted_key,
                 game_rng=game_rng,
                 seed=round_seed_base + round_idx * 1_000_003,
                 round_idx=round_idx,
@@ -954,7 +972,7 @@ class DistributedRoundResult:
     host_s: float
     upload_bytes: int
     sd_bytes: bytes                      # updated state dict (already broadcast to workers)
-    outcomes: List[Tuple[int, AgentOutcome]]
+    outcomes: List[GameRecord]
 
 
 # ---------------------------------------------------------------------------
@@ -1011,11 +1029,28 @@ class DistributedTrainer(BaseTrainer):
         scripted_distribution: Optional[Dict[str, float]] = None,
         max_pool_size: int = 20,
         ema_beta: float = 0.05,
+        rating: str = "ema",
+        trueskill: Optional[Dict[str, Any]] = None,
+        sampler_kind: str = "fractional",
         start_episode: int = 0,
         run_dir: Optional[str] = None,
     ) -> None:
-        self._league = LeagueController(ema_beta=ema_beta)
-        self._league.register_meta_slot(SLOT_SCRIPTED)
+        self._scripted_distribution: Dict[str, float] = dict(
+            scripted_distribution or {"random": 1.0}
+        )
+        self._scripted_slot_ids = build_scripted_slot_map(self._scripted_distribution.keys())
+        self._slot_id_to_scripted_key = invert_scripted_slot_map(self._scripted_slot_ids)
+        self._sampler = LeagueSamplerConfig(
+            kind=sampler_kind,
+            current_self_fraction=current_fraction,
+            past_self_fraction=past_fraction,
+        )
+        self._league = LeagueController(
+            ema_beta=ema_beta,
+            rating_kind=rating,
+            trueskill=trueskill,
+        )
+        self._league.register_scripted_slots(self._scripted_slot_ids)
         self._league.register_meta_slot(SLOT_CURRENT)
         self._frozen_pool: Dict[int, bytes] = {}
         super().__init__(
@@ -1033,9 +1068,6 @@ class DistributedTrainer(BaseTrainer):
         self._game_kwargs: Dict[str, Any] = dict(game_kwargs or {})
         self._current_fraction = current_fraction
         self._past_fraction = past_fraction
-        self._scripted_distribution: Dict[str, float] = dict(
-            scripted_distribution or {"random": 1.0}
-        )
         self._max_pool_size = max_pool_size
         self._start_episode = int(start_episode)
         self._run_dir = str(run_dir) if run_dir else ""
@@ -1054,6 +1086,7 @@ class DistributedTrainer(BaseTrainer):
         enable_stack_dump_on_signal()
         self._target_total_steps = total_steps
         self._spawn_workers()
+        self._broadcast_sync_league()
 
         for cb in self.callbacks:
             cb.on_train_begin(self)
@@ -1095,7 +1128,7 @@ class DistributedTrainer(BaseTrainer):
             [_payload_to_buffer(p[2], self._game_kwargs) for p in play_data],
             self._game_kwargs,
         )
-        all_outcomes: List[Tuple[int, AgentOutcome]] = [
+        all_outcomes: List[GameRecord] = [
             o for p in play_data for o in p[6]
         ]
 
@@ -1135,16 +1168,21 @@ class DistributedTrainer(BaseTrainer):
     def _add_to_pool(self, sd_bytes: bytes) -> None:
         slot_id = self._league.add_frozen_bytes(sd_bytes)
         self._frozen_pool[slot_id] = sd_bytes
-        self._league.evict_worst_ema(self._max_pool_size)
+        self._league.evict_worst(self._max_pool_size)
         live = {s.slot_id for s in self._league.frozen_slots()}
         self._frozen_pool = {k: v for k, v in self._frozen_pool.items() if k in live}
         self._broadcast_sync_league()
 
     def _broadcast_sync_league(self) -> None:
-        win_rates = self._league.win_rates()
-        payload = dict(self._frozen_pool)
+        snap = self._league.sync_snapshot()
+        league_sync = LeagueSyncState(
+            frozen_pool=dict(self._frozen_pool),
+            win_rates=dict(snap.win_rates),
+            rating_kind=snap.rating_kind,
+            trueskill=dict(snap.trueskill),
+        )
         for conn in self._conns:
-            conn.send(("sync_league", payload, win_rates))
+            conn.send(("sync_league", league_sync))
 
     def _spawn_workers(self) -> None:
         per_worker = math.ceil(self._rollout_steps / self._workers)
@@ -1163,9 +1201,10 @@ class DistributedTrainer(BaseTrainer):
                     self._seed,
                     self._game_kwargs,
                     self._worker_device,
-                    self._current_fraction,
-                    self._past_fraction,
+                    self._sampler,
                     self._scripted_distribution,
+                    self._scripted_slot_ids,
+                    self._slot_id_to_scripted_key,
                     self._start_episode,
                     child,
                     self._run_dir,

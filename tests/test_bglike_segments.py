@@ -12,12 +12,7 @@ from src.agents.ppo_structured_minibg_agent import (
 )
 from src.agents.rollout_segments import compute_gae_advantages
 from src.envs.bglike.obs import OBS_DIM
-from src.envs.bglike.placement import placement_reward, placement_score
-from src.training.bglike_perspective import (
-    league_outcomes_for_segment_closures,
-    read_opponent_slot_by_seat,
-)
-from src.training.selfplay.league_state import SLOT_SCRIPTED
+from src.envs.bglike.placement import placement_reward
 
 
 def test_gae_uniform_seat_ids_matches_linear_gae():
@@ -160,22 +155,8 @@ def test_structured_close_segment_updates_last_step_for_seat():
     assert agent.rollout_buffer.dones[0] is True
 
 
-def test_league_outcomes_per_segment_closure_dedupes_slots():
-    closures = [
-        {"seat": 1, "placement": 2, "placement_reward": placement_reward(2)},
-        {"seat": 3, "placement": 6, "placement_reward": placement_reward(6)},
-    ]
-    slot_by_seat = {4: SLOT_SCRIPTED, 5: 7, 6: 7, 7: SLOT_SCRIPTED}
-    outcomes = league_outcomes_for_segment_closures(closures, slot_by_seat)
-    assert outcomes == [
-        (SLOT_SCRIPTED, placement_score(2)),
-        (7, placement_score(2)),
-        (SLOT_SCRIPTED, placement_score(6)),
-        (7, placement_score(6)),
-    ]
-
-
 def test_read_opponent_slot_by_seat_prefers_slot_by_seat():
+    from src.training.bglike_perspective import read_opponent_slot_by_seat
     class Sampler:
         _slot_by_seat = {1: 3, 2: 4}
         _episode_slot_by_seat = {9: 9}

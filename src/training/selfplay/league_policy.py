@@ -80,6 +80,30 @@ def sample_scripted_key(distribution: Dict[str, float], rng: random.Random) -> s
     return keys[-1]
 
 
+def trueskill_quality_sample(
+    slot_ids: Sequence[int],
+    qualities: Sequence[float],
+    rng: random.Random,
+    *,
+    eps: float = 1e-6,
+) -> int:
+    """Weighted sample by match quality (higher = more informative matchup)."""
+    if not slot_ids:
+        raise ValueError("trueskill_quality_sample requires at least one slot_id")
+    weights = [max(float(q), eps) for q in qualities]
+    total = sum(weights)
+    ids = list(slot_ids)
+    if total <= 0:
+        return rng.choice(ids)
+    r = rng.random() * total
+    acc = 0.0
+    for slot_id, weight in zip(ids, weights):
+        acc += weight
+        if r <= acc:
+            return slot_id
+    return ids[-1]
+
+
 def selection_probabilities(ema_rates: Sequence[float], *, eps: float = 1e-2) -> List[float]:
     weights = pfsp_weights(ema_rates, eps=eps)
     total = sum(weights)
@@ -97,4 +121,5 @@ __all__ = [
     "sample_scripted_key",
     "selection_probabilities",
     "self_play_enabled",
+    "trueskill_quality_sample",
 ]

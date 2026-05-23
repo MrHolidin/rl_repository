@@ -1,7 +1,9 @@
 """Self-play training components."""
 
-from .league_policy import OpponentKind, decide_opponent_kind, pfsp_sample
-from .league_state import LeagueController, LeagueSnapshot, SLOT_CURRENT, SLOT_SCRIPTED
+from .game_record import GameRecord, SLOT_CURRENT, SLOT_SCRIPTED
+from .league_state import LeagueController, LeagueSnapshot
+from .rating_system import EmaPairwiseRating, RatingSystem, TrueSkillRating, make_rating_system
+from .slot_registry import SlotRegistry
 from .opponent_pool import (
     FrozenAgentInfo,
     OpponentPool,
@@ -11,16 +13,19 @@ from .opponent_pool import (
 )
 
 __all__ = [
+    "GameRecord",
     "OpponentPool",
     "FrozenAgentInfo",
     "ScriptedOpponentsSpec",
     "SelfPlayConfig",
     "SelfPlayOpponent",
-    "OpponentKind",
-    "decide_opponent_kind",
-    "pfsp_sample",
     "LeagueController",
     "LeagueSnapshot",
+    "EmaPairwiseRating",
+    "RatingSystem",
+    "TrueSkillRating",
+    "SlotRegistry",
+    "make_rating_system",
     "SLOT_CURRENT",
     "SLOT_SCRIPTED",
 ]

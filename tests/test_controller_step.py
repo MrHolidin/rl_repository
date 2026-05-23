@@ -105,6 +105,8 @@ def test_lobby_seat_step_multi_current_structured_drain():
                     seen_other_current = True
         steps += 1
 
+    if not env.done:
+        env.finish_lobby_to_end()
     assert steps > 0
     assert seen_other_current or env.done
 

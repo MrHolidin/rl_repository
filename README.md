@@ -195,6 +195,7 @@ python -m src.cli.play_agent_vs_agent \
 ## Документация
 
 - **[Pipeline](docs/pipeline.md)** — запуск обучения из YAML (`python -m src.cli.train --config ...`), структура конфига, `run_dir`, `meta.json`, коллбэки.
+- **[BG distributed stack](docs/bglike_distributed.md)** — MiniBG/BGLike, bg_core, structured PPO, league, distributed training.
 - **[Agents](docs/agents/README.md)** — агенты и инварианты (наблюдения, награды, маски ходов).
 
 ## Тестирование

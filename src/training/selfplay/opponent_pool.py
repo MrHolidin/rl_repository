@@ -4,7 +4,7 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 from src.agents import RandomAgent, HeuristicAgent, SmartHeuristicAgent
 from src.agents.othello import OthelloHeuristicAgent
@@ -13,7 +13,15 @@ from src.envs.base import StepResult
 from src.utils import freeze_agent
 
 from .league_policy import OpponentKind, decide_opponent_kind, pfsp_sample, sample_scripted_key, self_play_enabled
-from .league_state import AgentOutcome, LeagueController, SLOT_CURRENT, SLOT_SCRIPTED, normalize_agent_score
+from .game_record import (
+    GameRecord,
+    SLOT_CURRENT,
+    SLOT_SCRIPTED,
+    build_scripted_slot_map,
+    invert_scripted_slot_map,
+    minibg_record_from_learner_score,
+)
+from .league_state import LeagueController, normalize_agent_score
 
 
 @dataclass
@@ -55,7 +63,7 @@ class FrozenAgentInfo:
 
     @ema_win_rate.setter
     def ema_win_rate(self, value: float) -> None:
-        self._slot().ema_win_rate = float(value)
+        self._league.set_ema_win_rate(self.slot_id, float(value))
 
     @property
     def cumulative_win_rate(self) -> float:
@@ -76,6 +84,8 @@ class SelfPlayConfig:
     max_frozen_agents: int = 10
     save_every: int = 1000
     frozen_ema_beta: float = 0.05
+    rating: str = "ema"
+    trueskill: Optional[Dict[str, float]] = None
 
     def __post_init__(self) -> None:
         if self.start_episode < 0:
@@ -214,44 +224,54 @@ class OpponentPool:
         self.current_agent = current_agent
 
         beta = float(self_play_config.frozen_ema_beta) if self_play_config else 0.05
-        self._league = LeagueController(ema_beta=beta)
+        rating_kind = str(self_play_config.rating) if self_play_config else "ema"
+        trueskill_cfg = dict(self_play_config.trueskill or {}) if self_play_config else None
+        self._league = LeagueController(
+            ema_beta=beta,
+            rating_kind=rating_kind,
+            trueskill=trueskill_cfg,
+        )
+        self._scripted_slot_ids = build_scripted_slot_map(self._scripted.distribution.keys())
+        self._slot_id_to_scripted_key = invert_scripted_slot_map(self._scripted_slot_ids)
+        self._league.register_scripted_slots(self._scripted_slot_ids)
         self._league.register_meta_slot(SLOT_CURRENT)
-        self._league.register_meta_slot(SLOT_SCRIPTED)
 
         self.frozen_agents: List[FrozenAgentInfo] = []
-        self._last_sample_slot_id: int = SLOT_SCRIPTED
-        self._pending_outcomes: List[Tuple[int, float]] = []
+        default_scripted = next(iter(self._scripted_slot_ids.values()), SLOT_SCRIPTED)
+        self._last_sample_slot_id: int = default_scripted
+        self._last_scripted_key: Optional[str] = None
+        self._pending_records: List[GameRecord] = []
         self._rng = random.Random(seed)
 
-    def _create_scripted_opponent(self, episode: int):
-        key = sample_scripted_key(self._scripted.distribution, self._rng)
+    def _create_scripted_opponent(self, episode: int, *, key: Optional[str] = None):
+        bot_key = key or sample_scripted_key(self._scripted.distribution, self._rng)
         if self._scripted.mode == "minibg":
             from src.envs.minibg.heuristic_bots.agent_adapter import MiniBGHeuristicAgent
             from src.envs.minibg.heuristic_bots.tournament import make_bot
 
             rng_ep = self.seed + 100000 + episode
-            if key == "random":
+            if bot_key == "random":
                 return RandomAgent(seed=self.seed + 200000 + episode)
-            return MiniBGHeuristicAgent(make_bot(key, rng_ep + 31))
+            return MiniBGHeuristicAgent(make_bot(bot_key, rng_ep + 31))
 
         if self._scripted.mode == "bglike":
             from src.envs.bglike.heuristic_bots import make_heuristic_agent
 
             rng_ep = self.seed + 100000 + episode
-            if key == "random":
+            if bot_key == "random":
                 return RandomAgent(seed=self.seed + 200000 + episode)
-            return make_heuristic_agent(key, seed=rng_ep + 31)
+            return make_heuristic_agent(bot_key, seed=rng_ep + 31)
 
         opp_seed = self.seed + 100000 + episode
-        if key == "random":
+        if bot_key == "random":
             return RandomAgent(seed=opp_seed)
-        if key == "heuristic":
+        if bot_key == "heuristic":
             return HeuristicAgent(seed=opp_seed)
-        if key == "smart_heuristic":
+        if bot_key == "smart_heuristic":
             return SmartHeuristicAgent(seed=opp_seed)
-        if key == "othello_heuristic":
+        if bot_key == "othello_heuristic":
             return OthelloHeuristicAgent(seed=opp_seed)
-        raise ValueError(f"Unknown scripted opponent type: {key}")
+        raise ValueError(f"Unknown scripted opponent type: {bot_key}")
 
     def add_frozen_agent(self, checkpoint_path: str, episode: int) -> None:
         if not os.path.exists(checkpoint_path):
@@ -265,16 +285,20 @@ class OpponentPool:
             _league=self._league,
         )
         self.frozen_agents.append(info)
-        self._league.evict_worst_ema(self.max_frozen_agents)
+        self._league.evict_worst(self.max_frozen_agents)
         self._sync_frozen_list()
 
     def _sync_frozen_list(self) -> None:
         live = {s.slot_id for s in self._league.frozen_slots()}
         self.frozen_agents = [fa for fa in self.frozen_agents if fa.slot_id in live]
 
-    def apply_outcomes(self, outcomes: List[Tuple[int, AgentOutcome]]) -> None:
+    def submit(self, record: GameRecord) -> None:
+        """Queue one game record for batch league update."""
+        self._pending_records.append(record)
+
+    def apply_outcomes(self, records: Sequence[GameRecord]) -> None:
         """Batch-update league stats (call after rollout, not per episode)."""
-        self._league.apply_outcomes(outcomes)
+        self._league.apply_outcomes(records)
 
     def record_episode_outcome(self, agent_result: Optional[Union[int, float]]) -> None:
         """Record one game outcome for the last sampled opponent (pending until flush)."""
@@ -288,12 +312,20 @@ class OpponentPool:
         """Record learner outcome vs a specific league slot (pending until flush)."""
         if agent_result is None:
             return
-        self._pending_outcomes.append((int(slot_id), normalize_agent_score(agent_result)))
+        score = normalize_agent_score(agent_result)
+        sid = int(slot_id)
+        self.submit(
+            minibg_record_from_learner_score(
+                sid,
+                score,
+                scripted_key=self._slot_id_to_scripted_key.get(sid),
+            )
+        )
 
     def flush_pending_outcomes(self) -> None:
-        if self._pending_outcomes:
-            self.apply_outcomes(self._pending_outcomes)
-            self._pending_outcomes.clear()
+        if self._pending_records:
+            self.apply_outcomes(self._pending_records)
+            self._pending_records.clear()
 
     def _sample_frozen_info(self) -> Optional[FrozenAgentInfo]:
         if not self.frozen_agents:
@@ -360,7 +392,10 @@ class OpponentPool:
                     return self._get_loaded_frozen_agent(info, step=episode)
 
         self._last_sample_slot_id = SLOT_SCRIPTED
-        return self._create_scripted_opponent(episode)
+        key = sample_scripted_key(self._scripted.distribution, self._rng)
+        self._last_sample_slot_id = self._scripted_slot_ids[key]
+        self._last_scripted_key = key
+        return self._create_scripted_opponent(episode, key=key)
 
     def get_pool_stats(self) -> Dict[str, Any]:
         loaded_count = sum(1 for info in self.frozen_agents if info.loaded_agent is not None)
@@ -373,5 +408,8 @@ class OpponentPool:
             ),
         }
 
-    def get_frozen_stats_for_status(self) -> List[Dict[str, Any]]:
-        return self._league.get_frozen_stats_for_status()
+    def get_pool_stats_for_status(self) -> List[Dict[str, Any]]:
+        return self._league.get_pool_stats_for_status()
+
+    def get_status_file_data(self) -> Dict[str, Any]:
+        return self._league.get_status_file_data()

@@ -1307,6 +1307,15 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
                 out[s] = placement_for_seat(self._lobby.state, s)
         return out
 
+    def _placements_full(self) -> Dict[int, int]:
+        """Final placement for every seat that has finished (1 = winner, 8 = first out)."""
+        assert self._lobby is not None
+        out: Dict[int, int] = {}
+        for s in range(NUM_PLAYERS):
+            if is_seat_finished(self._lobby.state, s):
+                out[s] = placement_for_seat(self._lobby.state, s)
+        return out
+
     def _all_current_rewarded(self) -> bool:
         return self._rewarded_seats >= set(self._current_seats)
 
@@ -1330,9 +1339,30 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             for s in self._current_seats
             if s in self._rewarded_seats
         }
-        if self._all_current_rewarded() or self._lobby.episode_done:
+        if self._lobby.lobby_done:
             self._done = True
         return closures, placements
+
+    def finish_lobby_to_end(self) -> Dict[str, Any]:
+        """Auto-play remaining seats until the lobby winner is decided."""
+        assert self._lobby is not None
+        if not self._lobby.lobby_done:
+            self._lobby.drain_until_lobby_done(deterministic=False)
+        extra_closures, placements = self._finalize_lobby_if_needed()
+        self._acting_seat = None
+        self._done = bool(self._lobby.lobby_done)
+        acting = self._current_seats[0] if self._current_seats else 0
+        info = self._build_step_info(
+            acting,
+            LobbyStepInfo(
+                acting_seat=acting,
+                lobby_done=bool(self._lobby.lobby_done),
+            ),
+            placements,
+            segment_closures=extra_closures,
+        )
+        self._last_info = info
+        return info
 
     def step(self, action: int) -> StepResult:
         if self._done:
@@ -1410,6 +1440,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             "placement": place,
             "placement_reward": placement_reward(place) if place is not None else None,
             "placements_current": placements,
+            "placements_full": self._placements_full(),
             "segment_closures": list(segment_closures or ()),
             "lobby_episode_done": self._done,
             "combat_advanced": combat_advanced,
@@ -1549,7 +1580,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             )
         self._acting_seat = None
         self._finalize_lobby_if_needed()
-        if self._all_current_rewarded() or self._lobby.episode_done:
+        if self._lobby.lobby_done:
             self._done = True
 
     def notify_episode_end(self, info: dict) -> None:

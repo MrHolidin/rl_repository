@@ -67,6 +67,14 @@ train:
           t1_random: 0.25
           t_up_random: 0.25
           structured: 0.25
+      league:
+        rating:
+          kind: ema
+          ema_beta: 0.05
+        sampler:
+          kind: fractional
+          current_self_fraction: 0.4
+          past_self_fraction: 0.4
   callbacks:
     - type: checkpoint
       params:

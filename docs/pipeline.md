@@ -200,5 +200,6 @@ This creates `run_dir`, writes `config.yaml` and `meta.json`, builds env/agent/c
 
 ## See also
 
+- [BG distributed training stack](bglike_distributed.md) — MiniBG/BGLike, bg_core, structured PPO, league, distributed workers.
 - [Agents](agents/README.md) and [invariants](agents/invariants.md) for agent contracts and observation/reward conventions.
 - `src.training.trainer` for the training loop and callback hooks.

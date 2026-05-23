@@ -32,6 +32,7 @@ from src.training.run import (
     _set_seed,
     _write_pid,
 )
+from src.training.selfplay.league_config import parse_league_settings
 
 _current_trainer: Optional[DistributedTrainer] = None
 _original_sigterm_handler: Optional[Callable] = None
@@ -179,14 +180,19 @@ def run_distributed(
     agent.train()
 
     # --- Opponent params (from train.opponent_sampler, same as single-process) ---
-    sp = dict((app_cfg.train.opponent_sampler.params.get("self_play") or {}))
-    current_fraction = float(sp.get("current_self_fraction", 0.4))
-    past_fraction = float(sp.get("past_self_fraction", 0.4))
+    opp_params = dict(app_cfg.train.opponent_sampler.params or {})
+    league_settings = parse_league_settings(opp_params)
+    sp = dict(opp_params.get("self_play") or {})
+    current_fraction = league_settings.sampler.current_self_fraction
+    past_fraction = league_settings.sampler.past_self_fraction
     start_episode = int(sp.get("start_episode", 0))
     max_pool_size = int(sp.get("max_frozen_agents", 20))
-    ema_beta = float(sp.get("frozen_ema_beta", 0.05))
+    ema_beta = league_settings.rating.ema_beta
+    rating = league_settings.rating.kind
+    trueskill_cfg = league_settings.rating.trueskill
+    sampler_kind = league_settings.sampler.kind
 
-    scripted_spec = _build_scripted_spec(app_cfg.game.id, app_cfg.train.opponent_sampler.params)
+    scripted_spec = _build_scripted_spec(app_cfg.game.id, opp_params)
     scripted_distribution = dict(scripted_spec.distribution)
 
     # --- Callbacks (same config keys as single-process) ---
@@ -240,6 +246,9 @@ def run_distributed(
         scripted_distribution=scripted_distribution,
         max_pool_size=max_pool_size,
         ema_beta=ema_beta,
+        rating=rating,
+        trueskill=trueskill_cfg,
+        sampler_kind=sampler_kind,
         start_episode=start_episode,
         run_dir=str(run_dir),
     )

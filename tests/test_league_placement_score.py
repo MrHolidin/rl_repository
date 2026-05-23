@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from src.envs.bglike.placement import (
+    pairwise_learner_score,
     placement_reward,
     placement_reward_to_score,
     placement_score,
 )
-from src.training.selfplay.league_state import LeagueController, normalize_agent_score
+from src.training.selfplay.game_record import (
+    GameRecord,
+    ParticipantOutcome,
+    league_updates_from_record,
+)
+from src.training.selfplay.league_state import SLOT_CURRENT, normalize_agent_score
 
 
 def test_placement_score_bounds_and_monotone():
@@ -29,13 +35,20 @@ def test_legacy_int_outcomes_normalize():
     assert normalize_agent_score(0) == 0.5
 
 
-def test_league_ema_uses_continuous_placement():
-    league = LeagueController(ema_beta=1.0)
-    league.add_frozen_bytes(b"x", episode=0)
+def test_pairwise_learner_score():
+    assert pairwise_learner_score(2, 5) == 1.0
+    assert pairwise_learner_score(5, 2) == 0.0
+    assert pairwise_learner_score(4, 4) == 0.5
+
+
+def test_league_updates_from_record_matches_pairwise_score():
     slot_id = 0
-    league.apply_outcomes([(slot_id, placement_score(1))])
-    assert league.get_slot(slot_id).ema_win_rate == 0.0
-    league.apply_outcomes([(slot_id, placement_score(8))])
-    assert league.get_slot(slot_id).ema_win_rate == 1.0
-    league.apply_outcomes([(slot_id, placement_score(4))])
-    assert abs(league.get_slot(slot_id).ema_win_rate - (1.0 - placement_score(4))) < 1e-9
+    record = GameRecord(
+        (
+            ParticipantOutcome(SLOT_CURRENT, 4),
+            ParticipantOutcome(slot_id, 5),
+        )
+    )
+    updates = league_updates_from_record(record)
+    assert len(updates) == 1
+    assert updates[0] == (slot_id, pairwise_learner_score(4, 5))
