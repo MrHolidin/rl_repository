@@ -1,7 +1,6 @@
-# DEPRECATED: flat MLP is rejected at startup. Use configs/bglike/ppo_structured_dist.yaml.
-# BGLike 8p distributed PPO (flat MLP, not structured).
+# BGLike 8p distributed PPO (structured policy; board order on COMPLETE_TURN).
 #   python -m src.cli.train_distributed \
-#       --config configs/bglike/ppo_mlp_dist.yaml \
+#       --config configs/bglike/ppo_structured_dist.yaml \
 #       --run_dir runs/bglike/dist_ppo_001
 seed: 13
 
@@ -10,15 +9,27 @@ game:
   params:
     seed: 13
     battle_damage_shaping: 0.06
-    num_current_seats: 4
+    num_current_seats: 1
 
 agent:
   id: ppo
   params:
-    network_type: minibg_mlp
+    network_type: bglike_structured
     observation_shape: [1359]
     observation_type: vector
-    mlp_hidden_size: 256
+    slot_hidden_channels: 32
+    trunk_hidden_size: 256
+    region_conv2_kernel: 1
+    card_emb_dim: 16
+    entity_attention_layers: 1
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 2
+    entity_attention_init_scale: 0.1
+    use_global_entity_token: true
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
     learning_rate: 0.0001
     discount_factor: 1.0
     gae_lambda: 0.95
@@ -45,8 +56,8 @@ train:
       seed: 103
       self_play:
         start_episode: 0
-        current_self_fraction: 0.0
-        past_self_fraction: 0.6
+        current_self_fraction: 0.4
+        past_self_fraction: 0.4
         max_frozen_agents: 20
         save_every: 1000
         frozen_ema_beta: 0.05

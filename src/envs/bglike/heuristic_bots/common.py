@@ -17,6 +17,7 @@ from ..action_map import (
     NUM_ENV_ACTIONS,
     NUM_SWAP_ADJ,
     is_apply_effect_skip,
+    is_swap_board,
     is_target_board,
 )
 from ..actions import BOARD_SIZE
@@ -34,6 +35,9 @@ def masked_finish(mask: np.ndarray) -> int:
     legal = legal_env_indices(mask)
     if not legal:
         raise RuntimeError("masked_finish: legal_actions_mask has no True entries")
+    non_swap = [a for a in legal if not is_swap_board(a)]
+    if non_swap:
+        return int(non_swap[0])
     return int(legal[0])
 
 
@@ -74,13 +78,41 @@ def perm_from_desired_order(k: int, order: Sequence[int]) -> Tuple[int, ...]:
     return tuple(list(order) + tail)
 
 
-def choose_one_swap_toward_perm(
-    board: List[Minion], mask: np.ndarray, perm: Tuple[int, ...]
+def _perm_mismatch_count(board: List[Minion], target: List[Minion]) -> int:
+    return sum(1 for i in range(len(board)) if board[i] is not target[i])
+
+
+def _board_after_adj_swap(board: List[Minion], si: int) -> List[Minion]:
+    out = list(board)
+    out[si], out[si + 1] = out[si + 1], out[si]
+    return out
+
+
+def _canonical_board_order(
+    board: List[Minion],
+    key_fn: Callable[[int, Sequence[Minion | None]], tuple],
+) -> List[Minion]:
+    """Fixed left-to-right target for the current board multiset (key + object id)."""
+    return [
+        board[i]
+        for i in sorted(
+            range(len(board)),
+            key=lambda oi: (key_fn(oi, board), id(board[oi])),
+        )
+    ]
+
+
+def _board_matches_target(board: List[Minion], target: List[Minion]) -> bool:
+    return all(board[i] is target[i] for i in range(len(board)))
+
+
+def choose_one_swap_toward_target(
+    board: List[Minion], mask: np.ndarray, target: List[Minion]
 ) -> int:
     k = len(board)
     if k <= 1:
         return masked_finish(mask)
-    target = target_board_from_perm(board, perm)
+    dist_before = _perm_mismatch_count(board, target)
     for i in range(k):
         if board[i] is not target[i]:
             want = target[i]
@@ -93,15 +125,32 @@ def choose_one_swap_toward_perm(
                 and si + 1 < k
                 and bool(mask[A_SWAP_BOARD_0 + si])
             ):
+                after = _board_after_adj_swap(board, si)
+                dist_after = _perm_mismatch_count(after, target)
+                if dist_after >= dist_before:
+                    return masked_finish(mask)
+                # Reject swap indices that only 2-cycle without reaching target.
+                back = _board_after_adj_swap(after, si)
+                if dist_after > 0 and all(back[i] is board[i] for i in range(k)):
+                    return masked_finish(mask)
                 return int(A_SWAP_BOARD_0 + si)
             return masked_finish(mask)
     return masked_finish(mask)
 
 
+def choose_one_swap_toward_perm(
+    board: List[Minion], mask: np.ndarray, perm: Tuple[int, ...]
+) -> int:
+    return choose_one_swap_toward_target(
+        board, mask, target_board_from_perm(board, perm)
+    )
+
+
 def choose_final_order(
     board: List[Minion],
     mask: np.ndarray,
-    key_fn: Callable[[int, Sequence[Minion | None]], Tuple[float, int]] | None,
+    key_fn: Callable[[int, Sequence[Minion | None]], Tuple[float, str, float, float]]
+    | None,
 ) -> int:
     k = len(board)
     if k == 0:
@@ -110,6 +159,7 @@ def choose_final_order(
         from src.envs.minibg.heuristic_bots.common import order_key_default
 
         key_fn = order_key_default
-    order = sorted(range(k), key=lambda oi: key_fn(oi, board))
-    perm = perm_from_desired_order(k, order)
-    return choose_one_swap_toward_perm(board, mask, perm)
+    target = _canonical_board_order(board, key_fn)
+    if _board_matches_target(board, target):
+        return masked_finish(mask)
+    return choose_one_swap_toward_target(board, mask, target)

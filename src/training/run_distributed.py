@@ -10,7 +10,12 @@ from typing import Any, Callable, Optional, Union
 from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
 from src.config import load_config
 from src.features.action_space import DiscreteActionSpace
-from src.models.ppo_policy_factory import PPO_NETWORK_MINIBG_STRUCTURED
+from src.models.ppo_policy_factory import (
+    PPO_NETWORK_BGLIKE_STRUCTURED,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V2,
+    PPO_NETWORK_MINIBG_STRUCTURED,
+)
+from src.training.bg_network_policy import reject_flat_bg_network
 from src.registry import make_agent, make_game
 from src.training.callbacks import MetricsFileCallback, StatusFileCallback
 from src.training.distributed_trainer import (
@@ -108,7 +113,12 @@ def run_distributed(
 
     agent_params = dict(app_cfg.agent.params)
     network_type = str(agent_params.get("network_type", "")).strip().lower()
-    use_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
+    reject_flat_bg_network(game_id, network_type)
+    use_structured = network_type in (
+        PPO_NETWORK_MINIBG_STRUCTURED,
+        PPO_NETWORK_BGLIKE_STRUCTURED,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V2,
+    )
     game_params["use_structured"] = use_structured
 
     if game_id == "bglike":
@@ -118,11 +128,6 @@ def run_distributed(
         num_actions = int(NUM_ENV_ACTIONS)
         agent_params.setdefault("observation_shape", (OBS_DIM,))
         agent_params.setdefault("observation_type", "vector")
-        if use_structured:
-            raise ValueError(
-                "distributed BGLike requires flat PPO (network_type: minibg_mlp or flat_mlp), "
-                "not minibg_structured"
-            )
     else:
         base_env = make_game(app_cfg.game.id, **game_params)
         legal_mask = getattr(base_env, "legal_actions_mask", None)

@@ -239,9 +239,13 @@ def board_power(
     )
 
 
+def _minion_stable_order_key(m: Minion) -> Tuple[str, float, float]:
+    return (m.card_id, float(m.raw_attack), float(m.max_health))
+
+
 def order_key_structured(
     old_idx: int, board: Sequence[Minion | None]
-) -> Tuple[float, int]:
+) -> Tuple[float, str, float, float]:
     m = board[old_idx]
     assert m is not None
     # Keys must not depend on ``old_idx`` (only on the minion). Shop reorder uses
@@ -259,7 +263,7 @@ def order_key_structured(
     if any(ab.trigger == Trigger.ON_DEATH for ab in m.abilities):
         w += 20.0
 
-    return (w, old_idx)
+    return (w,) + _minion_stable_order_key(m)
 
 
 ADAPT_KEY_SCORE: Dict[str, float] = {

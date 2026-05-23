@@ -68,9 +68,11 @@ def test_heuristic_drain_seat_not_learner_acting_seat():
     assert opp is not None
     mask_before = inner.legal_mask_for_seat(opp).copy()
     env._acting_seat = 0
-    seat, action, _ = inner.step_auto(opp, deterministic=True)
-    assert seat == opp
-    assert mask_before[action]
+    auto = inner.step_auto(opp, deterministic=True)
+    assert auto.seat == opp
+    assert mask_before[auto.action]
+    assert auto.control_path == "flat"
+    assert "structured" in auto.controller or "t1" in auto.controller or "BGLike" in auto.controller
 
 
 def test_agent_perspective_with_heuristic_opponent():

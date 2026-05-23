@@ -125,6 +125,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             opponent_seats = [s for s in range(NUM_PLAYERS) if s not in current]
             opponents_by_seat = self.opponent_sampler.sample_for_seats(opponent_seats)
             self._opponent_slot_by_seat = read_opponent_slot_by_seat(self.opponent_sampler)
+            self._bg_base._opponent_slot_by_seat = dict(self._opponent_slot_by_seat)
             self._bg_base.set_agents(self._learner, opponents_by_seat)
             seen_env: set[int] = set()
             for opp in opponents_by_seat.values():
@@ -176,6 +177,34 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             raise RuntimeError("Episode is done; call reset() first.")
 
         base_step = self._bg_base.step(action)
+        info = dict(base_step.info) if isinstance(base_step.info, dict) else {}
+
+        lobby_done = bool(self._bg_base.done or info.get("lobby_episode_done"))
+        if lobby_done:
+            reward = self._final_reward_for_agent(info)
+        else:
+            reward = self._reward_in_agent_perspective(base_step, agent_acted=True)
+        if lobby_done:
+            self._done = True
+
+        return StepResult(
+            obs=base_step.obs,
+            reward=reward,
+            terminated=lobby_done,
+            truncated=False,
+            info=info,
+        )
+
+    def step_structured(
+        self,
+        action,
+        *,
+        board_perm=None,
+    ) -> StepResult:
+        if self._done:
+            raise RuntimeError("Episode is done; call reset() first.")
+
+        base_step = self._bg_base.step_structured(action, board_perm=board_perm)
         info = dict(base_step.info) if isinstance(base_step.info, dict) else {}
 
         lobby_done = bool(self._bg_base.done or info.get("lobby_episode_done"))

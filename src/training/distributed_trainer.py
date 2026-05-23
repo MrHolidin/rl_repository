@@ -291,7 +291,10 @@ def _minibg_game_kwargs(mg: dict) -> dict:
 
 
 def _use_structured_collect(mg: dict) -> bool:
-    return _game_id(mg) == "minibg" and bool(mg.get("use_structured", True))
+    gid = _game_id(mg)
+    if gid not in ("minibg", "bglike"):
+        return False
+    return bool(mg.get("use_structured", True))
 
 
 def _apply_ppo_hparams(
@@ -341,6 +344,7 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
             out.log_probs.extend(buf.log_probs)
             out.next_obs.extend(buf.next_obs)
             out.next_legal_lists.extend(buf.next_legal_lists)
+            out.seat_ids.extend(buf.seat_ids)
         return out
     out = RolloutBuffer()
     for buf in buffers:
@@ -630,22 +634,43 @@ def _collect_until_steps_structured(
     if hasattr(ppo_opponent, "epsilon"):
         ppo_opponent.epsilon = 0.0
 
-    opp_sampler = _MutableOpponentSampler()
-    env = _make_collect_env(mg, opp_sampler, seed=seed)
-
-    game_outcomes: List[Tuple[int, AgentOutcome]] = []
-    n_games = 0
+    gid = _game_id(mg)
     use_self_play = self_play_enabled(
         episode=round_idx,
         start_episode=start_episode,
         has_self_play_config=True,
     )
+    if gid == "bglike":
+        opp_sampler = _DistributedBglikeOpponentSampler(
+            game_rng=game_rng,
+            use_self_play=use_self_play,
+            frozen_pool=frozen_pool,
+            slot_win_rates=slot_win_rates,
+            current_fraction=current_fraction,
+            past_fraction=past_fraction,
+            scripted_distribution=scripted_distribution,
+            seed=seed,
+            game_index=0,
+            gid=gid,
+            current_sd=current_sd,
+            ppo_opponent=ppo_opponent,
+        )
+    else:
+        opp_sampler = _MutableOpponentSampler()
+    env = _make_collect_env(mg, opp_sampler, seed=seed)
+    if gid == "bglike":
+        env.set_learner_agent(agent)
+
+    game_outcomes: List[Tuple[int, AgentOutcome]] = []
+    n_games = 0
 
     while len(agent.rollout_buffer) < min_steps:
-        if not use_self_play:
+        if gid == "bglike":
+            opp_slot_id = 0
+        elif not use_self_play:
             key = sample_scripted_key(scripted_distribution, game_rng)
             scripted_opp = _create_scripted_opponent(
-                key, seed=seed + n_games * 997, game_id="minibg"
+                key, seed=seed + n_games * 997, game_id=gid
             )
             opp_sampler.set_opponent(scripted_opp)
             opp_slot_id = SLOT_SCRIPTED
@@ -662,7 +687,7 @@ def _collect_until_steps_structured(
                 game_rng=game_rng,
                 seed=seed,
                 game_index=n_games,
-                gid="minibg",
+                gid=gid,
             )
 
         obs = env.reset()
@@ -670,18 +695,27 @@ def _collect_until_steps_structured(
         while not env.done:
             legal_list = env.legal_structured_actions()
             if not legal_list:
-                from src.envs.minibg.invariants import assert_shop_has_legal_actions
+                if gid == "minibg":
+                    from src.envs.minibg.invariants import assert_shop_has_legal_actions
 
-                assert_shop_has_legal_actions(
-                    env.state,
-                    [],
-                    where="distributed_trainer._collect_until_steps.agent_turn",
-                )
+                    assert_shop_has_legal_actions(
+                        env.state,
+                        [],
+                        where="distributed_trainer._collect_until_steps.agent_turn",
+                    )
+                break
             struct_act, board_perm, idx = agent.act_structured(
                 obs, legal_list, env, deterministic=False
             )
             step = env.step_structured(struct_act, board_perm=board_perm)
-            next_sl: List[Any] = [] if step.done else list(env.legal_structured_actions())
+            info = step.info if isinstance(step.info, dict) else {}
+            step_done = bool(
+                env.done
+                or info.get("lobby_episode_done")
+            )
+            next_sl: List[Any] = (
+                [] if step_done else list(env.legal_structured_actions())
+            )
             transition = Transition(
                 obs=obs,
                 action=idx,
@@ -690,7 +724,7 @@ def _collect_until_steps_structured(
                 terminated=step.terminated,
                 truncated=step.truncated,
                 info={
-                    **(step.info if isinstance(step.info, dict) else {}),
+                    **info,
                     INFO_STRUCT_LEGAL: legal_list,
                     INFO_STRUCT_NEXT_LEGAL: next_sl,
                 },
@@ -698,12 +732,20 @@ def _collect_until_steps_structured(
                 next_legal_mask=None,
             )
             agent.observe(transition)
+            closure_outcomes = apply_bglike_segment_closures_after_observe(env, info)
+            if gid == "bglike" and closure_outcomes:
+                game_outcomes.extend(
+                    (int(slot_id), normalize_agent_score(score))
+                    for slot_id, score in closure_outcomes
+                )
             obs = step.obs
-            if step.done:
-                last_info = step.info if isinstance(step.info, dict) else {}
+            if step_done:
+                last_info = info
+                break
 
-        score = _episode_agent_score(env, last_info, mg)
-        game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
+        if gid != "bglike":
+            score = _episode_agent_score(env, last_info, mg)
+            game_outcomes.append((opp_slot_id, normalize_agent_score(score)))
         env.notify_episode_end(last_info)
         n_games += 1
 

@@ -1,0 +1,126 @@
+"""Multi-seat rollout segment logic for PPO with interleaved learner trajectories.
+
+The rollout buffer mixes transitions from multiple lobby seats (controlled by
+the same policy). Each seat is its own RL trajectory: actions of one seat do
+not appear in another seat's return. ``compute_gae_advantages`` reflects this
+by running GAE per seat — bootstrapping from the next same-seat value, treating
+``dones[t]=True`` as a terminal (set by ``close_rollout_segment`` when the seat
+is eliminated/finished).
+
+For single-seat callers (uniform ``seat_ids``, e.g. all ``-1`` from MiniBG 2p /
+Connect4 / Othello) the function reduces to the standard linear GAE.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Protocol, Tuple, runtime_checkable
+
+import numpy as np
+
+
+@runtime_checkable
+class SegmentRolloutBuffer(Protocol):
+    rewards: List[float]
+    dones: List[bool]
+    obs: List[np.ndarray]
+    next_obs: List[np.ndarray]
+    seat_ids: List[int]
+
+
+def acting_seat_from_info(info: Any) -> int:
+    if isinstance(info, dict):
+        acting = info.get("acting_seat")
+        if acting is not None:
+            return int(acting)
+    return -1
+
+
+def close_rollout_segment(
+    buf: SegmentRolloutBuffer,
+    seat: int,
+    terminal_reward: float,
+) -> bool:
+    seat = int(seat)
+    for idx in range(len(buf.seat_ids) - 1, -1, -1):
+        if buf.seat_ids[idx] == seat:
+            buf.rewards[idx] = float(terminal_reward)
+            buf.dones[idx] = True
+            buf.next_obs[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
+            return True
+    return False
+
+
+def seat_ids_array(seat_ids: List[int], n: int) -> np.ndarray:
+    if seat_ids:
+        return np.array(seat_ids, dtype=np.int64)
+    return np.full(n, -1, dtype=np.int64)
+
+
+def compute_gae_advantages(
+    rewards: np.ndarray,
+    values: np.ndarray,
+    dones: np.ndarray,
+    seat_ids: np.ndarray,
+    *,
+    discount_factor: float,
+    gae_lambda: float,
+    last_next_value: float = 0.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Per-seat GAE: each seat is an independent trajectory interleaved with others.
+
+    Within each seat's index list (preserving buffer order):
+      - ``dones[t]=True`` → terminal: bootstrap=0, GAE accumulator resets.
+      - Else if the seat has a later in-buffer step → bootstrap from
+        ``values[t_next_same_seat]``.
+      - Else (seat's last in-buffer step is also the buffer's last and not done)
+        → bootstrap from ``last_next_value``.
+      - Other seats whose last in-buffer step is mid-trajectory: zero bootstrap.
+        In practice the collector closes every active seat at game end, so this
+        branch is dead; if reached, the resulting bias is bounded by one step.
+
+    For uniform ``seat_ids`` (e.g. all ``-1``) reduces to standard linear GAE
+    bit-identically.
+    """
+    n = int(len(rewards))
+    advantages = np.zeros(n, dtype=np.float32)
+    if n == 0:
+        return advantages, advantages.copy()
+
+    seat_to_idxs: Dict[int, List[int]] = {}
+    for t in range(n):
+        seat_to_idxs.setdefault(int(seat_ids[t]), []).append(t)
+
+    last_idx = n - 1
+    last_done = bool(dones[last_idx])
+
+    for _seat, idxs in seat_to_idxs.items():
+        gae = 0.0
+        for j in reversed(range(len(idxs))):
+            t = idxs[j]
+            if bool(dones[t]):
+                next_value = 0.0
+                cont = 0.0
+            elif j < len(idxs) - 1:
+                next_value = float(values[idxs[j + 1]])
+                cont = 1.0
+            elif t == last_idx and not last_done:
+                next_value = float(last_next_value)
+                cont = 1.0
+            else:
+                next_value = 0.0
+                cont = 1.0
+            delta = float(rewards[t]) + discount_factor * next_value * cont - float(values[t])
+            gae = delta + discount_factor * gae_lambda * cont * gae
+            advantages[t] = gae
+
+    returns = advantages + values.astype(np.float32)
+    return advantages, returns
+
+
+__all__ = [
+    "SegmentRolloutBuffer",
+    "acting_seat_from_info",
+    "close_rollout_segment",
+    "compute_gae_advantages",
+    "seat_ids_array",
+]

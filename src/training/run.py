@@ -36,6 +36,7 @@ from src.training.bglike_perspective import (
     make_bglike_agent_perspective_env,
     make_bglike_shaping_fn,
 )
+from src.training.bg_network_policy import reject_flat_bg_network
 from src.training.trainer import StartPolicy, Trainer
 from src.training.connect4_augmentations import make_connect4_horizontal_augmenter
 from src.training.othello_augmentations import make_othello_d4_augmenter
@@ -410,6 +411,7 @@ def run(
     game_id = (app_cfg.game.id or "").strip().lower()
 
     agent_params: Dict[str, Any] = dict(app_cfg.agent.params)
+    reject_flat_bg_network(game_id, str(agent_params.get("network_type", "")))
     base_env = None
     if game_id == "bglike":
         from src.envs.bglike.action_map import NUM_ENV_ACTIONS

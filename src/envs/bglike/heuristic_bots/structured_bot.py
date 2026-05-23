@@ -30,7 +30,6 @@ from src.envs.minibg.heuristic_bots.value_model import (
     board_power,
     dominant_race,
     minion_shop_value,
-    order_key_structured,
     roll_threshold_adjusted,
     rounds_left_estimate,
     triple_cluster_keep_bonus_board,
@@ -48,7 +47,6 @@ from .bots import (
     _replacement_sell_actions,
 )
 from .common import (
-    choose_final_order,
     legal_env_indices,
     masked_finish,
     pick_rl_apply_action,
@@ -77,9 +75,6 @@ class StructuredHeuristicBot(HeuristicBot):
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
-        swap = choose_final_order(p.board, mask, order_key_structured)
-        if swap != A_FINISH and bool(mask[swap]):
-            return swap
         for i in range(HAND_SIZE):
             if i < len(p.hand) and bool(mask[A_PLACE_BASE + i]):
                 return A_PLACE_BASE + i

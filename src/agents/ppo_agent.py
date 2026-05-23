@@ -11,6 +11,12 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 from .base_agent import BaseAgent
+from .rollout_segments import (
+    acting_seat_from_info,
+    close_rollout_segment,
+    compute_gae_advantages,
+    seat_ids_array,
+)
 from ..features.action_space import ActionSpace, DiscreteActionSpace
 from ..features.observation_builder import ObservationType
 from ..models.author_critic_network import ActorCriticCNN
@@ -78,41 +84,6 @@ class RolloutBuffer:
         self.next_obs.clear()
         self.next_legal_masks.clear()
         self.seat_ids.clear()
-
-
-def compute_gae_advantages(
-    rewards: np.ndarray,
-    values: np.ndarray,
-    dones: np.ndarray,
-    seat_ids: np.ndarray,
-    *,
-    discount_factor: float,
-    gae_lambda: float,
-    last_next_value: float = 0.0,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """GAE with zero bootstrap across ``seat_id`` boundaries (independent learner segments)."""
-    n = int(len(rewards))
-    advantages = np.zeros(n, dtype=np.float32)
-    gae = 0.0
-    for t in reversed(range(n)):
-        if t == n - 1:
-            if bool(dones[t]):
-                next_value = 0.0
-                cont = 0.0
-            else:
-                next_value = float(last_next_value)
-                cont = 1.0
-        elif bool(dones[t]) or int(seat_ids[t]) != int(seat_ids[t + 1]):
-            next_value = 0.0
-            cont = 0.0
-        else:
-            next_value = float(values[t + 1])
-            cont = 1.0
-        delta = rewards[t] + discount_factor * next_value * cont - values[t]
-        gae = delta + discount_factor * gae_lambda * cont * gae
-        advantages[t] = gae
-    returns = advantages + values
-    return advantages, returns
 
 
 class PPOAgent(BaseAgent):
@@ -317,10 +288,7 @@ class PPOAgent(BaseAgent):
             done = transition.terminated or transition.truncated
             legal_mask = transition.legal_mask
             next_legal_mask = transition.next_legal_mask
-            if isinstance(getattr(transition, "info", None), dict):
-                acting = transition.info.get("acting_seat")
-                if acting is not None:
-                    seat_id = int(acting)
+            seat_id = acting_seat_from_info(getattr(transition, "info", None))
         else:
             obs, action, reward, next_obs, done, *_rest = transition
             if len(_rest) >= 2:
@@ -335,13 +303,6 @@ class PPOAgent(BaseAgent):
         if cache is None or cache["action"] != int(action):
             self.step_count += 1
             return {}
-
-        buf = self.rollout_buffer
-        if buf.seat_ids and seat_id >= 0:
-            prev_seat = int(buf.seat_ids[-1])
-            if prev_seat != int(seat_id) and not buf.dones[-1]:
-                buf.dones[-1] = True
-                buf.next_obs[-1] = np.asarray(buf.obs[-1], dtype=np.float32)
 
         if next_legal_mask is None:
             next_legal_mask = np.ones(self.num_actions, dtype=bool)
@@ -372,15 +333,7 @@ class PPOAgent(BaseAgent):
         """
         if not self.training:
             return False
-        buf = self.rollout_buffer
-        seat = int(seat)
-        for idx in range(len(buf.seat_ids) - 1, -1, -1):
-            if buf.seat_ids[idx] == seat:
-                buf.rewards[idx] = float(terminal_reward)
-                buf.dones[idx] = True
-                buf.next_obs[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
-                return True
-        return False
+        return close_rollout_segment(self.rollout_buffer, seat, terminal_reward)
 
     def update(self) -> Dict[str, float]:
         """
@@ -447,11 +400,7 @@ class PPOAgent(BaseAgent):
                 _, v_last = self.policy_net(no, legal_mask=nlm)
             last_next_value = float(v_last.reshape(()).item())
 
-        seat_ids_arr = (
-            np.array(self.rollout_buffer.seat_ids, dtype=np.int64)
-            if self.rollout_buffer.seat_ids
-            else np.full(N, -1, dtype=np.int64)
-        )
+        seat_ids_arr = seat_ids_array(self.rollout_buffer.seat_ids, N)
         adv_np, ret_np = compute_gae_advantages(
             rewards_arr,
             values_arr,

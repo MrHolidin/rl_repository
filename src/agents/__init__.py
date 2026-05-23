@@ -14,6 +14,8 @@ from ..features.observation_builder import BoardChannels
 from ..models import Connect4DQN, Connect4QRDQN, OthelloDQN, OthelloQRDQN
 from ..models.minibg_structured_ac import MiniBGStructuredActorCritic
 from ..models.ppo_policy_factory import (
+    PPO_NETWORK_BGLIKE_STRUCTURED,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V2,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -226,6 +228,10 @@ if "ppo" not in list_agents():
 
         is_minibg = network_type == PPO_NETWORK_MINIBG_SLOT
         is_minibg_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
+        is_bglike_structured = network_type == PPO_NETWORK_BGLIKE_STRUCTURED
+        is_bglike_structured_v2 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V2
+        is_structured_v1 = is_minibg_structured or is_bglike_structured
+        is_structured = is_structured_v1 or is_bglike_structured_v2
         is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
         obs_type = kwargs.get("observation_type")
@@ -251,16 +257,22 @@ if "ppo" not in list_agents():
             kwargs.pop("action_space", None)
             return PPOAgent(**_filter_ppo_agent_kwargs(kwargs))
 
-        if is_minibg_structured:
+        if is_structured:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    "PPO network_type minibg_structured requires observation_shape (OBS_DIM,) "
-                    "and num_actions from the environment config."
+                    f"PPO network_type {network_type!r} requires "
+                    "observation_shape (OBS_DIM,) and num_actions from the environment config."
                 )
-            slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
-            trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
+            if is_bglike_structured or is_bglike_structured_v2:
+                from src.envs.bglike.obs import OBS_DIM as _expected_obs
+
+                if tuple(obs_shape) != (_expected_obs,):
+                    raise ValueError(
+                        f"PPO network_type {network_type!r} requires observation_shape [{_expected_obs}]"
+                    )
+
+            # Common knobs (defaults differ between v1 and v2 — see below).
             region_conv2_kernel = int(kwargs.pop("region_conv2_kernel", 1))
-            state_dim = int(kwargs.pop("state_dim", 128))
             action_dim = int(kwargs.pop("action_dim", 64))
             interaction_dim = int(kwargs.pop("interaction_dim", 64))
             order_hidden = int(kwargs.pop("order_hidden", 64))
@@ -269,34 +281,70 @@ if "ppo" not in list_agents():
             order_score_hidden = int(kwargs.pop("order_score_hidden", 64))
             critic_hidden = int(kwargs.pop("critic_hidden", 128))
             card_emb_dim = int(kwargs.pop("card_emb_dim", 16))
-            entity_attention_layers = int(kwargs.pop("entity_attention_layers", 0))
             entity_attention_heads = int(kwargs.pop("entity_attention_heads", 4))
             entity_attention_ff_mult = int(kwargs.pop("entity_attention_ff_mult", 2))
             entity_attention_init_scale = float(kwargs.pop("entity_attention_init_scale", 0.1))
-            use_global_entity_token = bool(kwargs.pop("use_global_entity_token", True))
-            net = MiniBGStructuredActorCritic(
-                slot_hidden=slot_hidden_channels,
-                trunk_hidden=trunk_hidden_size,
-                region_conv2_kernel=region_conv2_kernel,
-                state_dim=state_dim,
-                action_dim=action_dim,
-                interaction_dim=interaction_dim,
-                order_hidden=order_hidden,
-                order_pos_dim=order_pos_dim,
-                score_hidden=score_hidden,
-                order_score_hidden=order_score_hidden,
-                critic_hidden=critic_hidden,
-                card_emb_dim=card_emb_dim,
-                entity_attention_layers=entity_attention_layers,
-                entity_attention_heads=entity_attention_heads,
-                entity_attention_ff_mult=entity_attention_ff_mult,
-                entity_attention_init_scale=entity_attention_init_scale,
-                use_global_entity_token=use_global_entity_token,
-            )
+
+            if is_bglike_structured_v2:
+                from ..models.bglike_structured_v2 import BGLikeStructuredV2
+
+                slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 48))
+                state_dim = int(kwargs.pop("state_dim", 128))
+                entity_attention_layers = int(kwargs.pop("entity_attention_layers", 2))
+                # v2 ignores trunk_hidden / use_global_entity_token by design;
+                # accept-and-warn if a v1 config bleeds through.
+                kwargs.pop("trunk_hidden_size", None)
+                kwargs.pop("use_global_entity_token", None)
+                net = BGLikeStructuredV2(
+                    slot_hidden=slot_hidden_channels,
+                    region_conv2_kernel=region_conv2_kernel,
+                    state_dim=state_dim,
+                    action_dim=action_dim,
+                    interaction_dim=interaction_dim,
+                    order_hidden=order_hidden,
+                    order_pos_dim=order_pos_dim,
+                    score_hidden=score_hidden,
+                    order_score_hidden=order_score_hidden,
+                    critic_hidden=critic_hidden,
+                    card_emb_dim=card_emb_dim,
+                    entity_attention_layers=entity_attention_layers,
+                    entity_attention_heads=entity_attention_heads,
+                    entity_attention_ff_mult=entity_attention_ff_mult,
+                    entity_attention_init_scale=entity_attention_init_scale,
+                    obs_layout="bglike",
+                )
+            else:
+                slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
+                trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
+                state_dim = int(kwargs.pop("state_dim", 128))
+                entity_attention_layers = int(kwargs.pop("entity_attention_layers", 0))
+                use_global_entity_token = bool(kwargs.pop("use_global_entity_token", True))
+                obs_layout = "bglike" if is_bglike_structured else "minibg"
+                net = MiniBGStructuredActorCritic(
+                    slot_hidden=slot_hidden_channels,
+                    trunk_hidden=trunk_hidden_size,
+                    region_conv2_kernel=region_conv2_kernel,
+                    state_dim=state_dim,
+                    action_dim=action_dim,
+                    interaction_dim=interaction_dim,
+                    order_hidden=order_hidden,
+                    order_pos_dim=order_pos_dim,
+                    score_hidden=score_hidden,
+                    order_score_hidden=order_score_hidden,
+                    critic_hidden=critic_hidden,
+                    card_emb_dim=card_emb_dim,
+                    entity_attention_layers=entity_attention_layers,
+                    entity_attention_heads=entity_attention_heads,
+                    entity_attention_ff_mult=entity_attention_ff_mult,
+                    entity_attention_init_scale=entity_attention_init_scale,
+                    use_global_entity_token=use_global_entity_token,
+                    obs_layout=obs_layout,
+                )
+
             kwargs["observation_type"] = obs_type or "vector"
             ppo_kw = dict(net.get_constructor_kwargs())
             kwargs["network"] = net
-            kwargs["ppo_network_type"] = ppo_network_type_for_save(PPO_NETWORK_MINIBG_STRUCTURED)
+            kwargs["ppo_network_type"] = ppo_network_type_for_save(network_type)
             kwargs["ppo_network_kwargs"] = ppo_kw
             kwargs.pop("action_space", None)
             return MiniBGPPOStructuredAgent(**_filter_ppo_agent_kwargs(kwargs))

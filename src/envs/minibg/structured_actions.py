@@ -30,36 +30,46 @@ class StructAction:
     type: StructActionType
     args: Tuple[int, ...] = ()
 
-    def __post_init__(self) -> None:
-        validate_struct_action(self)
+
+def validate_board_perm(perm: Tuple[int, ...], *, board_size: int = BOARD_SIZE) -> None:
+    if len(perm) != board_size:
+        raise ValueError(f"board_perm must have length {board_size}, got {len(perm)}")
+    if tuple(sorted(perm)) != tuple(range(board_size)):
+        raise ValueError(
+            f"board_perm must be a permutation of 0..{board_size - 1}, got {perm}"
+        )
 
 
-def validate_board_perm(perm: Tuple[int, ...]) -> None:
-    if len(perm) != BOARD_SIZE:
-        raise ValueError(f"board_perm must have length {BOARD_SIZE}, got {len(perm)}")
-    if tuple(sorted(perm)) != tuple(range(BOARD_SIZE)):
-        raise ValueError(f"board_perm must be a permutation of 0..{BOARD_SIZE - 1}, got {perm}")
-
-
-def slot_pick_sequence_to_perm(picked_slots: Sequence[int], num_board_minions: int) -> Tuple[int, ...]:
+def slot_pick_sequence_to_perm(
+    picked_slots: Sequence[int],
+    num_board_minions: int,
+    *,
+    board_size: int = BOARD_SIZE,
+) -> Tuple[int, ...]:
     """Turn autoregressive picks (occupied slot indices) into a full ``BOARD_SIZE`` permutation for ``reorder_board``.
 
     Board minions occupy contiguous list indices ``0 .. k-1`` before reorder; ``picked_slots`` lists which
     old slot to place next (length ``k``, unique).
     """
     k = int(num_board_minions)
-    if k < 0 or k > BOARD_SIZE:
-        raise ValueError(f"num_board_minions must be in [0, {BOARD_SIZE}], got {k}")
+    if k < 0 or k > board_size:
+        raise ValueError(f"num_board_minions must be in [0, {board_size}], got {k}")
     seq = [int(x) for x in picked_slots if int(x) >= 0][:k]
     if len(seq) != k:
         raise ValueError(f"need {k} valid picks, got {seq!r}")
     if len(set(seq)) != len(seq):
         raise ValueError(f"picks must be unique, got {seq!r}")
-    rest = sorted(set(range(BOARD_SIZE)) - set(seq))
+    rest = sorted(set(range(board_size)) - set(seq))
     return tuple(seq + rest)
 
 
-def validate_struct_action(a: StructAction) -> None:
+def validate_struct_action(
+    a: StructAction,
+    *,
+    hand_size: int = HAND_SIZE,
+    board_size: int = BOARD_SIZE,
+    max_shop_slots: int = MAX_SHOP_SLOTS,
+) -> None:
     t = a.type
     if t == StructActionType.ROLL or t == StructActionType.LEVEL_UP:
         if a.args != ():
@@ -68,28 +78,28 @@ def validate_struct_action(a: StructAction) -> None:
         if len(a.args) != 1:
             raise ValueError(f"BUY expects args (shop_slot,), got {a.args}")
         s = a.args[0]
-        if s < 0 or s >= MAX_SHOP_SLOTS:
-            raise ValueError(f"BUY shop_slot out of range [0,{MAX_SHOP_SLOTS}): {s}")
+        if s < 0 or s >= max_shop_slots:
+            raise ValueError(f"BUY shop_slot out of range [0,{max_shop_slots}): {s}")
     elif t == StructActionType.SELL:
         if len(a.args) != 1:
             raise ValueError(f"SELL expects args (board_slot,), got {a.args}")
         p = a.args[0]
-        if p < 0 or p >= BOARD_SIZE:
-            raise ValueError(f"SELL board_slot out of range [0,{BOARD_SIZE}): {p}")
+        if p < 0 or p >= board_size:
+            raise ValueError(f"SELL board_slot out of range [0,{board_size}): {p}")
     elif t == StructActionType.PLACE:
         if len(a.args) != 1:
             raise ValueError(f"PLACE expects args (hand_slot,), got {a.args}")
         h = a.args[0]
-        if h < 0 or h >= HAND_SIZE:
-            raise ValueError(f"PLACE hand_slot out of range [0,{HAND_SIZE}): {h}")
+        if h < 0 or h >= hand_size:
+            raise ValueError(f"PLACE hand_slot out of range [0,{hand_size}): {h}")
     elif t == StructActionType.MAGNET:
         if len(a.args) != 2:
             raise ValueError(f"MAGNET expects args (hand_slot, board_pos), got {a.args}")
         h, b = a.args[0], a.args[1]
-        if h < 0 or h >= HAND_SIZE:
-            raise ValueError(f"MAGNET hand_slot out of range [0,{HAND_SIZE}): {h}")
-        if b < 0 or b >= BOARD_SIZE:
-            raise ValueError(f"MAGNET board_pos out of range [0,{BOARD_SIZE}): {b}")
+        if h < 0 or h >= hand_size:
+            raise ValueError(f"MAGNET hand_slot out of range [0,{hand_size}): {h}")
+        if b < 0 or b >= board_size:
+            raise ValueError(f"MAGNET board_pos out of range [0,{board_size}): {b}")
     elif t == StructActionType.DISCOVER_PICK:
         if len(a.args) != 1:
             raise ValueError(f"DISCOVER_PICK expects args (pick_0_2,), got {a.args}")
@@ -102,7 +112,7 @@ def validate_struct_action(a: StructAction) -> None:
                 f"APPLY_EFFECT expects args (target_board_idx,), got {a.args}"
             )
         tgt = a.args[0]
-        if tgt < 0 or tgt >= BOARD_SIZE:
+        if tgt < 0 or tgt >= board_size:
             raise ValueError(f"APPLY_EFFECT target_board_idx out of range: {tgt}")
     elif t == StructActionType.APPLY_EFFECT_SKIP:
         if a.args != ():

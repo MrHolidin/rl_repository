@@ -53,6 +53,32 @@ def test_swap_adjacent_does_not_end_shop_turn():
     assert lobby.state.current_player_index == seat
 
 
+def test_choose_final_order_converges_within_board_size_squared():
+    mask = np.zeros(NUM_ENV_ACTIONS, dtype=bool)
+    for i in range(NUM_SWAP_ADJ):
+        mask[A_SWAP_BOARD_0 + i] = True
+    mask[A_FINISH] = True
+    board = [make_minion("recruit"), make_minion("guard"), make_minion("windfury_recruit")]
+    limit = len(board) * len(board)
+    for _ in range(limit):
+        action = choose_final_order(board, mask, None)
+        if action == A_FINISH:
+            return
+        assert is_swap_board(action)
+        si = action - A_SWAP_BOARD_0
+        board[si], board[si + 1] = board[si + 1], board[si]
+    raise AssertionError("choose_final_order did not reach FINISH")
+
+
+def test_choose_final_order_finish_when_board_already_sorted():
+    mask = np.zeros(NUM_ENV_ACTIONS, dtype=bool)
+    mask[A_SWAP_BOARD_0] = True
+    mask[A_FINISH] = True
+    board = [make_minion("recruit"), make_minion("guard")]
+    action = choose_final_order(board, mask, None)
+    assert action == A_FINISH
+
+
 def test_heuristic_choose_final_order_picks_swap():
     mask = np.zeros(NUM_ENV_ACTIONS, dtype=bool)
     mask[A_SWAP_BOARD_0] = True
@@ -61,3 +87,34 @@ def test_heuristic_choose_final_order_picks_swap():
     board = [make_minion("guard"), make_minion("recruit")]
     action = choose_final_order(board, mask, None)
     assert is_swap_board(action)
+
+
+def test_heuristic_bots_never_pick_swap():
+    from src.bg_catalog.cards import make_minion
+    from src.envs.bglike.heuristic_bots import default_bot_constructors, make_bot, make_heuristic_agent
+    from src.envs.bglike.heuristic_bots.env_view import BGLikeHeuristicEnvView
+    from src.envs.bglike.lobby_env import make_bglike_training_env
+    from src.agents.random_agent import RandomAgent
+
+    env = make_bglike_training_env(current_seats=(0,), seed=7)
+    learner = RandomAgent(seed=1)
+    env.set_agents(learner, {s: make_heuristic_agent("structured", seed=2) for s in range(1, 8)})
+    env.reset(seed=11)
+    inner = env.lobby
+    seat = inner.current_seat()
+    p = inner.state.players[seat]
+    p.board = [make_minion("guard"), make_minion("recruit"), make_minion("windfury_recruit")]
+    mask = inner.legal_mask_for_seat(seat)
+    assert mask[A_SWAP_BOARD_0]
+
+    inner._heuristic_control_seat = seat
+    view = BGLikeHeuristicEnvView(env)
+    view.set_mask_override(mask)
+    try:
+        for name in default_bot_constructors():
+            bot = make_bot(name, seed=42)
+            for _ in range(20):
+                action = bot.choose_action(view)
+                assert not is_swap_board(action), (name, action)
+    finally:
+        view.set_mask_override(None)

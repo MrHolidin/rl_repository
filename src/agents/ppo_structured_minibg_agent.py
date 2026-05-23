@@ -8,10 +8,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from .base_agent import BaseAgent
+from .rollout_segments import (
+    acting_seat_from_info,
+    close_rollout_segment,
+    compute_gae_advantages,
+    seat_ids_array,
+)
 from ..envs.base import StepResult
 from ..envs.minibg.actions import BOARD_SIZE
 from ..envs.minibg.structured_actions import (
@@ -25,6 +32,7 @@ from ..models.minibg_structured_ac import (
     MiniBGStructuredActorCritic,
     _build_action_tokens,
 )
+from ..models.structured_ac_protocol import StructuredActorCriticProtocol
 from ..models.ppo_policy_factory import (
     PPO_NETWORK_MINIBG_STRUCTURED,
     default_ppo_network_kwargs,
@@ -50,6 +58,7 @@ class StructuredMiniBGRolloutBuffer:
         self.log_probs: List[float] = []
         self.next_obs: List[np.ndarray] = []
         self.next_legal_lists: List[List[StructAction]] = []
+        self.seat_ids: List[int] = []
 
     def add(
         self,
@@ -66,6 +75,7 @@ class StructuredMiniBGRolloutBuffer:
         log_prob: float,
         next_obs: np.ndarray,
         next_legal_list: List[StructAction],
+        seat_id: int = -1,
     ) -> None:
         self.obs.append(np.asarray(obs, dtype=np.float32))
         self.legal_lists.append(list(legal_list))
@@ -79,6 +89,7 @@ class StructuredMiniBGRolloutBuffer:
         self.log_probs.append(float(log_prob))
         self.next_obs.append(np.asarray(next_obs, dtype=np.float32))
         self.next_legal_lists.append(list(next_legal_list))
+        self.seat_ids.append(int(seat_id))
 
     def __len__(self) -> int:
         return len(self.obs)
@@ -96,6 +107,7 @@ class StructuredMiniBGRolloutBuffer:
         self.log_probs.clear()
         self.next_obs.clear()
         self.next_legal_lists.clear()
+        self.seat_ids.clear()
 
 
 class MiniBGPPOStructuredAgent(BaseAgent):
@@ -106,7 +118,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         observation_shape: Tuple[int, ...],
         observation_type: ObservationType,
         num_actions: int,
-        network: MiniBGStructuredActorCritic,
+        network: nn.Module,
         *,
         ppo_network_type: str = PPO_NETWORK_MINIBG_STRUCTURED,
         ppo_network_kwargs: Optional[Dict[str, Any]] = None,
@@ -127,8 +139,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         model_config: Optional[Dict] = None,
         compute_detailed_metrics: bool = True,
     ) -> None:
-        if not isinstance(network, MiniBGStructuredActorCritic):
-            raise TypeError("MiniBGPPOStructuredAgent expects MiniBGStructuredActorCritic network")
+        if not isinstance(network, StructuredActorCriticProtocol):
+            raise TypeError(
+                "MiniBGPPOStructuredAgent: network must satisfy StructuredActorCriticProtocol "
+                f"(got {type(network).__name__}). Check methods: encode_state, "
+                "policy_logits_and_value, policy_logits_value_from_tokens, sample_board_order, "
+                "order_logprob_given_sequence, get_constructor_kwargs."
+            )
         self.observation_shape = observation_shape
         self.observation_type = observation_type
         self.num_actions = int(num_actions)
@@ -225,7 +242,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         cur_idx = state.current_player_index
         player = state.players[cur_idx]
         k_board = len(player.board)
-        occupied_np = np.zeros(BOARD_SIZE, dtype=bool)
+        board_size = int(getattr(self.policy_net, "board_size", BOARD_SIZE))
+        occupied_np = np.zeros(board_size, dtype=bool)
         if k_board > 0:
             occupied_np[:k_board] = True
 
@@ -246,7 +264,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
             chosen = legal_list[idx]
             log_order = torch.zeros((), device=self.device, dtype=torch.float32)
-            picks_np = np.full(BOARD_SIZE, -1, dtype=np.int64)
+            picks_np = np.full(board_size, -1, dtype=np.int64)
             board_perm: Optional[Tuple[int, ...]] = None
 
             if chosen.type in (
@@ -266,7 +284,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 )
                 picks_np = picked_t[0].detach().cpu().numpy().astype(np.int64)
                 seq = [int(x) for x in picks_np if int(x) >= 0][: max(k_board, 0)]
-                board_perm = slot_pick_sequence_to_perm(seq, k_board)
+                board_perm = slot_pick_sequence_to_perm(seq, k_board, board_size=board_size)
 
             log_total = log_main + log_order.reshape(())
 
@@ -331,6 +349,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 f"COMPLETE_TURN: occupied_slots={k_occ} != count(order_picks>=0)={k_pick}"
             )
 
+        seat_id = acting_seat_from_info(info)
+
         self.rollout_buffer.add(
             obs=cache["obs"],
             legal_list=cache["legal_list"],
@@ -344,10 +364,17 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             log_prob=cache["log_prob"],
             next_obs=np.asarray(next_obs, dtype=np.float32),
             next_legal_list=list(next_legal),
+            seat_id=seat_id,
         )
         self._cache = None
         self.step_count += 1
         return {}
+
+    def close_segment(self, seat: int, terminal_reward: float) -> bool:
+        """Mark the last rollout step for ``seat`` as segment-terminal with ``terminal_reward``."""
+        if not self.training:
+            return False
+        return close_rollout_segment(self.rollout_buffer, seat, terminal_reward)
 
     def update(self) -> Dict[str, float]:
         if not self.training:
@@ -391,31 +418,26 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         occupied_tensor = torch.as_tensor(occupied_arr, dtype=torch.bool, device=device)
         picks_tensor = torch.as_tensor(picks_arr, dtype=torch.long, device=device)
 
-        # GAE on CPU/numpy: avoids ~N synchronous GPU→CPU `.item()` calls per update.
+        # GAE on CPU/numpy: zero bootstrap across seat segment boundaries.
         if bool(dones_arr[-1]):
             last_bootstrap = 0.0
         else:
             with torch.no_grad():
                 last_bootstrap = float(self._value_only(next_obs_last).reshape(()).item())
 
-        next_values_np = np.empty(N, dtype=np.float32)
-        next_values_np[:-1] = values_arr[1:]
-        next_values_np[-1] = last_bootstrap
-        non_terminal_np = (~dones_arr).astype(np.float32)
-        deltas_np = (
-            rewards_arr
-            + self.discount_factor * next_values_np * non_terminal_np
-            - values_arr
+        seat_ids_arr = seat_ids_array(buf.seat_ids, N)
+        adv_np, ret_np = compute_gae_advantages(
+            rewards_arr,
+            values_arr,
+            dones_arr,
+            seat_ids_arr,
+            discount_factor=self.discount_factor,
+            gae_lambda=self.gae_lambda,
+            last_next_value=last_bootstrap,
         )
-        adv_np = np.empty(N, dtype=np.float32)
-        gae_scalar = 0.0
-        gamma_lam = float(self.discount_factor * self.gae_lambda)
-        for t in range(N - 1, -1, -1):
-            gae_scalar = float(deltas_np[t] + gamma_lam * non_terminal_np[t] * gae_scalar)
-            adv_np[t] = gae_scalar
 
         advantages = torch.from_numpy(adv_np).to(device)
-        returns = advantages + values_tensor
+        returns = torch.from_numpy(ret_np).to(device)
         advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
 
         return_mean = returns.mean().item()
@@ -642,8 +664,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             num_actions,
             ppo_network_kwargs,
         )
-        if not isinstance(policy_net, MiniBGStructuredActorCritic):
-            raise TypeError("checkpoint network is not MiniBGStructuredActorCritic")
+        if not isinstance(policy_net, StructuredActorCriticProtocol):
+            raise TypeError(
+                f"checkpoint network type {type(policy_net).__name__} is not "
+                "StructuredActorCriticProtocol-compatible"
+            )
         policy_net.load_state_dict(checkpoint["policy_state_dict"])
 
         base_kw: Dict[str, Any] = {

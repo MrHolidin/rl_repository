@@ -1,20 +1,37 @@
-"""MiniBG actor-critic: structured legal actions + optional autoregressive board-order head.
+"""Structured actor-critic, v2.
 
-FROZEN — v1 of the structured architecture. Do **not** modify the layer layout or
-forward signatures: this would silently break loading of existing v1 checkpoints
-(state_dict keys must remain stable). For architectural changes, create a new
-file (e.g. ``bglike_structured_v2.py``) with a fresh class and register it under
-a new ``ppo_network_type`` id. The shared building blocks (``EntityAttentionBlock``,
-``role_for_struct``, ``_struct_action_codes``, ``_build_action_tokens``, region/role
-constants) are intentionally module-level so future versions can import them.
+Differences from v1 ([minibg_structured_ac.py](src/models/minibg_structured_ac.py)):
 
-Pure additions are OK (new methods that do not touch ``state_dict`` keys).
-Renames, layer dim changes, removals are NOT OK.
+  - **Trunk killed.** v1 flattens every entity embedding and runs the result
+    through a ~200K-parameter ``Linear(827 -> 256)`` followed by another
+    ``Linear(256 -> 256)``. That FC stack repeats work the entity attention
+    already did. v2 uses a learnable **[CLS] token** that joins the entity
+    sequence, attends with all entities, and its output IS the state summary —
+    the standard pattern from AlphaStar, BERT, ViT.
+  - **Wider per-card representation.** ``slot_hidden`` default is 48 (vs 32).
+    32 dims were a bottleneck for 12 trigger channels + 15 effect classes +
+    tribes + keywords + stats; the v1 ``ent_extras`` bypass exists precisely
+    because of this.
+  - **Deeper entity reasoning.** ``entity_attention_layers`` default is 2 (vs 1).
+    One attention layer = 1-hop synergy; multi-card-multi-effect interactions
+    need ≥2 hops.
+
+Net effect (rough):
+  - Parameters: ~450K (v1) → ~220K (v2). Half the weights, more reasoning.
+  - Forward FLOPs: roughly the same (FC trunk removed, one extra attention
+    layer added; both small compared to the (B × Lmax) action-scoring head).
+
+Cache contract is the same as v1 (see ``StructuredActorCriticProtocol``):
+``E_own``/``E_shop``/``E_hand``/``E_pending``/``E_enemy``, their ``EXT_*``
+counterparts, ``g_full``, ``trunk`` (the input to the critic), ``state_emb``.
+
+Shared building blocks (``EntityAttentionBlock``, action token helpers, region
+and role constants) are imported from v1's module so we don't duplicate them.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -22,237 +39,71 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
-from src.envs.minibg.actions import BOARD_SIZE
-from src.envs.minibg.structured_actions import StructAction, StructActionType
-
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
-
-from src.envs.minibg.obs import (
-    EFFECT_OFFSET as _EFFECT_OFFSET,
-    NUM_EFFECT_CHANNELS as _NUM_EFFECT_CHANNELS,
-    NUM_POOL_INDICES as _NUM_POOL_INDICES,
-    NUM_TRIGGER_CHANNELS as _NUM_TRIGGER_CHANNELS,
-    TRIGGER_OFFSET as _TRIGGER_OFFSET,
+from src.envs.minibg.actions import BOARD_SIZE
+from src.envs.minibg.structured_actions import (
+    StructAction,
+    StructActionType,
+    slot_pick_sequence_to_perm,
 )
 
-from src.envs.minibg.obs import (
-    PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
-    PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
-    PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
+# Reuse v1's frozen building blocks. These do not depend on the v1 class's layer
+# layout — just module-level helpers and a generic attention block.
+from .minibg_structured_ac import (
+    EntityAttentionBlock,
+    _build_action_tokens,
+    _EXT_DIM,
+    _EXT_END,
+    _GLOBALS_FULL_DIM,
+    _MAX_REGION_LEN,
+    _NUM_REGIONS,
+    _NUM_ROLES,
+    _NUM_STRUCT_TYPES,
+    _PENDING_LEN,
+    _REGION_HAND,
+    _REGION_NULL,
+    _REGION_OWN,
+    _REGION_PENDING,
+    _REGION_SHOP,
+    REG_HAND,
+    REG_OWN,
+    REG_PENDING,
+    REG_SHOP,
 )
-
 from .minibg_slot_ac import (
-    _ENEMY_LEN,
     _GLOBAL_DIM,
     _HAND_LEN,
     _LAST_BATTLE_DIM,
     _OBS_DIM,
     _OWN_LEN,
-    _PENDING_CHOICE_DIM,
-    _PENDING_CONT_DIM,
-    _PENDING_DISCOVER_IDX_DIM,
     _PHASE_DIM,
     _SHOP_LEN,
     _SLOT_CONT_DIM,
     _SLOT_DIM,
-    _TOTAL_SLOTS,
     _pending_three_option_emb,
     _split_card_idx_and_cont,
 )
-
-_EXT_DIM = _NUM_TRIGGER_CHANNELS + _NUM_EFFECT_CHANNELS
-_EXT_END = _EFFECT_OFFSET + _NUM_EFFECT_CHANNELS
-
-_NUM_STRUCT_TYPES = len(StructActionType)
-_ROLE_NONE = 0
-_ROLE_SHOP = 1
-_ROLE_BOARD = 2
-_ROLE_HAND = 3
-_ROLE_PENDING = 4
-_NUM_ROLES = 5
-
-# Region "kinds" used by the batched action embedding gather. Index 0 is reserved
-# for null-entity actions (ROLL/LEVEL_UP/COMPLETE_TURN) so padded slots also map there.
-# PENDING covers discover/adapt option indices [0..2].
-_REGION_NULL = 0
-_REGION_SHOP = 1
-_REGION_OWN = 2
-_REGION_HAND = 3
-_REGION_PENDING = 4
-_NUM_REGIONS = 5
-_PENDING_LEN = 3
-_MAX_REGION_LEN = max(_OWN_LEN, _SHOP_LEN, _HAND_LEN, _PENDING_LEN, 1)
-
-# Globals (gold, round, healths, actions_left, ...) + last_battle + phase routed
-# explicitly into action / order scoring heads so the actor stops ignoring them.
-_GLOBALS_FULL_DIM = _GLOBAL_DIM + _LAST_BATTLE_DIM + _PHASE_DIM
-
-# Indices into ``slot_region_emb`` (additive post-conv geometry). Not the same as
-# ``_REGION_*`` action-token region kinds used by the legal-action gather.
-REG_OWN = 0
-REG_SHOP = 1
-REG_HAND = 2
-REG_ENEMY = 3
-REG_PENDING = 4
+from src.envs.minibg.obs import (
+    NUM_POOL_INDICES as _NUM_POOL_INDICES,
+    PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
+    PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
+    PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
+    TRIGGER_OFFSET as _TRIGGER_OFFSET,
+)
 
 
-class EntityAttentionBlock(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        *,
-        num_heads: int = 4,
-        ff_mult: int = 2,
-        init_scale: float = 0.1,
-    ) -> None:
-        super().__init__()
-        if dim % num_heads != 0:
-            raise ValueError(f"dim={dim} must be divisible by num_heads={num_heads}")
+class BGLikeStructuredV2(nn.Module):
+    """v2 of the structured actor-critic.
 
-        self.ln_attn = nn.LayerNorm(dim)
-        self.attn = nn.MultiheadAttention(
-            embed_dim=dim,
-            num_heads=num_heads,
-            dropout=0.0,
-            batch_first=True,
-        )
-
-        self.ln_ff = nn.LayerNorm(dim)
-        ff_dim = ff_mult * dim
-        self.ff = nn.Sequential(
-            nn.Linear(dim, ff_dim),
-            nn.GELU(),
-            nn.Linear(ff_dim, dim),
-        )
-
-        self.attn_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
-        self.ff_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.ln_attn(x)
-        a, _ = self.attn(h, h, h, need_weights=False)
-        x = x + a * self.attn_scale.view(1, 1, -1)
-
-        h = self.ln_ff(x)
-        x = x + self.ff(h) * self.ff_scale.view(1, 1, -1)
-
-        return x
-
-
-def role_for_struct(a: StructAction) -> int:
-    t = a.type
-    if t == StructActionType.BUY:
-        return _ROLE_SHOP
-    if t == StructActionType.SELL:
-        return _ROLE_BOARD
-    if t == StructActionType.PLACE or t == StructActionType.MAGNET:
-        return _ROLE_HAND
-    if t == StructActionType.DISCOVER_PICK:
-        return _ROLE_PENDING
-    if t == StructActionType.APPLY_EFFECT:
-        return _ROLE_BOARD
-    if t == StructActionType.APPLY_EFFECT_SKIP:
-        return _ROLE_BOARD
-    return _ROLE_NONE
-
-
-def _struct_action_codes(a: StructAction) -> Tuple[int, int, int, int, int, int]:
-    """Return ``(type_id, role_id, src_region, src_slot, tgt_region, tgt_slot)``.
-
-    Two-entity tokens so MAGNET carries both source (hand) and target (board), and
-    DISCOVER_PICK carries the picked pending option as its source entity.
-    """
-    t = a.type
-    if t == StructActionType.BUY:
-        return (int(t), _ROLE_SHOP, _REGION_SHOP, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.SELL:
-        return (int(t), _ROLE_BOARD, _REGION_OWN, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.PLACE:
-        return (int(t), _ROLE_HAND, _REGION_HAND, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.MAGNET:
-        return (
-            int(t),
-            _ROLE_HAND,
-            _REGION_HAND,
-            int(a.args[0]),
-            _REGION_OWN,
-            int(a.args[1]),
-        )
-    if t == StructActionType.DISCOVER_PICK:
-        return (int(t), _ROLE_PENDING, _REGION_PENDING, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.APPLY_EFFECT:
-        return (
-            int(t),
-            _ROLE_BOARD,
-            _REGION_NULL,
-            0,
-            _REGION_OWN,
-            int(a.args[0]),
-        )
-    if t == StructActionType.APPLY_EFFECT_SKIP:
-        return (int(t), _ROLE_BOARD, _REGION_NULL, 0, _REGION_NULL, 0)
-    # ROLL / LEVEL_UP / COMPLETE_TURN: null entity on both sides.
-    return (int(t), _ROLE_NONE, _REGION_NULL, 0, _REGION_NULL, 0)
-
-
-def _build_action_tokens(
-    legal_actions: Sequence[Sequence[StructAction]],
-    Lmax: int,
-) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
-]:
-    """Pack (B, Lmax) int64 token arrays + bool mask. Padded slots stay at NULL/0.
-
-    Returns (type_ids, role_ids, src_region_kinds, src_region_slots,
-    tgt_region_kinds, tgt_region_slots, mask).
-    """
-    B = len(legal_actions)
-    type_ids = np.zeros((B, Lmax), dtype=np.int64)
-    role_ids = np.zeros((B, Lmax), dtype=np.int64)
-    src_region_kinds = np.zeros((B, Lmax), dtype=np.int64)
-    src_region_slots = np.zeros((B, Lmax), dtype=np.int64)
-    tgt_region_kinds = np.zeros((B, Lmax), dtype=np.int64)
-    tgt_region_slots = np.zeros((B, Lmax), dtype=np.int64)
-    mask = np.zeros((B, Lmax), dtype=bool)
-    for b in range(B):
-        row = legal_actions[b]
-        L = len(row)
-        if L == 0:
-            continue
-        for l in range(L):
-            t, r, sk, ss, tk, ts = _struct_action_codes(row[l])
-            type_ids[b, l] = t
-            role_ids[b, l] = r
-            src_region_kinds[b, l] = sk
-            src_region_slots[b, l] = ss
-            tgt_region_kinds[b, l] = tk
-            tgt_region_slots[b, l] = ts
-        mask[b, :L] = True
-    return (
-        type_ids,
-        role_ids,
-        src_region_kinds,
-        src_region_slots,
-        tgt_region_kinds,
-        tgt_region_slots,
-        mask,
-    )
-
-
-class MiniBGStructuredActorCritic(nn.Module):
-    """
-    Shared slot encoder → state embedding; post-conv additive position + region
-    embeddings per tensor (own/shop/hand/enemy/pending) for action/order heads.
-    Policy logits over variable legal sets via concat(state, action_emb, state×action,
-    globals); optional autoregressive board-order head. Value head reads trunk ``t``;
-    actor/policy sides still use ``state_proj(t)``.
+    Implements the same ``StructuredActorCriticProtocol`` surface as v1 (the
+    structured PPO agent talks to either via duck-typing), but with a smaller,
+    cleaner internal layout.
     """
 
     def __init__(
         self,
         *,
-        slot_hidden: int = 32,
-        trunk_hidden: int = 256,
+        slot_hidden: int = 48,
         state_dim: int = 128,
         action_dim: int = 64,
         interaction_dim: int = 64,
@@ -263,22 +114,22 @@ class MiniBGStructuredActorCritic(nn.Module):
         critic_hidden: int = 128,
         region_conv2_kernel: int = 1,
         card_emb_dim: int = 16,
-        entity_attention_layers: int = 0,
+        entity_attention_layers: int = 2,
         entity_attention_heads: int = 4,
         entity_attention_ff_mult: int = 2,
         entity_attention_init_scale: float = 0.1,
-        use_global_entity_token: bool = True,
-        obs_layout: str = "minibg",
+        obs_layout: str = "bglike",
     ) -> None:
         super().__init__()
+
         layout = obs_layout.strip().lower()
         if layout == "bglike":
-            from src.envs.bglike.obs import OBS_DIM as _layout_obs_dim
             from src.envs.bglike.actions import (
                 BOARD_SIZE as _layout_board,
                 HAND_SIZE as _layout_hand,
                 MAX_SHOP_SLOTS as _layout_shop,
             )
+            from src.envs.bglike.obs import OBS_DIM as _layout_obs_dim
 
             self.obs_layout = "bglike"
             self.obs_dim = int(_layout_obs_dim)
@@ -293,7 +144,7 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.own_len = _OWN_LEN
             self.hand_len = _HAND_LEN
             self.shop_len = _SHOP_LEN
-            self.enemy_len = _ENEMY_LEN
+            self.enemy_len = 0  # v2 still does not consume enemy boards
             self.board_size = BOARD_SIZE
         else:
             raise ValueError(f"obs_layout must be 'minibg' or 'bglike', got {obs_layout!r}")
@@ -306,8 +157,10 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.own_len, self.shop_len, self.hand_len, self.pending_len, 1
         )
 
+        if entity_attention_layers < 1:
+            raise ValueError("v2 requires entity_attention_layers >= 1 (CLS-token aggregation needs attention)")
+
         self.slot_hidden = int(slot_hidden)
-        self.trunk_hidden = int(trunk_hidden)
         self.state_dim = int(state_dim)
         self.action_dim = int(action_dim)
         self.interaction_dim = int(interaction_dim)
@@ -321,21 +174,19 @@ class MiniBGStructuredActorCritic(nn.Module):
         self.entity_attention_heads = int(entity_attention_heads)
         self.entity_attention_ff_mult = int(entity_attention_ff_mult)
         self.entity_attention_init_scale = float(entity_attention_init_scale)
-        self.use_global_entity_token = bool(use_global_entity_token)
 
         k2 = int(region_conv2_kernel)
         if k2 not in (1, 3):
             raise ValueError("region_conv2_kernel must be 1 or 3")
         self._region_conv2_kernel = k2
 
+        # --- Card / pending embeddings -----------------------------------
         self.card_emb = nn.Embedding(
             _NUM_POOL_INDICES + 1, self.card_emb_dim, padding_idx=0
         )
         self.adapt_choice_emb = nn.Embedding(
             len(ADAPT_KEYS_ALL) + 1, self.card_emb_dim, padding_idx=0
         )
-        # Tight init (matches slot AC): keeps Conv1d activations bounded on step 0
-        # despite 102 random rows fanning into 50 continuous channels.
         nn.init.normal_(self.card_emb.weight, mean=0.0, std=0.02)
         with torch.no_grad():
             self.card_emb.weight[0].zero_()
@@ -343,6 +194,7 @@ class MiniBGStructuredActorCritic(nn.Module):
         with torch.no_grad():
             self.adapt_choice_emb.weight[0].zero_()
 
+        # --- Slot encoder (per-region conv stack on continuous features) --
         conv_in = _SLOT_CONT_DIM + self.card_emb_dim
         self.region_conv1 = nn.Conv1d(conv_in, self.slot_hidden, kernel_size=1)
         if k2 == 3:
@@ -354,14 +206,12 @@ class MiniBGStructuredActorCritic(nn.Module):
                 self.slot_hidden, self.slot_hidden, kernel_size=1
             )
 
+        # Region + position embeddings
         self.own_pos_emb = nn.Embedding(self.own_len, self.slot_hidden)
         self.shop_pos_emb = nn.Embedding(self.shop_len, self.slot_hidden)
         self.hand_pos_emb = nn.Embedding(self.hand_len, self.slot_hidden)
-        if self.enemy_len > 0:
-            self.enemy_pos_emb = nn.Embedding(self.enemy_len, self.slot_hidden)
-        else:
-            self.enemy_pos_emb = None
         self.pending_pos_emb = nn.Embedding(self.pending_len, self.slot_hidden)
+        # 4 regions in v2 (no enemy). Index unused-by-v2-but-reserved keeps shape parity.
         self.slot_region_emb = nn.Embedding(5, self.slot_hidden)
         for emb in (
             self.own_pos_emb,
@@ -371,73 +221,53 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.slot_region_emb,
         ):
             nn.init.normal_(emb.weight, mean=0.0, std=0.02)
-        if self.enemy_pos_emb is not None:
-            nn.init.normal_(self.enemy_pos_emb.weight, mean=0.0, std=0.02)
 
-        if self.entity_attention_layers < 0:
-            raise ValueError("entity_attention_layers must be >= 0")
-
-        if self.entity_attention_layers > 0:
-            self.entity_attn = nn.ModuleList(
-                [
-                    EntityAttentionBlock(
-                        self.slot_hidden,
-                        num_heads=self.entity_attention_heads,
-                        ff_mult=self.entity_attention_ff_mult,
-                        init_scale=self.entity_attention_init_scale,
-                    )
-                    for _ in range(self.entity_attention_layers)
-                ]
-            )
-        else:
-            self.entity_attn = nn.ModuleList()
-
-        if self.entity_attention_layers > 0 and self.use_global_entity_token:
-            self.global_to_entity_token = nn.Linear(_GLOBALS_FULL_DIM, self.slot_hidden)
-        else:
-            self.global_to_entity_token = None
-
-        self._pending_feat_dim = (
-            _PENDING_CHOICE_DIM + _PENDING_DISCOVER_IDX_DIM * self.card_emb_dim
+        # --- Entity attention with a [CLS] token from globals ------------
+        self.entity_attn = nn.ModuleList(
+            [
+                EntityAttentionBlock(
+                    self.slot_hidden,
+                    num_heads=self.entity_attention_heads,
+                    ff_mult=self.entity_attention_ff_mult,
+                    init_scale=self.entity_attention_init_scale,
+                )
+                for _ in range(self.entity_attention_layers)
+            ]
         )
-        trunk_in = (
-            self.total_slots * self.slot_hidden
+        # CLS token is built from globals (gold/hp/round/...) so by the time the
+        # attention runs, the [CLS] slot already carries non-card context. Its
+        # post-attention output is the state summary that replaces v1's trunk.
+        self.cls_from_globals = nn.Linear(_GLOBALS_FULL_DIM, self.slot_hidden)
+
+        self.pending_to_slot = nn.Linear(self.card_emb_dim, self.slot_hidden)
+
+        # --- State summary -> state_emb (no flatten trunk!) --------------
+        # Header info that didn't go into the CLS token via globals: the
+        # pending-choice header (has_pending / is_adapt / extras_after).
+        self._pending_header_dim = 3  # has_pending, is_adapt, extras_modals_after
+        state_summary_dim = (
+            self.slot_hidden                # CLS token output
             + _GLOBAL_DIM
             + _LAST_BATTLE_DIM
             + _PHASE_DIM
-            + self._pending_feat_dim
+            + self._pending_header_dim
         )
-        self.trunk_fc1 = nn.Linear(trunk_in, self.trunk_hidden)
-        self.trunk_fc2 = nn.Linear(self.trunk_hidden, self.trunk_hidden)
+        self._state_summary_dim = int(state_summary_dim)
+        self.state_summary_ln = nn.LayerNorm(state_summary_dim)
+        self.state_proj = nn.Linear(state_summary_dim, self.state_dim)
 
-        # Drop the redundant pooled-mean stream: it sits in span(trunk) already.
-        self.state_proj = nn.Linear(self.trunk_hidden, self.state_dim)
-
+        # --- Action embedding (same shape contract as v1) ---------------
         self.type_emb = nn.Embedding(_NUM_STRUCT_TYPES, self.action_dim)
         self.role_emb = nn.Embedding(_NUM_ROLES, self.action_dim)
-        # Source entity projection (used by BUY/SELL/PLACE/MAGNET/DISCOVER_PICK).
         self.entity_to_action = nn.Linear(self.slot_hidden, self.action_dim)
-        # Target entity projection — only fires for MAGNET (board target). Separate
-        # weights from source so the model doesn't have to learn an arbitrary tag
-        # to distinguish "the hand source" from "the board target" inside one Linear.
         self.entity_to_action_tgt = nn.Linear(self.slot_hidden, self.action_dim)
-        # Direct bypass for trigger/effect bits — avoids the slot_hidden bottleneck
-        # so action scoring distinguishes Brann/Khadgar/Baron via the effect channels
-        # without depending on the conv head retaining that information.
         self.ent_extras = nn.Linear(_EXT_DIM, self.action_dim)
         self.ent_extras_tgt = nn.Linear(_EXT_DIM, self.action_dim)
-        # Discover/adapt option entity: pending tail only has card_idx — project the
-        # shared card embedding into slot_hidden so the standard E_regions gather
-        # path covers PENDING the same way it covers SHOP/OWN/HAND.
-        self.pending_to_slot = nn.Linear(self.card_emb_dim, self.slot_hidden)
         self.null_entity_action = nn.Parameter(torch.zeros(self.action_dim))
 
-        # Pairwise state×action interaction (Hadamard after shared projections) so logits
-        # are not purely additive in ``state_emb`` vs ``action_emb``.
         self.state_to_interact = nn.Linear(self.state_dim, self.interaction_dim, bias=False)
         self.action_to_interact = nn.Linear(self.action_dim, self.interaction_dim, bias=False)
 
-        # Non-linear scoring head with explicit globals routing.
         self.score_fc = nn.Sequential(
             nn.Linear(
                 self.state_dim + self.action_dim + self.interaction_dim + _GLOBALS_FULL_DIM,
@@ -447,21 +277,19 @@ class MiniBGStructuredActorCritic(nn.Module):
             nn.Linear(self.score_hidden, 1),
         )
 
-        # V(s) from trunk ``t`` — avoids inflicting the actor's state_dim bottleneck on value.
+        # --- Critic reads the state-summary (post-LN) -------------------
         self.critic = nn.Sequential(
-            nn.LayerNorm(self.trunk_hidden),
-            nn.Linear(self.trunk_hidden, self.critic_hidden),
+            nn.Linear(state_summary_dim, self.critic_hidden),
             nn.ReLU(),
             nn.Linear(self.critic_hidden, 1),
         )
 
+        # --- Board-order head (same GRU-based pointer as v1) ------------
         self.order_pos_emb = nn.Embedding(self.board_size, self.order_pos_dim)
         self.order_start = nn.Parameter(torch.zeros(self.slot_hidden))
-        # Initialize GRU hidden from state_emb so the first pick already sees board context.
         self.order_init = nn.Linear(self.state_dim, self.order_hidden)
         gru_in = self.slot_hidden + self.order_pos_dim
         self.order_gru = nn.GRUCell(gru_in, self.order_hidden)
-        # Same additivity fix for the order ranking head.
         order_score_in = (
             self.state_dim
             + self.slot_hidden
@@ -478,7 +306,6 @@ class MiniBGStructuredActorCritic(nn.Module):
     def get_constructor_kwargs(self) -> Dict[str, Any]:
         return {
             "slot_hidden": self.slot_hidden,
-            "trunk_hidden": self.trunk_hidden,
             "state_dim": self.state_dim,
             "action_dim": self.action_dim,
             "interaction_dim": self.interaction_dim,
@@ -493,11 +320,14 @@ class MiniBGStructuredActorCritic(nn.Module):
             "entity_attention_heads": self.entity_attention_heads,
             "entity_attention_ff_mult": self.entity_attention_ff_mult,
             "entity_attention_init_scale": self.entity_attention_init_scale,
-            "use_global_entity_token": self.use_global_entity_token,
             "obs_layout": self.obs_layout,
         }
 
-    def _unpack(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
+    # ------------------------------------------------------------------
+    # Encoding
+    # ------------------------------------------------------------------
+
+    def _unpack(self, x: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         if x.dim() > 2:
             x = x.view(x.size(0), -1)
         if x.shape[1] != self.obs_dim:
@@ -510,6 +340,7 @@ class MiniBGStructuredActorCritic(nn.Module):
         i += self.shop_len * _SLOT_DIM
         hand = x[:, i : i + self.hand_len * _SLOT_DIM].view(-1, self.hand_len, _SLOT_DIM)
         i += self.hand_len * _SLOT_DIM
+        # enemy region: only present in minibg V1 layout; v2 skips it (enemy_len=0)
         if self.enemy_len > 0:
             enemy = x[:, i : i + self.enemy_len * _SLOT_DIM].view(
                 -1, self.enemy_len, _SLOT_DIM
@@ -546,59 +377,12 @@ class MiniBGStructuredActorCritic(nn.Module):
         ).view(1, 1, H)
         return E + pe + re
 
-    def _contextualize_entities(
-        self,
-        E_own: torch.Tensor,
-        E_shop: torch.Tensor,
-        E_hand: torch.Tensor,
-        E_enemy: torch.Tensor,
-        E_pending: torch.Tensor,
-        g_full: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        if len(self.entity_attn) == 0:
-            return E_own, E_shop, E_hand, E_enemy, E_pending
+    def encode_state(
+        self, x: torch.Tensor
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        g, own, shop, hand, _enemy, lb, phase, pending = self._unpack(x)
 
-        pieces = [E_own, E_shop, E_hand]
-        if self.enemy_len > 0:
-            pieces.append(E_enemy)
-        pieces.append(E_pending)
-
-        if self.global_to_entity_token is not None:
-            g_tok = self.global_to_entity_token(g_full).unsqueeze(1)
-            E_all = torch.cat([g_tok] + pieces, dim=1)
-            offset = 1
-        else:
-            E_all = torch.cat(pieces, dim=1)
-            offset = 0
-
-        for block in self.entity_attn:
-            E_all = block(E_all)
-
-        if offset:
-            E_all = E_all[:, offset:, :]
-
-        i = 0
-        E_own = E_all[:, i : i + self.own_len]
-        i += self.own_len
-
-        E_shop = E_all[:, i : i + self.shop_len]
-        i += self.shop_len
-
-        E_hand = E_all[:, i : i + self.hand_len]
-        i += self.hand_len
-
-        if self.enemy_len > 0:
-            E_enemy = E_all[:, i : i + self.enemy_len]
-            i += self.enemy_len
-        else:
-            E_enemy = E_all[:, i : i + 0]
-
-        E_pending = E_all[:, i : i + self.pending_len]
-
-        return E_own, E_shop, E_hand, E_enemy, E_pending
-
-    def encode_state(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        g, own, shop, hand, enemy, lb, phase, pending = self._unpack(x)
+        # Per-region slot encoding + position/region embeddings.
         E_own = self._add_pos_region(
             self._encode_region_slots(own), self.own_pos_emb, REG_OWN
         )
@@ -608,64 +392,57 @@ class MiniBGStructuredActorCritic(nn.Module):
         E_hand = self._add_pos_region(
             self._encode_region_slots(hand), self.hand_pos_emb, REG_HAND
         )
-        if self.enemy_len > 0:
-            assert self.enemy_pos_emb is not None
-            E_enemy = self._add_pos_region(
-                self._encode_region_slots(enemy), self.enemy_pos_emb, REG_ENEMY
-            )
-        else:
-            E_enemy = enemy.new_zeros(enemy.size(0), 0, self.slot_hidden)
 
-        # Raw trigger+effect bits per slot — fed directly into action embedding so
-        # multipliers/auras keep an identity-strong signal even with slot_hidden compression.
+        # Raw trigger+effect bits — bypass for action scoring (matches v1).
         EXT_own = own[..., _TRIGGER_OFFSET:_EXT_END]
         EXT_shop = shop[..., _TRIGGER_OFFSET:_EXT_END]
         EXT_hand = hand[..., _TRIGGER_OFFSET:_EXT_END]
 
-        # Pending entities (3 discover or ADAPT options). Indices route through ``card_emb``
-        # or dedicated ``adapt_choice_emb`` matching ``encode_pending_choice``.
+        # Pending: 3 discover / adapt options.
         B = x.size(0)
         device = x.device
         dtype = E_own.dtype
-        cont = pending[..., :_PENDING_CHOICE_DIM]
         opt_stack = _pending_three_option_emb(
             pending, self.card_emb, self.adapt_choice_emb
         )
         is_apply = pending[..., _PENDING_IS_APPLY_OFFSET : _PENDING_IS_APPLY_OFFSET + 1] > 0.5
         opt_stack = opt_stack.masked_fill(is_apply.unsqueeze(-1), 0.0)
-        pending_feat = torch.cat([cont, opt_stack.flatten(-2)], dim=-1)
         E_pending = self._add_pos_region(
             self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING
         )
         EXT_pending = torch.zeros(B, self.pending_len, _EXT_DIM, device=device, dtype=dtype)
 
-        g_full = torch.cat([g, lb, phase], dim=-1)
-        E_own, E_shop, E_hand, E_enemy, E_pending = self._contextualize_entities(
-            E_own,
-            E_shop,
-            E_hand,
-            E_enemy,
-            E_pending,
-            g_full,
-        )
+        # Pending header (3 dims: has_pending / is_adapt / extras_modals_after) —
+        # carry into the state summary directly (not blurred by attention).
+        pending_header = pending[..., :self._pending_header_dim]
 
-        feat_flat = torch.cat(
-            [
-                E_own.flatten(1),
-                E_shop.flatten(1),
-                E_hand.flatten(1),
-                E_enemy.flatten(1),
-                g,
-                lb,
-                phase,
-                pending_feat,
-            ],
-            dim=1,
-        )
-        t = F.relu(self.trunk_fc2(F.relu(self.trunk_fc1(feat_flat))))
+        g_full = torch.cat([g, lb, phase], dim=-1)  # (B, _GLOBALS_FULL_DIM)
 
-        state_emb = self.state_proj(t)
-        cache = {
+        # Prepend [CLS] (built from globals) and run entity attention. The
+        # post-attention CLS output IS the v2 state summary.
+        cls_tok = self.cls_from_globals(g_full).unsqueeze(1)  # (B, 1, slot_hidden)
+        E_all = torch.cat([cls_tok, E_own, E_shop, E_hand, E_pending], dim=1)
+        for block in self.entity_attn:
+            E_all = block(E_all)
+
+        cls_out = E_all[:, 0]  # (B, slot_hidden)
+        idx = 1
+        E_own = E_all[:, idx : idx + self.own_len]
+        idx += self.own_len
+        E_shop = E_all[:, idx : idx + self.shop_len]
+        idx += self.shop_len
+        E_hand = E_all[:, idx : idx + self.hand_len]
+        idx += self.hand_len
+        E_pending = E_all[:, idx : idx + self.pending_len]
+        E_enemy = E_all.new_zeros(B, 0, self.slot_hidden)
+
+        state_summary = torch.cat(
+            [cls_out, g, lb, phase, pending_header], dim=-1
+        )  # (B, state_summary_dim)
+        state_summary_n = self.state_summary_ln(state_summary)
+        state_emb = self.state_proj(state_summary_n)
+
+        cache: Dict[str, torch.Tensor] = {
             "E_own": E_own,
             "E_shop": E_shop,
             "E_hand": E_hand,
@@ -675,11 +452,15 @@ class MiniBGStructuredActorCritic(nn.Module):
             "EXT_shop": EXT_shop,
             "EXT_hand": EXT_hand,
             "EXT_pending": EXT_pending,
-            "trunk": t,
+            # Critic reads `trunk`. In v2, trunk == post-LN state summary.
+            "trunk": state_summary_n,
             "g_full": g_full,
-            "pending_feat": pending_feat,
         }
         return state_emb, cache
+
+    # ------------------------------------------------------------------
+    # Action scoring (same contract as v1; logic mirrors v1._encode_actions)
+    # ------------------------------------------------------------------
 
     def _encode_actions(
         self,
@@ -691,11 +472,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         tgt_region_slots: torch.Tensor,
         cache: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
-        """Batched action embedding for ``(B, Lmax)`` token tensors → ``(B, Lmax, action_dim)``.
-
-        Source entity covers BUY/SELL/PLACE shopper, MAGNET's hand card, DISCOVER_PICK's
-        pending option. Target entity covers MAGNET's board target (everything else: NULL).
-        """
         B, Lmax = type_ids.shape
         device = type_ids.device
         dtype = cache["E_own"].dtype
@@ -703,9 +479,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         type_e = self.type_emb(type_ids)
         role_e = self.role_emb(role_ids)
 
-        # Pack region features in a single padded tensor so one gather covers all rows/actions.
-        # Region 0 is the null region (zeros); padded slots map here and get overwritten by
-        # null masking below, so their exact value does not matter.
         E_regions = torch.zeros(
             B,
             _NUM_REGIONS,
@@ -750,9 +523,6 @@ class MiniBGStructuredActorCritic(nn.Module):
             ent_slot = torch.gather(E_regions_flat, dim=1, index=ent_idx)
             ext_slot = torch.gather(EXT_regions_flat, dim=1, index=ext_idx)
             ent_from_slot = ent_lin(ent_slot) + ext_lin(ext_slot)
-            # Null-region tokens (e.g. padded slots, ROLL/LEVEL_UP/COMPLETE_TURN sources,
-            # tgt of all single-entity actions) must zero out — otherwise the Linear bias
-            # term leaks into the action embedding for every "empty" entity slot.
             is_null = (region_kinds == _REGION_NULL).unsqueeze(-1)
             return ent_from_slot.masked_fill(is_null, 0.0)
 
@@ -766,9 +536,6 @@ class MiniBGStructuredActorCritic(nn.Module):
             self.ent_extras_tgt,
         )
 
-        # Tokens whose source AND target are both NULL (ROLL/LEVEL_UP/COMPLETE_TURN
-        # plus padding) get the null entity parameter so the network can still learn a
-        # type-conditioned bias for "non-entity" actions.
         ent_null = self.null_entity_action.view(1, 1, -1).expand(B, Lmax, -1)
         both_null = (
             (src_region_kinds == _REGION_NULL) & (tgt_region_kinds == _REGION_NULL)
@@ -826,7 +593,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]],
     ]:
-        """Same shape contract as :meth:`policy_logits_and_value`, but skips token build (hot path)."""
         state_emb, cache = self.encode_state(obs)
         logits = self._logits_from_state_and_tokens(
             state_emb,
@@ -856,23 +622,14 @@ class MiniBGStructuredActorCritic(nn.Module):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]],
     ]:
-        """
-        Returns:
-            logits: (B, max_L) with -inf padding
-            mask: (B, max_L) True for valid slots
-            values: (B,)
-        """
         B = obs.size(0)
-        device = obs.device
         if len(legal_actions) != B:
             raise ValueError(
                 f"legal_actions has {len(legal_actions)} rows but obs batch size is {B}"
             )
         Lmax = max((len(row) for row in legal_actions), default=0)
         if Lmax == 0:
-            raise ValueError(
-                "policy_logits_and_value: every legal_actions row is empty — invalid for structured policy."
-            )
+            raise ValueError("policy_logits_and_value: every legal_actions row is empty")
 
         (
             t_np,
@@ -883,6 +640,7 @@ class MiniBGStructuredActorCritic(nn.Module):
             tgt_s_np,
             m_np,
         ) = _build_action_tokens(legal_actions, Lmax)
+        device = obs.device
         type_ids = torch.from_numpy(t_np).to(device, non_blocking=True)
         role_ids = torch.from_numpy(r_np).to(device, non_blocking=True)
         src_region_kinds = torch.from_numpy(src_k_np).to(device, non_blocking=True)
@@ -903,7 +661,11 @@ class MiniBGStructuredActorCritic(nn.Module):
             return_cache=return_cache,
         )
 
-    def order_logits_step(
+    # ------------------------------------------------------------------
+    # Board-order pointer (identical math to v1)
+    # ------------------------------------------------------------------
+
+    def _order_logits_step(
         self,
         state_emb: torch.Tensor,
         E_own: torch.Tensor,
@@ -911,7 +673,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         hidden: torch.Tensor,
         pos_e_row: torch.Tensor,
     ) -> torch.Tensor:
-        """Logits over BOARD_SIZE slots: (B, BOARD_SIZE). ``pos_e_row`` is the (B, order_pos_dim) row."""
         B, K, _ = E_own.shape
         sh = hidden.unsqueeze(1).expand(-1, K, -1)
         pe = pos_e_row.unsqueeze(1).expand(-1, K, -1)
@@ -921,7 +682,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         return self.order_score(h_cat).squeeze(-1)
 
     def _order_init_hidden(self, state_emb: torch.Tensor) -> torch.Tensor:
-        """Initial GRU hidden from state — gives the pointer head board context at pos=0."""
         return torch.tanh(self.order_init(state_emb))
 
     def sample_board_order(
@@ -933,35 +693,23 @@ class MiniBGStructuredActorCritic(nn.Module):
         *,
         deterministic: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Autoregressive pointer over occupied board slots.
-
-        Args:
-            state_emb: (B, state_dim)
-            E_own: (B, BOARD_SIZE, slot_hidden) — use first BOARD_SIZE own-board slots from encoder
-            occupied_mask: (B, BOARD_SIZE) bool, True if board slot index currently holds a minion
-
-        Returns:
-            picked_slots: (B, BOARD_SIZE) int64, -1 padding after all picks done
-            logprob_sum: (B,)
-            remaining_after: (B, BOARD_SIZE) bool — should be all False unless input had >BOARD_SIZE True
-        """
         B, K, _ = E_own.shape
-        board_size = self.board_size
-        if K != board_size:
-            raise ValueError(f"E_own must have board_size={board_size} slots, got {K}")
+        if K != self.board_size:
+            raise ValueError(
+                f"E_own must have board_size={self.board_size} slots, got {K}"
+            )
         device = E_own.device
         remaining = occupied_mask.clone()
         hidden = self._order_init_hidden(state_emb)
         slot_in = self.order_start.unsqueeze(0).expand(B, -1)
 
         logprob_sum = torch.zeros(B, device=device, dtype=E_own.dtype)
-        picked = torch.full((B, board_size), -1, device=device, dtype=torch.long)
+        picked = torch.full((B, self.board_size), -1, device=device, dtype=torch.long)
         batch_arange = torch.arange(B, device=device)
 
-        pos_table = self.order_pos_emb(torch.arange(board_size, device=device))
+        pos_table = self.order_pos_emb(torch.arange(self.board_size, device=device))
 
-        for pos in range(board_size):
+        for pos in range(self.board_size):
             active = remaining.any(dim=1)
             pos_e_row = pos_table[pos].unsqueeze(0).expand(B, -1)
 
@@ -969,9 +717,8 @@ class MiniBGStructuredActorCritic(nn.Module):
             hidden_new = self.order_gru(gru_in, hidden)
             hidden = torch.where(active.unsqueeze(-1), hidden_new, hidden)
 
-            logits = self.order_logits_step(state_emb, E_own, g_full, hidden, pos_e_row)
+            logits = self._order_logits_step(state_emb, E_own, g_full, hidden, pos_e_row)
             logits = logits.masked_fill(~remaining, float("-inf"))
-            # Fully-finished rows have all -inf — keep Categorical numerically valid.
             logits = logits.masked_fill((~active).unsqueeze(-1), 0.0)
 
             dist = Categorical(logits=logits)
@@ -983,7 +730,9 @@ class MiniBGStructuredActorCritic(nn.Module):
             lp = dist.log_prob(idx)
             logprob_sum = logprob_sum + active.to(logprob_sum.dtype) * lp
 
-            picked[batch_arange, pos] = torch.where(active, idx, torch.full_like(idx, -1))
+            picked[batch_arange, pos] = torch.where(
+                active, idx, torch.full_like(idx, -1)
+            )
 
             sel_emb = E_own[batch_arange, idx]
             slot_in = torch.where(active.unsqueeze(-1), sel_emb, slot_in)
@@ -1001,7 +750,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         occupied_mask: torch.Tensor,
         picked_slots: torch.Tensor,
     ) -> torch.Tensor:
-        """Teacher-forced log prob sum for PPO/training (B,). picked_slots (B, max_steps) indices or -1."""
         B, K, _ = E_own.shape
         device = E_own.device
         remaining = occupied_mask.clone()
@@ -1011,7 +759,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         batch_arange = torch.arange(B, device=device)
 
         max_steps = int(picked_slots.size(1))
-        # Pre-build positional embeddings; saves a host→device sync per step.
         pos_table = self.order_pos_emb(torch.arange(max(max_steps, 1), device=device))
 
         for pos in range(max_steps):
@@ -1022,14 +769,10 @@ class MiniBGStructuredActorCritic(nn.Module):
             pos_e_row = pos_table[pos].unsqueeze(0).expand(B, -1)
             gru_in = torch.cat([slot_in, pos_e_row], dim=-1)
             hidden_new = self.order_gru(gru_in, hidden)
-            # Advance GRU only when the teacher row has a real pick at this step. Advancing while
-            # active but idx==-1 desynchronizes teacher replay and can explode hidden → NaN logits.
             hidden = torch.where(valid_pick.unsqueeze(-1), hidden_new, hidden)
 
-            logits = self.order_logits_step(state_emb, E_own, g_full, hidden, pos_e_row)
+            logits = self._order_logits_step(state_emb, E_own, g_full, hidden, pos_e_row)
             logits = logits.masked_fill(~remaining, float("-inf"))
-            # Two failure modes need 0-filled logits to keep Categorical valid: finished rows
-            # (~active) and padding gap rows (active & idx<0). `~valid_pick` covers both.
             logits = logits.masked_fill((~valid_pick).unsqueeze(-1), 0.0)
 
             dist = Categorical(logits=logits)
@@ -1046,5 +789,4 @@ class MiniBGStructuredActorCritic(nn.Module):
         return logprob_sum
 
 
-__all__ = ["MiniBGStructuredActorCritic", "_OBS_DIM"]
-
+__all__ = ["BGLikeStructuredV2"]

@@ -20,12 +20,12 @@ from ..action_map import (
     is_discover_pick,
     is_magnet,
     is_sell,
+    is_swap_board,
 )
 from ..actions import BOARD_SIZE, BUY_COST, HAND_SIZE, MAX_SHOP_SLOTS, SELL_REWARD
 from src.bg_lobby.player import PlayerState
 
 from .common import (
-    choose_final_order,
     legal_env_indices,
     masked_finish,
     pick_rl_apply_action,
@@ -105,8 +105,12 @@ def _replacement_sell_actions(
 
 
 def _prefer_growth_then_finish(
-    mask: np.ndarray, p: PlayerState, allowed: list[int], rng: np.random.Generator
+    mask: np.ndarray,
+    p: PlayerState,
+    allowed: list[int],
+    rng: np.random.Generator,
 ) -> int:
+    allowed = [a for a in allowed if not is_swap_board(a)]
     buys = [a for a in allowed if is_buy(a)]
     if buys:
         return int(rng.choice(buys))
@@ -120,7 +124,7 @@ def _prefer_growth_then_finish(
         return int(rng.choice(non_fin))
     if A_FINISH in allowed:
         return A_FINISH
-    return int(rng.choice(allowed))
+    return int(rng.choice(allowed)) if allowed else masked_finish(mask)
 
 
 class HeuristicBot(ABC):
@@ -134,10 +138,6 @@ class HeuristicBot(ABC):
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
-
-        swap_finish = choose_final_order(p.board, mask, None)
-        if swap_finish != A_FINISH and bool(mask[swap_finish]):
-            return swap_finish
 
         for i in range(HAND_SIZE):
             if i < len(p.hand) and bool(mask[A_PLACE_BASE + i]):
