@@ -8,6 +8,7 @@ from typing import Mapping, Tuple
 from src.bg_core.effects import (
     Ability,
     AdaptAllMurlocsEffect,
+    AdaptSelfRandomEffect,
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
@@ -85,6 +86,9 @@ def implicit_triple_golden_effect(e: Effect) -> Effect:
         return replace(e, repeats=max(1, e.repeats * 2))
 
     if isinstance(e, AdaptAllMurlocsEffect):
+        return replace(e, repeats=max(1, e.repeats * 2))
+
+    if isinstance(e, AdaptSelfRandomEffect):
         return replace(e, repeats=max(1, e.repeats * 2))
 
     if isinstance(e, PogoHopperBattlecry):

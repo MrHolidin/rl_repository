@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import numpy as np
 import pytest
 
@@ -13,6 +14,7 @@ from src.agents.ppo_structured_minibg_agent import (
 from src.agents.rollout_segments import compute_gae_advantages
 from src.envs.bglike.obs import OBS_DIM
 from src.envs.bglike.placement import placement_reward
+from tests.conftest import NUM_POOL_INDICES
 
 
 def test_gae_uniform_seat_ids_matches_linear_gae():
@@ -123,6 +125,7 @@ def test_structured_close_segment_updates_last_step_for_seat():
         slot_hidden=16,
         trunk_hidden=32,
         obs_layout="bglike",
+        num_pool_indices=NUM_POOL_INDICES,
     )
     agent = MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),

@@ -9,6 +9,7 @@ from typing import List, Optional, Sequence, Tuple
 from src.bg_core.effects import (
     BuffAdjacentBattlecry,
     BuffTargetFriendlyBattlecry,
+    ConsumeFriendlyBattlecry,
     Trigger,
 )
 from src.bg_core.minion import Minion, Race
@@ -18,7 +19,7 @@ from src.bg_recruitment.place import place_from_hand
 from src.bg_recruitment.shop_triggers import ShopTriggers
 from src.envs.minibg.state import CasterKind, CasterRef, MiniBGState, PlayerState
 
-RlEffectParams = BuffTargetFriendlyBattlecry | BuffAdjacentBattlecry
+RlEffectParams = BuffTargetFriendlyBattlecry | BuffAdjacentBattlecry | ConsumeFriendlyBattlecry
 
 
 class RlEffectKind(IntEnum):
@@ -68,8 +69,17 @@ class RlPlacePlan:
             if self.awaiting_second_adjacent:
                 return tuple(i for i in range(len(board)) if i != self.picks[0])
             return ()
-        assert isinstance(self.params, BuffTargetFriendlyBattlecry)
+        assert isinstance(self.params, (BuffTargetFriendlyBattlecry, ConsumeFriendlyBattlecry))
         caster = CasterRef(CasterKind.HAND, hand_idx=self.hand_slot)
+        if isinstance(self.params, ConsumeFriendlyBattlecry):
+            return compute_eligible_buff_target(
+                board,
+                caster,
+                BuffTargetFriendlyBattlecry(
+                    filter_race=self.params.filter_race,
+                    exclude_self=self.params.exclude_self,
+                ),
+            )
         return compute_eligible_buff_target(board, caster, self.params)
 
     def record_pick_live(self, board: Sequence[Minion], board_idx: int) -> None:
@@ -117,6 +127,8 @@ def _targeted_effect_from_minion(
             continue
         if isinstance(ab.effect, BuffTargetFriendlyBattlecry):
             return RlEffectKind.BUFF_TARGET_FRIENDLY, ab.effect
+        if isinstance(ab.effect, ConsumeFriendlyBattlecry):
+            return RlEffectKind.BUFF_TARGET_FRIENDLY, ab.effect
         if isinstance(ab.effect, BuffAdjacentBattlecry):
             return RlEffectKind.BUFF_ADJACENT_SLOT, ab.effect
     return None
@@ -136,9 +148,16 @@ def open_rl_place_plan(
         return None
     kind, params = spec
     if kind == RlEffectKind.BUFF_TARGET_FRIENDLY:
-        assert isinstance(params, BuffTargetFriendlyBattlecry)
+        assert isinstance(params, (BuffTargetFriendlyBattlecry, ConsumeFriendlyBattlecry))
         eligible = compute_eligible_buff_target(
-            player.board, _hand_caster(hand_slot), params
+            player.board,
+            _hand_caster(hand_slot),
+            params
+            if isinstance(params, BuffTargetFriendlyBattlecry)
+            else BuffTargetFriendlyBattlecry(
+                filter_race=params.filter_race,
+                exclude_self=params.exclude_self,
+            ),
         )
         if not eligible:
             return None

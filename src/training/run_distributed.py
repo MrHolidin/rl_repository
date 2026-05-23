@@ -122,13 +122,23 @@ def run_distributed(
     )
     game_params["use_structured"] = use_structured
 
+    if game_id in ("minibg", "bglike"):
+        from src.training.patch_config import apply_patch_to_agent_params
+
+        apply_patch_to_agent_params(game_params, agent_params)
+
     if game_id == "bglike":
         from src.envs.bglike.action_map import NUM_ENV_ACTIONS
-        from src.envs.bglike.obs import OBS_DIM
+        from src.training.obs_sizing import apply_bg_observation_defaults
 
         num_actions = int(NUM_ENV_ACTIONS)
-        agent_params.setdefault("observation_shape", (OBS_DIM,))
-        agent_params.setdefault("observation_type", "vector")
+        apply_bg_observation_defaults(game_id, agent_params)
+    elif game_id == "minibg":
+        from src.envs.minibg.action_map import NUM_ENV_ACTIONS
+        from src.training.obs_sizing import apply_bg_observation_defaults
+
+        num_actions = int(NUM_ENV_ACTIONS)
+        apply_bg_observation_defaults(game_id, agent_params)
     else:
         base_env = make_game(app_cfg.game.id, **game_params)
         legal_mask = getattr(base_env, "legal_actions_mask", None)
@@ -158,7 +168,12 @@ def run_distributed(
     ck_path = Path(dist_cfg.checkpoint).resolve() if dist_cfg.checkpoint else None
     if ck_path is not None and ck_path.is_file():
         if use_structured:
-            agent = MiniBGPPOStructuredAgent.load(str(ck_path), device=device, seed=seed)
+            agent = MiniBGPPOStructuredAgent.load(
+                str(ck_path),
+                device=device,
+                seed=seed,
+                patch_build=agent_params.get("patch_build"),
+            )
         else:
             from src.agents.ppo_agent import PPOAgent
 

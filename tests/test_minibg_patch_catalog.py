@@ -59,11 +59,8 @@ def test_emperor_cobra_constructed_pool_has_tier():
 
 def test_minion_from_catalog_poison_and_race():
     from src.bg_core.effects import Keyword
-    from src.envs.minibg.obs import (
-        KEYWORD_OFFSET,
-        TIER_OFFSET,
-        encode_minion,
-    )
+    from src.envs.minibg.obs import KEYWORD_OFFSET, TIER_OFFSET
+    from tests.conftest import obs_encode_minion as encode_minion
     from src.envs.minibg.state import Race
 
     cobra = minion_by_id()["EX1_170"]

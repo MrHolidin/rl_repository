@@ -1,19 +1,14 @@
 """Card catalog: patch JSON, template pool, factories."""
 
-from .card_pool import (
-    CARD_TEMPLATES,
-    EFFECTS,
-    GOLDEN_REWARD_IDS,
-    TOKEN_IDS,
-    build_card_templates,
-    triple_merge_golden_abilities,
-)
 from .cards import (
     LEGACY_CARD_ID_ALIASES,
+    build_card_templates,
     make_minion,
     resolve_card_id,
     shop_minion_allowed_with_exclusion,
     shop_pool_for_tier,
+    templates,
+    triple_merge_golden_abilities,
 )
 from .patch_catalog import (
     TavernMinionRecord,
@@ -31,17 +26,35 @@ from .patch_catalog import (
     race_from_hs_string,
     tier_by_dbf_id,
 )
+from .patch_context import (
+    DEFAULT_PATCH_DIR,
+    PatchCardDescription,
+    PatchContext,
+    PatchMeta,
+    default_patch_context,
+    load_patch_context,
+    require_patch,
+)
+from .patch_runtime import (
+    active_shop_tribe_count,
+    pool_copies_by_tier,
+    rotation_shop_tribes,
+)
 from .triple_effects import implicit_triple_golden_effect, resolve_triple_forged_abilities
 
 __all__ = [
-    "CARD_TEMPLATES",
-    "EFFECTS",
-    "GOLDEN_REWARD_IDS",
-    "TOKEN_IDS",
+    "DEFAULT_PATCH_DIR",
+    "PatchCardDescription",
+    "PatchContext",
+    "PatchMeta",
+    "active_shop_tribe_count",
     "LEGACY_CARD_ID_ALIASES",
     "TavernMinionRecord",
     "build_card_templates",
     "catalog_path",
+    "default_patch_context",
+    "load_patch_context",
+    "require_patch",
     "golden_upgrade_card_id",
     "implicit_triple_golden_effect",
     "keywords_for_tavern_record",
@@ -54,11 +67,14 @@ __all__ = [
     "normal_to_golden_card_id_map",
     "patch_build",
     "patch_version",
+    "pool_copies_by_tier",
     "race_from_hs_string",
     "resolve_card_id",
     "resolve_triple_forged_abilities",
+    "rotation_shop_tribes",
     "shop_minion_allowed_with_exclusion",
     "shop_pool_for_tier",
+    "templates",
     "tier_by_dbf_id",
     "triple_merge_golden_abilities",
 ]

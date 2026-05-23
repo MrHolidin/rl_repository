@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from copy import copy
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping
 
-from src.bg_catalog.card_pool import CARD_TEMPLATES as _CARD_TEMPLATES
-from src.bg_core.effects import Keyword
+from src.bg_catalog.patch_context import PatchContext, require_patch
+from src.bg_core.effects import Ability
 from src.bg_core.minion import Minion, Race
-
-CARD_TEMPLATES: Dict[str, Minion] = dict(_CARD_TEMPLATES)
 
 # Legacy toy / slug ids from tests and older scripts → patch catalog ``card_id``.
 LEGACY_CARD_ID_ALIASES: Dict[str, str] = {
@@ -61,51 +58,55 @@ LEGACY_CARD_ID_ALIASES: Dict[str, str] = {
 }
 
 
+def templates(*, patch: PatchContext) -> Mapping[str, Minion]:
+    return patch.templates
+
+
+def build_card_templates(*, patch: PatchContext) -> Dict[str, Minion]:
+    return dict(templates(patch=patch))
+
+
+def triple_merge_golden_abilities(
+    normal_card_id: str,
+    *,
+    patch: PatchContext,
+) -> tuple[Ability, ...]:
+    return patch.triple_merge_golden_abilities(normal_card_id)
+
+
 def resolve_card_id(card_id: str) -> str:
     return LEGACY_CARD_ID_ALIASES.get(card_id, card_id)
 
 
-def make_minion(card_id: str) -> Minion:
-    template = CARD_TEMPLATES[resolve_card_id(card_id)]
-    fresh = copy(template)
-    fresh.has_shield = Keyword.SHIELD in template.all_keywords
-    fresh.is_golden = template.is_golden
-    fresh.from_triple_merge = False
-    fresh.is_triple_reward_spell = template.is_triple_reward_spell
-    fresh.triple_discover_tier = template.triple_discover_tier
-    return fresh
+def make_minion(card_id: str, *, patch: PatchContext) -> Minion:
+    ctx = require_patch(patch, where="cards.make_minion")
+    return ctx.make_minion(resolve_card_id(card_id))
 
 
 def shop_minion_allowed_with_exclusion(
-    m: Minion, shop_excluded_race: Optional[Race]
+    m: Minion,
+    shop_excluded_race: Race | None,
 ) -> bool:
-    if shop_excluded_race is None:
-        return True
     if m.race is None or m.race == Race.ALL:
+        return True
+    if shop_excluded_race is None:
         return True
     return m.race != shop_excluded_race
 
 
 def shop_pool_for_tier(
-    tavern_tier: int,
+    tier: int,
     *,
-    shop_excluded_race: Optional[Race] = None,
+    shop_excluded_race: Race | None = None,
+    patch: PatchContext,
 ) -> List[str]:
+    ctx = require_patch(patch, where="cards.shop_pool_for_tier")
     return [
         cid
-        for cid, m in CARD_TEMPLATES.items()
+        for cid, m in ctx.templates.items()
         if not m.is_token
         and not m.is_golden
-        and m.tier <= tavern_tier
+        and not m.is_triple_reward_spell
+        and m.tier == tier
         and shop_minion_allowed_with_exclusion(m, shop_excluded_race)
     ]
-
-
-__all__ = [
-    "CARD_TEMPLATES",
-    "LEGACY_CARD_ID_ALIASES",
-    "make_minion",
-    "resolve_card_id",
-    "shop_minion_allowed_with_exclusion",
-    "shop_pool_for_tier",
-]

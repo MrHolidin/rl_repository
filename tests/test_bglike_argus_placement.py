@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from src.agents.random_agent import RandomAgent
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.bg_core.effects import Keyword
 from src.envs.bglike.action_map import (
     A_APPLY_EFFECT_SKIP,
@@ -13,7 +13,7 @@ from src.envs.bglike.action_map import (
     is_target_board,
 )
 from src.envs.bglike.lobby_env import BGLobbyMultiCurrentEnv
-from src.envs.bglike.obs import encode_pending_choice
+from tests.conftest import obs_encode_pending_choice as encode_pending_choice
 from src.envs.minibg.obs import PENDING_IS_APPLY_OFFSET
 from src.envs.bglike.seat_config import build_training_lobby_configs
 

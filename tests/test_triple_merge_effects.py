@@ -2,24 +2,28 @@
 
 from dataclasses import replace
 
-from src.bg_catalog.card_pool import EFFECTS, triple_merge_golden_abilities
+from src.bg_catalog.cards import triple_merge_golden_abilities
 from src.bg_core.effects import SummonEffect, SummonMultiplierAura
 from src.bg_recruitment.triples import merge_three_non_golden_into_golden
 from src.envs.minibg.state import Minion
+from tests.conftest import PATCH_CTX
+
+_EFFECTS = PATCH_CTX.effects
+_PATCH = PATCH_CTX
 
 
 def test_triple_merge_brann_abilities_match_authored_golden_row():
-    assert triple_merge_golden_abilities("LOE_077") == EFFECTS["TB_BaconUps_045"]
+    assert triple_merge_golden_abilities("LOE_077", patch=_PATCH) == _EFFECTS["TB_BaconUps_045"]
 
 
 def test_triple_merge_brann_singleton_factor_three_not_three_copies():
-    merged = triple_merge_golden_abilities("LOE_077")
+    merged = triple_merge_golden_abilities("LOE_077", patch=_PATCH)
     assert len(merged) == 1
     assert merged[0].effect.factor == 3
 
 
 def test_triple_merge_pack_rat_deathrattle_uses_waves_not_triplicate_ability_rows():
-    abs_ = triple_merge_golden_abilities("CFM_316")
+    abs_ = triple_merge_golden_abilities("CFM_316", patch=_PATCH)
     assert len(abs_) == 1
     eff = abs_[0].effect
     assert isinstance(eff, SummonEffect)
@@ -34,12 +38,12 @@ def test_merge_three_non_golden_into_golden_replaces_abilities_from_canonical_ta
         base_health=7,
         tier=5,
         name="Baron Rivendare",
-        abilities=EFFECTS["FP1_031"],
+        abilities=_EFFECTS["FP1_031"],
     )
     b = replace(a)
     c = replace(a)
-    g = merge_three_non_golden_into_golden("FP1_031", a, b, c)
-    assert g.abilities == EFFECTS["TB_BaconUps_055"]
+    g = merge_three_non_golden_into_golden("FP1_031", a, b, c, patch=_PATCH)
+    assert g.abilities == _EFFECTS["TB_BaconUps_055"]
     assert len(g.abilities) == 1
 
 
@@ -50,11 +54,11 @@ def test_merge_three_summon_multiplier_is_singleton_golden_three():
         base_health=2,
         tier=3,
         name="Khadgar",
-        abilities=EFFECTS["DAL_575"],
+        abilities=_EFFECTS["DAL_575"],
     )
     b = replace(a)
     c = replace(a)
-    g = merge_three_non_golden_into_golden("DAL_575", a, b, c)
+    g = merge_three_non_golden_into_golden("DAL_575", a, b, c, patch=_PATCH)
     assert len(g.abilities) == 1
     assert isinstance(g.abilities[0].effect, SummonMultiplierAura)
     assert g.abilities[0].effect.factor == 3

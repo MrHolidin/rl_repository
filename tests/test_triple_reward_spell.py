@@ -4,7 +4,9 @@ from copy import copy
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.conftest import PATCH_CTX
+
+from tests.minibg_helpers import make_minion
 from src.bg_recruitment.discover_pool import triple_reward_discover_tier
 from src.bg_recruitment.triples import (
     is_triple_reward_discover_spell,
@@ -34,7 +36,7 @@ def _player_with_triple_in_hand(card_id: str = "recruit") -> PlayerState:
 
 def test_triple_merge_grants_spell_not_immediate_discover():
     p = _player_with_triple_in_hand()
-    assert resolve_one_triple(p)
+    assert resolve_one_triple(p, patch=PATCH_CTX)
     spells = [h for h in p.hand if h is not None and is_triple_reward_discover_spell(h)]
     goldens = [h for h in p.hand if h is not None and h.is_golden]
     assert len(goldens) == 1
@@ -61,7 +63,7 @@ def test_place_spell_on_full_board_opens_discover():
     tier = triple_reward_discover_tier(3)
     from src.bg_recruitment.triples import make_triple_reward_discover_spell
 
-    p.hand[0] = make_triple_reward_discover_spell(discover_tier=tier)
+    p.hand[0] = make_triple_reward_discover_spell(discover_tier=tier, patch=PATCH_CTX)
     place_from_hand(
         p,
         0,
@@ -80,7 +82,7 @@ def test_place_golden_does_not_open_discover():
     g = MiniBGGame(seed=1)
     rng = np.random.default_rng(1)
     p = _player_with_triple_in_hand()
-    resolve_one_triple(p)
+    resolve_one_triple(p, patch=PATCH_CTX)
     golden_slot = next(
         i for i, h in enumerate(p.hand) if h is not None and h.is_golden
     )

@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
-from src.bg_core.effects import BuffAdjacentBattlecry, BuffTargetFriendlyBattlecry, Keyword
+from src.bg_core.effects import (
+    BuffAdjacentBattlecry,
+    BuffTargetFriendlyBattlecry,
+    BuffTargetFromPiratesBoughtBattlecry,
+    Keyword,
+)
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import CasterKind, CasterRef
 
@@ -38,10 +43,15 @@ def adjacent_board_indices(
     return tuple(out)
 
 
+BuffTargetEffect = Union[
+    BuffTargetFriendlyBattlecry, BuffTargetFromPiratesBoughtBattlecry
+]
+
+
 def compute_eligible_buff_target(
     board: Sequence[Minion],
     caster: CasterRef,
-    effect: BuffTargetFriendlyBattlecry,
+    effect: BuffTargetEffect,
 ) -> Tuple[int, ...]:
     exclude_idx: Optional[int] = None
     if effect.exclude_self and caster.kind == CasterKind.BOARD:

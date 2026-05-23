@@ -31,7 +31,7 @@ and role constants) are imported from v1's module so we don't duplicate them.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -119,6 +119,7 @@ class BGLikeStructuredV2(nn.Module):
         entity_attention_ff_mult: int = 2,
         entity_attention_init_scale: float = 0.1,
         obs_layout: str = "bglike",
+        num_pool_indices: Optional[int] = None,
     ) -> None:
         super().__init__()
 
@@ -174,6 +175,9 @@ class BGLikeStructuredV2(nn.Module):
         self.entity_attention_heads = int(entity_attention_heads)
         self.entity_attention_ff_mult = int(entity_attention_ff_mult)
         self.entity_attention_init_scale = float(entity_attention_init_scale)
+        if num_pool_indices is None:
+            raise ValueError("num_pool_indices is required")
+        self.num_pool_indices = int(num_pool_indices)
 
         k2 = int(region_conv2_kernel)
         if k2 not in (1, 3):
@@ -182,7 +186,7 @@ class BGLikeStructuredV2(nn.Module):
 
         # --- Card / pending embeddings -----------------------------------
         self.card_emb = nn.Embedding(
-            _NUM_POOL_INDICES + 1, self.card_emb_dim, padding_idx=0
+            self.num_pool_indices + 1, self.card_emb_dim, padding_idx=0
         )
         self.adapt_choice_emb = nn.Embedding(
             len(ADAPT_KEYS_ALL) + 1, self.card_emb_dim, padding_idx=0
@@ -321,6 +325,7 @@ class BGLikeStructuredV2(nn.Module):
             "entity_attention_ff_mult": self.entity_attention_ff_mult,
             "entity_attention_init_scale": self.entity_attention_init_scale,
             "obs_layout": self.obs_layout,
+            "num_pool_indices": self.num_pool_indices,
         }
 
     # ------------------------------------------------------------------
@@ -356,7 +361,9 @@ class BGLikeStructuredV2(nn.Module):
         return g, own, shop, hand, enemy, lb, phase, pending
 
     def _encode_region_slots(self, z: torch.Tensor) -> torch.Tensor:
-        z = _split_card_idx_and_cont(z, self.card_emb)
+        z = _split_card_idx_and_cont(
+            z, self.card_emb, max_card_idx=self.num_pool_indices
+        )
         h = z.transpose(1, 2)
         h = F.relu(self.region_conv1(h))
         h = F.relu(self.region_conv2(h))
@@ -403,7 +410,10 @@ class BGLikeStructuredV2(nn.Module):
         device = x.device
         dtype = E_own.dtype
         opt_stack = _pending_three_option_emb(
-            pending, self.card_emb, self.adapt_choice_emb
+            pending,
+            self.card_emb,
+            self.adapt_choice_emb,
+            max_card_idx=self.num_pool_indices,
         )
         is_apply = pending[..., _PENDING_IS_APPLY_OFFSET : _PENDING_IS_APPLY_OFFSET + 1] > 0.5
         opt_stack = opt_stack.masked_fill(is_apply.unsqueeze(-1), 0.0)

@@ -6,10 +6,13 @@ from typing import Callable, Optional, TYPE_CHECKING
 
 import numpy as np
 
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_combat.battle import simulate_battle
+from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Race
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_lobby.shop_order import sample_shop_turn_order
+from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.envs.minibg.actions import gold_for_round
 
 if TYPE_CHECKING:
@@ -51,11 +54,23 @@ def resolve_battle_and_advance(
     fire_on_turn_start: Callable[[PlayerState], None],
     refresh_shop: Callable[[PlayerState, Optional[Race]], None],
     refresh_shop_fill_empty_slots: Callable[[PlayerState, Optional[Race]], None],
+    patch: Optional[PatchContext] = None,
 ) -> None:
     p0_has_initiative = (state.round_number % 2 == 1) == (state.initiative_player == 0)
+    if patch is None:
+        if state.shared_pool is None:
+            raise RuntimeError(
+                "patch or shared_pool is required for battle resolution"
+            )
+        patch = state.shared_pool.patch
+    pa, pb = state.players[0], state.players[1]
+    pa.last_opponent_board = snapshot_warband(pb.board)
+    pb.last_opponent_board = snapshot_warband(pa.board)
+    combat_gold = [0, 0]
+    combat_hand_adds: list[list[str]] = [[], []]
     dmg_p0, dmg_p1 = simulate_battle(
-        state.players[0].board,
-        state.players[1].board,
+        pa.board,
+        pb.board,
         p0_has_initiative=p0_has_initiative,
         rng=rng,
         combat_board_max=combat_board_max,
@@ -63,9 +78,18 @@ def resolve_battle_and_advance(
         max_board_slots=board_size,
         p0_tavern_tier=state.players[0].tavern_tier,
         p1_tavern_tier=state.players[1].tavern_tier,
+        patch=patch,
+        combat_gold_out=combat_gold,
+        combat_hand_adds_out=combat_hand_adds,
     )
     state.players[0].health -= dmg_p0
     state.players[1].health -= dmg_p1
+    state.players[0].gold += combat_gold[0]
+    state.players[1].gold += combat_gold[1]
+    apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
+    apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+    state.players[0].last_combat_won = dmg_p0 == 0 and dmg_p1 > 0
+    state.players[1].last_combat_won = dmg_p1 == 0 and dmg_p0 > 0
 
     p0_dead = state.players[0].health <= 0
     p1_dead = state.players[1].health <= 0

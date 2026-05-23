@@ -1,7 +1,8 @@
 """Discover (tier-weighted Murloc) and Gentle Megasaur Adapt."""
 
 from src.envs.minibg.actions import Action, HAND_SIZE
-from src.bg_catalog.cards import make_minion
+from tests.conftest import PATCH_CTX
+from tests.minibg_helpers import make_minion
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL, murloc_discover_card_ids
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import PendingChoiceKind
@@ -23,7 +24,7 @@ def test_primalfin_blocks_shop_until_discover_pick():
     assert p2.pending_choice.kind == PendingChoiceKind.DISCOVER_MURLOC
     assert len(set(p2.pending_choice.options)) == 3
     for cid in p2.pending_choice.options:
-        assert cid in murloc_discover_card_ids()
+        assert cid in murloc_discover_card_ids(patch=PATCH_CTX)
     legal = set(g.legal_actions(s2))
     assert legal == {
         int(Action.DISCOVER_PICK_0),

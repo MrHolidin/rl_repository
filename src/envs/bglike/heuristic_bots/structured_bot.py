@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 from ..action_map import (
+    A_BUY_BASE,
     A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
@@ -72,6 +73,10 @@ class StructuredHeuristicBot(HeuristicBot):
     def _finish(self, env: HeuristicEnv) -> int:
         mask = _mask(env)
         p = _me(env)
+        if p.pending_choice is not None and p.pending_choice.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+            buys = [A_BUY_BASE + s for s in range(MAX_SHOP_SLOTS) if bool(mask[A_BUY_BASE + s])]
+            if buys:
+                return int(buys[0])
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
@@ -97,7 +102,8 @@ class StructuredHeuristicBot(HeuristicBot):
                 PendingChoiceKind.DISCOVER_MURLOC,
                 PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
             ):
-                m = make_minion(tok)
+                patch = env._game._patch if hasattr(env, "_game") else env.patch
+                m = make_minion(tok, patch=patch)
                 dom = dominant_race(p.board)
                 bl = len(p.board) + 1
                 sc = minion_shop_value(

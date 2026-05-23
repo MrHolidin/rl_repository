@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.invariants import assert_shop_has_legal_actions
 from src.envs.minibg.state import (
     MiniBGState,

@@ -1,5 +1,6 @@
 from src.envs.minibg.actions import COMBAT_BOARD_MAX, DAMAGE_CAP, HAND_SIZE, LEVEL_UP_COSTS
-from src.bg_catalog.cards import make_minion
+from tests.conftest import PATCH_CTX
+from tests.minibg_helpers import make_minion
 from src.bg_combat.battle import (
     BattleMinion,
     BattleSide,
@@ -99,6 +100,7 @@ def test_summon_effect_on_death_appends_token():
         rng=np.random.default_rng(0),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, bm, 0)
     assert len(side.minions) == 3
@@ -121,6 +123,7 @@ def test_summon_effect_skipped_when_alive_count_at_cap():
         rng=np.random.default_rng(0),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, bm, 0)
     rat_summons = [m for m in side.minions if m.template.card_id == "CFM_316t"]
@@ -137,6 +140,7 @@ def test_the_beast_summons_finkle_on_opponent_side_during_dr():
         rng=np.random.default_rng(0),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, beast, 0)
     assert len(side1.minions) == 1
@@ -154,6 +158,7 @@ def test_opponent_summon_skipped_when_target_side_at_combat_cap():
         rng=np.random.default_rng(0),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, beast, 0)
     assert not any(m.template.card_id == "EX1_finkle" for m in side1.minions)
@@ -254,6 +259,7 @@ def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
         rng=np.random.default_rng(0),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, kang, 0)
     alive_ids = [m.template.card_id for m in side.minions if m.alive]
@@ -273,6 +279,7 @@ def test_golden_selfless_hero_grants_two_divine_shields():
         rng=np.random.default_rng(1),
         combat_board_max=COMBAT_BOARD_MAX,
         damage_cap=DAMAGE_CAP,
+        patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, dead, 0)
     assert Keyword.SHIELD in a.template.keywords and a.shield_armed

@@ -90,9 +90,15 @@ class Action(IntEnum):
     TARGET_BOARD_4 = 64
     TARGET_BOARD_5 = 65
     TARGET_BOARD_6 = 66
+    FREEZE_SHOP_SLOT_0 = 67
+    FREEZE_SHOP_SLOT_1 = 68
+    FREEZE_SHOP_SLOT_2 = 69
+    FREEZE_SHOP_SLOT_3 = 70
+    FREEZE_SHOP_SLOT_4 = 71
+    FREEZE_SHOP_SLOT_5 = 72
 
 
-NUM_ACTIONS = 67
+NUM_ACTIONS = 73
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE
@@ -179,6 +185,20 @@ def target_board_index(action_int: int) -> int:
     return action_int - int(Action.TARGET_BOARD_0)
 
 
+def is_freeze_shop_slot_game_action(action_int: int) -> bool:
+    return int(Action.FREEZE_SHOP_SLOT_0) <= action_int <= int(
+        Action.FREEZE_SHOP_SLOT_5
+    )
+
+
+def freeze_shop_slot_index(action_int: int) -> int:
+    return action_int - int(Action.FREEZE_SHOP_SLOT_0)
+
+
+def freeze_shop_slot_action(slot: int) -> Action:
+    return Action(int(Action.FREEZE_SHOP_SLOT_0) + slot)
+
+
 __all__ = [
     "Action",
     "MAGNET_ACTION_BASE",
@@ -217,4 +237,7 @@ __all__ = [
     "discover_pick_index",
     "is_target_board_game_action",
     "target_board_index",
+    "is_freeze_shop_slot_game_action",
+    "freeze_shop_slot_index",
+    "freeze_shop_slot_action",
 ]

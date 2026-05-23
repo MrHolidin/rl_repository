@@ -10,11 +10,17 @@ from src.models.ppo_policy_factory import (
     restore_ppo_actor_critic,
 )
 from src.registry import make_agent
+from tests.conftest import NUM_POOL_INDICES
 
 
 def test_minibg_slot_actor_critic_forward():
     n_act = 80
-    m = MiniBGSlotActorCritic(num_actions=n_act, slot_hidden=8, trunk_hidden=32)
+    m = MiniBGSlotActorCritic(
+        num_actions=n_act,
+        slot_hidden=8,
+        trunk_hidden=32,
+        num_pool_indices=NUM_POOL_INDICES,
+    )
     x = torch.randn(2, OBS_DIM)
     legal = torch.zeros(2, n_act, dtype=torch.bool)
     legal[:, :3] = True
@@ -33,6 +39,7 @@ def test_build_ppo_minibg_slot():
         slot_hidden_channels=8,
         trunk_hidden_size=64,
         region_conv2_kernel=1,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     assert isinstance(net, MiniBGSlotActorCritic)
 
@@ -47,6 +54,7 @@ def test_make_agent_ppo_minibg():
         rollout_steps=32,
         minibatch_size=16,
         device="cpu",
+        num_pool_indices=NUM_POOL_INDICES,
     )
     obs = np.zeros(OBS_DIM, dtype=np.float32)
     legal = np.zeros(50, dtype=bool)
@@ -68,6 +76,7 @@ def test_ppo_save_load_roundtrip(tmp_path):
         rollout_steps=8,
         minibatch_size=4,
         device="cpu",
+        num_pool_indices=NUM_POOL_INDICES,
     )
     agent.save(str(path))
     loaded = PPOAgent.load(str(path), device="cpu")
@@ -84,7 +93,12 @@ def test_restore_ppo_actor_critic_minibg_kw_only():
         "minibg_slot",
         (OBS_DIM,),
         15,
-        {"slot_hidden": 4, "trunk_hidden": 8, "region_conv2_kernel": 1},
+        {
+            "slot_hidden": 4,
+            "trunk_hidden": 8,
+            "region_conv2_kernel": 1,
+            "num_pool_indices": NUM_POOL_INDICES,
+        },
     )
     x = torch.randn(1, OBS_DIM)
     lm = torch.zeros(1, 15, dtype=torch.bool)

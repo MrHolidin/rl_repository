@@ -6,6 +6,7 @@ from typing import Callable, List, Optional
 
 import numpy as np
 
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.minion import Minion, Race
 
 from src.envs.minibg.actions import (
@@ -25,11 +26,45 @@ from .pool_ledger import on_sell_minion
 from .shop import clear_shop_slot, fill_shop_slot, refresh_shop, tavern_card_pool
 
 
+def effective_sell_reward(minion: Minion) -> int:
+    if minion.sell_value is not None:
+        return int(minion.sell_value)
+    return SELL_REWARD
+
+
+def effective_roll_cost(player: PlayerState) -> int:
+    if player.next_roll_cost_override is not None:
+        return max(0, int(player.next_roll_cost_override))
+    return ROLL_COST
+
+
+def effective_level_up_cost(player: PlayerState) -> int:
+    return max(0, player.next_tier_up_cost + player.upgrade_cost_delta)
+
+
+def sell_from_board(
+    player: PlayerState,
+    pos: int,
+    *,
+    on_sell: Callable[[Minion, PlayerState], None] | None = None,
+    on_triples: Callable[[PlayerState], None],
+    shared_pool: Optional[SharedCardPool] = None,
+) -> None:
+    sold = player.board[pos]
+    if on_sell is not None:
+        on_sell(sold, player)
+    on_sell_minion(shared_pool, sold)
+    del player.board[pos]
+    player.gold += effective_sell_reward(sold)
+    on_triples(player)
+
+
 def buy_from_shop(
     player: PlayerState,
     slot: int,
     *,
     on_bought: Callable[[Minion, PlayerState], None],
+    on_friendly_bought: Callable[[Minion, PlayerState], None] | None = None,
     on_triples: Callable[[PlayerState], None],
     shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
@@ -41,20 +76,8 @@ def buy_from_shop(
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
     player.hand[h] = minion
     on_bought(minion, player)
-    on_triples(player)
-
-
-def sell_from_board(
-    player: PlayerState,
-    pos: int,
-    *,
-    on_triples: Callable[[PlayerState], None],
-    shared_pool: Optional[SharedCardPool] = None,
-) -> None:
-    sold = player.board[pos]
-    on_sell_minion(shared_pool, sold)
-    del player.board[pos]
-    player.gold += SELL_REWARD
+    if on_friendly_bought is not None:
+        on_friendly_bought(minion, player)
     on_triples(player)
 
 
@@ -64,10 +87,19 @@ def roll_shop(
     *,
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> None:
-    player.gold -= ROLL_COST
+    cost = effective_roll_cost(player)
+    player.gold -= cost
+    if player.next_roll_cost_override is not None:
+        player.next_roll_cost_override = None
     refresh_shop(
-        player, shop_excluded_race, rng=rng, shared_pool=shared_pool
+        player,
+        shop_excluded_race,
+        rng=rng,
+        shared_pool=shared_pool,
+        frozen_slots=player.shop_frozen,
+        patch=patch,
     )
 
 
@@ -77,9 +109,11 @@ def level_up_tavern(
     *,
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> None:
-    cost = player.next_tier_up_cost
+    cost = effective_level_up_cost(player)
     player.gold -= cost
+    player.upgrade_cost_delta = 0
     old_tier = player.tavern_tier
     player.tavern_tier += 1
     if player.tavern_tier < MAX_TIER:
@@ -95,4 +129,5 @@ def level_up_tavern(
             shop_excluded_race,
             rng=rng,
             shared_pool=shared_pool,
+            patch=patch,
         )

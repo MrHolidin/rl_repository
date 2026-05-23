@@ -1,0 +1,7167 @@
+{
+  "build": 74257,
+  "patch": "19.6.0",
+  "locale": "enUS",
+  "sources": {
+    "hearthstonejson": "data/minibg/cards_74257_raw.json",
+    "hsdata": "HearthSim/hsdata commit 132c8a9 (Update to patch 19.6.0.74257) CardDefs.xml"
+  },
+  "tavernMinionCount": 354,
+  "minions": [
+    {
+      "dbfId": 48,
+      "id": "CS2_065",
+      "name": "Voidwalker",
+      "tier": 1,
+      "attack": 1,
+      "health": 3,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "CORE",
+      "rarity": "FREE",
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 204,
+      "id": "EX1_554t",
+      "name": "Snake",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 453,
+      "id": "EX1_103",
+      "name": "Coldlight Seer",
+      "tier": 3,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your other Murlocs +2 Health.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59491
+    },
+    {
+      "dbfId": 471,
+      "id": "skele21",
+      "name": "Damaged Golem",
+      "tier": 1,
+      "attack": 2,
+      "health": 1,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "EXPERT1",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 475,
+      "id": "EX1_509",
+      "name": "Murloc Tidecaller",
+      "tier": 1,
+      "attack": 1,
+      "health": 2,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "Whenever you summon a Murloc, gain +1 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58138
+    },
+    {
+      "dbfId": 531,
+      "id": "EX1_564",
+      "name": "Faceless Manipulator",
+      "tier": 6,
+      "attack": 3,
+      "health": 3,
+      "cost": 5,
+      "race": null,
+      "set": "EXPERT1",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> Choose a minion and become a copy of it.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 680,
+      "id": "NEW1_027",
+      "name": "Southsea Captain",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "EXPERT1",
+      "rarity": "EPIC",
+      "text": "Your other Pirates have +1/+1.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62237
+    },
+    {
+      "dbfId": 736,
+      "id": "EX1_062",
+      "name": "Old Murk-Eye",
+      "tier": 2,
+      "attack": 2,
+      "health": 4,
+      "cost": 4,
+      "race": "MURLOC",
+      "set": "HOF",
+      "rarity": "LEGENDARY",
+      "text": "<b>Charge</b>. Has +1 Attack for each other Murloc on the battlefield.",
+      "mechanics": [
+        "CHARGE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58382
+    },
+    {
+      "dbfId": 763,
+      "id": "EX1_093",
+      "name": "Defender of Argus",
+      "tier": 4,
+      "attack": 2,
+      "health": 3,
+      "cost": 4,
+      "race": null,
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give adjacent minions +1/+1 and <b>Taunt</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 57404
+    },
+    {
+      "dbfId": 778,
+      "id": "EX1_556",
+      "name": "Harvest Golem",
+      "tier": 2,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "EXPERT1",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 2/1 Damaged Golem.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 57401
+    },
+    {
+      "dbfId": 962,
+      "id": "EX1_577",
+      "name": "The Beast",
+      "tier": 3,
+      "attack": 9,
+      "health": 7,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Summon a 3/3 Finkle Einhorn for your opponent.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58394
+    },
+    {
+      "dbfId": 976,
+      "id": "EX1_506",
+      "name": "Murloc Tidehunter",
+      "tier": 1,
+      "attack": 2,
+      "health": 1,
+      "cost": 2,
+      "race": "MURLOC",
+      "set": "CORE",
+      "rarity": "FREE",
+      "text": "<b>Battlecry:</b> Summon a 1/1 Murloc Scout.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 57338
+    },
+    {
+      "dbfId": 985,
+      "id": "EX1_162",
+      "name": "Dire Wolf Alpha",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": "COMMON",
+      "text": "Adjacent minions have +1 Attack.",
+      "mechanics": [
+        "ADJACENT_BUFF",
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 60025
+    },
+    {
+      "dbfId": 1003,
+      "id": "DS1_070",
+      "name": "Houndmaster",
+      "tier": 3,
+      "attack": 4,
+      "health": 3,
+      "cost": 4,
+      "race": null,
+      "set": "CORE",
+      "rarity": "FREE",
+      "text": "<b>Battlecry:</b> Give a friendly Beast +2/+2 and <b>Taunt</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59499
+    },
+    {
+      "dbfId": 1006,
+      "id": "EX1_finkle",
+      "name": "Finkle Einhorn",
+      "tier": 1,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": null,
+      "set": "EXPERT1",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 1063,
+      "id": "EX1_507",
+      "name": "Murloc Warleader",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "EXPERT1",
+      "rarity": "EPIC",
+      "text": "Your other Murlocs have +2 Attack.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 57403
+    },
+    {
+      "dbfId": 1078,
+      "id": "EX1_506a",
+      "name": "Murloc Scout",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "CORE",
+      "rarity": "COMMON",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 57339
+    },
+    {
+      "dbfId": 1098,
+      "id": "EX1_170",
+      "name": "Emperor Cobra",
+      "tier": 1,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "<b>Poisonous</b>",
+      "mechanics": [
+        "POISONOUS"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 1261,
+      "id": "EX1_534",
+      "name": "Savannah Highmane",
+      "tier": 4,
+      "attack": 6,
+      "health": 5,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Summon two 2/2 Hyenas.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58409
+    },
+    {
+      "dbfId": 1281,
+      "id": "EX1_531",
+      "name": "Scavenging Hyena",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": "COMMON",
+      "text": "Whenever a friendly Beast dies, gain +2/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58395
+    },
+    {
+      "dbfId": 1624,
+      "id": "EX1_534t",
+      "name": "Hyena",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "EXPERT1",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 1791,
+      "id": "FP1_010",
+      "name": "Maexxna",
+      "tier": 6,
+      "attack": 2,
+      "health": 8,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "NAXX",
+      "rarity": "LEGENDARY",
+      "text": "<b>Poisonous</b>",
+      "mechanics": [
+        "POISONOUS"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63781
+    },
+    {
+      "dbfId": 1808,
+      "id": "FP1_024",
+      "name": "Unstable Ghoul",
+      "tier": 2,
+      "attack": 1,
+      "health": 3,
+      "cost": 2,
+      "race": null,
+      "set": "NAXX",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>. <b>Deathrattle:</b> Deal 1 damage to all minions.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61077
+    },
+    {
+      "dbfId": 1915,
+      "id": "FP1_031",
+      "name": "Baron Rivendare",
+      "tier": 5,
+      "attack": 1,
+      "health": 7,
+      "cost": 4,
+      "race": null,
+      "set": "NAXX",
+      "rarity": "LEGENDARY",
+      "text": "Your minions trigger their <b>Deathrattles</b> twice.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58421
+    },
+    {
+      "dbfId": 1986,
+      "id": "GVG_021",
+      "name": "Mal'Ganis",
+      "tier": 5,
+      "attack": 9,
+      "health": 7,
+      "cost": 9,
+      "race": "DEMON",
+      "set": "GVG",
+      "rarity": "LEGENDARY",
+      "text": "Your other Demons have +2/+2.\nYour hero is <b>Immune</b>.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "IMMUNE"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58428
+    },
+    {
+      "dbfId": 1992,
+      "id": "GVG_027",
+      "name": "Iron Sensei",
+      "tier": 3,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "RARE",
+      "text": "At the end of your turn, give another friendly Mech +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58397
+    },
+    {
+      "dbfId": 2016,
+      "id": "GVG_048",
+      "name": "Metaltooth Leaper",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your other Mechs +2 Attack.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59495
+    },
+    {
+      "dbfId": 2023,
+      "id": "GVG_055",
+      "name": "Screwjank Clunker",
+      "tier": 3,
+      "attack": 2,
+      "health": 5,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Mech +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59501
+    },
+    {
+      "dbfId": 2030,
+      "id": "GVG_062",
+      "name": "Cobalt Guardian",
+      "tier": 3,
+      "attack": 6,
+      "health": 3,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "RARE",
+      "text": "Whenever you summon a Mech, gain <b>Divine Shield</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 2053,
+      "id": "GVG_085",
+      "name": "Annoy-o-Tron",
+      "tier": 2,
+      "attack": 1,
+      "health": 2,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Divine Shield</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 2068,
+      "id": "GVG_100",
+      "name": "Floating Watcher",
+      "tier": 4,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": "DEMON",
+      "set": "GVG",
+      "rarity": "COMMON",
+      "text": "Whenever your hero takes damage on your turn, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 60403
+    },
+    {
+      "dbfId": 2074,
+      "id": "GVG_106",
+      "name": "Junkbot",
+      "tier": 4,
+      "attack": 1,
+      "health": 5,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "EPIC",
+      "text": "Whenever a friendly Mech dies, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58402
+    },
+    {
+      "dbfId": 2081,
+      "id": "GVG_113",
+      "name": "Foe Reaper 4000",
+      "tier": 6,
+      "attack": 6,
+      "health": 9,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "GVG",
+      "rarity": "LEGENDARY",
+      "text": "Also damages the minions next to whomever it attacks.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63776
+    },
+    {
+      "dbfId": 2288,
+      "id": "BRM_006",
+      "name": "Imp Gang Boss",
+      "tier": 3,
+      "attack": 2,
+      "health": 4,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BRM",
+      "rarity": "COMMON",
+      "text": "Whenever this minion takes damage, summon a 1/1 Imp.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58372
+    },
+    {
+      "dbfId": 2518,
+      "id": "AT_121",
+      "name": "Crowd Favorite",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": null,
+      "set": "TGT",
+      "rarity": "EPIC",
+      "text": "Whenever you play a card with <b>Battlecry</b>, gain +1/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58383
+    },
+    {
+      "dbfId": 2779,
+      "id": "BRM_006t",
+      "name": "Imp",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "BRM",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 2949,
+      "id": "LOE_077",
+      "name": "Brann Bronzebeard",
+      "tier": 5,
+      "attack": 2,
+      "health": 4,
+      "cost": 3,
+      "race": null,
+      "set": "LOE",
+      "rarity": "LEGENDARY",
+      "text": "Your <b>Battlecries</b> trigger twice.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58400
+    },
+    {
+      "dbfId": 38526,
+      "id": "OG_145",
+      "name": "Psych-o-Tron",
+      "tier": 3,
+      "attack": 3,
+      "health": 4,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "OG",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Divine Shield</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 38734,
+      "id": "OG_216",
+      "name": "Infested Wolf",
+      "tier": 3,
+      "attack": 3,
+      "health": 3,
+      "cost": 4,
+      "race": "BEAST",
+      "set": "OG",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Summon two 1/1 Spiders.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58365
+    },
+    {
+      "dbfId": 38735,
+      "id": "OG_216a",
+      "name": "Spider",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "OG",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 38740,
+      "id": "OG_221",
+      "name": "Selfless Hero",
+      "tier": 2,
+      "attack": 2,
+      "health": 1,
+      "cost": 1,
+      "race": null,
+      "set": "OG",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Give a random friendly minion <b>Divine Shield</b>.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58143
+    },
+    {
+      "dbfId": 38797,
+      "id": "OG_256",
+      "name": "Spawn of N'Zoth",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": null,
+      "set": "OG",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Give your minions +1/+1.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58168
+    },
+    {
+      "dbfId": 38895,
+      "id": "OG_300",
+      "name": "The Boogeymonster",
+      "tier": 4,
+      "attack": 6,
+      "health": 7,
+      "cost": 8,
+      "race": null,
+      "set": "OG",
+      "rarity": "LEGENDARY",
+      "text": "Whenever this attacks and kills a minion, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58425
+    },
+    {
+      "dbfId": 39161,
+      "id": "KAR_005a",
+      "name": "Big Bad Wolf",
+      "tier": 1,
+      "attack": 3,
+      "health": 2,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "KARA",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 39269,
+      "id": "KAR_702",
+      "name": "Menagerie Magician",
+      "tier": 4,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": null,
+      "set": "KARA",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a random friendly Beast, Dragon, and Murloc +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 59510
+    },
+    {
+      "dbfId": 39481,
+      "id": "KAR_005",
+      "name": "Kindly Grandmother",
+      "tier": 2,
+      "attack": 1,
+      "health": 1,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "KARA",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 3/2 Big Bad Wolf.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 57340
+    },
+    {
+      "dbfId": 39839,
+      "id": "KAR_095",
+      "name": "Zoobot",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "KARA",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a random friendly Beast, Dragon, and Murloc +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 59489
+    },
+    {
+      "dbfId": 40391,
+      "id": "CFM_610",
+      "name": "Crystalweaver",
+      "tier": 3,
+      "attack": 5,
+      "health": 4,
+      "cost": 4,
+      "race": null,
+      "set": "GANGS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give your Demons +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59504
+    },
+    {
+      "dbfId": 40425,
+      "id": "CFM_315t",
+      "name": "Tabbycat",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "GANGS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 60054
+    },
+    {
+      "dbfId": 40426,
+      "id": "CFM_315",
+      "name": "Alleycat",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "GANGS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Summon a 1/1 Cat.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60053
+    },
+    {
+      "dbfId": 40428,
+      "id": "CFM_316",
+      "name": "Rat Pack",
+      "tier": 3,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "GANGS",
+      "rarity": "EPIC",
+      "text": "[x]<b>Deathrattle:</b> Summon a\nnumber of 1/1 Rats equal\n to this minion's Attack.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58367
+    },
+    {
+      "dbfId": 40641,
+      "id": "CFM_816",
+      "name": "Virmen Sensei",
+      "tier": 4,
+      "attack": 4,
+      "health": 5,
+      "cost": 5,
+      "race": null,
+      "set": "GANGS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Beast +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59512
+    },
+    {
+      "dbfId": 41067,
+      "id": "UNG_999t2t1",
+      "name": "Plant",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": null,
+      "set": "UNGORO",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 41138,
+      "id": "UNG_010",
+      "name": "Sated Threshadon",
+      "tier": 5,
+      "attack": 5,
+      "health": 7,
+      "cost": 7,
+      "race": "BEAST",
+      "set": "UNGORO",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon three 1/1 Murlocs.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58413
+    },
+    {
+      "dbfId": 41180,
+      "id": "UNG_037",
+      "name": "Tortollan Shellraiser",
+      "tier": 3,
+      "attack": 2,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "UNGORO",
+      "rarity": "COMMON",
+      "text": "[x]<b>Taunt</b>\n<b>Deathrattle:</b> Give a random\n friendly minion +1/+1.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58374
+    },
+    {
+      "dbfId": 41245,
+      "id": "UNG_073",
+      "name": "Rockpool Hunter",
+      "tier": 1,
+      "attack": 2,
+      "health": 3,
+      "cost": 2,
+      "race": "MURLOC",
+      "set": "UNGORO",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a friendly Murloc +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59485
+    },
+    {
+      "dbfId": 41523,
+      "id": "UNG_201t",
+      "name": "Primalfin",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "UNGORO",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 41839,
+      "id": "CFM_316t",
+      "name": "Rat",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "GANGS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 42442,
+      "id": "ICC_029",
+      "name": "Cobalt Scalebane",
+      "tier": 4,
+      "attack": 5,
+      "health": 5,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "ICECROWN",
+      "rarity": "COMMON",
+      "text": "At the end of your turn, give another random friendly minion +3 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61442
+    },
+    {
+      "dbfId": 42467,
+      "id": "ICC_038",
+      "name": "Righteous Protector",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": null,
+      "set": "ICECROWN",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Divine Shield</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 63774
+    },
+    {
+      "dbfId": 43022,
+      "id": "ICC_807",
+      "name": "Strongshell Scavenger",
+      "tier": 5,
+      "attack": 2,
+      "health": 3,
+      "cost": 4,
+      "race": null,
+      "set": "ICECROWN",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your <b>Taunt</b> minions +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59508
+    },
+    {
+      "dbfId": 43121,
+      "id": "LOOT_013",
+      "name": "Vulgar Homunculus",
+      "tier": 1,
+      "attack": 2,
+      "health": 4,
+      "cost": 2,
+      "race": "DEMON",
+      "set": "LOOTAPALOOZA",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Battlecry:</b> Deal 2 damage to your hero.",
+      "mechanics": [
+        "BATTLECRY",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63778
+    },
+    {
+      "dbfId": 43358,
+      "id": "LOOT_078",
+      "name": "Cave Hydra",
+      "tier": 4,
+      "attack": 2,
+      "health": 4,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "LOOTAPALOOZA",
+      "rarity": "COMMON",
+      "text": "Also damages the minions next to whomever\nthis attacks.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63794
+    },
+    {
+      "dbfId": 45392,
+      "id": "ICC_858",
+      "name": "Bolvar, Fireblood",
+      "tier": 4,
+      "attack": 1,
+      "health": 7,
+      "cost": 5,
+      "race": null,
+      "set": "ICECROWN",
+      "rarity": "LEGENDARY",
+      "text": "<b>Divine Shield</b>\nAfter a friendly minion loses <b>Divine Shield</b>, gain +2 Attack.",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58405
+    },
+    {
+      "dbfId": 46056,
+      "id": "LOOT_368",
+      "name": "Voidlord",
+      "tier": 5,
+      "attack": 3,
+      "health": 9,
+      "cost": 9,
+      "race": "DEMON",
+      "set": "LOOTAPALOOZA",
+      "rarity": "EPIC",
+      "text": "[x]<b>Taunt</b>\n <b>Deathrattle:</b> Summon three\n1/3 Demons with <b>Taunt</b>.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58427
+    },
+    {
+      "dbfId": 47516,
+      "id": "GIL_655",
+      "name": "Festeroot Hulk",
+      "tier": 4,
+      "attack": 2,
+      "health": 7,
+      "cost": 5,
+      "race": null,
+      "set": "GILNEAS",
+      "rarity": "RARE",
+      "text": "After a friendly minion attacks, gain +1 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58378
+    },
+    {
+      "dbfId": 48100,
+      "id": "BOT_218",
+      "name": "Security Rover",
+      "tier": 4,
+      "attack": 2,
+      "health": 6,
+      "cost": 6,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "RARE",
+      "text": "[x]Whenever this minion\ntakes damage, summon a\n2/3 Mech with <b>Taunt</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58392
+    },
+    {
+      "dbfId": 48536,
+      "id": "BOT_312",
+      "name": "Replicating Menace",
+      "tier": 3,
+      "attack": 3,
+      "health": 1,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "RARE",
+      "text": "<b>Magnetic</b>\n<b>Deathrattle:</b> Summon three 1/1 Microbots.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "MODULAR"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58376
+    },
+    {
+      "dbfId": 48842,
+      "id": "BOT_312t",
+      "name": "Microbot",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 48885,
+      "id": "BOT_445t",
+      "name": "Jo-E Bot",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 48886,
+      "id": "BOT_445",
+      "name": "Mecharoo",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 1/1 Jo-E Bot.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 57336
+    },
+    {
+      "dbfId": 48993,
+      "id": "BOT_911",
+      "name": "Annoy-o-Module",
+      "tier": 4,
+      "attack": 2,
+      "health": 4,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "RARE",
+      "text": "<b>Magnetic</b>\n<b>Divine Shield</b>\n<b>Taunt</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "MODULAR",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60327
+    },
+    {
+      "dbfId": 49168,
+      "id": "BOT_537t",
+      "name": "Robosaur",
+      "tier": 1,
+      "attack": 8,
+      "health": 8,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 49169,
+      "id": "BOT_537",
+      "name": "Mechano-Egg",
+      "tier": 4,
+      "attack": 0,
+      "health": 5,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon an 8/8 Robosaur.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58387
+    },
+    {
+      "dbfId": 49278,
+      "id": "BOT_218t",
+      "name": "Guard Bot",
+      "tier": 1,
+      "attack": 2,
+      "health": 3,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 49279,
+      "id": "BOT_606",
+      "name": "Kaboom Bot",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BOOMSDAY",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Deal 4 damage to a random enemy minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58369
+    },
+    {
+      "dbfId": 49502,
+      "id": "GIL_681",
+      "name": "Nightmare Amalgam",
+      "tier": 2,
+      "attack": 3,
+      "health": 4,
+      "cost": 3,
+      "race": "ALL",
+      "set": "GILNEAS",
+      "rarity": "EPIC",
+      "text": "[x]<i>This is an Elemental, Mech,\nDemon, Murloc, Dragon,\nBeast, Pirate and Totem.</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 49973,
+      "id": "TRL_232",
+      "name": "Ironhide Direhorn",
+      "tier": 5,
+      "attack": 7,
+      "health": 7,
+      "cost": 7,
+      "race": "BEAST",
+      "set": "TROLL",
+      "rarity": "COMMON",
+      "text": "<b>Overkill:</b> Summon a 5/5 Ironhide Runt.",
+      "mechanics": [
+        "OVERKILL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58412
+    },
+    {
+      "dbfId": 50359,
+      "id": "TRL_232t",
+      "name": "Ironhide Runt",
+      "tier": 1,
+      "attack": 5,
+      "health": 5,
+      "cost": 5,
+      "race": "BEAST",
+      "set": "TROLL",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 52041,
+      "id": "TRLA_149",
+      "name": "Ghastcoiler",
+      "tier": 6,
+      "attack": 7,
+      "health": 7,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "TROLL",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon\n2 random <b>Deathrattle</b> minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58424
+    },
+    {
+      "dbfId": 52277,
+      "id": "DAL_077",
+      "name": "Toxfin",
+      "tier": 4,
+      "attack": 1,
+      "health": 2,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "DALARAN",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a friendly Murloc <b>Poisonous</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "POISONOUS"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63796
+    },
+    {
+      "dbfId": 52502,
+      "id": "DAL_575",
+      "name": "Khadgar",
+      "tier": 3,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": null,
+      "set": "DALARAN",
+      "rarity": "LEGENDARY",
+      "text": "Your cards that summon minions summon twice as many.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58380
+    },
+    {
+      "dbfId": 52902,
+      "id": "DAL_742",
+      "name": "Whirlwind Tempest",
+      "tier": 4,
+      "attack": 6,
+      "health": 6,
+      "cost": 8,
+      "race": "ELEMENTAL",
+      "set": "DALARAN",
+      "rarity": "EPIC",
+      "text": "Your minions with <b>Windfury</b> have <b>Mega-Windfury</b>.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 64457
+    },
+    {
+      "dbfId": 53013,
+      "id": "DAL_088t2",
+      "name": "Vault Safe",
+      "tier": 1,
+      "attack": 0,
+      "health": 5,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "DALARAN",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 53202,
+      "id": "DAL_743t",
+      "name": "Hench-Clan Squire",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "DALARAN",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 53445,
+      "id": "ULD_217",
+      "name": "Micro Mummy",
+      "tier": 1,
+      "attack": 1,
+      "health": 2,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "ULDUM",
+      "rarity": "EPIC",
+      "text": "[x]<b>Reborn</b>\nAt the end of your turn, give\nanother random friendly\nminion +1 Attack.",
+      "mechanics": [
+        "REBORN",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64343
+    },
+    {
+      "dbfId": 54153,
+      "id": "ULD_179",
+      "name": "Phalanx Commander",
+      "tier": 3,
+      "attack": 4,
+      "health": 5,
+      "cost": 5,
+      "race": null,
+      "set": "ULDUM",
+      "rarity": "COMMON",
+      "text": "Your <b>Taunt</b> minions\nhave +2 Attack.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58385
+    },
+    {
+      "dbfId": 54835,
+      "id": "EX1_185",
+      "name": "Siegebreaker",
+      "tier": 4,
+      "attack": 5,
+      "health": 8,
+      "cost": 7,
+      "race": "DEMON",
+      "set": "EXPERT1",
+      "rarity": "RARE",
+      "text": "<b>Taunt</b>\nYour other Demons have +1 Attack.",
+      "mechanics": [
+        "AURA",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58418
+    },
+    {
+      "dbfId": 56112,
+      "id": "YOD_026",
+      "name": "Fiendish Servant",
+      "tier": 1,
+      "attack": 2,
+      "health": 1,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "YEAR_OF_THE_DRAGON",
+      "rarity": "COMMON",
+      "text": "[x]<b>Deathrattle:</b> Give this\nminion's Attack to a random\nfriendly minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60671
+    },
+    {
+      "dbfId": 56393,
+      "id": "BT_010",
+      "name": "Felfin Navigator",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": "MURLOC",
+      "set": "BLACK_TEMPLE",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give your other Murlocs +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61934
+    },
+    {
+      "dbfId": 56465,
+      "id": "BGS_031",
+      "name": "Gentle Megasaur",
+      "tier": 6,
+      "attack": 5,
+      "health": 4,
+      "cost": 4,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> <b>Adapt</b> your Murlocs.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "ADAPT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 59828
+    },
+    {
+      "dbfId": 57299,
+      "id": "TB_BaconUps_059t",
+      "name": "Voidwalker",
+      "tier": 1,
+      "attack": 2,
+      "health": 6,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "FREE",
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57336,
+      "id": "TB_BaconUps_002",
+      "name": "Mecharoo",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 2/2 Jo-E Bot.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57337,
+      "id": "TB_BaconUps_002t",
+      "name": "Jo-E Bot",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57338,
+      "id": "TB_BaconUps_003",
+      "name": "Murloc Tidehunter",
+      "tier": 1,
+      "attack": 4,
+      "health": 2,
+      "cost": 2,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "FREE",
+      "text": "<b>Battlecry:</b> Summon a 2/2 Murloc Scout.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57339,
+      "id": "TB_BaconUps_003t",
+      "name": "Murloc Scout",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57340,
+      "id": "TB_BaconUps_004",
+      "name": "Kindly Grandmother",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 6/4 Big Bad Wolf.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57341,
+      "id": "TB_BaconUps_004t",
+      "name": "Big Bad Wolf",
+      "tier": 1,
+      "attack": 6,
+      "health": 4,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57401,
+      "id": "TB_BaconUps_006",
+      "name": "Harvest Golem",
+      "tier": 2,
+      "attack": 4,
+      "health": 6,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 4/2 Damaged Golem.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57403,
+      "id": "TB_BaconUps_008",
+      "name": "Murloc Warleader",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Your other Murlocs have +4 Attack.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57404,
+      "id": "TB_BaconUps_009",
+      "name": "Defender of Argus",
+      "tier": 4,
+      "attack": 4,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give adjacent minions +2/+2 and <b>Taunt</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57408,
+      "id": "TB_BaconUps_006t",
+      "name": "Damaged Golem",
+      "tier": 1,
+      "attack": 4,
+      "health": 2,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57652,
+      "id": "ULDA_Finley_HP1t",
+      "name": "Amalgam Explorer",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "ALL",
+      "set": "ULDUM",
+      "rarity": null,
+      "text": "[x]<i>This is an Elemental, Mech,\nDemon, Murloc, Dragon,\nBeast, Pirate and Totem.</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 57742,
+      "id": "BGS_029",
+      "name": "Shifter Zerus",
+      "tier": 3,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Each turn this is in your hand, transform it into a random minion.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 60233
+    },
+    {
+      "dbfId": 58138,
+      "id": "TB_BaconUps_011",
+      "name": "Murloc Tidecaller",
+      "tier": 1,
+      "attack": 2,
+      "health": 4,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "Whenever you summon a Murloc, gain +2 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58143,
+      "id": "TB_BaconUps_014",
+      "name": "Selfless Hero",
+      "tier": 2,
+      "attack": 4,
+      "health": 2,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Give 2 random friendly minions <b>Divine Shield</b>.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58150,
+      "id": "TB_BaconUps_019",
+      "name": "Mounted Raptor",
+      "tier": 2,
+      "attack": 6,
+      "health": 4,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon two random 1-Cost minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58168,
+      "id": "TB_BaconUps_025",
+      "name": "Spawn of N'Zoth",
+      "tier": 2,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Give your minions +2/+2.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58365,
+      "id": "TB_BaconUps_026",
+      "name": "Infested Wolf",
+      "tier": 3,
+      "attack": 6,
+      "health": 6,
+      "cost": 4,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Summon two 2/2 Spiders.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58366,
+      "id": "TB_BaconUps_026t",
+      "name": "Spider",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58367,
+      "id": "TB_BaconUps_027",
+      "name": "Rat Pack",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]<b>Deathrattle:</b> Summon a\nnumber of 2/2 Rats equal\n to this minion's Attack.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58368,
+      "id": "TB_BaconUps_027t",
+      "name": "Rat",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58369,
+      "id": "TB_BaconUps_028",
+      "name": "Kaboom Bot",
+      "tier": 2,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Deal 4 damage to a random enemy minion twice.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58372,
+      "id": "TB_BaconUps_030",
+      "name": "Imp Gang Boss",
+      "tier": 3,
+      "attack": 4,
+      "health": 8,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Whenever this minion takes damage, summon a 2/2 Imp.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58373,
+      "id": "TB_BaconUps_030t",
+      "name": "Imp",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58374,
+      "id": "TB_BaconUps_031",
+      "name": "Tortollan Shellraiser",
+      "tier": 3,
+      "attack": 4,
+      "health": 12,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "[x]<b>Taunt</b>\n<b>Deathrattle:</b> Give a random\n friendly minion +2/+2.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58376,
+      "id": "TB_BaconUps_032",
+      "name": "Replicating Menace",
+      "tier": 3,
+      "attack": 6,
+      "health": 2,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Magnetic</b>\n<b>Deathrattle:</b> Summon three 2/2 Microbots.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "MODULAR"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58377,
+      "id": "TB_BaconUps_032t",
+      "name": "Microbot",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58378,
+      "id": "TB_BaconUps_033",
+      "name": "Festeroot Hulk",
+      "tier": 4,
+      "attack": 4,
+      "health": 14,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "After a friendly minion attacks, gain +2 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58380,
+      "id": "TB_BaconUps_034",
+      "name": "Khadgar",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 2,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Your cards that summon minions summon three times as many.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58381,
+      "id": "TB_BaconUps_035",
+      "name": "Piloted Shredder",
+      "tier": 3,
+      "attack": 8,
+      "health": 6,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon two random 2-Cost minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58382,
+      "id": "TB_BaconUps_036",
+      "name": "Old Murk-Eye",
+      "tier": 2,
+      "attack": 4,
+      "health": 8,
+      "cost": 4,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Charge</b>. Has +2 Attack for each other Murloc on the battlefield.",
+      "mechanics": [
+        "CHARGE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58383,
+      "id": "TB_BaconUps_037",
+      "name": "Crowd Favorite",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Whenever you play a card with <b>Battlecry</b>, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58385,
+      "id": "TB_BaconUps_038",
+      "name": "Phalanx Commander",
+      "tier": 3,
+      "attack": 8,
+      "health": 10,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Your <b>Taunt</b> minions\nhave +4 Attack.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58387,
+      "id": "TB_BaconUps_039",
+      "name": "Mechano-Egg",
+      "tier": 4,
+      "attack": 0,
+      "health": 10,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a 16/16 Robosaur.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58389,
+      "id": "TB_BaconUps_039t",
+      "name": "Robosaur",
+      "tier": 1,
+      "attack": 16,
+      "health": 16,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58390,
+      "id": "TB_BaconUps_040",
+      "name": "Safeguard",
+      "tier": 4,
+      "attack": 8,
+      "health": 10,
+      "cost": 6,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "[x]<b>Taunt</b>\n<b>Deathrattle:</b> Summon a 0/10\nVault Safe with <b>Taunt</b>.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58391,
+      "id": "TB_BaconUps_040t",
+      "name": "Vault Safe",
+      "tier": 1,
+      "attack": 0,
+      "health": 10,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58392,
+      "id": "TB_BaconUps_041",
+      "name": "Security Rover",
+      "tier": 4,
+      "attack": 4,
+      "health": 12,
+      "cost": 6,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "[x]Whenever this minion\ntakes damage, summon a\n4/6 Mech with <b>Taunt</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58393,
+      "id": "TB_BaconUps_041t",
+      "name": "Guard Bot",
+      "tier": 1,
+      "attack": 4,
+      "health": 6,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58394,
+      "id": "TB_BaconUps_042",
+      "name": "The Beast",
+      "tier": 3,
+      "attack": 18,
+      "health": 14,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Summon a 3/3 Finkle Einhorn for your opponent.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58395,
+      "id": "TB_BaconUps_043",
+      "name": "Scavenging Hyena",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Whenever a friendly Beast dies, gain +4/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58397,
+      "id": "TB_BaconUps_044",
+      "name": "Iron Sensei",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "At the end of your turn, give another friendly Mech +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58400,
+      "id": "TB_BaconUps_045",
+      "name": "Brann Bronzebeard",
+      "tier": 5,
+      "attack": 4,
+      "health": 8,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Your <b>Battlecries</b> trigger three times.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58402,
+      "id": "TB_BaconUps_046",
+      "name": "Junkbot",
+      "tier": 4,
+      "attack": 2,
+      "health": 10,
+      "cost": 5,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Whenever a friendly Mech dies, gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58405,
+      "id": "TB_BaconUps_047",
+      "name": "Bolvar, Fireblood",
+      "tier": 4,
+      "attack": 2,
+      "health": 14,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Divine Shield</b>\nAfter a friendly minion loses <b>Divine Shield</b>, gain +4 Attack.",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58409,
+      "id": "TB_BaconUps_049",
+      "name": "Savannah Highmane",
+      "tier": 4,
+      "attack": 12,
+      "health": 10,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Deathrattle:</b> Summon two 4/4 Hyenas.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58410,
+      "id": "TB_BaconUps_049t",
+      "name": "Hyena",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58411,
+      "id": "TB_BaconUps_050",
+      "name": "Piloted Sky Golem",
+      "tier": 4,
+      "attack": 12,
+      "health": 8,
+      "cost": 6,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Deathrattle:</b> Summon two random 4-Cost minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58412,
+      "id": "TB_BaconUps_051",
+      "name": "Ironhide Direhorn",
+      "tier": 5,
+      "attack": 14,
+      "health": 14,
+      "cost": 7,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Overkill:</b> Summon a 10/10 Ironhide Runt.",
+      "mechanics": [
+        "OVERKILL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58413,
+      "id": "TB_BaconUps_052",
+      "name": "Sated Threshadon",
+      "tier": 5,
+      "attack": 10,
+      "health": 14,
+      "cost": 7,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon three 2/2 Murlocs.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58414,
+      "id": "TB_BaconUps_052t",
+      "name": "Primalfin",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58418,
+      "id": "TB_BaconUps_053",
+      "name": "Siegebreaker",
+      "tier": 4,
+      "attack": 10,
+      "health": 16,
+      "cost": 7,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Taunt</b>\nYour other Demons have +2 Attack.",
+      "mechanics": [
+        "AURA",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58421,
+      "id": "TB_BaconUps_055",
+      "name": "Baron Rivendare",
+      "tier": 5,
+      "attack": 2,
+      "health": 14,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Your minions trigger their <b>Deathrattles</b> three times.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58424,
+      "id": "TB_BaconUps_057",
+      "name": "Ghastcoiler",
+      "tier": 6,
+      "attack": 14,
+      "health": 14,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon\n4 random <b>Deathrattle</b> minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58425,
+      "id": "TB_BaconUps_058",
+      "name": "The Boogeymonster",
+      "tier": 4,
+      "attack": 12,
+      "health": 14,
+      "cost": 8,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Whenever this attacks and kills a minion, gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58427,
+      "id": "TB_BaconUps_059",
+      "name": "Voidlord",
+      "tier": 5,
+      "attack": 6,
+      "health": 18,
+      "cost": 9,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]<b>Taunt</b>\n <b>Deathrattle:</b> Summon three\n2/6 Demons with <b>Taunt</b>.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 58428,
+      "id": "TB_BaconUps_060",
+      "name": "Mal'Ganis",
+      "tier": 5,
+      "attack": 18,
+      "health": 14,
+      "cost": 9,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Your other Demons have +4/+4.\nYour hero is <b>Immune</b>.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "IMMUNE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59186,
+      "id": "BGS_001",
+      "name": "Nathrezim Overseer",
+      "tier": 2,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Demon +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59487
+    },
+    {
+      "dbfId": 59202,
+      "id": "TB_BaconShop_HP_033t",
+      "name": "Amalgam",
+      "tier": 1,
+      "attack": 1,
+      "health": 2,
+      "cost": 2,
+      "race": "ALL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<i>This is an Elemental, Mech,\nDemon, Murloc, Dragon,\nBeast, Pirate and Totem.</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59485,
+      "id": "TB_BaconUps_061",
+      "name": "Rockpool Hunter",
+      "tier": 1,
+      "attack": 4,
+      "health": 6,
+      "cost": 2,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a friendly Murloc +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59487,
+      "id": "TB_BaconUps_062",
+      "name": "Nathrezim Overseer",
+      "tier": 2,
+      "attack": 4,
+      "health": 6,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Demon +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59489,
+      "id": "TB_BaconUps_063",
+      "name": "Zoobot",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a random friendly Beast, Dragon, and Murloc +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59491,
+      "id": "TB_BaconUps_064",
+      "name": "Coldlight Seer",
+      "tier": 3,
+      "attack": 4,
+      "health": 6,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your other Murlocs +4 Health.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59495,
+      "id": "TB_BaconUps_066",
+      "name": "Metaltooth Leaper",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your other Mechs +4 Attack.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59499,
+      "id": "TB_BaconUps_068",
+      "name": "Houndmaster",
+      "tier": 3,
+      "attack": 8,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "FREE",
+      "text": "<b>Battlecry:</b> Give a friendly Beast +4/+4 and <b>Taunt</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59501,
+      "id": "TB_BaconUps_069",
+      "name": "Screwjank Clunker",
+      "tier": 3,
+      "attack": 4,
+      "health": 10,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Mech +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59504,
+      "id": "TB_BaconUps_070",
+      "name": "Crystalweaver",
+      "tier": 3,
+      "attack": 10,
+      "health": 8,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give your Demons +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59508,
+      "id": "TB_BaconUps_072",
+      "name": "Strongshell Scavenger",
+      "tier": 5,
+      "attack": 4,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give your <b>Taunt</b> minions +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59510,
+      "id": "TB_BaconUps_073",
+      "name": "Menagerie Magician",
+      "tier": 4,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a random friendly Beast, Dragon, and Murloc +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59512,
+      "id": "TB_BaconUps_074",
+      "name": "Virmen Sensei",
+      "tier": 4,
+      "attack": 8,
+      "health": 10,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Battlecry:</b> Give a friendly Beast +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59616,
+      "id": "SCH_149",
+      "name": "Argent Braggart",
+      "tier": 6,
+      "attack": 1,
+      "health": 1,
+      "cost": 2,
+      "race": null,
+      "set": "SCHOLOMANCE",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> Gain Attack and Health to match the highest in the battlefield.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 67493
+    },
+    {
+      "dbfId": 59660,
+      "id": "BGS_002",
+      "name": "Soul Juggler",
+      "tier": 3,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly Demon dies, deal 3 damage to a random enemy minion.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59661
+    },
+    {
+      "dbfId": 59661,
+      "id": "TB_BaconUps_075",
+      "name": "Soul Juggler",
+      "tier": 3,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly Demon dies, deal 3 damage to a random enemy minion twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59664,
+      "id": "TB_BaconUps_077",
+      "name": "Pogo-Hopper",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "[x]<b>Battlecry:</b> Gain +4/+4 for\neach other Pogo-Hopper\nyou played this game.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59670,
+      "id": "BGS_004",
+      "name": "Wrath Weaver",
+      "tier": 1,
+      "attack": 1,
+      "health": 3,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "After you play a Demon, deal 1 damage to your hero and gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59679
+    },
+    {
+      "dbfId": 59679,
+      "id": "TB_BaconUps_079",
+      "name": "Wrath Weaver",
+      "tier": 1,
+      "attack": 2,
+      "health": 6,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "After you play a Demon, deal 1 damage to your hero and gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59682,
+      "id": "BGS_006",
+      "name": "Sneed's Old Shredder",
+      "tier": 5,
+      "attack": 5,
+      "health": 7,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Summon a random <b>Legendary</b> minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59683
+    },
+    {
+      "dbfId": 59683,
+      "id": "TB_BaconUps_080",
+      "name": "Sneed's Old Shredder",
+      "tier": 5,
+      "attack": 10,
+      "health": 14,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Summon 2 random <b>Legendary</b> minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59687,
+      "id": "BGS_008",
+      "name": "Ghastcoiler",
+      "tier": 6,
+      "attack": 7,
+      "health": 7,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon\n2 random <b>Deathrattle</b> minions.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58424
+    },
+    {
+      "dbfId": 59707,
+      "id": "BGS_009",
+      "name": "Lightfang Enforcer",
+      "tier": 5,
+      "attack": 2,
+      "health": 2,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]At the end of your turn,\ngive a friendly minion\nof each minion type\n+2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59711
+    },
+    {
+      "dbfId": 59711,
+      "id": "TB_BaconUps_082",
+      "name": "Lightfang Enforcer",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]At the end of your turn,\ngive a friendly minion\nof each minion type\n+4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59714,
+      "id": "BGS_010",
+      "name": "Annihilan Battlemaster",
+      "tier": 5,
+      "attack": 3,
+      "health": 1,
+      "cost": 8,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> Gain +1 Health for each damage your hero has taken.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59716
+    },
+    {
+      "dbfId": 59716,
+      "id": "TB_BaconUps_083",
+      "name": "Annihilan Battlemaster",
+      "tier": 5,
+      "attack": 6,
+      "health": 2,
+      "cost": 8,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> Gain +2 Health for each damage your hero has taken.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59828,
+      "id": "TB_BaconUps_084",
+      "name": "Gentle Megasaur",
+      "tier": 6,
+      "attack": 10,
+      "health": 8,
+      "cost": 4,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Battlecry:</b> <b>Adapt</b> your Murlocs twice.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "ADAPT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59935,
+      "id": "BGS_012",
+      "name": "Kangor's Apprentice",
+      "tier": 6,
+      "attack": 4,
+      "health": 8,
+      "cost": 9,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Deathrattle</b>: Summon the first 2 friendly Mechs that died this combat.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59976
+    },
+    {
+      "dbfId": 59937,
+      "id": "BGS_014",
+      "name": "Imprisoner",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Taunt</b>\n<b>Deathrattle:</b> Summon a 1/1 Imp.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60676
+    },
+    {
+      "dbfId": 59940,
+      "id": "BGS_017",
+      "name": "Pack Leader",
+      "tier": 2,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "Whenever you summon a Beast, give it +2 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59969
+    },
+    {
+      "dbfId": 59955,
+      "id": "BGS_018",
+      "name": "Goldrinn, the Great Wolf",
+      "tier": 6,
+      "attack": 4,
+      "health": 4,
+      "cost": 8,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Give your Beasts +5/+5.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 59956
+    },
+    {
+      "dbfId": 59956,
+      "id": "TB_BaconUps_085",
+      "name": "Goldrinn, the Great Wolf",
+      "tier": 6,
+      "attack": 8,
+      "health": 8,
+      "cost": 8,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Deathrattle:</b> Give your Beasts +10/+10.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59968,
+      "id": "BGS_019",
+      "name": "Red Whelp",
+      "tier": 1,
+      "attack": 1,
+      "health": 2,
+      "cost": 1,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Start of Combat:</b> Deal\n1 damage per friendly\nDragon to one random\nenemy minion.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60642
+    },
+    {
+      "dbfId": 59969,
+      "id": "TB_BaconUps_086",
+      "name": "Pack Leader",
+      "tier": 2,
+      "attack": 4,
+      "health": 6,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "Whenever you summon a Beast, give it +4 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 59976,
+      "id": "TB_BaconUps_087",
+      "name": "Kangor's Apprentice",
+      "tier": 6,
+      "attack": 8,
+      "health": 16,
+      "cost": 9,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Deathrattle</b>: Summon the first 4 friendly Mechs that died this combat.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60025,
+      "id": "TB_BaconUps_088",
+      "name": "Dire Wolf Alpha",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 2,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Adjacent minions have +2 Attack.",
+      "mechanics": [
+        "ADJACENT_BUFF",
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60027,
+      "id": "TB_BaconUps_089",
+      "name": "Primalfin Lookout",
+      "tier": 4,
+      "attack": 6,
+      "health": 4,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> If you control another Murloc, <b>Discover</b> two Murlocs.",
+      "mechanics": [
+        "BATTLECRY",
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60028,
+      "id": "BGS_020",
+      "name": "Primalfin Lookout",
+      "tier": 4,
+      "attack": 3,
+      "health": 2,
+      "cost": 3,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> If you control another Murloc, <b>Discover</b> a Murloc.",
+      "mechanics": [
+        "BATTLECRY",
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60027
+    },
+    {
+      "dbfId": 60036,
+      "id": "BGS_021",
+      "name": "Mama Bear",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 8,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Whenever you summon a Beast, give it +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60038
+    },
+    {
+      "dbfId": 60038,
+      "id": "TB_BaconUps_090",
+      "name": "Mama Bear",
+      "tier": 5,
+      "attack": 8,
+      "health": 8,
+      "cost": 8,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Whenever you summon a Beast, give it +8/+8.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60040,
+      "id": "BGS_022",
+      "name": "Zapp Slywick",
+      "tier": 6,
+      "attack": 7,
+      "health": 10,
+      "cost": 8,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Windfury</b>\nThis minion always attacks\nthe enemy minion with\nthe lowest Attack.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60041
+    },
+    {
+      "dbfId": 60041,
+      "id": "TB_BaconUps_091",
+      "name": "Zapp Slywick",
+      "tier": 6,
+      "attack": 14,
+      "health": 20,
+      "cost": 8,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Mega-Windfury</b>\nThis minion always attacks\nthe enemy minion with\nthe lowest Attack.",
+      "mechanics": [
+        "WINDFURY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60048,
+      "id": "BGS_023",
+      "name": "Piloted Shredder",
+      "tier": 3,
+      "attack": 4,
+      "health": 3,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a random 2-Cost minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 58381
+    },
+    {
+      "dbfId": 60049,
+      "id": "BGS_024",
+      "name": "Piloted Sky Golem",
+      "tier": 4,
+      "attack": 6,
+      "health": 4,
+      "cost": 6,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "<b>Deathrattle:</b> Summon a random 4-Cost minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58411
+    },
+    {
+      "dbfId": 60050,
+      "id": "BGS_025",
+      "name": "Mounted Raptor",
+      "tier": 2,
+      "attack": 3,
+      "health": 2,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Deathrattle:</b> Summon a random 1-Cost minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 58150
+    },
+    {
+      "dbfId": 60053,
+      "id": "TB_BaconUps_093",
+      "name": "Alleycat",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Summon a 2/2 Cat.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60054,
+      "id": "TB_BaconUps_093t",
+      "name": "Tabbycat",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60055,
+      "id": "BGS_027",
+      "name": "Micro Machine",
+      "tier": 1,
+      "attack": 1,
+      "health": 2,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "At the start of each turn, gain +1 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60056
+    },
+    {
+      "dbfId": 60056,
+      "id": "TB_BaconUps_094",
+      "name": "Micro Machine",
+      "tier": 1,
+      "attack": 2,
+      "health": 4,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "At the start of each turn, gain +2 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60122,
+      "id": "BGS_028",
+      "name": "Pogo-Hopper",
+      "tier": 2,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "[x]<b>Battlecry:</b> Gain +2/+2 for\neach other Pogo-Hopper\nyou played this game.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 59664
+    },
+    {
+      "dbfId": 60232,
+      "id": "TB_BaconUps_051t",
+      "name": "Ironhide Runt",
+      "tier": 1,
+      "attack": 10,
+      "health": 10,
+      "cost": 5,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60233,
+      "id": "TB_BaconUps_095",
+      "name": "Shifter Zerus",
+      "tier": 3,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Each turn this is in your hand, transform it into a random minion.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60247,
+      "id": "BGS_030",
+      "name": "King Bagurgle",
+      "tier": 5,
+      "attack": 6,
+      "health": 3,
+      "cost": 6,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Battlecry and Deathrattle:</b> Give your other Murlocs +2/+2.",
+      "mechanics": [
+        "BATTLECRY",
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60396
+    },
+    {
+      "dbfId": 60327,
+      "id": "TB_BaconUps_099",
+      "name": "Annoy-o-Module",
+      "tier": 4,
+      "attack": 4,
+      "health": 8,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Magnetic</b>\n<b>Divine Shield</b>\n<b>Taunt</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "MODULAR",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60396,
+      "id": "TB_BaconUps_100",
+      "name": "King Bagurgle",
+      "tier": 5,
+      "attack": 12,
+      "health": 6,
+      "cost": 6,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Battlecry and Deathrattle:</b> Give your other Murlocs +4/+4.",
+      "mechanics": [
+        "BATTLECRY",
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60403,
+      "id": "TB_BaconUps_101",
+      "name": "Floating Watcher",
+      "tier": 4,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Whenever your hero takes damage on your turn, gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60498,
+      "id": "BGS_032",
+      "name": "Herald of Flame",
+      "tier": 4,
+      "attack": 5,
+      "health": 6,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Overkill:</b> Deal 3 damage\nto the left-most enemy minion.",
+      "mechanics": [
+        "OVERKILL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60643
+    },
+    {
+      "dbfId": 60552,
+      "id": "BGS_033",
+      "name": "Hangry Dragon",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the start of your turn,\ngain +2/+2 if you won\nthe last combat.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60645
+    },
+    {
+      "dbfId": 60558,
+      "id": "BGS_034",
+      "name": "Bronze Warden",
+      "tier": 3,
+      "attack": 2,
+      "health": 1,
+      "cost": 4,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Divine Shield</b>\n<b>Reborn</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "REBORN"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63779
+    },
+    {
+      "dbfId": 60559,
+      "id": "BGS_035",
+      "name": "Waxrider Togwaggle",
+      "tier": 2,
+      "attack": 1,
+      "health": 3,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly Dragon kills an enemy, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60647
+    },
+    {
+      "dbfId": 60561,
+      "id": "BGS_036",
+      "name": "Razorgore, the Untamed",
+      "tier": 5,
+      "attack": 2,
+      "health": 4,
+      "cost": 8,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "At the end of your turn, gain +1/+1 for each Dragon you have.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60649
+    },
+    {
+      "dbfId": 60621,
+      "id": "BGS_037",
+      "name": "Steward of Time",
+      "tier": 2,
+      "attack": 3,
+      "health": 4,
+      "cost": 4,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "When you sell this minion, give all minions in Bob's Tavern +1/+1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60663
+    },
+    {
+      "dbfId": 60626,
+      "id": "BGS_038",
+      "name": "Twilight Emissary",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 6,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>\n<b>Battlecry:</b> Give a friendly Dragon +2/+2.",
+      "mechanics": [
+        "BATTLECRY",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60665
+    },
+    {
+      "dbfId": 60628,
+      "id": "BGS_039",
+      "name": "Dragonspawn Lieutenant",
+      "tier": 1,
+      "attack": 2,
+      "health": 3,
+      "cost": 2,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63772
+    },
+    {
+      "dbfId": 60629,
+      "id": "BGS_040",
+      "name": "Nadina the Red",
+      "tier": 6,
+      "attack": 7,
+      "health": 4,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Give your Dragons <b>Divine Shield</b>.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63780
+    },
+    {
+      "dbfId": 60630,
+      "id": "BGS_041",
+      "name": "Kalecgos, Arcane Aspect",
+      "tier": 6,
+      "attack": 4,
+      "health": 12,
+      "cost": 8,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play a minion with <b>Battlecry</b>, give your Dragons +1/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60667
+    },
+    {
+      "dbfId": 60637,
+      "id": "BGS_043",
+      "name": "Murozond",
+      "tier": 5,
+      "attack": 5,
+      "health": 5,
+      "cost": 7,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Add a minion\nfrom your last opponent's\nwarband to your hand.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 60669
+    },
+    {
+      "dbfId": 60642,
+      "id": "TB_BaconUps_102",
+      "name": "Red Whelp",
+      "tier": 1,
+      "attack": 2,
+      "health": 4,
+      "cost": 1,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Start of Combat:</b> Deal\n1 damage per friendly\nDragon to one random\nenemy minion twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60643,
+      "id": "TB_BaconUps_103",
+      "name": "Herald of Flame",
+      "tier": 4,
+      "attack": 10,
+      "health": 12,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Overkill:</b> Deal 6 damage\nto the left-most enemy minion.",
+      "mechanics": [
+        "OVERKILL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60645,
+      "id": "TB_BaconUps_104",
+      "name": "Hangry Dragon",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the start of your turn,\ngain +4/+4 if you won\nthe last combat.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60647,
+      "id": "TB_BaconUps_105",
+      "name": "Waxrider Togwaggle",
+      "tier": 2,
+      "attack": 2,
+      "health": 6,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly Dragon kills an enemy, gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60649,
+      "id": "TB_BaconUps_106",
+      "name": "Razorgore, the Untamed",
+      "tier": 5,
+      "attack": 4,
+      "health": 8,
+      "cost": 8,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "At the end of your turn, gain +2/+2 for each Dragon you have.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60663,
+      "id": "TB_BaconUps_107",
+      "name": "Steward of Time",
+      "tier": 2,
+      "attack": 6,
+      "health": 8,
+      "cost": 4,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "When you sell this minion, give all minions in Bob's Tavern +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60665,
+      "id": "TB_BaconUps_108",
+      "name": "Twilight Emissary",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 6,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>\n<b>Battlecry:</b> Give a friendly Dragon +4/+4.",
+      "mechanics": [
+        "BATTLECRY",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60667,
+      "id": "TB_BaconUps_109",
+      "name": "Kalecgos, Arcane Aspect",
+      "tier": 6,
+      "attack": 8,
+      "health": 24,
+      "cost": 8,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play a minion with <b>Battlecry</b>, give your Dragons +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60669,
+      "id": "TB_BaconUps_110",
+      "name": "Murozond",
+      "tier": 5,
+      "attack": 10,
+      "health": 10,
+      "cost": 7,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Add a minion\nfrom your last opponent's\nwarband to your hand.\nMake it Golden!",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60671,
+      "id": "TB_BaconUps_112",
+      "name": "Fiendish Servant",
+      "tier": 1,
+      "attack": 4,
+      "health": 2,
+      "cost": 1,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "[x]<b>Deathrattle:</b> Give this\nminion's Attack to a random\nfriendly minion twice.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 60676,
+      "id": "TB_BaconUps_113",
+      "name": "Imprisoner",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "RARE",
+      "text": "<b>Taunt</b>\n<b>Deathrattle:</b> Summon a 2/2 Imp.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61028,
+      "id": "BGS_044",
+      "name": "Imp Mama",
+      "tier": 6,
+      "attack": 6,
+      "health": 10,
+      "cost": 8,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Whenever this minion takes\ndamage, summon a random\nDemon and give it <b>Taunt</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61043
+    },
+    {
+      "dbfId": 61029,
+      "id": "BGS_045",
+      "name": "Glyph Guardian",
+      "tier": 2,
+      "attack": 2,
+      "health": 4,
+      "cost": 3,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever this attacks, double its Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61032
+    },
+    {
+      "dbfId": 61032,
+      "id": "TB_BaconUps_115",
+      "name": "Glyph Guardian",
+      "tier": 2,
+      "attack": 4,
+      "health": 8,
+      "cost": 3,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever this attacks, triple its Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61043,
+      "id": "TB_BaconUps_116",
+      "name": "Imp Mama",
+      "tier": 6,
+      "attack": 12,
+      "health": 20,
+      "cost": 8,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Whenever this minion\ntakes damage, summon\n2 random Demons and\ngive them <b>Taunt</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61046,
+      "id": "BGS_046",
+      "name": "Nat Pagle, Extreme Angler",
+      "tier": 5,
+      "attack": 8,
+      "health": 5,
+      "cost": 7,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]When this attacks and kills\na minion, add a random\nminion to your hand.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62217
+    },
+    {
+      "dbfId": 61047,
+      "id": "BGS_047",
+      "name": "Dread Admiral Eliza",
+      "tier": 6,
+      "attack": 6,
+      "health": 7,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly Pirate attacks, give all friendly minions +2/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62228
+    },
+    {
+      "dbfId": 61048,
+      "id": "BGS_048",
+      "name": "Southsea Strongarm",
+      "tier": 3,
+      "attack": 4,
+      "health": 3,
+      "cost": 5,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Give a friendly Pirate +1/+1 for each Pirate you bought this turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62259
+    },
+    {
+      "dbfId": 61049,
+      "id": "BGS_049",
+      "name": "Freedealing Gambler",
+      "tier": 2,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "This minion sells for\n3 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62187
+    },
+    {
+      "dbfId": 61053,
+      "id": "BGS_053",
+      "name": "Bloodsail Cannoneer",
+      "tier": 3,
+      "attack": 4,
+      "health": 3,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry</b>: Give your other Pirates +3 Attack.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62254
+    },
+    {
+      "dbfId": 61055,
+      "id": "BGS_055",
+      "name": "Deck Swabbie",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Reduce the cost of upgrading Bob's\nTavern by (1).",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62186
+    },
+    {
+      "dbfId": 61056,
+      "id": "BGS_056",
+      "name": "Ripsnarl Captain",
+      "tier": 4,
+      "attack": 4,
+      "health": 5,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever another friendly Pirate attacks, give it +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62257
+    },
+    {
+      "dbfId": 61059,
+      "id": "BGS_059",
+      "name": "Soul Devourer",
+      "tier": 3,
+      "attack": 3,
+      "health": 3,
+      "cost": 4,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Choose a\nfriendly Demon. Remove\nit to gain its stats and\n3 Gold.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61081
+    },
+    {
+      "dbfId": 61060,
+      "id": "BGS_060",
+      "name": "Yo-Ho-Ogre",
+      "tier": 2,
+      "attack": 2,
+      "health": 6,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Taunt</b>\nAfter this minion survives\nbeing attacked,\nattack immediately.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63782
+    },
+    {
+      "dbfId": 61061,
+      "id": "BGS_061",
+      "name": "Scallywag",
+      "tier": 1,
+      "attack": 2,
+      "health": 1,
+      "cost": 1,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon a 1/1 Pirate. It attacks immediately.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62262
+    },
+    {
+      "dbfId": 61066,
+      "id": "BGS_066",
+      "name": "Goldgrubber",
+      "tier": 4,
+      "attack": 2,
+      "health": 2,
+      "cost": 5,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "At the end of your turn, gain +2/+2 for each friendly Golden minion.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62194
+    },
+    {
+      "dbfId": 61072,
+      "id": "BGS_067",
+      "name": "Drakonid Enforcer",
+      "tier": 4,
+      "attack": 3,
+      "health": 6,
+      "cost": 6,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly minion loses <b>Divine Shield</b>, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61075
+    },
+    {
+      "dbfId": 61075,
+      "id": "TB_BaconUps_117",
+      "name": "Drakonid Enforcer",
+      "tier": 4,
+      "attack": 6,
+      "health": 12,
+      "cost": 6,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly minion loses <b>Divine Shield</b>, gain +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61077,
+      "id": "TB_BaconUps_118",
+      "name": "Unstable Ghoul",
+      "tier": 2,
+      "attack": 2,
+      "health": 6,
+      "cost": 2,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Deathrattle:</b> Deal 1 damage to all minions twice.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61081,
+      "id": "TB_BaconUps_119",
+      "name": "Soul Devourer",
+      "tier": 3,
+      "attack": 6,
+      "health": 6,
+      "cost": 4,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Choose a\nfriendly Demon. Remove\nit to gain double its stats\nand 6 Gold.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61442,
+      "id": "TB_BaconUps_120",
+      "name": "Cobalt Scalebane",
+      "tier": 4,
+      "attack": 10,
+      "health": 10,
+      "cost": 5,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "At the end of your turn, give another random friendly minion +6 Attack.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61444,
+      "id": "BGS_069",
+      "name": "Amalgadon",
+      "tier": 6,
+      "attack": 6,
+      "health": 6,
+      "cost": 8,
+      "race": "ALL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> For each different\nminion type you have among\nother minions, <b>Adapt</b>\nrandomly.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "ADAPT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61445
+    },
+    {
+      "dbfId": 61445,
+      "id": "TB_BaconUps_121",
+      "name": "Amalgadon",
+      "tier": 6,
+      "attack": 12,
+      "health": 12,
+      "cost": 8,
+      "race": "ALL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> For each different\nminion type you have among\nother minions, <b>Adapt</b>\nrandomly twice.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "ADAPT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61884,
+      "id": "DMF_533",
+      "name": "Ring Matron",
+      "tier": 4,
+      "attack": 6,
+      "health": 4,
+      "cost": 6,
+      "race": "DEMON",
+      "set": "DARKMOON_FAIRE",
+      "rarity": "COMMON",
+      "text": "[x]<b>Taunt</b>\n<b>Deathrattle:</b> Summon\ntwo 3/2 Imps.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 67728
+    },
+    {
+      "dbfId": 61930,
+      "id": "BGS_071",
+      "name": "Deflect-o-Bot",
+      "tier": 3,
+      "attack": 3,
+      "health": 2,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Divine Shield</b>\nWhenever you summon a Mech\nduring combat, gain +1 Attack\nand <b>Divine Shield</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 61932
+    },
+    {
+      "dbfId": 61932,
+      "id": "TB_BaconUps_123",
+      "name": "Deflect-o-Bot",
+      "tier": 3,
+      "attack": 6,
+      "health": 4,
+      "cost": 4,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Divine Shield</b>\nWhenever you summon a Mech\nduring combat, gain +2 Attack\nand <b>Divine Shield</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61934,
+      "id": "TB_BaconUps_124",
+      "name": "Felfin Navigator",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give your other Murlocs +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 61989,
+      "id": "BGS_072",
+      "name": "Cap'n Hoggarr",
+      "tier": 5,
+      "attack": 6,
+      "health": 6,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you buy a Pirate,\ngain 1 Gold this turn\nonly.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62224
+    },
+    {
+      "dbfId": 62162,
+      "id": "BGS_075",
+      "name": "Rabid Saurolisk",
+      "tier": 2,
+      "attack": 3,
+      "health": 2,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play a minion with <b>Deathrattle</b>, gain +1/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62165
+    },
+    {
+      "dbfId": 62165,
+      "id": "TB_BaconUps_125",
+      "name": "Rabid Saurolisk",
+      "tier": 2,
+      "attack": 6,
+      "health": 4,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play a minion with <b>Deathrattle</b>, gain +2/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62186,
+      "id": "TB_BaconUps_126",
+      "name": "Deck Swabbie",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Reduce the cost of upgrading Bob's\nTavern by (2).",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62187,
+      "id": "TB_BaconUps_127",
+      "name": "Freedealing Gambler",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "This minion sells for\n6 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62188,
+      "id": "BGS_077",
+      "name": "Arcane Cannon",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Can't attack.\nAfter an adjacent minion\nattacks, deal 2 damage\nto an enemy minion.",
+      "mechanics": [
+        "CANT_ATTACK",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 62189
+    },
+    {
+      "dbfId": 62189,
+      "id": "TB_BaconUps_128",
+      "name": "Arcane Cannon",
+      "tier": 2,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Can't attack.\nAfter an adjacent minion\nattacks, deal 2 damage to\n   an enemy minion twice.",
+      "mechanics": [
+        "CANT_ATTACK",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62194,
+      "id": "TB_BaconUps_130",
+      "name": "Goldgrubber",
+      "tier": 4,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "At the end of your turn, gain +4/+4 for each friendly Golden minion.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62213,
+      "id": "BGS_061t",
+      "name": "Sky Pirate",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62215,
+      "id": "TB_BaconUps_141t",
+      "name": "Sky Pirate",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62216,
+      "id": "BGS_046t",
+      "name": "Treasure Chest",
+      "tier": 1,
+      "attack": 0,
+      "health": 2,
+      "cost": 2,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon a random Golden minion.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62217,
+      "id": "TB_BaconUps_132",
+      "name": "Nat Pagle, Extreme Angler",
+      "tier": 5,
+      "attack": 16,
+      "health": 10,
+      "cost": 7,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]When this attacks and kills\na minion, add 2 random\nminions to your hand.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62218,
+      "id": "TB_BaconUps_132t",
+      "name": "Treasure Chest",
+      "tier": 1,
+      "attack": 0,
+      "health": 2,
+      "cost": 2,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon 2 random Golden minions.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62224,
+      "id": "TB_BaconUps_133",
+      "name": "Cap'n Hoggarr",
+      "tier": 5,
+      "attack": 12,
+      "health": 12,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you buy a Pirate,\ngain 2 Gold this turn\nonly.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62228,
+      "id": "TB_BaconUps_134",
+      "name": "Dread Admiral Eliza",
+      "tier": 6,
+      "attack": 12,
+      "health": 14,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly Pirate attacks, give all friendly minions +4/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62230,
+      "id": "BGS_078",
+      "name": "Monstrous Macaw",
+      "tier": 3,
+      "attack": 4,
+      "health": 3,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After this attacks,\ntrigger a random friendly\nminion's <b>Deathrattle</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62231
+    },
+    {
+      "dbfId": 62231,
+      "id": "TB_BaconUps_135",
+      "name": "Monstrous Macaw",
+      "tier": 3,
+      "attack": 8,
+      "health": 6,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After this attacks, trigger\na random friendly minion's\n<b>Deathrattle</b> twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62232,
+      "id": "BGS_079",
+      "name": "The Tide Razor",
+      "tier": 6,
+      "attack": 6,
+      "health": 4,
+      "cost": 7,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle</b>: Summon 3 random Pirates.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62251
+    },
+    {
+      "dbfId": 62237,
+      "id": "TB_BaconUps_136",
+      "name": "Southsea Captain",
+      "tier": 2,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Your other Pirates have +2/+2.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62251,
+      "id": "TB_BaconUps_137",
+      "name": "The Tide Razor",
+      "tier": 6,
+      "attack": 12,
+      "health": 8,
+      "cost": 7,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle</b>: Summon 6 random Pirates.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62254,
+      "id": "TB_BaconUps_138",
+      "name": "Bloodsail Cannoneer",
+      "tier": 3,
+      "attack": 8,
+      "health": 6,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry</b>: Give your other Pirates +6 Attack.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62257,
+      "id": "TB_BaconUps_139",
+      "name": "Ripsnarl Captain",
+      "tier": 4,
+      "attack": 8,
+      "health": 10,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever another friendly Pirate attacks, give it +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62259,
+      "id": "TB_BaconUps_140",
+      "name": "Southsea Strongarm",
+      "tier": 3,
+      "attack": 8,
+      "health": 6,
+      "cost": 5,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Give a friendly Pirate +2/+2 for each Pirate you bought this turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62262,
+      "id": "TB_BaconUps_141",
+      "name": "Scallywag",
+      "tier": 1,
+      "attack": 4,
+      "health": 2,
+      "cost": 1,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Summon a 2/2 Pirate. It attacks immediately.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62458,
+      "id": "BGS_080",
+      "name": "Seabreaker Goliath",
+      "tier": 5,
+      "attack": 6,
+      "health": 7,
+      "cost": 7,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Windfury</b>\n<b>Overkill:</b> Give your other Pirates +2/+2.",
+      "mechanics": [
+        "OVERKILL"
+      ],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62460
+    },
+    {
+      "dbfId": 62460,
+      "id": "TB_BaconUps_142",
+      "name": "Seabreaker Goliath",
+      "tier": 5,
+      "attack": 12,
+      "health": 14,
+      "cost": 7,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Mega-Windfury</b>\n<b>Overkill:</b> Give your other Pirates +4/+4.",
+      "mechanics": [
+        "OVERKILL",
+        "WINDFURY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 62734,
+      "id": "BGS_081",
+      "name": "Salty Looter",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever you play a Pirate, gain +1/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 62739
+    },
+    {
+      "dbfId": 62739,
+      "id": "TB_BaconUps_143",
+      "name": "Salty Looter",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever you play a Pirate, gain +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63273,
+      "id": "DMF_533t",
+      "name": "Fiery Imp",
+      "tier": 1,
+      "attack": 3,
+      "health": 2,
+      "cost": 2,
+      "race": "DEMON",
+      "set": "DARKMOON_FAIRE",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63435,
+      "id": "BGS_082",
+      "name": "Menagerie Mug",
+      "tier": 2,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Give 3 random\nfriendly minions of different\nminion types +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63489
+    },
+    {
+      "dbfId": 63487,
+      "id": "BGS_083",
+      "name": "Menagerie Jug",
+      "tier": 4,
+      "attack": 3,
+      "health": 3,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Give 3 random\nfriendly minions of different\nminion types +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 63492
+    },
+    {
+      "dbfId": 63489,
+      "id": "TB_BaconUps_144",
+      "name": "Menagerie Mug",
+      "tier": 2,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Give 3 random\nfriendly minions of different\nminion types +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63492,
+      "id": "TB_BaconUps_145",
+      "name": "Menagerie Jug",
+      "tier": 4,
+      "attack": 6,
+      "health": 6,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Give 3 random\nfriendly minions of different\nminion types +4/+4.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63614,
+      "id": "BGS_106",
+      "name": "Acolyte of C'Thun",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>\n<b>Reborn</b>",
+      "mechanics": [
+        "REBORN",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65658
+    },
+    {
+      "dbfId": 63619,
+      "id": "BGS_112",
+      "name": "Qiraji Harbinger",
+      "tier": 4,
+      "attack": 5,
+      "health": 5,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly minion with <b>Taunt</b> dies, give its neighbors +2/+2.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65675
+    },
+    {
+      "dbfId": 63622,
+      "id": "BGS_110",
+      "name": "Arm of the Empire",
+      "tier": 3,
+      "attack": 4,
+      "health": 5,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Whenever a friendly <b>Taunt</b>\nminion is attacked,\ngive it +2 Attack\npermanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65673
+    },
+    {
+      "dbfId": 63623,
+      "id": "BGS_111",
+      "name": "Champion of Y'Shaarj",
+      "tier": 4,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly <b>Taunt</b> minion is attacked, gain +1/+1 permanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65666
+    },
+    {
+      "dbfId": 63624,
+      "id": "BGS_100",
+      "name": "Lil' Rag",
+      "tier": 6,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After you play an Elemental,\ngive a friendly minion stats\nequal to the Elemental's\nTavern Tier.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64076
+    },
+    {
+      "dbfId": 63626,
+      "id": "BGS_104",
+      "name": "Nomi, Kitchen Nightmare",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 7,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After you play an Elemental,\nElementals in Bob's Tavern\nhave +1/+1 for the rest\nof the game.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64185
+    },
+    {
+      "dbfId": 63627,
+      "id": "BGS_113",
+      "name": "Faceless Taverngoer",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Choose a minion\nin Bob's Tavern. Transform\ninto a plain copy of it.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 66597
+    },
+    {
+      "dbfId": 63630,
+      "id": "BGS_105",
+      "name": "Majordomo Executus",
+      "tier": 4,
+      "attack": 6,
+      "health": 3,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the end of your turn, give\nyour left-most minion +1/+1.\nRepeat for each Elemental\nyou played this turn.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64459
+    },
+    {
+      "dbfId": 63772,
+      "id": "TB_BaconUps_146",
+      "name": "Dragonspawn Lieutenant",
+      "tier": 1,
+      "attack": 4,
+      "health": 6,
+      "cost": 2,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>",
+      "mechanics": [
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63774,
+      "id": "TB_BaconUps_147",
+      "name": "Righteous Protector",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Divine Shield</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63776,
+      "id": "TB_BaconUps_153",
+      "name": "Foe Reaper 4000",
+      "tier": 6,
+      "attack": 12,
+      "health": 18,
+      "cost": 8,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "Also damages the minions next to whomever it attacks.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63778,
+      "id": "TB_BaconUps_148",
+      "name": "Vulgar Homunculus",
+      "tier": 1,
+      "attack": 4,
+      "health": 8,
+      "cost": 2,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Taunt</b>\n<b>Battlecry:</b> Deal 2 damage to your hero.",
+      "mechanics": [
+        "BATTLECRY",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63779,
+      "id": "TB_BaconUps_149",
+      "name": "Bronze Warden",
+      "tier": 3,
+      "attack": 4,
+      "health": 2,
+      "cost": 4,
+      "race": "DRAGON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Divine Shield</b>\n<b>Reborn</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "REBORN"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63780,
+      "id": "TB_BaconUps_154",
+      "name": "Nadina the Red",
+      "tier": 6,
+      "attack": 14,
+      "health": 8,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Give your Dragons <b>Divine Shield</b>.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63781,
+      "id": "TB_BaconUps_155",
+      "name": "Maexxna",
+      "tier": 6,
+      "attack": 4,
+      "health": 16,
+      "cost": 6,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "LEGENDARY",
+      "text": "<b>Poisonous</b>",
+      "mechanics": [
+        "POISONOUS"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63782,
+      "id": "TB_BaconUps_150",
+      "name": "Yo-Ho-Ogre",
+      "tier": 2,
+      "attack": 4,
+      "health": 12,
+      "cost": 6,
+      "race": "PIRATE",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Taunt</b>\nAfter this minion survives\nbeing attacked,\nattack immediately.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63794,
+      "id": "TB_BaconUps_151",
+      "name": "Cave Hydra",
+      "tier": 4,
+      "attack": 4,
+      "health": 8,
+      "cost": 3,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "Also damages the minions next to whomever\nthis attacks.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 63796,
+      "id": "TB_BaconUps_152",
+      "name": "Toxfin",
+      "tier": 4,
+      "attack": 2,
+      "health": 4,
+      "cost": 1,
+      "race": "MURLOC",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "<b>Battlecry:</b> Give a friendly Murloc <b>Poisonous</b>.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "POISONOUS"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64038,
+      "id": "BGS_115",
+      "name": "Sellemental",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]When you sell this,\nadd a 2/2 Elemental\nto your hand.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64041
+    },
+    {
+      "dbfId": 64040,
+      "id": "BGS_115t",
+      "name": "Water Droplet",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64041,
+      "id": "TB_BaconUps_156",
+      "name": "Sellemental",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]When you sell this,\nadd two 2/2 Elementals\nto your hand.",
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64042,
+      "id": "BGS_116",
+      "name": "Refreshing Anomaly",
+      "tier": 1,
+      "attack": 1,
+      "health": 3,
+      "cost": 1,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Your next\n<b>Refresh</b> costs (0).",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64045
+    },
+    {
+      "dbfId": 64045,
+      "id": "TB_BaconUps_167",
+      "name": "Refreshing Anomaly",
+      "tier": 1,
+      "attack": 2,
+      "health": 6,
+      "cost": 1,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Your next two\n <b>Refreshes</b> cost (0).",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64054,
+      "id": "BGS_119",
+      "name": "Crackling Cyclone",
+      "tier": 3,
+      "attack": 4,
+      "health": 1,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Divine Shield</b>\n<b>Windfury</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64055
+    },
+    {
+      "dbfId": 64055,
+      "id": "TB_BaconUps_159",
+      "name": "Crackling Cyclone",
+      "tier": 3,
+      "attack": 8,
+      "health": 2,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Divine Shield</b>\n<b>Mega-Windfury</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64056,
+      "id": "BGS_120",
+      "name": "Party Elemental",
+      "tier": 2,
+      "attack": 3,
+      "health": 2,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play an Elemental, give another random friendly Elemental +1/+1.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64058
+    },
+    {
+      "dbfId": 64058,
+      "id": "TB_BaconUps_160",
+      "name": "Party Elemental",
+      "tier": 2,
+      "attack": 6,
+      "health": 4,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you play an Elemental, give another random friendly Elemental +1/+1 twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64062,
+      "id": "BGS_121",
+      "name": "Gentle Djinni",
+      "tier": 6,
+      "attack": 4,
+      "health": 5,
+      "cost": 6,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. <b>Deathrattle:</b> Summon another random Elemental and add a copy of it to your hand.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64064
+    },
+    {
+      "dbfId": 64064,
+      "id": "TB_BaconUps_165",
+      "name": "Gentle Djinni",
+      "tier": 6,
+      "attack": 8,
+      "health": 10,
+      "cost": 6,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. <b>Deathrattle:</b> Summon two other random Elementals and add copies of them to your hand.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64069,
+      "id": "BGS_122",
+      "name": "Stasis Elemental",
+      "tier": 3,
+      "attack": 4,
+      "health": 4,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Add another random Elemental to Bob's Tavern and <b>Freeze</b> it.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "FREEZE"
+      ],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64073
+    },
+    {
+      "dbfId": 64073,
+      "id": "TB_BaconUps_161",
+      "name": "Stasis Elemental",
+      "tier": 3,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Add two other random Elementals to Bob's Tavern and <b>Freeze</b> them.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [
+        "FREEZE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64076,
+      "id": "TB_BaconUps_200",
+      "name": "Lil' Rag",
+      "tier": 6,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After you play an Elemental,\ngive a friendly minion stats\nequal to the Elemental's\nTavern Tier twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64077,
+      "id": "BGS_123",
+      "name": "Tavern Tempest",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Add another random Elemental to your hand.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64079
+    },
+    {
+      "dbfId": 64079,
+      "id": "TB_BaconUps_162",
+      "name": "Tavern Tempest",
+      "tier": 5,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Add two other random Elementals to your hand.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64081,
+      "id": "BGS_124",
+      "name": "Lieutenant Garr",
+      "tier": 6,
+      "attack": 5,
+      "health": 1,
+      "cost": 8,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. After you play an Elemental, gain +1 Health for each Elemental you have.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64085
+    },
+    {
+      "dbfId": 64085,
+      "id": "TB_BaconUps_163",
+      "name": "Lieutenant Garr",
+      "tier": 6,
+      "attack": 10,
+      "health": 2,
+      "cost": 8,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. After you play an Elemental, gain +2 Health for each Elemental you have.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64185,
+      "id": "TB_BaconUps_201",
+      "name": "Nomi, Kitchen Nightmare",
+      "tier": 5,
+      "attack": 8,
+      "health": 8,
+      "cost": 7,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]After you play an Elemental,\nElementals in Bob's Tavern\nhave +2/+2 for the rest\nof the game.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64189,
+      "id": "BGS_126",
+      "name": "Wildfire Elemental",
+      "tier": 4,
+      "attack": 7,
+      "health": 3,
+      "cost": 6,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After this attacks and kills\na minion, deal excess damage to a random adjacent minion.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64190
+    },
+    {
+      "dbfId": 64190,
+      "id": "TB_BaconUps_166",
+      "name": "Wildfire Elemental",
+      "tier": 4,
+      "attack": 14,
+      "health": 6,
+      "cost": 6,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After this attacks and kills\na minion, deal excess damage to both adjacent minions.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64296,
+      "id": "BGS_127",
+      "name": "Molten Rock",
+      "tier": 2,
+      "attack": 2,
+      "health": 4,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. After you play an Elemental, gain +1 Health.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64300
+    },
+    {
+      "dbfId": 64297,
+      "id": "BGS_128",
+      "name": "Arcane Assistant",
+      "tier": 3,
+      "attack": 3,
+      "health": 3,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Give your other Elementals +1/+1.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 64303
+    },
+    {
+      "dbfId": 64300,
+      "id": "TB_Baconups_202",
+      "name": "Molten Rock",
+      "tier": 2,
+      "attack": 4,
+      "health": 8,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>. After you play an Elemental, gain +2 Health.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64303,
+      "id": "TB_Baconups_203",
+      "name": "Arcane Assistant",
+      "tier": 3,
+      "attack": 6,
+      "health": 6,
+      "cost": 3,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Battlecry:</b> Give your other Elementals +2/+2.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64343,
+      "id": "TB_BaconUps_250",
+      "name": "Micro Mummy",
+      "tier": 1,
+      "attack": 2,
+      "health": 4,
+      "cost": 2,
+      "race": "MECHANICAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]<b>Reborn</b>\nAt the end of your turn, give\nanother random friendly\nminion +2 Attack.",
+      "mechanics": [
+        "REBORN",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64457,
+      "id": "TB_BaconUps_206",
+      "name": "Whirlwind Tempest",
+      "tier": 4,
+      "attack": 12,
+      "health": 12,
+      "cost": 8,
+      "race": "ELEMENTAL",
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "Your minions with <b>Windfury</b> have <b>Mega-Windfury</b>.",
+      "mechanics": [
+        "AURA"
+      ],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 64459,
+      "id": "TB_BaconUps_207",
+      "name": "Majordomo Executus",
+      "tier": 4,
+      "attack": 12,
+      "health": 6,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the end of your turn, give\nyour left-most minion +2/+2.\nRepeat for each Elemental\nyou played this turn.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65031,
+      "id": "BGS_131",
+      "name": "Deadly Spore",
+      "tier": 5,
+      "attack": 1,
+      "health": 1,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Poisonous</b>",
+      "mechanics": [
+        "POISONOUS"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65122
+    },
+    {
+      "dbfId": 65122,
+      "id": "TB_BaconUps_251",
+      "name": "Deadly Spore",
+      "tier": 5,
+      "attack": 2,
+      "health": 2,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Poisonous</b>",
+      "mechanics": [
+        "POISONOUS"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65658,
+      "id": "TB_BaconUps_255",
+      "name": "Acolyte of C'Thun",
+      "tier": 1,
+      "attack": 4,
+      "health": 4,
+      "cost": 1,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Taunt</b>\n<b>Reborn</b>",
+      "mechanics": [
+        "REBORN",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65660,
+      "id": "BGS_200",
+      "name": "Warden of Old",
+      "tier": 3,
+      "attack": 3,
+      "health": 3,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Add a Gold Coin to your hand.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65665
+    },
+    {
+      "dbfId": 65661,
+      "id": "BGS_201",
+      "name": "Tormented Ritualist",
+      "tier": 2,
+      "attack": 2,
+      "health": 3,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Taunt</b>\nWhenever this is attacked,\ngive adjacent minions\n+1/+1.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65668
+    },
+    {
+      "dbfId": 65662,
+      "id": "BGS_202",
+      "name": "Mythrax the Unraveler",
+      "tier": 5,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the end of your turn,\ngain +1/+2 for each\n  minion type you control.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 65671
+    },
+    {
+      "dbfId": 65665,
+      "id": "TB_BaconUps_256",
+      "name": "Warden of Old",
+      "tier": 3,
+      "attack": 6,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "<b>Deathrattle:</b> Add 2 Gold Coins to your hand.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65666,
+      "id": "TB_BaconUps_301",
+      "name": "Champion of Y'Shaarj",
+      "tier": 4,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "Whenever a friendly <b>Taunt</b> minion is attacked, gain +2/+2 permanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65668,
+      "id": "TB_BaconUps_257",
+      "name": "Tormented Ritualist",
+      "tier": 2,
+      "attack": 4,
+      "health": 6,
+      "cost": 3,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Taunt</b>\nWhenever this is attacked,\ngive adjacent minions\n+2/+2.",
+      "mechanics": [
+        "TAUNT",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65671,
+      "id": "TB_BaconUps_258",
+      "name": "Mythrax the Unraveler",
+      "tier": 5,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]At the end of your turn,\ngain +2/+4 for each\n  minion type you control.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65673,
+      "id": "TB_BaconUps_302",
+      "name": "Arm of the Empire",
+      "tier": 3,
+      "attack": 8,
+      "health": 10,
+      "cost": 5,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]Whenever a friendly <b>Taunt</b>\nminion is attacked,\ngive it +4 Attack\npermanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 65675,
+      "id": "TB_BaconUps_303",
+      "name": "Qiraji Harbinger",
+      "tier": 4,
+      "attack": 10,
+      "health": 10,
+      "cost": 6,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly minion with <b>Taunt</b> dies, give its neighbors +4/+4.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 66227,
+      "id": "BGS_204",
+      "name": "Bigfernal",
+      "tier": 4,
+      "attack": 4,
+      "health": 4,
+      "cost": 5,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you summon a Demon, gain +1/+1 permanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": true,
+      "isGolden": false,
+      "goldenDbfId": 66237
+    },
+    {
+      "dbfId": 66237,
+      "id": "TB_BaconUps_304",
+      "name": "Bigfernal",
+      "tier": 4,
+      "attack": 8,
+      "health": 8,
+      "cost": 5,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After you summon a Demon, gain +2/+2 permanently.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 66597,
+      "id": "TB_BaconUps_305",
+      "name": "Faceless Taverngoer",
+      "tier": 5,
+      "attack": 8,
+      "health": 8,
+      "cost": 4,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Battlecry:</b> Choose a minion\nin Bob's Tavern. Transform\ninto a Golden copy of it.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 66835,
+      "id": "BGS_205",
+      "name": "Elistra the Immortal",
+      "tier": 6,
+      "attack": 4,
+      "health": 4,
+      "cost": 8,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Divine Shield</b>. <b>Reborn</b>.\nWhenever a friendly <b>Taunt</b>\nminion is attacked, this\n  gets attacked instead.",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "REBORN",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 66840
+    },
+    {
+      "dbfId": 66840,
+      "id": "TB_BaconUps_306",
+      "name": "Elistra the Immortal",
+      "tier": 6,
+      "attack": 8,
+      "health": 8,
+      "cost": 8,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "[x]<b>Divine Shield</b>. <b>Reborn</b>.\nWhenever a friendly <b>Taunt</b>\nminion is attacked, this\n  gets attacked instead.",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "REBORN",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 67213,
+      "id": "TB_BaconShop_HP_105t",
+      "name": "Fish of N'Zoth",
+      "tier": 1,
+      "attack": 1,
+      "health": 1,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly <b>Deathrattle</b> minion dies, gain its <b>Deathrattle</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": 67216
+    },
+    {
+      "dbfId": 67216,
+      "id": "TB_BaconUps_307",
+      "name": "Fish of N'Zoth",
+      "tier": 1,
+      "attack": 2,
+      "health": 2,
+      "cost": 1,
+      "race": "BEAST",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": "After a friendly <b>Deathrattle</b> minion dies, gain its <b>Deathrattle</b> twice.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 67428,
+      "id": "PVPDR_YOP_WarPalT1",
+      "name": "Su Leadfoot",
+      "tier": 4,
+      "attack": 2,
+      "health": 6,
+      "cost": 4,
+      "race": null,
+      "set": "TB",
+      "rarity": null,
+      "text": "After you summon a minion, it gains <b>Divine Shield</b> and <b>Rush</b>.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "RUSH"
+      ],
+      "isBaconPoolMinion": false,
+      "isGolden": false,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 67493,
+      "id": "TB_BaconUps_308",
+      "name": "Argent Braggart",
+      "tier": 6,
+      "attack": 2,
+      "health": 2,
+      "cost": 2,
+      "race": null,
+      "set": "BATTLEGROUNDS",
+      "rarity": "EPIC",
+      "text": "[x]<b>Battlecry:</b> Gain Attack and\nHealth to match double the\nhighest in the battlefield.",
+      "mechanics": [
+        "BATTLECRY"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 67728,
+      "id": "TB_BaconUps_309",
+      "name": "Ring Matron",
+      "tier": 4,
+      "attack": 12,
+      "health": 8,
+      "cost": 6,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": "COMMON",
+      "text": "[x]<b>Taunt</b>\n<b>Deathrattle:</b> Summon\ntwo 6/4 Imps.",
+      "mechanics": [
+        "DEATHRATTLE",
+        "TAUNT"
+      ],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    },
+    {
+      "dbfId": 67729,
+      "id": "TB_BaconUps_309t",
+      "name": "Fiery Imp",
+      "tier": 1,
+      "attack": 6,
+      "health": 4,
+      "cost": 2,
+      "race": "DEMON",
+      "set": "BATTLEGROUNDS",
+      "rarity": null,
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "isBaconPoolMinion": false,
+      "isGolden": true,
+      "goldenDbfId": null
+    }
+  ]
+}

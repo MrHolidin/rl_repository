@@ -7,11 +7,13 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import numpy as np
 
 from src.bg_combat.battle import simulate_battle
+from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot, GHOST_OPPONENT_ID
 from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
+from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
 from src.envs.bglike.actions import gold_for_round
 
@@ -141,6 +143,10 @@ def resolve_combat_round(
     state.pairings = matches
     state.combat_round += 1
 
+    if state.shared_pool is None:
+        raise RuntimeError("shared_pool is required for combat resolution")
+    patch = state.shared_pool.patch
+
     for match in matches:
         if match.is_ghost:
             assert match.b is None and match.ghost is not None
@@ -157,6 +163,7 @@ def resolve_combat_round(
                 max_board_slots=board_size,
                 p0_tavern_tier=live.tavern_tier,
                 p1_tavern_tier=match.ghost.tavern_tier,
+                patch=patch,
             )
             _apply_hero_damage(state, match.a, dmg_live)
             ghost_rec = record_combat_opponent(
@@ -171,7 +178,11 @@ def resolve_combat_round(
         assert match.b is not None
         a, b = match.a, match.b
         pa, pb = state.players[a], state.players[b]
+        pa.last_opponent_board = snapshot_warband(pb.board)
+        pb.last_opponent_board = snapshot_warband(pa.board)
         p0_first = _initiative_for_pair(state, a, b)
+        combat_gold = [0, 0]
+        combat_hand_adds: list[list[str]] = [[], []]
         dmg_a, dmg_b = simulate_battle(
             pa.board,
             pb.board,
@@ -182,13 +193,28 @@ def resolve_combat_round(
             max_board_slots=board_size,
             p0_tavern_tier=pa.tavern_tier,
             p1_tavern_tier=pb.tavern_tier,
+            patch=patch,
+            combat_gold_out=combat_gold,
+            combat_hand_adds_out=combat_hand_adds,
         )
         if p0_first:
             _apply_hero_damage(state, a, dmg_a)
             _apply_hero_damage(state, b, dmg_b)
+            pa.last_combat_won = dmg_a == 0 and dmg_b > 0
+            pb.last_combat_won = dmg_b == 0 and dmg_a > 0
+            pa.gold += combat_gold[0]
+            pb.gold += combat_gold[1]
+            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
+            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
         else:
             _apply_hero_damage(state, b, dmg_b)
             _apply_hero_damage(state, a, dmg_a)
+            pa.last_combat_won = dmg_a == 0 and dmg_b > 0
+            pb.last_combat_won = dmg_b == 0 and dmg_a > 0
+            pa.gold += combat_gold[0]
+            pb.gold += combat_gold[1]
+            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
+            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
 
         new_recent: List[Tuple[int, ...]] = []
         for i in range(len(state.players)):

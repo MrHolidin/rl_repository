@@ -5,6 +5,7 @@ from typing import Optional
 
 import numpy as np
 
+from src.bg_lobby.player import PendingChoiceKind
 from ..action_map import (
     A_BUY_BASE,
     A_DISCOVER_BASE,
@@ -125,6 +126,11 @@ class HeuristicBot(ABC):
     def _finish(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
+
+        if p.pending_choice is not None and p.pending_choice.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+            buys = [A_BUY_BASE + s for s in range(MAX_SHOP_SLOTS) if bool(mask[A_BUY_BASE + s])]
+            if buys:
+                return int(buys[0])
 
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):

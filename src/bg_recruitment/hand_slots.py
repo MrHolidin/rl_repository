@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
+from src.bg_catalog.cards import make_minion
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_lobby.player import PlayerState
 
 
@@ -22,4 +24,14 @@ def first_free_hand_slot(player: PlayerState) -> Optional[int]:
     return None
 
 
-__all__ = ["first_free_hand_slot", "hand_has_free_slot", "hand_size"]
+def apply_combat_hand_adds(
+    player: PlayerState, card_ids: Sequence[str], patch: PatchContext
+) -> None:
+    for cid in card_ids:
+        slot = first_free_hand_slot(player)
+        if slot is None:
+            break
+        player.hand[slot] = make_minion(cid, patch=patch)
+
+
+__all__ = ["apply_combat_hand_adds", "first_free_hand_slot", "hand_has_free_slot", "hand_size"]

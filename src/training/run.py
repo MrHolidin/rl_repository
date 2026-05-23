@@ -419,16 +419,19 @@ def run(
 
     agent_params: Dict[str, Any] = dict(app_cfg.agent.params)
     reject_flat_bg_network(game_id, str(agent_params.get("network_type", "")))
+    if game_id in ("minibg", "bglike"):
+        from src.training.patch_config import apply_patch_to_agent_params
+
+        apply_patch_to_agent_params(game_params, agent_params)
     base_env = None
     if game_id == "bglike":
         from src.envs.bglike.action_map import NUM_ENV_ACTIONS
-        from src.envs.bglike.obs import OBS_DIM
+        from src.training.obs_sizing import apply_bg_observation_defaults
 
         num_actions = int(NUM_ENV_ACTIONS)
         agent_params.setdefault("num_actions", num_actions)
         agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-        agent_params.setdefault("observation_shape", (OBS_DIM,))
-        agent_params.setdefault("observation_type", "vector")
+        apply_bg_observation_defaults(game_id, agent_params)
     else:
         base_env = make_game(app_cfg.game.id, **game_params)
         legal_mask = getattr(base_env, "legal_actions_mask", None)
@@ -437,12 +440,17 @@ def run(
         num_actions = int(len(legal_mask))
         agent_params.setdefault("num_actions", num_actions)
         agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-        obs_builder = getattr(base_env, "observation_builder", None)
-        if obs_builder is not None:
-            agent_params.setdefault("observation_shape", obs_builder.observation_shape)
-            agent_params.setdefault(
-                "observation_type", getattr(obs_builder, "observation_type", "board")
-            )
+        if game_id == "minibg":
+            from src.training.obs_sizing import apply_bg_observation_defaults
+
+            apply_bg_observation_defaults(game_id, agent_params)
+        else:
+            obs_builder = getattr(base_env, "observation_builder", None)
+            if obs_builder is not None:
+                agent_params.setdefault("observation_shape", obs_builder.observation_shape)
+                agent_params.setdefault(
+                    "observation_type", getattr(obs_builder, "observation_type", "board")
+                )
 
     device = _resolve_device(agent_params.get("device"))
     agent_params["device"] = device

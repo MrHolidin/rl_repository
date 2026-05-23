@@ -138,6 +138,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         seed: Optional[int] = None,
         model_config: Optional[Dict] = None,
         compute_detailed_metrics: bool = True,
+        patch_build: Optional[int] = None,
     ) -> None:
         if not isinstance(network, StructuredActorCriticProtocol):
             raise TypeError(
@@ -170,6 +171,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self.minibatch_size = minibatch_size
         self.model_config = model_config
         self.compute_detailed_metrics = compute_detailed_metrics
+        self.patch_build = int(patch_build) if patch_build is not None else None
         self.action_space = DiscreteActionSpace(self.num_actions)
 
         self.training = True
@@ -640,6 +642,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "ppo_network_type": self._ppo_network_type,
             "ppo_network_kwargs": dict(self._ppo_network_kwargs),
         }
+        if self.patch_build is not None:
+            checkpoint["patch_build"] = int(self.patch_build)
         if save_epsilon:
             checkpoint["epsilon"] = self.epsilon
         torch.save(checkpoint, path)
@@ -651,6 +655,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         checkpoint = torch.load(path, map_location=eff_device)
         if checkpoint.get("agent_kind") != "ppo_minibg_structured":
             raise ValueError(f"checkpoint is not MiniBG structured PPO: {checkpoint.get('agent_kind')!r}")
+
+        from src.training.patch_config import assert_checkpoint_patch_build
+
+        expected_build = overrides.get("patch_build")
+        assert_checkpoint_patch_build(checkpoint, expected_build)
 
         observation_shape = tuple(checkpoint["observation_shape"])
         observation_type = checkpoint.get("observation_type", "vector")
@@ -692,6 +701,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "minibatch_size": checkpoint.get("minibatch_size", 256),
             "device": eff_device,
             "model_config": checkpoint.get("model_config"),
+            "patch_build": checkpoint.get("patch_build", expected_build),
         }
         allowed_ov = frozenset(
             {
@@ -710,6 +720,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "device",
                 "seed",
                 "compute_detailed_metrics",
+                "patch_build",
             }
         )
         for k, v in overrides.items():

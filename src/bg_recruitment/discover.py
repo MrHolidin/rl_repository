@@ -6,6 +6,8 @@ from typing import Callable, Optional
 
 import numpy as np
 
+from src.bg_catalog.patch_context import PatchContext
+
 from src.bg_core.effects import DiscoverMurlocEffect, Trigger
 from src.bg_core.minion import Minion, Race
 from .hand_slots import first_free_hand_slot
@@ -79,6 +81,7 @@ def try_open_hand_discover_chain(
     *,
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> bool:
     """Roll and open the next hand-discover modal; reject if no hand slot."""
     if not is_hand_discover_kind(kind):
@@ -92,6 +95,7 @@ def try_open_hand_discover_chain(
         extra_modals_after,
         shop_excluded_race,
         shared_pool=shared_pool,
+        patch=patch,
     )
     if pc is None:
         return False
@@ -117,14 +121,23 @@ def roll_pending_modal(
     shop_excluded_race: Optional[Race],
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> Optional[PendingChoice]:
     if kind == PendingChoiceKind.DISCOVER_MURLOC:
         opts = roll_discover_murloc_triple(
-            rng, player.tavern_tier, shop_excluded_race, shared_pool=shared_pool
+            rng,
+            player.tavern_tier,
+            shop_excluded_race,
+            shared_pool=shared_pool,
+            patch=patch,
         )
     elif kind == PendingChoiceKind.TRIPLE_REWARD_DISCOVER:
         opts = roll_triple_reward_discover_triple(
-            rng, player.tavern_tier, shop_excluded_race, shared_pool=shared_pool
+            rng,
+            player.tavern_tier,
+            shop_excluded_race,
+            shared_pool=shared_pool,
+            patch=patch,
         )
     else:
         opts = roll_adapt_triple(rng)
@@ -146,6 +159,7 @@ def resolve_discover_pick(
     rng: np.random.Generator,
     on_after_placed: Callable[[PlayerState, Minion], None],
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> None:
     from src.bg_catalog.cards import make_minion
 
@@ -161,7 +175,7 @@ def resolve_discover_pick(
             raise ValueError(
                 "DISCOVER pick with full hand; legal mask must require a free hand slot"
             )
-        picked = make_minion(choice_token)
+        picked = make_minion(choice_token, patch=patch)
         player.hand[h] = picked
         if pc.options_pool_reserved and shared_pool is not None:
             release_discover_options(shared_pool, pc.options, keep_slot=pick_slot)
@@ -182,6 +196,7 @@ def resolve_discover_pick(
                 shop_excluded_race,
                 rng=rng,
                 shared_pool=shared_pool,
+                patch=patch,
             ):
                 chain_next = False
         else:
@@ -192,6 +207,7 @@ def resolve_discover_pick(
                 extra - 1,
                 shop_excluded_race,
                 shared_pool=shared_pool,
+                patch=patch,
             )
             if player.pending_choice is None:
                 chain_next = False
@@ -199,11 +215,13 @@ def resolve_discover_pick(
     if not chain_next:
         player.pending_choice = None
         if hand_discover:
-            resolve_triples_loop(player, shared_pool=shared_pool)
+            resolve_triples_loop(player, shared_pool=shared_pool, patch=patch)
         ref = player.placed_minion_pending_after
         if ref is not None:
             if ref in player.board:
                 on_after_placed(player, ref)
             player.placed_minion_pending_after = None
             player.placed_minion_board_index = None
-        flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
+        flush_triple_reward_queue_if_idle(
+            player, shop_excluded_race, rng=rng, patch=patch
+        )

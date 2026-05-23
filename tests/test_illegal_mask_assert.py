@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.heuristic_bots.bots import Tier1RandomBot
 from src.envs.minibg.heuristic_bots.common import masked_finish
 from src.envs.minibg.invariants import assert_action_in_legal_mask

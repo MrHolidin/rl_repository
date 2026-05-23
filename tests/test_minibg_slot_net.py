@@ -2,13 +2,10 @@ import torch
 
 import src.models  # noqa: F401 — triggers network registry
 from src.envs.minibg.actions import BOARD_SIZE, MAX_SHOP_SLOTS
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.game import MiniBGGame
-from src.envs.minibg.obs import (
-    GLOBAL_DIM,
-    SLOT_DIM,
-    build_observation,
-)
+from src.envs.minibg.obs import GLOBAL_DIM, SLOT_DIM
+from tests.conftest import PATCH_CTX, obs_build_observation as build_observation
 from src.models.minibg_slot_net import MiniBGSlotEncoderNet, _OBS_DIM
 
 

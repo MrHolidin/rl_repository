@@ -2,41 +2,55 @@ from __future__ import annotations
 
 from collections import deque
 from copy import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Deque, List, Optional, Tuple, Union
 
 import numpy as np
 
 from src.bg_catalog.cards import make_minion
+from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import (
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
+    AttackImmediatelyAfterSurvivingEffect,
     BuffAllFriendlyMinions,
     BuffAllFriendlyOfTribe,
+    BuffAllOtherOfTribe,
     BuffAllWithKeyword,
+    BuffAdjacentOnAttackedEffect,
+    BuffAttackedMinionEffect,
+    BuffAttackerOnFriendlyAttackEffect,
     BuffListenerIfSummonedMatches,
     BuffRandomOtherFriendlyCombat,
+    AddRandomMinionToHandOnKillEffect,
     BuffSelf,
     BuffSummonedIfRace,
     CleaveOnAttack,
     DealDamageRandomEnemyMinion,
+    DealExcessDamageToAdjacentEffect,
+    GainGoldOnDeathEffect,
     GrantKeywordRandomFriendly,
+    GrantKeywordAllFriendlyOfTribe,
     GrantListenerKeywordIfSummonedMatches,
     Keyword,
     KeywordStatAura,
     DeathrattleMultiplierAura,
+    MultiplySelfAttackEffect,
     StatAura,
+    StartOfCombatDamagePerFriendlyTribe,
     SummonEffect,
     SummonRandomMinionEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
     SummonOnSelfDamaged,
+    SummonRandomOnSelfDamagedEffect,
+    TriggerRandomFriendlyDeathrattleEffect,
     TribalOtherStatAura,
     Trigger,
     ZappTargeting,
 )
 from src.bg_core.minion import Minion, Race
-from src.envs.minibg.summon_pool import build_summon_pool, hs_race_string
+from src.envs.minibg.summon_pool import hs_race_string, summon_pool_for
 
 
 @dataclass
@@ -45,6 +59,7 @@ class BattleMinion:
     current_health: int
     shield_armed: bool
     deathrattle_fired: bool = False
+    reborn_consumed: bool = False
     instance_id: int = 0
     health_aura_snapshot: int = 0
 
@@ -121,6 +136,9 @@ class Overkill:
 @dataclass(frozen=True)
 class AttackCompleted:
     """Both combatants have applied their strike damage; enqueue death batch next."""
+
+    attacker_side_idx: int
+    attacker_instance_id: int
 
 
 @dataclass(frozen=True)
@@ -335,11 +353,20 @@ class _CombatRuntime:
     rng: np.random.Generator
     combat_board_max: int
     damage_cap: int
+    patch: PatchContext
     queue: Deque[BattleEvent] = field(default_factory=deque)
     next_id: int = 1
     in_death_resolution: bool = False
     death_hook: Optional[Callable[[int, str], None]] = None
     mech_hook: Optional[Callable[[int, Minion], None]] = None
+    swing_damage_survivors: List[Tuple[int, int]] = field(default_factory=list)
+    bonus_attack_depth: int = 0
+    combat_gold: List[int] = field(default_factory=lambda: [0, 0])
+    combat_hand_adds: List[List[str]] = field(default_factory=lambda: [[], []])
+    kill_attribution: dict[Tuple[int, int], Tuple[int, int]] = field(
+        default_factory=dict
+    )
+    attacker_killed_this_swing: bool = False
 
     def alloc_id(self) -> int:
         i = self.next_id
@@ -368,13 +395,15 @@ def _build_side(board: List[Minion], rt: _CombatRuntime) -> BattleSide:
     return BattleSide(minions=out)
 
 
-def build_battle_side(board: List[Minion]) -> BattleSide:
+def build_battle_side(board: List[Minion], *, patch: PatchContext) -> BattleSide:
     """Build a battle line with fresh instance IDs (tests, tooling)."""
+    ctx = require_patch(patch, where="battle.build_battle_side")
     rt = _CombatRuntime(
         sides=(BattleSide(), BattleSide()),
         rng=np.random.default_rng(0),
         combat_board_max=10**9,
         damage_cap=10**9,
+        patch=ctx,
     )
     return _build_side(board, rt)
 
@@ -470,12 +499,33 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
                 strike.amount - hp_before,
             )
         )
+    if vic.current_health <= 0 and att is not None:
+        killer_side = 1 - strike.victim_side_idx
+        rt.kill_attribution[(strike.victim_side_idx, strike.victim_instance_id)] = (
+            killer_side,
+            strike.attacker_instance_id,
+        )
+        rt.attacker_killed_this_swing = True
     for ev in reversed(trailing):
         rt.queue.appendleft(ev)
     _sync_health_all(rt)
 
 
-def _handle_attack_completed(rt: _CombatRuntime) -> None:
+def _handle_attack_completed(rt: _CombatRuntime, e: AttackCompleted) -> None:
+    attacker = rt.find_minion(e.attacker_side_idx, e.attacker_instance_id)
+    if attacker is not None and attacker.alive:
+        _fire_after_attack(rt, attacker, e.attacker_side_idx)
+        _fire_friendly_attack_listeners(rt, attacker, e.attacker_side_idx)
+    seen: set[Tuple[int, int]] = set()
+    for side_idx, instance_id in rt.swing_damage_survivors:
+        key = (side_idx, instance_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        bm = rt.find_minion(side_idx, instance_id)
+        if bm is not None and bm.alive:
+            _fire_survived_attack_effects(rt, side_idx, bm)
+    rt.swing_damage_survivors.clear()
     pending: List[Tuple[int, BattleMinion]] = []
     for sidx in (0, 1):
         side = rt.side(sidx)
@@ -539,7 +589,28 @@ def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> N
             n_sum = _summon_multiplier(rt.side(side_idx))
             for _ in range(max(0, eff.count)):
                 for __ in range(n_sum):
-                    tok = make_minion(eff.token_id)
+                    tok = make_minion(eff.token_id, patch=rt.patch)
+                    if _summon_append(rt, side_idx, tok) is None:
+                        return
+        elif isinstance(eff, SummonRandomOnSelfDamagedEffect):
+            race_hs = hs_race_string(eff.race_filter)
+            pool = summon_pool_for(
+                None,
+                False,
+                False,
+                race_hs,
+                None,
+                patch=rt.patch,
+            )
+            if not pool:
+                return
+            n_sum = _summon_multiplier(rt.side(side_idx))
+            for _ in range(max(0, eff.count)):
+                for __ in range(n_sum):
+                    cid = pool[int(rt.rng.integers(0, len(pool)))]
+                    tok = make_minion(cid, patch=rt.patch)
+                    if eff.grant_taunt:
+                        tok.keywords = frozenset(tok.keywords | {Keyword.TAUNT})
                     if _summon_append(rt, side_idx, tok) is None:
                         return
 
@@ -576,6 +647,87 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     _sync_health_all(rt)
 
 
+def _fire_friendly_kill_listeners(
+    rt: _CombatRuntime, killer_side_idx: int, killer_instance_id: int
+) -> None:
+    killer = rt.find_minion(killer_side_idx, killer_instance_id)
+    if killer is None:
+        return
+    killer_tpl = killer.template
+    side = rt.side(killer_side_idx)
+    for listener in list(side.minions):
+        if not listener.alive:
+            continue
+        for ab in listener.template.abilities:
+            if ab.trigger != Trigger.ON_FRIENDLY_KILL:
+                continue
+            if ab.filter_race is not None and not _matches_tribe_for_aura(
+                killer_tpl, ab.filter_race
+            ):
+                continue
+            eff = ab.effect
+            if isinstance(eff, BuffSelf):
+                listener.template.bonus_attack += eff.attack
+                listener.template.bonus_health += eff.health
+                listener.current_health += eff.health
+    _sync_health_all(rt)
+
+
+def _queue_random_combat_hand_add(
+    rt: _CombatRuntime, side_idx: int, tribe: Optional[Any]
+) -> None:
+    race_hs = hs_race_string(tribe)
+    pool = summon_pool_for(None, False, False, race_hs, None, patch=rt.patch)
+    if not pool:
+        return
+    cid = pool[int(rt.rng.integers(0, len(pool)))]
+    rt.combat_hand_adds[side_idx].append(cid)
+
+
+def _deal_damage_to_battle_minion(
+    rt: _CombatRuntime, side_idx: int, bm: BattleMinion, amount: int
+) -> None:
+    if amount <= 0 or not bm.alive:
+        return
+    if bm.shield_armed and Keyword.SHIELD in bm.template.all_keywords:
+        bm.shield_armed = False
+        rt.queue.append(ShieldLost(side_idx, bm.instance_id))
+        return
+    bm.current_health -= amount
+    if bm.current_health <= 0:
+        bm.current_health = 0
+    _sync_health_all(rt)
+    if not bm.alive:
+        rt.queue.append(MinionDied(side_idx, bm.instance_id))
+    elif amount > 0:
+        rt.swing_damage_survivors.append((side_idx, bm.instance_id))
+
+
+def _deal_excess_to_adjacent(
+    rt: _CombatRuntime, victim_side_idx: int, victim_instance_id: int, amount: int
+) -> None:
+    if amount <= 0:
+        return
+    side = rt.side(victim_side_idx)
+    vic = rt.find_minion(victim_side_idx, victim_instance_id)
+    if vic is None:
+        return
+    try:
+        vi = side.minions.index(vic)
+    except ValueError:
+        return
+    adj: List[BattleMinion] = []
+    for j in (vi - 1, vi + 1):
+        if 0 <= j < len(side.minions):
+            m = side.minions[j]
+            if m.alive:
+                adj.append(m)
+    if not adj:
+        return
+    target = adj[int(rt.rng.integers(0, len(adj)))]
+    _deal_damage_to_battle_minion(rt, victim_side_idx, target, amount)
+
+
 def _fire_friendly_minion_died_listeners(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int
 ) -> None:
@@ -600,16 +752,175 @@ def _fire_friendly_minion_died_listeners(
     _sync_health_all(rt)
 
 
+def _minion_has_deathrattle(bm: BattleMinion) -> bool:
+    return any(ab.trigger == Trigger.ON_DEATH for ab in bm.template.abilities)
+
+
+def _trigger_random_friendly_deathrattle(
+    rt: _CombatRuntime,
+    side_idx: int,
+    exclude: Optional[BattleMinion],
+    effect: TriggerRandomFriendlyDeathrattleEffect,
+) -> None:
+    side = rt.side(side_idx)
+    pool = [
+        m
+        for m in side.minions
+        if m.alive
+        and (not effect.exclude_self or m is not exclude)
+        and _minion_has_deathrattle(m)
+    ]
+    for _ in range(max(1, effect.repeats)):
+        if not pool:
+            return
+        pick = pool[int(rt.rng.integers(0, len(pool)))]
+        _fire_deathrattle(rt, pick, side_idx)
+
+
+def _fire_after_attack(
+    rt: _CombatRuntime, attacker: BattleMinion, side_idx: int
+) -> None:
+    side = rt.side(side_idx)
+    bf = (rt.side(0), rt.side(1))
+    for ab in attacker.template.abilities:
+        if ab.trigger != Trigger.ON_AFTER_ATTACK:
+            continue
+        eff = ab.effect
+        if isinstance(eff, TriggerRandomFriendlyDeathrattleEffect):
+            _trigger_random_friendly_deathrattle(rt, side_idx, attacker, eff)
+        elif isinstance(eff, MultiplySelfAttackEffect):
+            cur = attack_value(
+                attacker, side, death_resolution=False, battle_field=bf
+            )
+            attacker.template.bonus_attack += cur * max(0, eff.factor - 1)
+        elif isinstance(eff, AddRandomMinionToHandOnKillEffect):
+            if rt.attacker_killed_this_swing:
+                _queue_random_combat_hand_add(rt, side_idx, eff.tribe)
+    _sync_health_all(rt)
+
+
+def _fire_friendly_attack_listeners(
+    rt: _CombatRuntime, attacker: BattleMinion, attacker_side_idx: int
+) -> None:
+    side = rt.side(attacker_side_idx)
+    for listener in list(side.minions):
+        if not listener.alive or listener is attacker:
+            continue
+        for ab in listener.template.abilities:
+            if ab.trigger != Trigger.ON_FRIENDLY_ATTACK:
+                continue
+            if ab.filter_race is not None and not _matches_tribe_for_aura(
+                attacker.template, ab.filter_race
+            ):
+                continue
+            eff = ab.effect
+            if isinstance(eff, BuffAttackerOnFriendlyAttackEffect):
+                if not _matches_tribe_for_aura(attacker.template, eff.tribe):
+                    continue
+                attacker.template.bonus_attack += eff.attack
+                attacker.template.bonus_health += eff.health
+                attacker.current_health += eff.health
+            elif isinstance(eff, BuffAllFriendlyMinions):
+                for ally in side.minions:
+                    if not ally.alive:
+                        continue
+                    ally.template.bonus_attack += eff.attack
+                    ally.template.bonus_health += eff.health
+                    ally.current_health += eff.health
+    _sync_health_all(rt)
+
+
+def _fire_when_attacked(
+    rt: _CombatRuntime,
+    victim_side_idx: int,
+    victim: BattleMinion,
+) -> None:
+    side = rt.side(victim_side_idx)
+    idx_v = _board_index(side, victim)
+
+    for ab in victim.template.abilities:
+        if ab.trigger != Trigger.ON_WHEN_ATTACKED:
+            continue
+        eff = ab.effect
+        if isinstance(eff, BuffAdjacentOnAttackedEffect) and idx_v is not None:
+            for j in (idx_v - 1, idx_v + 1):
+                if 0 <= j < len(side.minions):
+                    ally = side.minions[j]
+                    if not ally.alive:
+                        continue
+                    ally.template.bonus_attack += eff.attack
+                    ally.template.bonus_health += eff.health
+                    ally.current_health += eff.health
+
+    for listener in list(side.minions):
+        if not listener.alive or listener is victim:
+            continue
+        for ab in listener.template.abilities:
+            if ab.trigger != Trigger.ON_FRIENDLY_WHEN_ATTACKED:
+                continue
+            if ab.filter_victim_keyword is not None:
+                if ab.filter_victim_keyword not in victim.template.all_keywords:
+                    continue
+            eff = ab.effect
+            if isinstance(eff, BuffSelf):
+                listener.template.bonus_attack += eff.attack
+                listener.template.bonus_health += eff.health
+                listener.current_health += eff.health
+            elif isinstance(eff, BuffAttackedMinionEffect):
+                victim.template.bonus_attack += eff.attack
+                victim.template.bonus_health += eff.health
+                victim.current_health += eff.health
+    _sync_health_all(rt)
+
+
+def _fire_survived_attack_effects(
+    rt: _CombatRuntime, side_idx: int, bm: BattleMinion
+) -> None:
+    if not bm.alive:
+        return
+    for ab in bm.template.abilities:
+        if ab.trigger != Trigger.ON_SURVIVED_ATTACK:
+            continue
+        if isinstance(ab.effect, AttackImmediatelyAfterSurvivingEffect):
+            if rt.bonus_attack_depth > 0:
+                continue
+            rt.bonus_attack_depth += 1
+            try:
+                _run_attacker_activation(rt, bm, side_idx, 1 - side_idx)
+            finally:
+                rt.bonus_attack_depth -= 1
+
+
+def _fire_friendly_shield_lost_listeners(
+    rt: _CombatRuntime, victim_side_idx: int, victim: BattleMinion
+) -> None:
+    side = rt.side(victim_side_idx)
+    for listener in list(side.minions):
+        if not listener.alive or listener is victim:
+            continue
+        for ab in listener.template.abilities:
+            if ab.trigger != Trigger.ON_FRIENDLY_SHIELD_LOST:
+                continue
+            eff = ab.effect
+            if isinstance(eff, BuffSelf):
+                listener.template.bonus_attack += eff.attack
+                listener.template.bonus_health += eff.health
+                listener.current_health += eff.health
+    _sync_health_all(rt)
+
+
 def _handle_shield_lost(rt: _CombatRuntime, e: ShieldLost) -> None:
     bm = rt.find_minion(e.victim_side_idx, e.victim_instance_id)
     if bm is not None:
         _fire_self_damaged(rt, e.victim_side_idx, bm)
+        _fire_friendly_shield_lost_listeners(rt, e.victim_side_idx, bm)
 
 
 def _handle_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
     bm = rt.find_minion(e.victim_side_idx, e.victim_instance_id)
     if bm is not None and bm.alive and e.hp_loss > 0:
         _fire_self_damaged(rt, e.victim_side_idx, bm)
+        rt.swing_damage_survivors.append((e.victim_side_idx, e.victim_instance_id))
 
 
 def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
@@ -646,17 +957,18 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     for _ in range(n_sum):
                         for _wave in range(wave_cap):
                             for __ in range(base):
-                                tok = make_minion(effect.token_id)
+                                tok = make_minion(effect.token_id, patch=rt.patch)
                                 if _summon_append(rt, target_side, tok) is None:
                                     break
             elif isinstance(effect, SummonRandomMinionEffect):
                 race_hs = hs_race_string(effect.race_filter)
-                pool = build_summon_pool(
+                pool = summon_pool_for(
                     effect.exact_tier,
                     effect.legendary_only,
                     effect.require_deathrattle,
                     race_hs,
                     dead.template.card_id if effect.exclude_source else None,
+                    patch=rt.patch,
                 )
                 if not pool:
                     continue
@@ -668,7 +980,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     for _ in range(n_sum):
                         for __ in range(effect.count):
                             cid = pool[int(rt.rng.integers(0, len(pool)))]
-                            tok = make_minion(cid)
+                            tok = make_minion(cid, patch=rt.patch)
                             if _summon_append(rt, target_side, tok) is None:
                                 break
             elif isinstance(effect, DealDamageRandomEnemyMinion):
@@ -760,6 +1072,25 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                             t.shield_armed = True
                         if effect.keyword == Keyword.POISONOUS:
                             pass
+            elif isinstance(effect, GrantKeywordAllFriendlyOfTribe):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    for m in side.minions:
+                        if (not m.alive) or m is dead:
+                            continue
+                        if not _matches_tribe_for_aura(m.template, effect.tribe):
+                            continue
+                        m.template.keywords = frozenset(
+                            m.template.keywords | {effect.keyword}
+                        )
+                        if effect.keyword == Keyword.SHIELD:
+                            m.shield_armed = True
+            elif isinstance(effect, GainGoldOnDeathEffect):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    rt.combat_gold[side_idx] += effect.amount
     finally:
         rt.in_death_resolution = prev
 
@@ -785,17 +1116,36 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
         if ab.trigger != Trigger.ON_OVERKILL:
             continue
         eff = ab.effect
-        if not isinstance(eff, SummonEffect):
-            continue
-        if eff.for_opponent or eff.count_from_source_attack:
-            continue
-        side = rt.side(e.attacker_side_idx)
-        n_sum = _summon_multiplier(side)
-        for _ in range(max(0, eff.count)):
-            for __ in range(n_sum):
-                tok = make_minion(eff.token_id)
-                if _summon_append(rt, e.attacker_side_idx, tok) is None:
-                    return
+        if isinstance(eff, SummonEffect):
+            if eff.for_opponent or eff.count_from_source_attack:
+                continue
+            side = rt.side(e.attacker_side_idx)
+            n_sum = _summon_multiplier(side)
+            for _ in range(max(0, eff.count)):
+                for __ in range(n_sum):
+                    tok = make_minion(eff.token_id, patch=rt.patch)
+                    if _summon_append(rt, e.attacker_side_idx, tok) is None:
+                        return
+        elif isinstance(eff, DealDamageRandomEnemyMinion):
+            _deal_random_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)
+        elif isinstance(eff, DealExcessDamageToAdjacentEffect):
+            _deal_excess_to_adjacent(
+                rt,
+                e.victim_side_idx,
+                e.victim_instance_id,
+                e.excess_damage,
+            )
+        elif isinstance(eff, BuffAllOtherOfTribe):
+            side = rt.side(e.attacker_side_idx)
+            for m in side.minions:
+                if not m.alive or m is att:
+                    continue
+                if not _matches_tribe_for_aura(m.template, eff.tribe):
+                    continue
+                m.template.bonus_attack += eff.attack
+                m.template.bonus_health += eff.health
+                m.current_health += eff.health
+            _sync_health_all(rt)
 
 
 def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
@@ -809,8 +1159,61 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
         rt.mech_hook(e.side_idx, copy(bm.template))
 
     _fire_friendly_minion_died_listeners(rt, bm, e.side_idx)
+    attr = rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
+    if attr is not None:
+        killer_side, killer_id = attr
+        _fire_friendly_kill_listeners(rt, killer_side, killer_id)
     _fire_deathrattle(rt, bm, e.side_idx)
+    _try_reborn(rt, e.side_idx, bm)
     _sync_health_all(rt)
+
+
+def _minion_has_reborn(bm: BattleMinion) -> bool:
+    return Keyword.REBORN in bm.template.all_keywords and not bm.reborn_consumed
+
+
+def _strip_reborn_keyword(bm: BattleMinion) -> None:
+    kws = frozenset(k for k in bm.template.keywords if k != Keyword.REBORN)
+    granted = frozenset(k for k in bm.template.granted_keywords if k != Keyword.REBORN)
+    bm.template = replace(bm.template, keywords=kws, granted_keywords=granted)
+
+
+def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
+    if not _minion_has_reborn(bm):
+        return
+    bm.reborn_consumed = True
+    _strip_reborn_keyword(bm)
+    bm.current_health = 1
+
+
+def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:
+    return sum(
+        1 for m in side.minions if m.alive and _matches_tribe_for_aura(m.template, tribe)
+    )
+
+
+def _fire_start_of_combat(rt: _CombatRuntime) -> None:
+    for side_idx in (0, 1):
+        side = rt.side(side_idx)
+        enemy_idx = 1 - side_idx
+        for bm in side.minions:
+            if not bm.alive:
+                continue
+            for ab in bm.template.abilities:
+                if ab.trigger != Trigger.ON_START_OF_COMBAT:
+                    continue
+                eff = ab.effect
+                if isinstance(eff, StartOfCombatDamagePerFriendlyTribe):
+                    count = _count_friendlies_of_tribe(side, eff.tribe)
+                    if count <= 0:
+                        continue
+                    amount = count * eff.amount_per_match
+                    for _ in range(max(1, eff.repeats)):
+                        _deal_random_enemy_minion_damage(rt, side_idx, amount)
+    _sync_health_all(rt)
+    while rt.queue:
+        ev = rt.queue.popleft()
+        _dispatch(rt, ev)
 
 
 def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:
@@ -829,7 +1232,7 @@ def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:
         _handle_overkill(rt, event)
         return
     if isinstance(event, AttackCompleted):
-        _handle_attack_completed(rt)
+        _handle_attack_completed(rt, event)
         return
     if isinstance(event, MinionDied):
         _handle_minion_died(rt, event)
@@ -851,10 +1254,13 @@ def _run_single_swing(
     rt.in_death_resolution = False
     if not attacker.alive or not target.alive:
         return
+    _fire_when_attacked(rt, defender_side_idx, target)
     bf = (rt.side(0), rt.side(1))
     a_dmg = attack_value(attacker, atk_side, death_resolution=False, battle_field=bf)
     d_dmg = attack_value(target, def_side, death_resolution=False, battle_field=bf)
 
+    rt.swing_damage_survivors.clear()
+    rt.attacker_killed_this_swing = False
     rt.queue.append(BeginAttackExchange(attacker_side_idx, defender_side_idx))
     rt.queue.append(
         DamageStrike(
@@ -882,7 +1288,9 @@ def _run_single_swing(
             d_dmg,
         )
     )
-    rt.queue.append(AttackCompleted())
+    rt.queue.append(
+        AttackCompleted(attacker_side_idx, attacker.instance_id)
+    )
     while rt.queue:
         ev = rt.queue.popleft()
         _dispatch(rt, ev)
@@ -1000,12 +1408,17 @@ def simulate_battle(
     p1_board_out: Optional[List[Minion]] = None,
     p0_tavern_tier: int = 1,
     p1_tavern_tier: int = 1,
+    patch: PatchContext,
+    combat_gold_out: Optional[List[int]] = None,
+    combat_hand_adds_out: Optional[List[List[str]]] = None,
 ) -> Tuple[int, int]:
+    ctx = require_patch(patch, where="battle.simulate_battle")
     rt = _CombatRuntime(
         sides=(BattleSide(), BattleSide()),
         rng=rng,
         combat_board_max=int(combat_board_max),
         damage_cap=int(damage_cap),
+        patch=ctx,
         death_hook=(lambda si, cid: death_log.append((si, cid))) if death_log is not None else None,
         mech_hook=(lambda si, tpl: mech_death_log.append((si, tpl))) if mech_death_log is not None else None,
     )
@@ -1052,6 +1465,8 @@ def simulate_battle(
         )
         return 0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap)
 
+    _fire_start_of_combat(rt)
+
     attacker_idx = _decide_first_side(side0, side1, p0_has_initiative)
     sides = (side0, side1)
 
@@ -1084,10 +1499,38 @@ def simulate_battle(
         max_board_slots=max_board_slots,
     )
     if p0_alive and not p1_alive:
+        _emit_combat_gold(rt, combat_gold_out)
+        _emit_combat_hand_adds(rt, combat_hand_adds_out)
         return 0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap)
     if p1_alive and not p0_alive:
+        _emit_combat_gold(rt, combat_gold_out)
+        _emit_combat_hand_adds(rt, combat_hand_adds_out)
         return _winner_damage(side1, p1_tavern_tier, rt.damage_cap), 0
+    _emit_combat_gold(rt, combat_gold_out)
+    _emit_combat_hand_adds(rt, combat_hand_adds_out)
     return 0, 0
+
+
+def _emit_combat_hand_adds(
+    rt: _CombatRuntime, combat_hand_adds_out: Optional[List[List[str]]]
+) -> None:
+    if combat_hand_adds_out is None:
+        return
+    if len(combat_hand_adds_out) >= 1:
+        combat_hand_adds_out[0] = list(rt.combat_hand_adds[0])
+    if len(combat_hand_adds_out) >= 2:
+        combat_hand_adds_out[1] = list(rt.combat_hand_adds[1])
+
+
+def _emit_combat_gold(
+    rt: _CombatRuntime, combat_gold_out: Optional[List[int]]
+) -> None:
+    if combat_gold_out is None:
+        return
+    if len(combat_gold_out) >= 1:
+        combat_gold_out[0] = rt.combat_gold[0]
+    if len(combat_gold_out) >= 2:
+        combat_gold_out[1] = rt.combat_gold[1]
 
 
 __all__ = [

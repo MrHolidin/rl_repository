@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -16,7 +16,7 @@ from .actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.bg_catalog.cards import CARD_TEMPLATES
+from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     AdjacentStatAura,
@@ -38,26 +38,31 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 from .state import (
-    CNT_ACTIVE_SHOP_TRIBES,
     MiniBGState,
     Minion,
     PendingChoiceKind,
     PlayerPhase,
     PlayerState,
     Race,
-    ROTATION_SHOP_TRIBES,
 )
 
 
-def _build_card_index() -> Tuple[Tuple[str, ...], Dict[str, int]]:
-    """Dense per-template index (1-based, 0 reserved for empty/unknown). Deterministic by id."""
-    ids = tuple(sorted(CARD_TEMPLATES.keys()))
-    table = {cid: i + 1 for i, cid in enumerate(ids)}
-    return ids, table
+def _resolve_card_id_to_dense(
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> Mapping[str, int]:
+    if card_id_to_dense is None:
+        raise ValueError(
+            "card_id_to_dense is required (pass game._patch.card_id_to_dense)"
+        )
+    return card_id_to_dense
 
 
-CARD_INDEX_IDS, CARD_ID_TO_DENSE = _build_card_index()
-NUM_POOL_INDICES = len(CARD_INDEX_IDS)
+def _default_card_index() -> Tuple[Tuple[str, ...], Mapping[str, int], int]:
+    ctx = load_patch_context(str(DEFAULT_PATCH_DIR))
+    return ctx.card_index_ids, ctx.card_id_to_dense, ctx.num_pool_indices
+
+
+CARD_INDEX_IDS, CARD_ID_TO_DENSE, NUM_POOL_INDICES = _default_card_index()
 CARD_INDEX_EMPTY = 0
 
 NUM_TIER_ONEHOT = 6
@@ -68,12 +73,15 @@ _RACE_ORDER: Tuple[Optional[Race], ...] = (
     Race.DEMON,
     Race.MECHANICAL,
     Race.MURLOC,
+    Race.DRAGON,
+    Race.PIRATE,
+    Race.ELEMENTAL,
     Race.ALL,
 )
 RACE_ONEHOT_DIM = len(_RACE_ORDER)
 
-NUM_KEYWORD_CHANNELS = 6  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC
-NUM_TRIGGER_CHANNELS = 12  # see TRIGGER_INDEX below
+NUM_KEYWORD_CHANNELS = 7  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC, REBORN
+NUM_TRIGGER_CHANNELS = 21  # see TRIGGER_INDEX below
 NUM_EFFECT_CHANNELS = 15  # see EFFECT_INDEX below
 
 # Slot layout offsets (single source of truth — tests / nets pull these in directly).
@@ -108,6 +116,15 @@ TRIGGER_INDEX: Dict[Trigger, int] = {
     Trigger.ON_SELF_DAMAGED: 9,
     Trigger.ON_FRIENDLY_MINION_DIED: 10,
     Trigger.ON_OVERKILL: 11,
+    Trigger.ON_START_OF_COMBAT: 12,
+    Trigger.ON_SELL: 13,
+    Trigger.ON_FRIENDLY_BOUGHT: 14,
+    Trigger.ON_AFTER_ATTACK: 15,
+    Trigger.ON_FRIENDLY_ATTACK: 16,
+    Trigger.ON_SURVIVED_ATTACK: 17,
+    Trigger.ON_FRIENDLY_SHIELD_LOST: 18,
+    Trigger.ON_WHEN_ATTACKED: 19,
+    Trigger.ON_FRIENDLY_WHEN_ATTACKED: 20,
 }
 assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS
 
@@ -134,7 +151,8 @@ assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS
 EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
 
 GLOBAL_CORE_DIM = 11
-SHOP_ROTATION_OBS_DIM = 5
+# Max rotation tribes across supported patches (74257: 7 + 1 ratio slot).
+SHOP_ROTATION_OBS_DIM = 8
 GLOBAL_DIM = GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM
 
 # Pending-choice layout (single block at obs tail):
@@ -190,17 +208,27 @@ _STAT_NORM = 5.0
 
 def _encode_shop_rotation_globals(
     shop_excluded_race: Optional[Race],
+    *,
+    rotation_tribes: Sequence[Race],
+    cnt_active_shop_tribes: int,
 ) -> np.ndarray:
-    """4 slots: excluded tribe among ``ROTATION_SHOP_TRIBES``; slot 4 = active/4 (.75 or 1)."""
+    """Tribe one-hot in first ``SHOP_ROTATION_OBS_DIM - 1`` slots; last slot = active/total."""
     v = np.zeros(SHOP_ROTATION_OBS_DIM, dtype=np.float32)
+    tribe_slots = SHOP_ROTATION_OBS_DIM - 1
+    n_rot = len(rotation_tribes)
     if shop_excluded_race is None:
-        v[4] = 1.0
+        v[tribe_slots] = 1.0
         return v
-    for i, r in enumerate(ROTATION_SHOP_TRIBES):
+    for i, r in enumerate(rotation_tribes):
+        if i >= tribe_slots:
+            break
         if r == shop_excluded_race:
             v[i] = 1.0
             break
-    v[4] = float(CNT_ACTIVE_SHOP_TRIBES) / float(len(ROTATION_SHOP_TRIBES))
+    if n_rot > 0:
+        v[tribe_slots] = float(cnt_active_shop_tribes) / float(n_rot)
+    else:
+        v[tribe_slots] = 1.0
     return v
 
 
@@ -221,7 +249,10 @@ def _encode_race(m: Minion) -> np.ndarray:
 def encode_pending_choice(
     me: PlayerState,
     rl_pending: Optional["RlPendingEffect"] = None,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
 ) -> np.ndarray:
+    dense = _resolve_card_id_to_dense(card_id_to_dense)
     v = np.zeros(PENDING_CHOICE_DIM, dtype=np.float32)
     if rl_pending is not None:
         from src.bg_core.effects import (
@@ -275,7 +306,7 @@ def encode_pending_choice(
             v[PENDING_OPTIONS_OFFSET + i] = float(ADAPT_KEYS_ALL.index(tok)) / 9.0
         else:
             v[PENDING_DISCOVER_IDX_OFFSET + i] = float(
-                CARD_ID_TO_DENSE.get(tok, CARD_INDEX_EMPTY)
+                dense.get(tok, CARD_INDEX_EMPTY)
             )
     return v
 
@@ -327,15 +358,17 @@ def encode_minion(
     *,
     same_non_golden_hand_elsewhere: int = 0,
     same_non_golden_board_elsewhere: int = 0,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
 ) -> np.ndarray:
+    dense = _resolve_card_id_to_dense(card_id_to_dense)
     v = np.zeros(SLOT_DIM, dtype=np.float32)
     if minion is None:
         return v
     v[PRESENCE_OFFSET] = 1.0
 
     # Dense card index — networks gather an nn.Embedding row from this channel.
-    # Unknown card_ids (e.g. test fixtures outside CARD_TEMPLATES) collapse to 0.
-    v[CARD_IDX_OFFSET] = float(CARD_ID_TO_DENSE.get(minion.card_id, CARD_INDEX_EMPTY))
+    # Unknown card_ids (e.g. test fixtures outside patch templates) collapse to 0.
+    v[CARD_IDX_OFFSET] = float(dense.get(minion.card_id, CARD_INDEX_EMPTY))
 
     tier = minion.tier
     if 1 <= tier <= NUM_TIER_ONEHOT:
@@ -355,6 +388,7 @@ def encode_minion(
     v[KEYWORD_OFFSET + 3] = 1.0 if Keyword.POISONOUS in kw else 0.0
     v[KEYWORD_OFFSET + 4] = 1.0 if Keyword.CHARGE in kw else 0.0
     v[KEYWORD_OFFSET + 5] = 1.0 if Keyword.MAGNETIC in kw else 0.0
+    v[KEYWORD_OFFSET + 6] = 1.0 if Keyword.REBORN in kw else 0.0
 
     v[SHIELD_OFFSET] = 1.0 if minion.has_shield else 0.0
     v[GOLDEN_OFFSET] = 1.0 if minion.is_golden else 0.0
@@ -381,16 +415,23 @@ def encode_minion(
 
 
 def encode_slots(
-    minions: Sequence[Optional[Minion]], num_slots: int
+    minions: Sequence[Optional[Minion]],
+    num_slots: int,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
 ) -> np.ndarray:
     out = np.zeros((num_slots, SLOT_DIM), dtype=np.float32)
     for i in range(min(num_slots, len(minions))):
         if minions[i] is not None:
-            out[i] = encode_minion(minions[i])
+            out[i] = encode_minion(minions[i], card_id_to_dense=card_id_to_dense)
     return out
 
 
-def _encode_own_board_with_pair_counts(player: PlayerState) -> np.ndarray:
+def _encode_own_board_with_pair_counts(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     for i, m in enumerate(player.board):
         nh = _count_non_golden_same_card_hand(player, m.card_id)
@@ -401,11 +442,16 @@ def _encode_own_board_with_pair_counts(player: PlayerState) -> np.ndarray:
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
 
-def _encode_hand_with_pair_counts(player: PlayerState) -> np.ndarray:
+def _encode_hand_with_pair_counts(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((HAND_LEN, SLOT_DIM), dtype=np.float32)
     for i, hm in enumerate(player.hand):
         if hm is None:
@@ -418,11 +464,16 @@ def _encode_hand_with_pair_counts(player: PlayerState) -> np.ndarray:
             hm,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
 
-def _encode_shop_with_pair_counts(player: PlayerState) -> np.ndarray:
+def _encode_shop_with_pair_counts(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((MAX_SHOP_SLOTS, SLOT_DIM), dtype=np.float32)
     for i, m in enumerate(player.shop):
         if m is None or i >= MAX_SHOP_SLOTS:
@@ -433,11 +484,16 @@ def _encode_shop_with_pair_counts(player: PlayerState) -> np.ndarray:
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
 
-def _encode_enemy_board_with_pair_counts(board: List[Minion]) -> np.ndarray:
+def _encode_enemy_board_with_pair_counts(
+    board: List[Minion],
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     for i, m in enumerate(board):
         if i >= BOARD_SIZE:
@@ -447,6 +503,7 @@ def _encode_enemy_board_with_pair_counts(board: List[Minion]) -> np.ndarray:
             m,
             same_non_golden_hand_elsewhere=0,
             same_non_golden_board_elsewhere=n_same,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
@@ -465,10 +522,13 @@ def build_observation(
     last_battle_signed: float,
     enemy_last_seen_board: Optional[List[Minion]],
     *,
+    patch: PatchContext,
     rl_pending: Optional["RlPendingEffect"] = None,
 ) -> np.ndarray:
     me = state.players[player_idx]
     enemy = state.players[1 - player_idx]
+    card_id_to_dense = patch.card_id_to_dense
+    meta = patch.meta
 
     actions_left = MAX_SHOP_ACTIONS - me.shop_actions_used
     tier_up_cost = (
@@ -492,14 +552,23 @@ def build_observation(
         dtype=np.float32,
     )
     globals_arr = np.concatenate(
-        [globals_core, _encode_shop_rotation_globals(state.shop_excluded_race)]
+        [
+            globals_core,
+            _encode_shop_rotation_globals(
+                state.shop_excluded_race,
+                rotation_tribes=meta.rotation_tribes,
+                cnt_active_shop_tribes=meta.cnt_active_shop_tribes,
+            ),
+        ]
     )
 
-    own_board = _encode_own_board_with_pair_counts(me)
-    shop = _encode_shop_with_pair_counts(me)
-    hand = _encode_hand_with_pair_counts(me)
+    own_board = _encode_own_board_with_pair_counts(me, card_id_to_dense=card_id_to_dense)
+    shop = _encode_shop_with_pair_counts(me, card_id_to_dense=card_id_to_dense)
+    hand = _encode_hand_with_pair_counts(me, card_id_to_dense=card_id_to_dense)
     enemy_board = (
-        _encode_enemy_board_with_pair_counts(list(enemy_last_seen_board))
+        _encode_enemy_board_with_pair_counts(
+            list(enemy_last_seen_board), card_id_to_dense=card_id_to_dense
+        )
         if enemy_last_seen_board
         else np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     )
@@ -511,7 +580,9 @@ def build_observation(
         else 0.0
     )
     phase_arr = np.array([phase_val], dtype=np.float32)
-    pending_arr = encode_pending_choice(me, rl_pending=rl_pending)
+    pending_arr = encode_pending_choice(
+        me, rl_pending=rl_pending, card_id_to_dense=card_id_to_dense
+    )
 
     return np.concatenate(
         [

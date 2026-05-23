@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.bg_core.effects import Ability, BuffSelf, Trigger
 from tests.minibg_helpers import simulate_battle
 from src.envs.minibg.game import MiniBGGame

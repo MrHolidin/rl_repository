@@ -69,8 +69,11 @@ def place_from_hand(
             shop_excluded_race,
             rng=rng,
             shared_pool=shared_pool,
+            patch=triggers._patch,
         )
-        flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
+        flush_triple_reward_queue_if_idle(
+            player, shop_excluded_race, rng=rng, patch=triggers._patch
+        )
         return
 
     assert len(player.board) < board_size
@@ -109,14 +112,18 @@ def place_from_hand(
     # Resolve triples only after discover/adapt modals close — otherwise a merge can
     # fill the hand while pending_choice is still set and soft-lock the shop (no legal actions).
     if player.pending_choice is None:
-        resolve_triples_loop(player)
-        flush_triple_reward_queue_if_idle(player, shop_excluded_race, rng=rng)
+        resolve_triples_loop(player, patch=triggers._patch)
+        flush_triple_reward_queue_if_idle(
+            player, shop_excluded_race, rng=rng, patch=triggers._patch
+        )
 
 
 def magnet_from_hand(
     player: PlayerState,
     hand_slot: int,
     board_pos: int,
+    *,
+    patch: PatchContext,
 ) -> None:
     magnet = player.hand[hand_slot]
     assert magnet is not None
@@ -127,4 +134,4 @@ def magnet_from_hand(
     player.hand[hand_slot] = None
     merge_magnetic_inplace(target, magnet)
     if player.pending_choice is None:
-        resolve_triples_loop(player)
+        resolve_triples_loop(player, patch=patch)

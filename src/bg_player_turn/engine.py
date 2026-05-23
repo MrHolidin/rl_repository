@@ -11,8 +11,9 @@ from src.bg_recruitment import economy as recruitment_economy
 from src.bg_recruitment import place as recruitment_place
 from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.hand_slots import hand_has_free_slot, hand_size
+from src.bg_recruitment.shop import toggle_shop_slot_frozen
 from src.bg_recruitment.shop_triggers import ShopTriggers
-from src.bg_lobby.player import PlayerPhase, PlayerState
+from src.bg_lobby.player import PlayerPhase, PlayerState, PendingChoiceKind
 
 from .context import PlayerTurnContext
 
@@ -39,6 +40,14 @@ class PlayerTurnEngine:
             return []
 
         if player.pending_choice is not None:
+            pc = player.pending_choice
+            if pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+                n_offers = a.shop_offers_count(player.tavern_tier)
+                return [
+                    int(a.Action.BUY_SLOT_0) + slot
+                    for slot in range(min(n_offers, a.MAX_SHOP_SLOTS))
+                    if player.shop[slot] is not None
+                ]
             return [
                 int(a.Action.DISCOVER_PICK_0),
                 int(a.Action.DISCOVER_PICK_1),
@@ -91,14 +100,19 @@ class PlayerTurnEngine:
                             int(a.Action.MAGNET_HAND_0_BOARD_0) + h * a.BOARD_SIZE + b
                         )
 
-            if player.gold >= a.ROLL_COST:
+            if player.gold >= recruitment_economy.effective_roll_cost(player):
                 actions.append(int(a.Action.ROLL))
 
             if (
                 player.tavern_tier < a.MAX_TIER
-                and player.gold >= player.next_tier_up_cost
+                and player.gold >= recruitment_economy.effective_level_up_cost(player)
             ):
                 actions.append(int(a.Action.LEVEL_UP))
+
+            n_offers = a.shop_offers_count(player.tavern_tier)
+            for slot in range(min(n_offers, a.MAX_SHOP_SLOTS)):
+                if player.shop[slot] is not None and hasattr(a.Action, "FREEZE_SHOP_SLOT_0"):
+                    actions.append(int(a.Action.FREEZE_SHOP_SLOT_0) + slot)
 
         actions.append(int(a.Action.FINISH))
         actions.append(int(a.Action.FINISH_FREEZE_SHOP))
@@ -124,6 +138,31 @@ class PlayerTurnEngine:
             raise ValueError("use end_turn() for FINISH / FINISH_FREEZE_SHOP")
 
         if player.pending_choice is not None:
+            pc = player.pending_choice
+            if pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+                if not (
+                    int(a.Action.BUY_SLOT_0)
+                    <= action_int
+                    < int(a.Action.BUY_SLOT_0) + a.MAX_SHOP_SLOTS
+                ):
+                    raise ValueError(
+                        f"Expected BUY_SLOT_* while transform modal open, got {action_int}"
+                    )
+                from src.bg_recruitment.faceless import resolve_transform_shop_pick
+
+                resolve_transform_shop_pick(
+                    player,
+                    action_int - int(a.Action.BUY_SLOT_0),
+                    patch=ctx.patch,
+                    on_after_placed=ctx.triggers.fire_after_friendly_minion_placed,
+                )
+                recruitment_triples.resolve_triples_loop(
+                    player, shared_pool=ctx.shared_pool, patch=ctx.patch
+                )
+                recruitment_triples.flush_triple_reward_queue_if_idle(
+                    player, race, rng=ctx.rng, patch=ctx.patch
+                )
+                return True
             if not a.is_discover_pick_game_action(action_int):
                 raise ValueError(
                     f"Expected DISCOVER_PICK_* while pending_choice, got {action_int}"
@@ -135,6 +174,7 @@ class PlayerTurnEngine:
                 rng=ctx.rng,
                 on_after_placed=ctx.triggers.fire_after_friendly_minion_placed,
                 shared_pool=ctx.shared_pool,
+                patch=ctx.patch,
             )
             return (
                 player.pending_choice is None
@@ -146,8 +186,9 @@ class PlayerTurnEngine:
                 player,
                 action_int - int(a.Action.BUY_SLOT_0),
                 on_bought=ctx.triggers.fire_on_buy,
+                on_friendly_bought=ctx.triggers.fire_on_friendly_bought,
                 on_triples=lambda p: recruitment_triples.resolve_triples_loop(
-                    p, shared_pool=ctx.shared_pool
+                    p, shared_pool=ctx.shared_pool, patch=ctx.patch
                 ),
                 shared_pool=ctx.shared_pool,
             )
@@ -157,8 +198,9 @@ class PlayerTurnEngine:
             recruitment_economy.sell_from_board(
                 player,
                 action_int - int(a.Action.SELL_BOARD_0),
+                on_sell=ctx.triggers.fire_on_sell,
                 on_triples=lambda p: recruitment_triples.resolve_triples_loop(
-                    p, shared_pool=ctx.shared_pool
+                    p, shared_pool=ctx.shared_pool, patch=ctx.patch
                 ),
                 shared_pool=ctx.shared_pool,
             )
@@ -166,15 +208,22 @@ class PlayerTurnEngine:
 
         if action_int == int(a.Action.ROLL):
             recruitment_economy.roll_shop(
-                player, race, rng=ctx.rng, shared_pool=ctx.shared_pool
+                player, race, rng=ctx.rng, shared_pool=ctx.shared_pool, patch=ctx.patch
             )
             return True
 
         if action_int == int(a.Action.LEVEL_UP):
             recruitment_economy.level_up_tavern(
-                player, race, rng=ctx.rng, shared_pool=ctx.shared_pool
+                player, race, rng=ctx.rng, shared_pool=ctx.shared_pool, patch=ctx.patch
             )
             return True
+
+        if hasattr(a.Action, "FREEZE_SHOP_SLOT_0"):
+            if int(a.Action.FREEZE_SHOP_SLOT_0) <= action_int <= int(
+                a.Action.FREEZE_SHOP_SLOT_5
+            ):
+                toggle_shop_slot_frozen(player, action_int - int(a.Action.FREEZE_SHOP_SLOT_0))
+                return True
 
         hsz = hand_size(player)
         if int(a.Action.PLACE_HAND_0) <= action_int < int(a.Action.PLACE_HAND_0) + hsz:
@@ -194,7 +243,7 @@ class PlayerTurnEngine:
 
         if a.is_magnet_game_action(action_int):
             h, b = a.magnet_hand_board_from_game_action(action_int)
-            recruitment_place.magnet_from_hand(player, h, b)
+            recruitment_place.magnet_from_hand(player, h, b, patch=ctx.patch)
             return True
 
         raise ValueError(f"Unknown action {action_int}")

@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.bg_combat.battle import simulate_battle as _simulate_battle
+from src.bg_catalog.cards import make_minion as _make_minion
+from src.bg_catalog.patch_context import PatchContext
 from src.envs.minibg.actions import BOARD_SIZE, COMBAT_BOARD_MAX, DAMAGE_CAP
 from src.envs.minibg.state import MiniBGState
+
+from tests.conftest import PATCH_CTX
+
+
+def make_minion(card_id: str):
+    """Test helper: always uses the pinned 36393 patch package."""
+    return _make_minion(card_id, patch=PATCH_CTX)
 
 
 def set_acting_player(state: MiniBGState, idx: int) -> None:
@@ -22,12 +30,17 @@ def simulate_battle(
     *,
     p0_has_initiative: bool,
     rng: Any,
+    patch: PatchContext | None = None,
     **kwargs: Any,
 ) -> tuple[int, int]:
+    from src.bg_combat.battle import simulate_battle as _simulate_battle
+
+    ctx = patch if patch is not None else PATCH_CTX
     opts = {
         "combat_board_max": COMBAT_BOARD_MAX,
         "damage_cap": DAMAGE_CAP,
         "max_board_slots": BOARD_SIZE,
+        "patch": ctx,
     }
     opts.update(kwargs)
     return _simulate_battle(

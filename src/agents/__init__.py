@@ -49,6 +49,7 @@ _PPO_AGENT_KWARGS = frozenset(
         "model_config",
         "action_space",
         "compute_detailed_metrics",
+        "patch_build",
     }
 )
 
@@ -89,10 +90,15 @@ if "dqn" not in list_agents():
             action_space = DiscreteActionSpace(num_actions)
             kwargs["action_space"] = action_space
 
-        # Default to Connect4 dimensions
+        # Default to Connect4 dimensions, or Battlegrounds flat obs when applicable.
         if obs_shape is None:
-            builder = BoardChannels(board_shape=(6, 7))
-            obs_shape = builder.observation_shape
+            if network_type in ("minibg_mlp", "minibg_slot"):
+                from src.envs.minibg.obs import OBS_DIM
+
+                obs_shape = (OBS_DIM,)
+            else:
+                builder = BoardChannels(board_shape=(6, 7))
+                obs_shape = builder.observation_shape
         
         if num_actions is None:
             num_actions = 7
@@ -107,8 +113,8 @@ if "dqn" not in list_agents():
 
             if obs_shape is None or len(obs_shape) != 1:
                 raise ValueError(
-                    "network_type 'minibg_mlp' requires agent.params.observation_shape: [D] "
-                    "(flat MiniBG vector; size is src.envs.minibg.obs.OBS_DIM)."
+                    "network_type 'minibg_mlp' requires a 1-D observation vector "
+                    "(inferred from src.envs.minibg.obs.OBS_DIM at train startup)."
                 )
             dueling = kwargs.pop("dueling", None)
             if dueling is None:
@@ -128,7 +134,8 @@ if "dqn" not in list_agents():
 
             if obs_shape is None or len(obs_shape) != 1 or int(obs_shape[0]) != _OBS_DIM:
                 raise ValueError(
-                    f"network_type 'minibg_slot' requires observation_shape [{_OBS_DIM}] (MiniBG flat obs)."
+                    f"network_type 'minibg_slot' requires observation dim {_OBS_DIM} "
+                    "(inferred from src.envs.minibg.obs.OBS_DIM at train startup)."
                 )
             dueling = kwargs.pop("dueling", None)
             if dueling is None:
@@ -235,12 +242,24 @@ if "ppo" not in list_agents():
         is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
         obs_type = kwargs.get("observation_type")
+        num_pool_indices = kwargs.pop("num_pool_indices", None)
+        patch_build = kwargs.pop("patch_build", None)
+
+        if obs_shape is None:
+            if is_bglike_structured or is_bglike_structured_v2:
+                from src.envs.bglike.obs import OBS_DIM as _expected_obs
+
+                obs_shape = (_expected_obs,)
+            elif is_minibg or is_minibg_structured:
+                from src.envs.minibg.obs import OBS_DIM as _expected_obs
+
+                obs_shape = (_expected_obs,)
 
         if is_flat_mlp:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    "PPO network_type minibg_mlp/flat_mlp requires observation_shape [D] "
-                    "and num_actions from the environment config."
+                    "PPO network_type minibg_mlp/flat_mlp requires num_actions and "
+                    "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
             hidden_size = int(kwargs.pop("mlp_hidden_size", 256))
             net = build_ppo_actor_critic(
@@ -260,8 +279,8 @@ if "ppo" not in list_agents():
         if is_structured:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    f"PPO network_type {network_type!r} requires "
-                    "observation_shape (OBS_DIM,) and num_actions from the environment config."
+                    f"PPO network_type {network_type!r} requires num_actions and "
+                    "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
             if is_bglike_structured or is_bglike_structured_v2:
                 from src.envs.bglike.obs import OBS_DIM as _expected_obs
@@ -312,6 +331,7 @@ if "ppo" not in list_agents():
                     entity_attention_ff_mult=entity_attention_ff_mult,
                     entity_attention_init_scale=entity_attention_init_scale,
                     obs_layout="bglike",
+                    num_pool_indices=num_pool_indices,
                 )
             else:
                 slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
@@ -339,6 +359,7 @@ if "ppo" not in list_agents():
                     entity_attention_init_scale=entity_attention_init_scale,
                     use_global_entity_token=use_global_entity_token,
                     obs_layout=obs_layout,
+                    num_pool_indices=num_pool_indices,
                 )
 
             kwargs["observation_type"] = obs_type or "vector"
@@ -346,14 +367,16 @@ if "ppo" not in list_agents():
             kwargs["network"] = net
             kwargs["ppo_network_type"] = ppo_network_type_for_save(network_type)
             kwargs["ppo_network_kwargs"] = ppo_kw
+            if patch_build is not None:
+                kwargs["patch_build"] = patch_build
             kwargs.pop("action_space", None)
             return MiniBGPPOStructuredAgent(**_filter_ppo_agent_kwargs(kwargs))
 
         if is_minibg:
             if obs_shape is None or num_actions is None:
                 raise ValueError(
-                    "PPO network_type minibg_slot requires observation_shape (OBS_DIM,) "
-                    "and num_actions from the environment config."
+                    "PPO network_type minibg_slot requires num_actions and "
+                    "a 1-D observation vector (inferred at train startup)."
                 )
             slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
             trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))
@@ -367,6 +390,7 @@ if "ppo" not in list_agents():
                 trunk_hidden_size=trunk_hidden_size,
                 region_conv2_kernel=region_conv2_kernel,
                 card_emb_dim=card_emb_dim,
+                num_pool_indices=num_pool_indices,
             )
             kwargs["observation_type"] = obs_type or "vector"
             ppo_kw = {
@@ -374,6 +398,7 @@ if "ppo" not in list_agents():
                 "trunk_hidden": trunk_hidden_size,
                 "region_conv2_kernel": region_conv2_kernel,
                 "card_emb_dim": card_emb_dim,
+                "num_pool_indices": net.num_pool_indices,
             }
         else:
             if obs_shape is None or obs_type is None or num_actions is None:
@@ -410,6 +435,8 @@ if "ppo" not in list_agents():
         kwargs["network"] = net
         kwargs["ppo_network_type"] = ppo_network_type_for_save(network_type)
         kwargs["ppo_network_kwargs"] = ppo_kw
+        if patch_build is not None:
+            kwargs["patch_build"] = patch_build
         return PPOAgent(**_filter_ppo_agent_kwargs(kwargs))
 
     register_agent("ppo", _ppo_factory)

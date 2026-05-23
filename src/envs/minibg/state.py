@@ -43,3 +43,4 @@ class MiniBGState:
     shop_excluded_race: Optional[Race] = None
     shop_turn_order: Tuple[int, int] = (0, 1)
     shared_pool: Optional[SharedCardPool] = None
+    patch_build: Optional[int] = None

@@ -107,7 +107,8 @@ Config is a single YAML file. Top-level keys:
 - `id`: registered agent id (e.g. `dqn`).
 - `params`: agent-specific (learning rate, epsilon, replay buffer, device, etc.).  
   `device` can be `null` for auto (CUDA if available, else CPU).  
-  `num_actions`, `action_space`, `observation_shape` are inferred from the environment when omitted.
+  `num_actions` and `action_space` are inferred from the environment when omitted.  
+  For `minibg` / `bglike`, flat observation size comes from `obs.py` (`OBS_DIM`) at train startup — do not put it in YAML.
 
 ### `train`
 

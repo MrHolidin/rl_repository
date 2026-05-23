@@ -12,6 +12,9 @@ class Race(Enum):
     DEMON = auto()
     MECHANICAL = auto()
     MURLOC = auto()
+    DRAGON = auto()
+    PIRATE = auto()
+    ELEMENTAL = auto()
     ALL = auto()
 
 
@@ -38,6 +41,7 @@ class Minion:
     """Hand spell: PLACE consumes it and opens triple-reward discover (see ``triple_discover_tier``)."""
     triple_discover_tier: int = 0
     dbf_id: Optional[int] = None
+    sell_value: Optional[int] = None
 
     @property
     def all_keywords(self) -> frozenset[Keyword]:

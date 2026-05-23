@@ -1,7 +1,7 @@
 import numpy as np
 
 from src.envs.minibg.actions import Action
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from tests.minibg_helpers import simulate_battle
 from src.envs.minibg.game import MiniBGGame
 

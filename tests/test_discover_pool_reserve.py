@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerPhase, PlayerState
+from tests.conftest import PATCH_CTX
 from src.bg_lobby.shared_pool import build_initial_shared_pool
 from src.bg_recruitment.discover import resolve_discover_pick, try_open_hand_discover_modal
 from src.bg_recruitment.pool_ledger import reserve_discover_options
@@ -26,7 +27,7 @@ def _player() -> PlayerState:
 
 
 def test_discover_pick_succeeds_when_only_reserved_copies_remain():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     cid = "BGS_020"
     while pool.remaining_copies(cid) > 3:
         assert pool.acquire_new(cid, 1)
@@ -56,6 +57,7 @@ def test_discover_pick_succeeds_when_only_reserved_copies_remain():
         rng=np.random.default_rng(1),
         on_after_placed=lambda _p, _m: None,
         shared_pool=pool,
+        patch=PATCH_CTX,
     )
     assert player.pending_choice is None
     assert player.hand[0] is not None and player.hand[0].card_id == cid
@@ -65,7 +67,7 @@ def test_discover_pick_succeeds_when_only_reserved_copies_remain():
 
 
 def test_discover_release_unpicked_copies():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     opts = ("EX1_162", "BGS_020", "BGS_022")
     before = pool.remaining_copies("EX1_162")
     assert reserve_discover_options(pool, opts)
@@ -84,6 +86,7 @@ def test_discover_release_unpicked_copies():
         rng=np.random.default_rng(2),
         on_after_placed=lambda _p, _m: None,
         shared_pool=pool,
+        patch=PATCH_CTX,
     )
     assert pool.remaining_copies("EX1_162") == before - 1
     assert pool.remaining_copies("BGS_020") == pool._initial["BGS_020"]

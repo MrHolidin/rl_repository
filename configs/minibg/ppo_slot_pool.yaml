@@ -10,7 +10,6 @@ agent:
   id: ppo
   params:
     network_type: minibg_slot
-    observation_shape: [362]
     observation_type: vector
     slot_hidden_channels: 16
     trunk_hidden_size: 256

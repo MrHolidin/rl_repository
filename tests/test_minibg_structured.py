@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import numpy as np
 import pytest
 import torch
@@ -16,6 +17,7 @@ from src.envs.minibg.structured_actions import (
     validate_board_perm,
 )
 from src.models.minibg_structured_ac import MiniBGStructuredActorCritic
+from tests.conftest import NUM_POOL_INDICES
 
 
 def _shop_struct_to_env_int(a: StructAction) -> int:
@@ -131,6 +133,7 @@ def test_structured_actor_critic_forward_shapes():
         action_dim=12,
         order_hidden=16,
         order_pos_dim=8,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     logits, mask, values = m.policy_logits_and_value(x, legal)
     assert logits.shape == (1, len(legal[0]))
@@ -150,6 +153,7 @@ def test_structured_actor_critic_order_logprob_consistency():
         action_dim=12,
         order_hidden=16,
         order_pos_dim=8,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     state_emb, cache = m.encode_state(x)
     E_own = cache["E_own"]
@@ -169,7 +173,11 @@ def test_build_ppo_minibg_structured():
     )
 
     m = build_ppo_actor_critic(
-        PPO_NETWORK_MINIBG_STRUCTURED, (OBS_DIM,), num_actions=1, slot_hidden_channels=4
+        PPO_NETWORK_MINIBG_STRUCTURED,
+        (OBS_DIM,),
+        num_actions=1,
+        slot_hidden_channels=4,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     assert isinstance(m, MiniBGStructuredActorCritic)
 
@@ -186,6 +194,7 @@ def test_structured_actor_critic_grad_flow():
         action_dim=12,
         order_hidden=16,
         order_pos_dim=8,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     logits, mask, values = m.policy_logits_and_value(x, legal)
     probs = torch.softmax(logits.masked_fill(~mask, float("-inf")), dim=-1)
@@ -219,6 +228,7 @@ def test_order_logprob_teacher_padding_no_nan():
         action_dim=12,
         order_hidden=16,
         order_pos_dim=8,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     x = torch.randn(1, OBS_DIM)
     state_emb, cache = m.encode_state(x)
@@ -260,6 +270,7 @@ def test_structured_ppo_agent_rollout_update_smoke():
         action_dim=8,
         order_hidden=8,
         order_pos_dim=4,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     agent = MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),
@@ -316,6 +327,7 @@ def test_act_structured_eval_does_not_clear_rollout_cache():
         action_dim=8,
         order_hidden=8,
         order_pos_dim=4,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     agent = MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),
@@ -368,6 +380,7 @@ def test_pending_three_option_emb_adapt_uses_distinct_rows():
         action_dim=8,
         order_hidden=8,
         order_pos_dim=4,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     p = torch.zeros(1, 9, dtype=torch.float32)
     p[0, 0], p[0, 1] = 1.0, 1.0  # pending + is_adapt
@@ -396,6 +409,7 @@ def test_pending_three_option_emb_discover_still_card_embedded():
         action_dim=8,
         order_hidden=8,
         order_pos_dim=4,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     cid_a, cid_b = "EX1_162", "UNG_073"
     p = torch.zeros(1, 9, dtype=torch.float32)

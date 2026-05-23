@@ -55,3 +55,4 @@ class BGLikeState:
     done: bool
     shop_excluded_race: Optional[Race] = None
     shared_pool: Optional[SharedCardPool] = None
+    patch_build: Optional[int] = None

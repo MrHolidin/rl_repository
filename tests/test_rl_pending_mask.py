@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.action_map import (
     A_BUY_BASE,
     A_FINISH,

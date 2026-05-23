@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from src.bg_lobby.match_types import EliminatedSnapshot
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.bglike.placement import (
     placement_for_seat,
     placement_reward,

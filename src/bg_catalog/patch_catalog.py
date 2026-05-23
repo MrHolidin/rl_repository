@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -10,7 +11,11 @@ from src.bg_core.effects import Keyword
 
 # ``src/bg_catalog`` → repo root is two parents up.
 _CATALOG_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "minibg" / "bg_patch_15_6_2_36393_catalog.json"
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "bgcore"
+    / "15_6_2_36393"
+    / "catalog.json"
 )
 
 _MECHANIC_KEYWORDS: dict[str, Keyword] = {
@@ -19,6 +24,7 @@ _MECHANIC_KEYWORDS: dict[str, Keyword] = {
     "WINDFURY": Keyword.WINDFURY,
     "CHARGE": Keyword.CHARGE,
     "POISONOUS": Keyword.POISONOUS,
+    "REBORN": Keyword.REBORN,
 }
 
 
@@ -150,6 +156,9 @@ def race_from_hs_string(value: Optional[str]):
         "DEMON": Race.DEMON,
         "MECHANICAL": Race.MECHANICAL,
         "MURLOC": Race.MURLOC,
+        "DRAGON": Race.DRAGON,
+        "PIRATE": Race.PIRATE,
+        "ELEMENTAL": Race.ELEMENTAL,
         "ALL": Race.ALL,
     }
     if value not in mapping:
@@ -157,11 +166,24 @@ def race_from_hs_string(value: Optional[str]):
     return mapping[value]
 
 
+_SELL_FOR_GOLD_RE = re.compile(r"sells?\s+for\s+(\d+)\s+Gold", re.IGNORECASE)
+
+
+def sell_value_from_catalog_text(text: Optional[str]) -> Optional[int]:
+    if not text:
+        return None
+    m = _SELL_FOR_GOLD_RE.search(text)
+    if m is None:
+        return None
+    return int(m.group(1))
+
+
 def minion_from_tavern_record(rec: TavernMinionRecord):
     from src.bg_core.minion import Minion
 
     kws = keywords_for_tavern_record(rec)
     race = race_from_hs_string(rec.race) if rec.race is not None else None
+    sell_value = sell_value_from_catalog_text(rec.text)
     return Minion(
         card_id=rec.id,
         base_attack=rec.attack,
@@ -175,6 +197,7 @@ def minion_from_tavern_record(rec: TavernMinionRecord):
         is_token=False,
         is_golden=rec.is_golden,
         dbf_id=rec.dbf_id,
+        sell_value=sell_value,
     )
 
 
@@ -192,5 +215,6 @@ __all__ = [
     "patch_build",
     "patch_version",
     "race_from_hs_string",
+    "sell_value_from_catalog_text",
     "tier_by_dbf_id",
 ]

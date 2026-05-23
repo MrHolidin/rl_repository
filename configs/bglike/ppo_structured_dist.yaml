@@ -15,7 +15,6 @@ agent:
   id: ppo
   params:
     network_type: bglike_structured
-    observation_shape: [1359]
     observation_type: vector
     slot_hidden_channels: 32
     trunk_hidden_size: 256

@@ -18,6 +18,8 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment.shop_triggers import ShopTriggers
 
+from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context
+
 from . import actions as bglike_actions
 from .state import (
     BGLikeState,
@@ -26,8 +28,20 @@ from .state import (
     PlayerPhase,
     PlayerState,
     Race,
-    ROTATION_SHOP_TRIBES,
 )
+
+
+def _resolve_patch(
+    patch: Optional[PatchContext],
+    patch_dir: Optional[str],
+) -> PatchContext:
+    if patch is not None and patch_dir is not None:
+        raise ValueError("pass patch or patch_dir, not both")
+    if patch_dir is not None:
+        return load_patch_context(patch_dir)
+    if patch is not None:
+        return patch
+    return load_patch_context(str(DEFAULT_PATCH_DIR))
 
 
 class BGLikeGame(TurnBasedGame[BGLikeState]):
@@ -37,13 +51,14 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         *,
         shop_excluded_race: Optional[Race] = None,
         shop_full_tribes: bool = False,
+        patch: Optional[PatchContext] = None,
+        patch_dir: Optional[str] = None,
     ) -> None:
         self._rng = np.random.default_rng(seed)
         self._shop_full_tribes = shop_full_tribes
         self._shop_excluded_race_fixed = shop_excluded_race
-        self._shop_triggers = ShopTriggers(
-            self._rng, on_triples=recruitment_triples.resolve_triples_loop
-        )
+        self._patch = _resolve_patch(patch, patch_dir)
+        self._shop_triggers = ShopTriggers(self._rng, patch=self._patch)
         self._player_turn = PlayerTurnEngine(bglike_actions)
 
     def _turn_ctx(self, state: BGLikeState) -> PlayerTurnContext:
@@ -52,6 +67,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             triggers=self._shop_triggers,
             shop_excluded_race=state.shop_excluded_race,
             shared_pool=state.shared_pool,
+            patch=self._patch,
         )
 
     def _pick_shop_excluded_race(self) -> Optional[Race]:
@@ -59,13 +75,17 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             return self._shop_excluded_race_fixed
         if self._shop_full_tribes:
             return None
-        i = int(self._rng.integers(0, len(ROTATION_SHOP_TRIBES)))
-        return ROTATION_SHOP_TRIBES[i]
+        tribes = self._patch.meta.rotation_tribes
+        i = int(self._rng.integers(0, len(tribes)))
+        return tribes[i]
 
     def initial_state(self) -> BGLikeState:
         n = bglike_actions.NUM_PLAYERS
         shop_excluded = self._pick_shop_excluded_race()
-        shared_pool = build_initial_shared_pool(shop_excluded)
+        shared_pool = build_initial_shared_pool(
+            shop_excluded,
+            patch=self._patch,
+        )
         players = tuple(
             self._fresh_player(round_number=1, shop_excluded_race=shop_excluded, shared_pool=shared_pool)
             for _ in range(n)
@@ -88,6 +108,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             done=False,
             shop_excluded_race=shop_excluded,
             shared_pool=shared_pool,
+            patch_build=self._patch.build,
         )
 
     def current_player(self, state: BGLikeState) -> int:
@@ -202,6 +223,8 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             shop_excluded_race,
             rng=self._rng,
             shared_pool=shared_pool,
+            frozen_slots=player.shop_frozen,
+            patch=self._patch,
         )
 
     def _refresh_shop_fill_empty_slots(
@@ -216,6 +239,8 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             shop_excluded_race,
             rng=self._rng,
             shared_pool=shared_pool,
+            frozen_slots=player.shop_frozen,
+            patch=self._patch,
         )
 
     def _resolve_combat_round(self, state: BGLikeState) -> None:
@@ -286,6 +311,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             done=state.done,
             shop_excluded_race=state.shop_excluded_race,
             shared_pool=state.shared_pool.copy() if state.shared_pool else None,
+            patch_build=state.patch_build,
         )
 
     @staticmethod
@@ -325,6 +351,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
                     p.pending_choice.options,
                     p.pending_choice.extra_modals_after,
                     p.pending_choice.options_pool_reserved,
+                    p.pending_choice.transform_board_idx,
                 )
                 if p.pending_choice is not None
                 else None

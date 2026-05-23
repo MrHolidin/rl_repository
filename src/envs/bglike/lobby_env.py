@@ -61,7 +61,7 @@ from .placement import (
     placement_reward_for_seat,
 )
 from .seat_config import SeatConfig, SeatKind, default_random_lobby, lobby_from_learned_seats
-from .state import BGLikeState, PlayerPhase
+from .state import BGLikeState, PendingChoiceKind, PlayerPhase
 
 INVALID_ACTION_REWARD = -1.0
 MAX_DRAIN_STEPS = 1_000
@@ -260,6 +260,7 @@ class BGLobbyEnv:
         shop_excluded_race=None,
         shop_full_tribes: bool = False,
         replay: Optional[Any] = None,
+        patch_dir: Optional[str] = None,
     ) -> None:
         if len(seat_configs) != NUM_PLAYERS:
             raise ValueError(f"expected {NUM_PLAYERS} seat configs, got {len(seat_configs)}")
@@ -275,10 +276,12 @@ class BGLobbyEnv:
         )
         if not self._training_seats <= self._learned_seats:
             raise ValueError("training_seats must be subset of learned_seats")
+        self._patch_dir = patch_dir
         self._game = BGLikeGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
             shop_full_tribes=shop_full_tribes,
+            patch_dir=patch_dir,
         )
         self._state: Optional[BGLikeState] = None
         self._finished_training: Set[int] = set()
@@ -316,6 +319,7 @@ class BGLobbyEnv:
                 seed=seed,
                 shop_excluded_race=self._game._shop_excluded_race_fixed,
                 shop_full_tribes=self._game._shop_full_tribes,
+                patch_dir=self._patch_dir,
             )
         self._state = self._game.initial_state()
         self._finished_training = set()
@@ -420,6 +424,7 @@ class BGLobbyEnv:
             self._last_battle_signed.get(seat, 0.0),
             is_my_turn=self._seat_can_act(seat),
             rl_pending=self._rl_pending.get(seat),
+            patch=self._game._patch,
         )
 
     def last_battle_signed(self, seat: int) -> float:
@@ -467,6 +472,12 @@ class BGLobbyEnv:
             return out
 
         if player.pending_choice is not None:
+            pc = player.pending_choice
+            if pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+                for slot in range(MAX_SHOP_SLOTS):
+                    if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:
+                        out.append(StructAction(StructActionType.BUY, (slot,)))
+                return out
             for i in range(3):
                 if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
                     out.append(StructAction(StructActionType.DISCOVER_PICK, (i,)))
@@ -716,7 +727,10 @@ class BGLobbyEnv:
         from src.bg_recruitment.triples import flush_triple_reward_queue_if_idle
 
         flush_triple_reward_queue_if_idle(
-            player, self._state.shop_excluded_race, rng=self._game._rng
+            player,
+            self._state.shop_excluded_race,
+            rng=self._game._rng,
+            patch=self._game._patch,
         )
 
     def _try_begin_rl_place(self, seat: int, hand_slot: int) -> bool:
@@ -966,6 +980,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         reward_config: Optional[RewardConfig] = None,
         shop_excluded_race=None,
         shop_full_tribes: bool = False,
+        patch_dir: Optional[str] = None,
     ) -> None:
         if not 0 <= training_seat < NUM_PLAYERS:
             raise ValueError(f"training_seat must be 0..{NUM_PLAYERS - 1}")
@@ -982,6 +997,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
             seed=seed,
             shop_excluded_race=shop_excluded_race,
             shop_full_tribes=shop_full_tribes,
+            patch_dir=patch_dir,
         )
         self.reward_config = reward_config or RewardConfig(
             invalid_action=INVALID_ACTION_REWARD
@@ -1099,6 +1115,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         reward_config: Optional[RewardConfig] = None,
         shop_excluded_race=None,
         shop_full_tribes: bool = False,
+        patch_dir: Optional[str] = None,
     ) -> None:
         if not current_seats:
             raise ValueError("current_seats must be non-empty")
@@ -1112,6 +1129,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._seed = seed
         self._shop_excluded_race = shop_excluded_race
         self._shop_full_tribes = shop_full_tribes
+        self._patch_dir = patch_dir
         self._lobby: Optional[BGLobbyEnv] = None
         self._acting_seat: Optional[int] = None
         self._rewarded_seats: Set[int] = set()
@@ -1192,6 +1210,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             seed=self._seed,
             shop_excluded_race=self._shop_excluded_race,
             shop_full_tribes=self._shop_full_tribes,
+            patch_dir=self._patch_dir,
         )
         self._lobby._controller_env = self
 

@@ -1,6 +1,6 @@
 """Discover on place must stay legal when a triple merge would fill the hand."""
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.bg_recruitment.place import place_from_hand
 from src.envs.minibg.actions import BOARD_SIZE
 from src.envs.minibg.game import MiniBGGame

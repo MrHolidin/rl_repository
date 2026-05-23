@@ -4,7 +4,8 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.conftest import PATCH_CTX
+from tests.minibg_helpers import make_minion
 from src.bg_recruitment.discover import (
     is_hand_discover_kind,
     resolve_discover_pick,
@@ -57,7 +58,7 @@ def test_brann_chain_truncated_to_free_slots():
         phase=PlayerPhase.SHOP,
         shop_actions_used=0,
     )
-    triggers = ShopTriggers(g._rng, on_triples=lambda _pl: None)
+    triggers = ShopTriggers(g._rng, on_triples=lambda _pl: None, patch=PATCH_CTX)
     placed = p.hand[1]
     assert placed is not None
     p.hand[1] = None
@@ -89,7 +90,7 @@ def test_discover_pick_triples_after_chain_closed():
     )
     on_after = MagicMock()
     resolve_discover_pick(
-        p, 0, None, rng=g._rng, on_after_placed=on_after
+        p, 0, None, rng=g._rng, on_after_placed=on_after, patch=PATCH_CTX
     )
     assert p.pending_choice is None
     assert any(h is not None and h.is_golden for h in p.hand)

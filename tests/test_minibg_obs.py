@@ -13,7 +13,13 @@ from src.envs.minibg.actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.bg_catalog.cards import make_minion
+from tests.conftest import (
+    PATCH_CTX,
+    obs_build_observation as build_observation,
+    obs_encode_minion as encode_minion,
+    obs_encode_slots as encode_slots,
+)
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.obs import (
     BOARD_SAME_CARD_COUNT_OFFSET,
@@ -41,12 +47,9 @@ from src.envs.minibg.obs import (
     STATS_OFFSET,
     TIER_OFFSET,
     TRIGGER_OFFSET,
-    build_observation,
-    encode_minion,
-    encode_slots,
     i_have_round_initiative,
 )
-from src.envs.minibg.state import CNT_ACTIVE_SHOP_TRIBES, PlayerPhase, Race, ROTATION_SHOP_TRIBES
+from src.envs.minibg.state import PlayerPhase, Race
 
 # Layout aliases preserved so legacy assertions read the same offsets.
 _T0 = TIER_OFFSET
@@ -69,8 +72,8 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 57
-    assert GLOBAL_DIM == 16
+    assert SLOT_DIM == 70
+    assert GLOBAL_DIM == 19
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
     assert PHASE_DIM == 1
@@ -93,7 +96,7 @@ def test_encode_minion_golden_flag():
 def test_encode_minion_triple_reward_spell_in_hand():
     from src.bg_recruitment.triples import make_triple_reward_discover_spell
 
-    spell = make_triple_reward_discover_spell(discover_tier=3)
+    spell = make_triple_reward_discover_spell(discover_tier=3, patch=PATCH_CTX)
     v = encode_minion(spell)
     assert v[0] == 1.0
     assert v[TRIPLE_REWARD_SPELL_OFFSET] == 1.0
@@ -105,7 +108,7 @@ def test_build_observation_hand_encodes_triple_reward_spell():
     from src.bg_recruitment.triples import make_triple_reward_discover_spell
     from src.envs.minibg.state import MiniBGState, PlayerPhase, PlayerState
 
-    spell = make_triple_reward_discover_spell(discover_tier=4)
+    spell = make_triple_reward_discover_spell(discover_tier=4, patch=PATCH_CTX)
     p0 = PlayerState(
         health=40,
         gold=10,
@@ -302,7 +305,7 @@ def test_build_observation_globals_match_state():
     assert g_arr[9] == 1.0
     assert g_arr[10] == 4 / LEVEL_UP_COST_MAX
     assert tuple(g_arr[11:15]) == (0.0, 0.0, 0.0, 0.0)
-    assert g_arr[15] == 1.0
+    assert g_arr[18] == 1.0
 
 
 def test_build_observation_self_centric():
@@ -379,4 +382,6 @@ def test_build_observation_encodes_shop_excluded_race():
     rot = obs[GLOBAL_CORE_DIM:GLOBAL_DIM]
     assert rot[3] == 1.0
     assert rot[0:3].sum() == 0.0
-    assert rot[4] == CNT_ACTIVE_SHOP_TRIBES / len(ROTATION_SHOP_TRIBES)
+    assert rot[7] == PATCH_CTX.meta.cnt_active_shop_tribes / len(
+        PATCH_CTX.meta.rotation_tribes
+    )

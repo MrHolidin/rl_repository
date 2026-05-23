@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 
-from src.bg_catalog.cards import (
-    CARD_TEMPLATES,
-    shop_minion_allowed_with_exclusion,
-    shop_pool_for_tier,
-)
+from src.bg_catalog.cards import shop_minion_allowed_with_exclusion, shop_pool_for_tier, templates
+from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import Ability, Keyword, SummonEffect, Trigger
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.shared_pool import SharedCardPool
@@ -44,10 +41,11 @@ def _tier_weights(tavern_tier: int) -> Dict[int, float]:
     return w
 
 
-def murloc_discover_card_ids() -> List[str]:
+def murloc_discover_card_ids(*, patch: PatchContext) -> List[str]:
+    tpl = templates(patch=require_patch(patch, where="discover_pool.murloc_discover_card_ids"))
     return [
         cid
-        for cid, m in CARD_TEMPLATES.items()
+        for cid, m in tpl.items()
         if not m.is_token and m.race == Race.MURLOC
     ]
 
@@ -58,15 +56,18 @@ def roll_discover_murloc_triple(
     shop_excluded_race: Optional[Race] = None,
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> Optional[Tuple[str, str, str]]:
+    ctx = require_patch(patch, where="discover_pool.roll_discover_murloc_triple")
+    tpl = ctx.templates
     cap = min(_MAX_TIER, tavern_tier + 1)
     if shop_excluded_race == Race.MURLOC:
         eligible: List[str] = []
     else:
         eligible = [
             cid
-            for cid in murloc_discover_card_ids()
-            if CARD_TEMPLATES[cid].tier <= cap
+            for cid in murloc_discover_card_ids(patch=ctx)
+            if tpl[cid].tier <= cap
         ]
     if shared_pool is not None:
         eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
@@ -80,7 +81,7 @@ def roll_discover_murloc_triple(
     pool = list(eligible)
     picks: List[str] = []
     for _ in range(3):
-        w = np.array([wmap.get(CARD_TEMPLATES[cid].tier, 0.1) for cid in pool], dtype=np.float64)
+        w = np.array([wmap.get(tpl[cid].tier, 0.1) for cid in pool], dtype=np.float64)
         w = w / w.sum()
         j = int(rng.choice(len(pool), p=w))
         picks.append(pool.pop(j))
@@ -103,20 +104,27 @@ def roll_triple_reward_discover_at_target_tier(
     shop_excluded_race: Optional[Race] = None,
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> Optional[Tuple[str, str, str]]:
+    ctx = require_patch(patch, where="discover_pool.roll_triple_reward_discover_at_target_tier")
+    tpl = ctx.templates
     tgt = min(_MAX_TIER, max(1, int(target_tier)))
     eligible_exact = [
         cid
-        for cid in shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race)
-        if CARD_TEMPLATES[cid].tier == tgt
+        for cid in shop_pool_for_tier(
+            tgt, shop_excluded_race=shop_excluded_race, patch=ctx
+        )
+        if tpl[cid].tier == tgt
     ]
     eligible = eligible_exact
     if len(eligible) < 3:
-        eligible = list(shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race))
+        eligible = list(
+            shop_pool_for_tier(tgt, shop_excluded_race=shop_excluded_race, patch=ctx)
+        )
     if len(eligible) < 3:
         eligible = [
             cid
-            for cid, m in CARD_TEMPLATES.items()
+            for cid, m in tpl.items()
             if not m.is_token
             and not m.is_golden
             and m.tier <= tgt
@@ -144,12 +152,14 @@ def roll_triple_reward_discover_triple(
     shop_excluded_race: Optional[Race] = None,
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> Optional[Tuple[str, str, str]]:
     return roll_triple_reward_discover_at_target_tier(
         rng,
         triple_reward_discover_tier(tavern_tier),
         shop_excluded_race,
         shared_pool=shared_pool,
+        patch=patch,
     )
 
 

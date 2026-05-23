@@ -385,8 +385,14 @@ def _load_dist_agent(
     seed: int,
     mg: dict,
 ) -> Any:
+    patch_build = mg.get("patch_build")
     if _use_structured_collect(mg):
-        return MiniBGPPOStructuredAgent.load(ck_path, device=device, seed=seed)
+        return MiniBGPPOStructuredAgent.load(
+            ck_path,
+            device=device,
+            seed=seed,
+            patch_build=patch_build,
+        )
     return PPOAgent.load(ck_path, device=device, seed=seed)
 
 

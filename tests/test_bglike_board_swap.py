@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.bglike.action_map import (
     A_FINISH,
     A_SWAP_BOARD_0,
@@ -90,7 +90,7 @@ def test_heuristic_choose_final_order_picks_swap():
 
 
 def test_heuristic_bots_never_pick_swap():
-    from src.bg_catalog.cards import make_minion
+    from tests.minibg_helpers import make_minion
     from src.envs.bglike.heuristic_bots import default_bot_constructors, make_bot, make_heuristic_agent
     from src.envs.bglike.heuristic_bots.env_view import BGLikeHeuristicEnvView
     from src.envs.bglike.lobby_env import make_bglike_training_env

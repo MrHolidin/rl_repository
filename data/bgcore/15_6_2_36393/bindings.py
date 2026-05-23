@@ -1,8 +1,10 @@
-"""Build ``CARD_TEMPLATES`` from BG patch catalog (15.6.2 / build 36393)."""
+"""Card ability bindings for patch 15.6.2 (build 36393).
+
+Loaded dynamically by ``PatchContext``; keys are Hearthstone ``card_id`` strings.
+"""
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Dict, FrozenSet, Tuple
 
 from src.bg_core.effects import (
@@ -16,15 +18,15 @@ from src.bg_core.effects import (
     BuffAllFriendlyOfTribe,
     BuffAllOtherOfTribe,
     BuffAllWithKeyword,
+    BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffRandomOtherFriendlyCombat,
-    BuffTargetFriendlyBattlecry,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSummonedIfRace,
-    BuffListenerIfSummonedMatches,
+    BuffTargetFriendlyBattlecry,
     CleaveOnAttack,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
@@ -35,21 +37,18 @@ from src.bg_core.effects import (
     HeroImmuneAura,
     Keyword,
     KeywordStatAura,
+    PogoHopperBattlecry,
     SummonEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
-    SummonRandomMinionEffect,
     SummonOnSelfDamaged,
+    SummonRandomMinionEffect,
     Trigger,
     TribalOtherStatAura,
     ZappTargeting,
-    PogoHopperBattlecry,
 )
-from src.bg_catalog.patch_catalog import load_tavern_minions, minion_by_id, minion_from_tavern_record
-from src.bg_core.minion import Minion, Race
-from src.bg_catalog.triple_effects import resolve_triple_forged_abilities
+from src.bg_core.minion import Race
 
-# Golden rewards (triple) — not in tavern pool; separate ``card_id`` rows.
 GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
     {
         "TB_BaconUps_014",
@@ -63,7 +62,6 @@ GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
     }
 )
 
-# Tokens summoned by implemented effects (catalog ids; not tavern offers).
 TOKEN_IDS: FrozenSet[str] = frozenset(
     {
         "skele21",
@@ -154,7 +152,6 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             SummonEffect(token_id="BOT_312t", count=3),
         ),
     ),
-    # Kangor's Apprentice: literal DR (first N dead friendly Mech corpses, board order).
     "BGS_012": (
         Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
     ),
@@ -426,78 +423,3 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BGS_028": (Ability(Trigger.ON_PLACE, PogoHopperBattlecry()),),
 }
-
-
-def _merge_template(rec_id: str, base: Minion) -> Minion:
-    fx = EFFECTS.get(rec_id, ())
-    if not fx:
-        return base
-    return replace(base, abilities=fx)
-
-
-def build_card_templates() -> Dict[str, Minion]:
-    rows = load_tavern_minions()
-    by_id = minion_by_id()
-    out: Dict[str, Minion] = {}
-
-    for rec in rows:
-        if rec.is_bacon_pool and not rec.is_golden:
-            base = minion_from_tavern_record(rec)
-            out[rec.id] = _merge_template(rec.id, base)
-
-    for gid in GOLDEN_REWARD_IDS:
-        rec = by_id[gid]
-        base = minion_from_tavern_record(rec)
-        out[gid] = _merge_template(gid, base)
-
-    for tid in TOKEN_IDS:
-        rec = by_id[tid]
-        base = minion_from_tavern_record(rec)
-        m = replace(base, is_token=True)
-        out[tid] = _merge_template(tid, m)
-
-    out["adapt_plant"] = Minion(
-        card_id="adapt_plant",
-        base_attack=2,
-        base_health=2,
-        tier=1,
-        name="Plant",
-        is_token=True,
-    )
-    out["target_buffer"] = Minion(
-        card_id="target_buffer",
-        base_attack=2,
-        base_health=2,
-        tier=1,
-        name="Target Buffer",
-        abilities=EFFECTS["target_buffer"],
-        is_token=True,
-    )
-    out["triple_reward_discover"] = Minion(
-        card_id="triple_reward_discover",
-        base_attack=0,
-        base_health=0,
-        tier=0,
-        name="Discover (Triple Reward)",
-        is_token=True,
-        is_triple_reward_spell=True,
-    )
-    return out
-
-
-def triple_merge_golden_abilities(normal_card_id: str) -> Tuple[Ability, ...]:
-    """Abilities for a forged golden (three normals); see ``triple_effects``."""
-
-    return resolve_triple_forged_abilities(normal_card_id, EFFECTS)
-
-
-CARD_TEMPLATES: Dict[str, Minion] = build_card_templates()
-
-__all__ = [
-    "CARD_TEMPLATES",
-    "EFFECTS",
-    "GOLDEN_REWARD_IDS",
-    "TOKEN_IDS",
-    "build_card_templates",
-    "triple_merge_golden_abilities",
-]

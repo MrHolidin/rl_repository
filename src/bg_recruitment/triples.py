@@ -7,8 +7,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from src.bg_catalog.card_pool import triple_merge_golden_abilities
-from src.bg_catalog.cards import CARD_TEMPLATES
+from src.bg_catalog.cards import make_minion
+from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion, Race
 from src.bg_recruitment.discover_pool import (
@@ -28,8 +28,11 @@ def is_triple_reward_discover_spell(m: Minion) -> bool:
     return m.is_triple_reward_spell or m.card_id == TRIPLE_REWARD_SPELL_CARD_ID
 
 
-def make_triple_reward_discover_spell(*, discover_tier: int) -> Minion:
-    spell = copy(CARD_TEMPLATES[TRIPLE_REWARD_SPELL_CARD_ID])
+def make_triple_reward_discover_spell(
+    *, discover_tier: int, patch: PatchContext
+) -> Minion:
+    ctx = require_patch(patch, where="triples.make_triple_reward_discover_spell")
+    spell = copy(ctx.templates[TRIPLE_REWARD_SPELL_CARD_ID])
     spell.triple_discover_tier = int(discover_tier)
     spell.is_triple_reward_spell = True
     return spell
@@ -40,9 +43,15 @@ def hand_has_free_slot(player: PlayerState) -> bool:
 
 
 def merge_three_non_golden_into_golden(
-    card_id: str, a: Minion, b: Minion, c: Minion
+    card_id: str,
+    a: Minion,
+    b: Minion,
+    c: Minion,
+    *,
+    patch: PatchContext,
 ) -> Minion:
-    tpl = CARD_TEMPLATES[card_id]
+    ctx = require_patch(patch, where="triples.merge_three_non_golden_into_golden")
+    tpl = ctx.templates[card_id]
     merged_kw = (
         a.keywords
         | a.granted_keywords
@@ -65,7 +74,7 @@ def merge_three_non_golden_into_golden(
         race=tpl.race,
         keywords=frozenset(merged_kw),
         granted_keywords=frozenset(),
-        abilities=triple_merge_golden_abilities(card_id),
+        abilities=ctx.triple_merge_golden_abilities(card_id),
         has_shield=shield,
         is_token=tpl.is_token,
         is_golden=True,
@@ -78,12 +87,15 @@ def grant_triple_reward_discover_spell(
     player: PlayerState,
     *,
     discover_tier: int,
+    patch: PatchContext,
 ) -> bool:
     """Put discover spell in hand. Returns False if no slot (caller sets pending)."""
     slot = first_free_hand_slot(player)
     if slot is None:
         return False
-    player.hand[slot] = make_triple_reward_discover_spell(discover_tier=discover_tier)
+    player.hand[slot] = make_triple_reward_discover_spell(
+        discover_tier=discover_tier, patch=patch
+    )
     return True
 
 
@@ -98,6 +110,7 @@ def resolve_one_triple(
     player: PlayerState,
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> bool:
     groups: Dict[str, List[Tuple[str, int, Minion]]] = {}
     for i, m in enumerate(player.board):
@@ -124,7 +137,9 @@ def resolve_one_triple(
     if shared_pool is not None:
         for m in (m0, m1, m2):
             on_sell_minion(shared_pool, m)
-    merged = merge_three_non_golden_into_golden(candidate, m0, m1, m2)
+    merged = merge_three_non_golden_into_golden(
+        candidate, m0, m1, m2, patch=patch
+    )
     if shared_pool is not None:
         if not shared_pool.acquire_new(merged.card_id, 3):
             raise RuntimeError(
@@ -138,7 +153,9 @@ def resolve_one_triple(
     assert hslot is not None, "triple merge with full hand (bug)"
     player.hand[hslot] = merged
     discover_tier = triple_reward_discover_tier(player.tavern_tier)
-    if not grant_triple_reward_discover_spell(player, discover_tier=discover_tier):
+    if not grant_triple_reward_discover_spell(
+        player, discover_tier=discover_tier, patch=patch
+    ):
         queue_triple_reward_discover_spell(player, discover_tier=discover_tier)
     return True
 
@@ -147,9 +164,10 @@ def resolve_triples_loop(
     player: PlayerState,
     *,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> None:
     for _ in range(24):
-        if not resolve_one_triple(player, shared_pool=shared_pool):
+        if not resolve_one_triple(player, shared_pool=shared_pool, patch=patch):
             break
 
 
@@ -160,6 +178,7 @@ def open_triple_reward_discover_modal(
     discover_tier: int,
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> bool:
     from src.bg_recruitment.discover import try_open_hand_discover_modal
 
@@ -168,6 +187,7 @@ def open_triple_reward_discover_modal(
         discover_tier,
         shop_excluded_race,
         shared_pool=shared_pool,
+        patch=patch,
     )
     if opts is None:
         return False
@@ -187,6 +207,7 @@ def play_triple_reward_discover_spell_from_hand(
     *,
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
 ) -> None:
     spell = player.hand[hand_slot]
     assert spell is not None and is_triple_reward_discover_spell(spell)
@@ -198,6 +219,7 @@ def play_triple_reward_discover_spell_from_hand(
         discover_tier=tier,
         rng=rng,
         shared_pool=shared_pool,
+        patch=patch,
     )
 
 
@@ -206,13 +228,16 @@ def flush_triple_reward_queue_if_idle(
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
+    patch: PatchContext,
 ) -> None:
     if player.pending_choice is not None or not player.triple_reward_discover_pending:
         return
     tier = player.triple_reward_spell_tier or triple_reward_discover_tier(
         player.tavern_tier
     )
-    if grant_triple_reward_discover_spell(player, discover_tier=tier):
+    if grant_triple_reward_discover_spell(
+        player, discover_tier=tier, patch=patch
+    ):
         player.triple_reward_discover_pending = False
         player.triple_reward_spell_tier = 0
 

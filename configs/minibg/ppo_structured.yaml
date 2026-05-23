@@ -12,7 +12,6 @@ agent:
   id: ppo
   params:
     network_type: minibg_structured
-    observation_shape: [736]
     observation_type: vector
     # slot torso (как у minibg_slot)
     slot_hidden_channels: 32

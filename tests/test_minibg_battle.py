@@ -1,13 +1,13 @@
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import PATCH_CTX, make_minion, simulate_battle
 from src.bg_combat.battle import (
     _decide_first_side,
     _pick_target,
     attack_with_auras,
     build_battle_side,
 )
-from tests.minibg_helpers import simulate_battle
+
 
 
 def _board(*card_ids):
@@ -51,7 +51,7 @@ def test_winner_damage_scales_with_winner_tavern_tier():
 
 
 def test_pick_target_respects_taunt():
-    side = build_battle_side(_board("bruiser", "guard", "recruit"))
+    side = build_battle_side(_board("bruiser", "guard", "recruit"), patch=PATCH_CTX)
     rng = _rng(0)
     for _ in range(100):
         target = _pick_target(side, rng)
@@ -59,7 +59,7 @@ def test_pick_target_respects_taunt():
 
 
 def test_pick_target_uniform_when_no_taunt():
-    side = build_battle_side(_board("bruiser", "recruit"))
+    side = build_battle_side(_board("bruiser", "recruit"), patch=PATCH_CTX)
     rng = _rng(0)
     seen = set()
     for _ in range(100):
@@ -68,15 +68,15 @@ def test_pick_target_uniform_when_no_taunt():
 
 
 def test_decide_first_side_more_minions_wins():
-    s_more = build_battle_side(_board("recruit", "recruit"))
-    s_less = build_battle_side(_board("recruit"))
+    s_more = build_battle_side(_board("recruit", "recruit"), patch=PATCH_CTX)
+    s_less = build_battle_side(_board("recruit"), patch=PATCH_CTX)
     assert _decide_first_side(s_more, s_less, p0_has_initiative=False) == 0
     assert _decide_first_side(s_less, s_more, p0_has_initiative=True) == 1
 
 
 def test_decide_first_side_initiative_breaks_tie():
-    s = build_battle_side(_board("recruit"))
-    s2 = build_battle_side(_board("recruit"))
+    s = build_battle_side(_board("recruit"), patch=PATCH_CTX)
+    s2 = build_battle_side(_board("recruit"), patch=PATCH_CTX)
     assert _decide_first_side(s, s2, p0_has_initiative=True) == 0
     assert _decide_first_side(s, s2, p0_has_initiative=False) == 1
 
@@ -230,9 +230,9 @@ def test_kangor_deathrattle_summons_first_dead_friendly_mech_corpses():
 
 
 def test_pick_target_zapp_prefers_minimum_attack_among_legal():
-    zapp_side = build_battle_side(_board("zapp_slywick"))
+    zapp_side = build_battle_side(_board("zapp_slywick"), patch=PATCH_CTX)
     zapp = zapp_side.minions[0]
-    def_side = build_battle_side(_board("bruiser", "toy_mech"))
+    def_side = build_battle_side(_board("bruiser", "toy_mech"), patch=PATCH_CTX)
     rng = _rng(0)
     for _ in range(80):
         assert _pick_target(def_side, rng, zapp).template.card_id == "BOT_445"
@@ -243,11 +243,11 @@ def test_pick_target_zapp_respects_taunt_then_lowest_attack():
 
     from src.bg_core.effects import Keyword
 
-    zapp_side = build_battle_side(_board("zapp_slywick"))
+    zapp_side = build_battle_side(_board("zapp_slywick"), patch=PATCH_CTX)
     zapp = zapp_side.minions[0]
     taunt_murl = copy(make_minion("rockpool_hunter"))
     taunt_murl.keywords = frozenset(taunt_murl.keywords | {Keyword.TAUNT})
-    def_side = build_battle_side([make_minion("guard"), taunt_murl])
+    def_side = build_battle_side([make_minion("guard"), taunt_murl], patch=PATCH_CTX)
     rng = _rng(0)
     for _ in range(80):
         assert _pick_target(def_side, rng, zapp).template.card_id == "CS2_065"
@@ -291,7 +291,7 @@ def test_attack_during_death_resolution_ignores_stat_aura():
 
     mal = make_minion("mal_ganis")
     imp = make_minion("imp_demon")
-    side = build_battle_side([mal, imp])
+    side = build_battle_side([mal, imp], patch=PATCH_CTX)
     mal_bm, imp_bm = side.minions
     assert attack_value(imp_bm, side, death_resolution=False) == 3
     assert attack_value(imp_bm, side, death_resolution=True) == 1
@@ -300,7 +300,7 @@ def test_attack_during_death_resolution_ignores_stat_aura():
 
 
 def test_dire_wolf_buffs_immediate_board_neighbors():
-    side = build_battle_side(_board("dire_wolf_alpha", "toy_mech"))
+    side = build_battle_side(_board("dire_wolf_alpha", "toy_mech"), patch=PATCH_CTX)
     wolf, rec = side.minions
     assert attack_with_auras(rec, side) == rec.raw_attack + 1
     assert attack_with_auras(wolf, side) == wolf.raw_attack

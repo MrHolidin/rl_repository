@@ -1,0 +1,94 @@
+# BGLike 8p distributed PPO — patch 19.6.0 / build 74257.
+#   python -m src.cli.train_distributed \
+#       --config configs/bglike/ppo_structured_v2_74257.yaml \
+#       --run_dir runs/bglike/dist_ppo_74257_001
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.06
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v2
+    observation_type: vector
+    slot_hidden_channels: 48
+    region_conv2_kernel: 1
+    card_emb_dim: 16
+    entity_attention_layers: 1
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 2
+    entity_attention_init_scale: 0.1
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.95
+    ppo_clip_eps: 0.2
+    clip_value_loss: true
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 1.0
+    max_grad_norm: 1.0
+    rollout_steps: 8096
+    ppo_epochs: 4
+    minibatch_size: 512
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 5000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 50000
+        prefix: dist_bglike_ppo_74257
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 2
+  worker_device: cpu

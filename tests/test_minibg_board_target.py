@@ -1,6 +1,6 @@
 """Targeted friendly battlecry (+1/+1 to chosen board minion) — RL env only."""
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.env import MiniBGEnv
 from src.envs.minibg.structured_actions import StructActionType
 

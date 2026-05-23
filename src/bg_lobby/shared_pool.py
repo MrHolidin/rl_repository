@@ -3,21 +3,16 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional
 
 import numpy as np
 
-from src.bg_catalog.cards import CARD_TEMPLATES, shop_minion_allowed_with_exclusion
+from src.bg_catalog.cards import shop_minion_allowed_with_exclusion
+from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context, require_patch
 from src.bg_core.minion import Minion, Race
 
-POOL_SIZE_BY_TIER: Dict[int, int] = {
-    1: 16,
-    2: 15,
-    3: 13,
-    4: 11,
-    5: 9,
-    6: 7,
-}
+_DEFAULT_PATCH = load_patch_context(str(DEFAULT_PATCH_DIR))
+POOL_SIZE_BY_TIER: Dict[int, int] = dict(_DEFAULT_PATCH.meta.pool_copies_by_tier)
 
 __all__ = [
     "POOL_SIZE_BY_TIER",
@@ -31,32 +26,49 @@ __all__ = [
 def eligible_card_ids_for_tier(
     tavern_tier: int,
     shop_excluded_race: Optional[Race],
+    *,
+    templates: Mapping[str, Minion],
 ) -> List[str]:
     return [
         cid
-        for cid, tpl in CARD_TEMPLATES.items()
-        if not tpl.is_token
-        and not tpl.is_golden
-        and not tpl.is_triple_reward_spell
-        and tpl.tier <= tavern_tier
-        and shop_minion_allowed_with_exclusion(tpl, shop_excluded_race)
+        for cid, t in templates.items()
+        if not t.is_token
+        and not t.is_golden
+        and not t.is_triple_reward_spell
+        and t.tier <= tavern_tier
+        and shop_minion_allowed_with_exclusion(t, shop_excluded_race)
     ]
 
 
 def build_initial_shared_pool(
     shop_excluded_race: Optional[Race] = None,
+    *,
+    pool_copies_by_tier: Optional[Mapping[int, int]] = None,
+    patch: PatchContext,
 ) -> SharedCardPool:
+    ctx = require_patch(patch, where="shared_pool.build_initial_shared_pool")
+    copies = (
+        dict(pool_copies_by_tier)
+        if pool_copies_by_tier is not None
+        else dict(ctx.meta.pool_copies_by_tier)
+    )
+    tpl = ctx.templates
     remaining: Dict[str, int] = {}
-    for cid, tpl in CARD_TEMPLATES.items():
-        if tpl.is_token or tpl.is_golden or tpl.is_triple_reward_spell:
+    for cid, t in tpl.items():
+        if t.is_token or t.is_golden or t.is_triple_reward_spell:
             continue
-        if not shop_minion_allowed_with_exclusion(tpl, shop_excluded_race):
+        if not shop_minion_allowed_with_exclusion(t, shop_excluded_race):
             continue
-        cap = POOL_SIZE_BY_TIER.get(tpl.tier)
+        cap = copies.get(t.tier)
         if cap is None:
             continue
         remaining[cid] = cap
-    return SharedCardPool(remaining=remaining, initial=deepcopy(remaining))
+    return SharedCardPool(
+        remaining=remaining,
+        initial=deepcopy(remaining),
+        templates=tpl,
+        patch=ctx,
+    )
 
 
 def copies_for_minion(m: Minion) -> int:
@@ -79,16 +91,20 @@ class SharedCardPool:
     * ``release_minion`` when sold or eliminated (+n).
     """
 
-    __slots__ = ("remaining", "_initial")
+    __slots__ = ("remaining", "_initial", "_templates", "patch")
 
     def __init__(
         self,
         *,
         remaining: Dict[str, int],
+        patch: PatchContext,
         initial: Optional[Dict[str, int]] = None,
+        templates: Mapping[str, Minion],
     ) -> None:
+        self.patch = require_patch(patch, where="SharedCardPool.__init__")
         self.remaining = remaining
         self._initial = initial if initial is not None else dict(remaining)
+        self._templates = templates
 
     def remaining_copies(self, card_id: str) -> int:
         return int(self.remaining.get(card_id, 0))
@@ -100,7 +116,11 @@ class SharedCardPool:
     ) -> int:
         return sum(
             self.remaining_copies(cid)
-            for cid in eligible_card_ids_for_tier(tavern_tier, shop_excluded_race)
+            for cid in eligible_card_ids_for_tier(
+                tavern_tier,
+                shop_excluded_race,
+                templates=self._templates,
+            )
             if self.remaining_copies(cid) > 0
         )
 
@@ -139,7 +159,11 @@ class SharedCardPool:
         """Weighted roll: remaining copies / sum remaining eligible."""
         ids: List[str] = []
         weights: List[float] = []
-        for cid in eligible_card_ids_for_tier(tavern_tier, shop_excluded_race):
+        for cid in eligible_card_ids_for_tier(
+            tavern_tier,
+            shop_excluded_race,
+            templates=self._templates,
+        ):
             w = self.remaining_copies(cid)
             if w > 0:
                 ids.append(cid)
@@ -155,6 +179,8 @@ class SharedCardPool:
         return SharedCardPool(
             remaining=dict(self.remaining),
             initial=dict(self._initial),
+            templates=self._templates,
+            patch=self.patch,
         )
 
     def roll_and_reserve_offer(

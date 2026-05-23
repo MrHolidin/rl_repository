@@ -45,6 +45,10 @@ class BGLikeHeuristicEnvView:
         return self._inner().legal_mask_for_seat(self._seat())
 
     @property
+    def patch(self):
+        return self._inner()._game._patch
+
+    @property
     def rl_pending(self):
         return self._inner().rl_pending_for_seat(self._seat())
 

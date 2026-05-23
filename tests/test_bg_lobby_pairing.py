@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.bg_lobby.match_types import GHOST_OPPONENT_ID, CombatMatch, EliminatedSnapshot
 from src.bg_lobby.pairing import (
     COOLDOWN_COMBAT_ROUNDS,

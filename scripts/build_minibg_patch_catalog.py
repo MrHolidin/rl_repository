@@ -14,13 +14,13 @@ Examples::
   python scripts/build_minibg_patch_catalog.py \\
     --card-defs ~/hsdata/CardDefs.xml \\
     --build 36393 --patch 15.6.2 \\
-    --out data/minibg/bg_patch_15_6_2_36393_catalog.json
+    --out data/bgcore/15_6_2_36393/catalog.json
 
   # Offline: use a saved cards.json
   python scripts/build_minibg_patch_catalog.py \\
     --card-defs ~/hsdata/CardDefs.xml \\
     --hsjson data/minibg/cards_36393_raw.json \\
-    --out data/minibg/bg_patch_15_6_2_36393_catalog.json
+    --out data/bgcore/15_6_2_36393/catalog.json
 """
 
 from __future__ import annotations
@@ -114,6 +114,11 @@ def parse_card_defs(path: Path) -> dict[int, dict]:
     return out
 
 
+def patch_package_dir(patch: str, build: int) -> Path:
+    slug = patch.strip().replace(".", "_")
+    return Path("data") / "bgcore" / f"{slug}_{build}"
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--card-defs", type=Path, required=True)
@@ -133,10 +138,17 @@ def main() -> None:
         default="enUS",
         help="Locale segment in api.hearthstonejson.com URL (default: enUS)",
     )
-    p.add_argument("--out", type=Path, required=True)
+    p.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Output catalog.json path (default: data/bgcore/{patch}_{build}/catalog.json)",
+    )
     p.add_argument("--build", type=int, default=36393)
     p.add_argument("--patch", type=str, default="15.6.2")
     args = p.parse_args()
+    if args.out is None:
+        args.out = patch_package_dir(args.patch, args.build) / "catalog.json"
 
     defs = parse_card_defs(args.card_defs)
     hs_src = args.hsjson

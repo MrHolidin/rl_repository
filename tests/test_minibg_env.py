@@ -20,7 +20,7 @@ from src.envs.minibg.actions import (
     MAX_SHOP_ACTIONS,
     shop_offers_count,
 )
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.reward_config import RewardConfig
 from src.envs.minibg.env import INVALID_ACTION_REWARD, MiniBGEnv
 from src.envs.minibg.obs import OBS_DIM

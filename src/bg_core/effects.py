@@ -12,6 +12,7 @@ class Keyword(Enum):
     POISONOUS = auto()
     CHARGE = auto()
     MAGNETIC = auto()
+    REBORN = auto()
 
 
 class Trigger(Enum):
@@ -31,6 +32,27 @@ class Trigger(Enum):
     ON_FRIENDLY_MINION_DIED = (
         auto()
     )  # combat: another friendly died (``Ability.filter_race`` = dead minion's tribe)
+    ON_START_OF_COMBAT = auto()  # combat-only: after setup, before first attack
+    ON_SELL = auto()  # shop: when sold from board, before removal
+    ON_FRIENDLY_BOUGHT = auto()  # shop: board listener when another minion is bought
+    ON_AFTER_ATTACK = auto()  # combat: after this minion completes an attack swing
+    ON_FRIENDLY_ATTACK = auto()  # combat: board listener when another friendly attacks
+    ON_SURVIVED_ATTACK = auto()  # combat: this minion took damage and survived the swing
+    ON_FRIENDLY_SHIELD_LOST = auto()  # combat: another friendly lost Divine Shield
+    ON_WHEN_ATTACKED = auto()  # combat: this minion is targeted by an attack swing
+    ON_FRIENDLY_WHEN_ATTACKED = auto()  # combat: another friendly is targeted by an attack
+    ON_FRIENDLY_KILL = auto()  # combat: a friendly minion killed an enemy minion
+
+
+class ConditionKind(Enum):
+    OTHER_TRIBE_ON_BOARD = auto()
+    LAST_COMBAT_WON = auto()
+
+
+@dataclass(frozen=True)
+class Condition:
+    kind: ConditionKind
+    tribe: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +141,14 @@ class GrantKeywordRandomFriendly:
 
 
 @dataclass(frozen=True)
+class BuffSelfWhenFriendlyDeathrattlePlaced:
+    """Shop: after a friendly with Deathrattle is played, buff this minion."""
+
+    attack: int = 1
+    health: int = 2
+
+
+@dataclass(frozen=True)
 class BuffSelfWhenFriendlyBattlecryPlaced:
     """Shop: source gains stats after another friendly with an ``ON_PLACE`` ability is placed."""
 
@@ -147,6 +177,15 @@ class DealDamageRandomEnemyMinion:
     """Combat deathrattle: deal ``amount`` to one random enemy minion (Kaboom Bot)."""
 
     amount: int
+
+
+@dataclass(frozen=True)
+class StartOfCombatDamagePerFriendlyTribe:
+    """Start of Combat: deal ``amount_per_match`` × friendly ``tribe`` count to one random enemy."""
+
+    tribe: Any
+    amount_per_match: int = 1
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
@@ -188,6 +227,15 @@ class SummonOnSelfDamaged:
 
     token_id: str
     count: int = 1
+
+
+@dataclass(frozen=True)
+class SummonRandomOnSelfDamagedEffect:
+    """Combat: after this minion takes damage, summon random minion(s) of ``race_filter``."""
+
+    race_filter: Optional[Any] = None
+    count: int = 1
+    grant_taunt: bool = False
 
 
 @dataclass(frozen=True)
@@ -247,6 +295,16 @@ class BuffTargetFriendlyBattlecry:
 
     attack: int = 1
     health: int = 1
+    exclude_self: bool = True
+    filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class BuffTargetFromPiratesBoughtBattlecry:
+    """Shop battlecry: buff target by +stats per pirate bought this turn."""
+
+    attack_per: int = 1
+    health_per: int = 1
     exclude_self: bool = True
     filter_race: Optional[Any] = None
 
@@ -318,10 +376,228 @@ class DiscoverMurlocEffect:
 
 
 @dataclass(frozen=True)
+class SetNextRollCostEffect:
+    """Shop battlecry: next manual refresh costs ``cost`` gold (then clears)."""
+
+    cost: int = 0
+
+
+@dataclass(frozen=True)
+class ReduceUpgradeCostEffect:
+    """Shop battlecry: ``next_tier_up_cost`` reduced by ``amount`` until next level-up."""
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class GainGoldThisTurnEffect:
+    """Shop: grant ``amount`` gold when trigger fires (this turn only)."""
+
+    amount: int = 1
+    filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class AddTokenToHandEffect:
+    """Shop ON_SELL / battlecry: add ``token_id`` to first free hand slot."""
+
+    token_id: str
+    count: int = 1
+
+
+@dataclass(frozen=True)
+class IncrementShopTribeBonusEffect:
+    """After playing a tribe: permanent +stats for that tribe in shop (Nomi)."""
+
+    tribe: Any
+    attack: int = 1
+    health: int = 1
+
+
+@dataclass(frozen=True)
 class AdaptAllMurlocsEffect:
     """Battlecry: Adapt your Murlocs — pick 3 of 10, apply to all friendly Murlocs."""
 
     repeats: int = 1
+
+
+@dataclass(frozen=True)
+class AdaptSelfRandomEffect:
+    """Battlecry: apply random adapts to self (Amalgadon — no modal)."""
+
+    repeats: int = 1
+    count_from_unique_other_tribes: bool = False
+
+
+@dataclass(frozen=True)
+class TriggerRandomFriendlyDeathrattleEffect:
+    """Combat after-attack: trigger a random living friendly minion's deathrattle."""
+
+    repeats: int = 1
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class MultiplySelfAttackEffect:
+    """Combat after-attack: multiply this minion's current Attack (Glyph Guardian)."""
+
+    factor: int = 2
+
+
+@dataclass(frozen=True)
+class BuffAttackerOnFriendlyAttackEffect:
+    """Combat: when another friendly attacks, buff the attacker if tribe matches."""
+
+    tribe: Any
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class AttackImmediatelyAfterSurvivingEffect:
+    """Combat: after surviving an attack, this minion attacks immediately (Yo-Ho-Ogre)."""
+
+
+@dataclass(frozen=True)
+class BuffRandomUniqueTribeFriendlies:
+    """Shop battlecry: buff up to ``count`` random friendlies with distinct tribes."""
+
+    count: int = 3
+    attack: int = 1
+    health: int = 1
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class BuffAllShopOffersEffect:
+    """Shop ON_SELL / battlecry: buff every minion currently in the tavern offers."""
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class AddRandomMinionToShopEffect:
+    """Shop battlecry: add a random ``tribe`` minion to an empty offer slot."""
+
+    tribe: Any
+    freeze_slot: bool = False
+
+
+@dataclass(frozen=True)
+class ConsumeFriendlyBattlecry:
+    """Shop battlecry: remove a friendly minion to gain its stats and gold."""
+
+    filter_race: Optional[Any] = None
+    exclude_self: bool = True
+    gold_reward: int = 3
+    stat_multiplier: int = 1
+
+
+@dataclass(frozen=True)
+class AddFromLastOpponentBoardEffect:
+    """Shop battlecry: add a random minion from ``last_opponent_board`` to hand."""
+
+
+@dataclass(frozen=True)
+class TransformIntoShopMinionEffect:
+    """Shop battlecry: transform source into a plain copy of a random shop offer."""
+
+
+@dataclass(frozen=True)
+class GrantKeywordAllFriendlyOfTribe:
+    """Grant ``keyword`` to every friendly minion of ``tribe`` (combat deathrattle)."""
+
+    keyword: Keyword
+    tribe: Any
+
+
+@dataclass(frozen=True)
+class BuffSelfFromFriendlyTribeCount:
+    """Shop end of turn: +stats per friendly minion of ``tribe``."""
+
+    tribe: Any
+    attack_per: int = 1
+    health_per: int = 1
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class BuffSelfFromUniqueTribeCount:
+    """Shop end of turn: +stats per distinct non-neutral tribe on board."""
+
+    attack_per: int = 1
+    health_per: int = 1
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class BuffSelfFromGoldenFriendlyCount:
+    """Shop end of turn: +stats per friendly golden minion."""
+
+    attack_per: int = 2
+    health_per: int = 2
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class BuffLeftmostRepeatedEffect:
+    """Shop turn end: buff leftmost minion, repeat from a ``PlayerState`` counter field."""
+
+    counter: str
+    attack: int = 1
+    health: int = 1
+
+
+@dataclass(frozen=True)
+class BuffRandomFriendlyFromPlacedTierEffect:
+    """Shop: after a filtered friendly is played, buff a random friendly by its tier."""
+
+    attack_per_tier: bool = True
+    health_per_tier: bool = True
+    exclude_self: bool = False
+
+
+@dataclass(frozen=True)
+class DealExcessDamageToAdjacentEffect:
+    """Combat ON_OVERKILL: deal excess kill damage to a random adjacent enemy minion."""
+
+
+@dataclass(frozen=True)
+class AddRandomMinionToHandOnKillEffect:
+    """Combat ON_AFTER_ATTACK: if this minion killed an enemy, queue a random minion for hand."""
+
+    tribe: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class AddRandomMinionToHandEffect:
+    """Shop battlecry: add a random ``tribe`` minion to hand."""
+
+    tribe: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class BuffAttackedMinionEffect:
+    """Combat listener: buff the friendly minion that was attacked."""
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class BuffAdjacentOnAttackedEffect:
+    """Combat: when this minion is attacked, buff adjacent friendlies."""
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class GainGoldOnDeathEffect:
+    """Combat deathrattle stub for Gold Coin (grants gold after battle)."""
+
+    amount: int = 1
 
 
 Effect = Union[
@@ -333,10 +609,18 @@ Effect = Union[
     BuffAllFriendlyOfTribe,
     BuffAllWithKeyword,
     GrantKeywordRandomFriendly,
+    BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffSelfWhenFriendlyBattlecryPlaced,
+    BuffTargetFromPiratesBoughtBattlecry,
+    SummonRandomOnSelfDamagedEffect,
+    BuffLeftmostRepeatedEffect,
+    BuffRandomFriendlyFromPlacedTierEffect,
+    DealExcessDamageToAdjacentEffect,
+    AddRandomMinionToHandOnKillEffect,
     BuffAllFriendlyMinions,
     BuffRandomOtherFriendlyCombat,
     DealDamageRandomEnemyMinion,
+    StartOfCombatDamagePerFriendlyTribe,
     AttackBonusPerOtherMurlocGlobal,
     BuffSummonedIfRace,
     GrantListenerKeywordIfSummonedMatches,
@@ -361,6 +645,30 @@ Effect = Union[
     CleaveOnAttack,
     DiscoverMurlocEffect,
     AdaptAllMurlocsEffect,
+    AdaptSelfRandomEffect,
+    TriggerRandomFriendlyDeathrattleEffect,
+    MultiplySelfAttackEffect,
+    BuffAttackerOnFriendlyAttackEffect,
+    AttackImmediatelyAfterSurvivingEffect,
+    BuffRandomUniqueTribeFriendlies,
+    BuffAllShopOffersEffect,
+    AddRandomMinionToShopEffect,
+    ConsumeFriendlyBattlecry,
+    AddFromLastOpponentBoardEffect,
+    TransformIntoShopMinionEffect,
+    GrantKeywordAllFriendlyOfTribe,
+    BuffSelfFromFriendlyTribeCount,
+    BuffSelfFromUniqueTribeCount,
+    BuffSelfFromGoldenFriendlyCount,
+    AddRandomMinionToHandEffect,
+    BuffAttackedMinionEffect,
+    BuffAdjacentOnAttackedEffect,
+    GainGoldOnDeathEffect,
+    SetNextRollCostEffect,
+    ReduceUpgradeCostEffect,
+    GainGoldThisTurnEffect,
+    AddTokenToHandEffect,
+    IncrementShopTribeBonusEffect,
 ]
 
 
@@ -368,14 +676,18 @@ Effect = Union[
 class Ability:
     trigger: Trigger
     effect: Effect
-    """If set: ``AFTER_FRIENDLY_MINION_PLACED`` / ``ON_FRIENDLY_MINION_DIED`` filter on placed/dead minion race."""
+    """If set: filter placed/dead minion race, or killer race for ``ON_FRIENDLY_KILL``."""
 
     filter_race: Optional[Any] = None
+    condition: Optional[Condition] = None
+    filter_victim_keyword: Optional[Keyword] = None
 
 
 __all__ = [
     "Keyword",
     "Trigger",
+    "ConditionKind",
+    "Condition",
     "SummonEffect",
     "SummonRandomMinionEffect",
     "BuffRandomFriendly",
@@ -388,6 +700,7 @@ __all__ = [
     "BuffAllFriendlyMinions",
     "BuffRandomOtherFriendlyCombat",
     "DealDamageRandomEnemyMinion",
+    "StartOfCombatDamagePerFriendlyTribe",
     "AttackBonusPerOtherMurlocGlobal",
     "BuffSummonedIfRace",
     "GrantListenerKeywordIfSummonedMatches",
@@ -400,6 +713,13 @@ __all__ = [
     "AdjacentStatAura",
     "BuffAdjacentBattlecry",
     "BuffTargetFriendlyBattlecry",
+    "BuffTargetFromPiratesBoughtBattlecry",
+    "BuffSelfWhenFriendlyDeathrattlePlaced",
+    "SummonRandomOnSelfDamagedEffect",
+    "BuffLeftmostRepeatedEffect",
+    "BuffRandomFriendlyFromPlacedTierEffect",
+    "DealExcessDamageToAdjacentEffect",
+    "AddRandomMinionToHandOnKillEffect",
     "HeroImmuneAura",
     "DealHeroDamage",
     "BuffSelf",
@@ -412,6 +732,30 @@ __all__ = [
     "CleaveOnAttack",
     "DiscoverMurlocEffect",
     "AdaptAllMurlocsEffect",
+    "AdaptSelfRandomEffect",
+    "TriggerRandomFriendlyDeathrattleEffect",
+    "MultiplySelfAttackEffect",
+    "BuffAttackerOnFriendlyAttackEffect",
+    "AttackImmediatelyAfterSurvivingEffect",
+    "BuffRandomUniqueTribeFriendlies",
+    "BuffAllShopOffersEffect",
+    "AddRandomMinionToShopEffect",
+    "ConsumeFriendlyBattlecry",
+    "AddFromLastOpponentBoardEffect",
+    "TransformIntoShopMinionEffect",
+    "GrantKeywordAllFriendlyOfTribe",
+    "BuffSelfFromFriendlyTribeCount",
+    "BuffSelfFromUniqueTribeCount",
+    "BuffSelfFromGoldenFriendlyCount",
+    "AddRandomMinionToHandEffect",
+    "BuffAttackedMinionEffect",
+    "BuffAdjacentOnAttackedEffect",
+    "GainGoldOnDeathEffect",
+    "SetNextRollCostEffect",
+    "ReduceUpgradeCostEffect",
+    "GainGoldThisTurnEffect",
+    "AddTokenToHandEffect",
+    "IncrementShopTribeBonusEffect",
     "Effect",
     "Ability",
 ]

@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.minion import Race
 from src.bg_recruitment.shop_triggers import ShopTriggers
 from src.bg_lobby.shared_pool import SharedCardPool
@@ -16,6 +17,7 @@ from src.bg_lobby.shared_pool import SharedCardPool
 class PlayerTurnContext:
     rng: np.random.Generator
     triggers: ShopTriggers
+    patch: PatchContext
     shop_excluded_race: Optional[Race] = None
     shared_pool: Optional[SharedCardPool] = None
 

@@ -16,7 +16,6 @@ agent:
   id: ppo
   params:
     network_type: minibg_mlp
-    observation_shape: [1359]
     observation_type: vector
     mlp_hidden_size: 256
     learning_rate: 0.0001

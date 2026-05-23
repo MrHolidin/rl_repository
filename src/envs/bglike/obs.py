@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 import numpy as np
 
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.envs.minibg import obs as minibg_obs
 from src.envs.minibg.obs import (
@@ -79,7 +80,11 @@ def _count_non_golden_same_card_board(
     return n
 
 
-def _encode_own_board(player: PlayerState) -> np.ndarray:
+def _encode_own_board(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((BOARD_SIZE, SLOT_DIM), dtype=np.float32)
     for i, m in enumerate(player.board):
         if i >= BOARD_SIZE:
@@ -92,11 +97,16 @@ def _encode_own_board(player: PlayerState) -> np.ndarray:
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
 
-def _encode_hand(player: PlayerState) -> np.ndarray:
+def _encode_hand(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((HAND_LEN, SLOT_DIM), dtype=np.float32)
     for i, hm in enumerate(player.hand):
         if i >= HAND_LEN or hm is None:
@@ -109,11 +119,16 @@ def _encode_hand(player: PlayerState) -> np.ndarray:
             hm,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
 
-def _encode_shop(player: PlayerState) -> np.ndarray:
+def _encode_shop(
+    player: PlayerState,
+    *,
+    card_id_to_dense: Optional[Mapping[str, int]] = None,
+) -> np.ndarray:
     out = np.zeros((MAX_SHOP_SLOTS, SLOT_DIM), dtype=np.float32)
     for i, m in enumerate(player.shop):
         if m is None or i >= MAX_SHOP_SLOTS:
@@ -124,6 +139,7 @@ def _encode_shop(player: PlayerState) -> np.ndarray:
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
+            card_id_to_dense=card_id_to_dense,
         )
     return out
 
@@ -141,9 +157,12 @@ def build_observation(
     last_battle_signed: float,
     *,
     is_my_turn: bool,
+    patch: PatchContext,
     rl_pending=None,
 ) -> np.ndarray:
     me = state.players[seat]
+    card_id_to_dense = patch.card_id_to_dense
+    meta = patch.meta
     actions_left = MAX_SHOP_ACTIONS - me.shop_actions_used
     tier_up_cost = (
         0.0 if me.tavern_tier >= MAX_TIER else float(me.next_tier_up_cost)
@@ -166,12 +185,19 @@ def build_observation(
         dtype=np.float32,
     )
     globals_arr = np.concatenate(
-        [globals_core, minibg_obs._encode_shop_rotation_globals(state.shop_excluded_race)]
+        [
+            globals_core,
+            minibg_obs._encode_shop_rotation_globals(
+                state.shop_excluded_race,
+                rotation_tribes=meta.rotation_tribes,
+                cnt_active_shop_tribes=meta.cnt_active_shop_tribes,
+            ),
+        ]
     )
 
-    own_board = _encode_own_board(me)
-    shop = _encode_shop(me)
-    hand = _encode_hand(me)
+    own_board = _encode_own_board(me, card_id_to_dense=card_id_to_dense)
+    shop = _encode_shop(me, card_id_to_dense=card_id_to_dense)
+    hand = _encode_hand(me, card_id_to_dense=card_id_to_dense)
     last_battle = np.array([float(last_battle_signed)], dtype=np.float32)
     phase_val = (
         1.0
@@ -179,7 +205,9 @@ def build_observation(
         else 0.0
     )
     phase_arr = np.array([phase_val], dtype=np.float32)
-    pending_arr = encode_pending_choice(me, rl_pending=rl_pending)
+    pending_arr = encode_pending_choice(
+        me, rl_pending=rl_pending, card_id_to_dense=card_id_to_dense
+    )
 
     return np.concatenate(
         [

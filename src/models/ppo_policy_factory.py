@@ -19,7 +19,7 @@ Adding a new architecture:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Tuple, Type
+from typing import Any, Callable, Dict, Optional, Tuple, Type
 
 import torch.nn as nn
 
@@ -133,6 +133,7 @@ def build_ppo_actor_critic(
     region_conv2_kernel: int = 1,
     card_emb_dim: int = 16,
     mlp_hidden_size: int = 256,
+    num_pool_indices: Optional[int] = None,
 ) -> nn.Module:
     """Build a fresh actor-critic from config-level kwargs.
 
@@ -164,6 +165,7 @@ def build_ppo_actor_critic(
             trunk_hidden=int(trunk_hidden_size),
             region_conv2_kernel=int(region_conv2_kernel),
             card_emb_dim=int(card_emb_dim),
+            num_pool_indices=num_pool_indices,
         )
     if nt in (PPO_NETWORK_MINIBG_STRUCTURED, "minibg_structured_v1"):
         if len(observation_shape) != 1 or int(observation_shape[0]) != _OBS_DIM:
@@ -176,6 +178,7 @@ def build_ppo_actor_critic(
             region_conv2_kernel=int(region_conv2_kernel),
             card_emb_dim=int(card_emb_dim),
             obs_layout="minibg",
+            num_pool_indices=num_pool_indices,
         )
     if nt in (PPO_NETWORK_BGLIKE_STRUCTURED, PPO_NETWORK_BGLIKE_STRUCTURED_V1):
         from src.envs.bglike.obs import OBS_DIM as _BG_OBS_DIM
@@ -190,6 +193,7 @@ def build_ppo_actor_critic(
             region_conv2_kernel=int(region_conv2_kernel),
             card_emb_dim=int(card_emb_dim),
             obs_layout="bglike",
+            num_pool_indices=num_pool_indices,
         )
     if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V2:
         from src.envs.bglike.obs import OBS_DIM as _BG_OBS_DIM
@@ -206,6 +210,7 @@ def build_ppo_actor_critic(
             region_conv2_kernel=int(region_conv2_kernel),
             card_emb_dim=int(card_emb_dim),
             obs_layout="bglike",
+            num_pool_indices=num_pool_indices,
         )
     if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
         if len(observation_shape) != 1:
@@ -276,6 +281,12 @@ def _restore_actor_critic_cnn(
     )
 
 
+def _default_num_pool_indices() -> int:
+    from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, load_patch_context
+
+    return load_patch_context(str(DEFAULT_PATCH_DIR)).num_pool_indices
+
+
 def _restore_minibg_slot(
     obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
 ) -> nn.Module:
@@ -285,6 +296,7 @@ def _restore_minibg_slot(
         trunk_hidden=int(kw.get("trunk_hidden", 256)),
         region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
         card_emb_dim=int(kw.get("card_emb_dim", 16)),
+        num_pool_indices=kw.get("num_pool_indices") or _default_num_pool_indices(),
     )
 
 
@@ -323,6 +335,7 @@ def _restore_structured_v1(
         entity_attention_init_scale=float(kw.get("entity_attention_init_scale", 0.1)),
         use_global_entity_token=bool(kw.get("use_global_entity_token", True)),
         obs_layout=str(kw.get("obs_layout", "minibg")).strip().lower(),
+        num_pool_indices=kw.get("num_pool_indices") or _default_num_pool_indices(),
     )
 
 
@@ -339,6 +352,9 @@ def _restore_structured_v2(
 ) -> nn.Module:
     from .bglike_structured_v2 import BGLikeStructuredV2
 
+    kw = dict(kw)
+    if kw.get("num_pool_indices") is None:
+        kw["num_pool_indices"] = _default_num_pool_indices()
     return BGLikeStructuredV2(**kw)
 
 

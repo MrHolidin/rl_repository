@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
+from tests.conftest import PATCH_CTX
 from src.bg_lobby.shared_pool import (
     POOL_SIZE_BY_TIER,
     SharedCardPool,
@@ -31,13 +32,13 @@ def _empty_player(*, tier: int = 1) -> PlayerState:
 
 
 def test_initial_pool_tier_counts():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     cid = "EX1_162"  # recruit tier 1
     assert pool.remaining_copies(cid) == POOL_SIZE_BY_TIER[1]
 
 
 def test_fill_slot_reserves_release_on_clear():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     p = _empty_player()
     rng = np.random.default_rng(0)
     cid = "EX1_162"
@@ -51,7 +52,7 @@ def test_fill_slot_reserves_release_on_clear():
 
 
 def test_buy_does_not_release_shop_reservation():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     p = _empty_player()
     cid = "EX1_162"
     pool.try_reserve_offer(cid)
@@ -69,21 +70,21 @@ def test_buy_does_not_release_shop_reservation():
 
 
 def test_roll_releases_unbought_offers():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     p = _empty_player()
     rng = np.random.default_rng(1)
-    fill_shop_slot(p, 0, None, rng=rng, shared_pool=pool)
+    fill_shop_slot(p, 0, None, rng=rng, shared_pool=pool, patch=PATCH_CTX)
     m = p.shop[0]
     assert m is not None
     cid = m.card_id
     after_fill = pool.remaining_copies(cid)
-    roll_shop(p, None, rng=np.random.default_rng(2), shared_pool=pool)
+    roll_shop(p, None, rng=np.random.default_rng(2), shared_pool=pool, patch=PATCH_CTX)
     # at least one reroll happened; reserved copy returned when slot cleared
     assert pool.remaining_copies(cid) >= after_fill
 
 
 def test_sell_returns_copy_to_pool():
-    pool = build_initial_shared_pool(None)
+    pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     p = _empty_player()
     cid = "EX1_162"
     assert pool.acquire_new(cid, 1)
@@ -96,7 +97,7 @@ def test_sell_returns_copy_to_pool():
 def test_two_players_share_pool_via_game():
     from src.envs.minibg.game import MiniBGGame
 
-    fresh_cap = sum(build_initial_shared_pool(None).remaining.values())
+    fresh_cap = sum(build_initial_shared_pool(None, patch=PATCH_CTX).remaining.values())
     g = MiniBGGame(seed=0, use_shared_pool=True)
     s = g.initial_state()
     assert s.shared_pool is not None

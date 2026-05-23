@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 from ..action_map import (
+    A_BUY_BASE,
     A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
@@ -62,6 +63,10 @@ class StructuredHeuristicBot(HeuristicBot):
     def _finish(self, env: MiniBGEnv) -> int:
         mask = _mask(env)
         p = _me(env)
+        if p.pending_choice is not None and p.pending_choice.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+            buys = [A_BUY_BASE + s for s in range(MAX_SHOP_SLOTS) if bool(mask[A_BUY_BASE + s])]
+            if buys:
+                return self._pick_transform_shop(env, mask, p, buys)
         for i in range(3):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
@@ -95,7 +100,7 @@ class StructuredHeuristicBot(HeuristicBot):
                 PendingChoiceKind.DISCOVER_MURLOC,
                 PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
             ):
-                m = make_minion(tok)
+                m = make_minion(tok, patch=env._game._patch)
                 dom = dominant_race(p.board)
                 bl = len(p.board) + 1
                 sc = minion_shop_value(
@@ -112,6 +117,33 @@ class StructuredHeuristicBot(HeuristicBot):
                 best_s = sc
                 best_a = a
         assert best_a >= 0
+        return int(best_a)
+
+    def _pick_transform_shop(
+        self, env: MiniBGEnv, mask: np.ndarray, p: PlayerState, buys: list[int]
+    ) -> int:
+        rl, rn = self._ctx(env)[0], env.state.round_number
+        cap = p.tavern_tier
+        dom = dominant_race(p.board)
+        bl = len(p.board)
+        best_a = buys[0]
+        best_s = -1e18
+        for a in buys:
+            slot = buy_slot(a)
+            offer = p.shop[slot]
+            if offer is None:
+                continue
+            sc = minion_shop_value(
+                offer,
+                rounds_left=rl,
+                dominant=dom,
+                board_len=bl,
+                round_number=rn,
+                tavern_tier_cap=cap,
+            )
+            if sc > best_s:
+                best_s = sc
+                best_a = a
         return int(best_a)
 
     def _pick_place(self, mask: np.ndarray, p: PlayerState, rl: int, rn: int) -> int:

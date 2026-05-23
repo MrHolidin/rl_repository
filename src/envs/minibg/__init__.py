@@ -45,7 +45,7 @@ from .actions import (
     gold_for_round,
     shop_offers_count,
 )
-from src.bg_catalog.cards import CARD_TEMPLATES, make_minion, shop_minion_allowed_with_exclusion, shop_pool_for_tier
+from src.bg_catalog.cards import make_minion, shop_minion_allowed_with_exclusion, shop_pool_for_tier, templates
 from src.bg_combat.battle import (
     BattleMinion,
     BattleSide,
@@ -124,7 +124,7 @@ __all__ = [
     "attack_with_auras",
     "build_battle_side",
     "simulate_battle",
-    "CARD_TEMPLATES",
+    "templates",
     "make_minion",
     "shop_minion_allowed_with_exclusion",
     "shop_pool_for_tier",

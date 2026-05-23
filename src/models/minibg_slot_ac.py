@@ -41,9 +41,12 @@ def _pending_three_option_emb(
     pending: torch.Tensor,
     card_emb: nn.Embedding,
     adapt_emb: nn.Embedding,
+    *,
+    max_card_idx: Optional[int] = None,
 ) -> torch.Tensor:
     """``(B, 3, D)`` per-modal option vectors; mirrors ``encode_pending_choice``."""
 
+    cap = _NUM_POOL_INDICES if max_card_idx is None else max_card_idx
     is_adapt = pending[..., _PENDING_IS_ADAPT_CH] > 0.5
     opt_scaled = pending[
         ...,
@@ -53,7 +56,7 @@ def _pending_three_option_emb(
     disc_idx = pending[
         ...,
         _PENDING_DISCOVER_IDX_OFFSET : _PENDING_DISCOVER_IDX_OFFSET + _PENDING_DISCOVER_IDX_DIM,
-    ].long().clamp_(min=0, max=_NUM_POOL_INDICES)
+    ].long().clamp_(min=0, max=cap)
     ae = adapt_emb(adapt_idx_raw + 1)
     de = card_emb(disc_idx)
     mask = is_adapt.unsqueeze(-1).unsqueeze(-1).expand_as(de)
@@ -64,22 +67,27 @@ def _encode_pending_with_card_emb(
     pending: torch.Tensor,
     card_emb: nn.Embedding,
     adapt_emb: nn.Embedding,
+    *,
+    max_card_idx: Optional[int] = None,
 ) -> torch.Tensor:
     """Flatten pending + per-option embeddings (discover vs ADAPT‑key table)."""
 
     cont = pending[..., :_PENDING_CHOICE_DIM]
-    emb_stack = _pending_three_option_emb(pending, card_emb, adapt_emb)
+    emb_stack = _pending_three_option_emb(
+        pending, card_emb, adapt_emb, max_card_idx=max_card_idx
+    )
     is_apply = pending[..., _PENDING_IS_APPLY_OFFSET : _PENDING_IS_APPLY_OFFSET + 1] > 0.5
     emb_stack = emb_stack.masked_fill(is_apply.unsqueeze(-1), 0.0)
     return torch.cat([cont, emb_stack.flatten(-2)], dim=-1)
 
 
 def _split_card_idx_and_cont(
-    z: torch.Tensor, card_emb: nn.Embedding
+    z: torch.Tensor, card_emb: nn.Embedding, *, max_card_idx: Optional[int] = None
 ) -> torch.Tensor:
     """``(B, L, SLOT_DIM)`` → ``(B, L, (SLOT_DIM-1) + card_emb_dim)`` by replacing card_idx channel with its embedding."""
+    cap = _NUM_POOL_INDICES if max_card_idx is None else max_card_idx
     cid_f = z[..., _CARD_IDX_OFFSET]
-    cid_long = cid_f.long().clamp_(min=0, max=_NUM_POOL_INDICES)
+    cid_long = cid_f.long().clamp_(min=0, max=cap)
     emb = card_emb(cid_long)
     cont = torch.cat(
         [
@@ -102,19 +110,23 @@ class MiniBGSlotActorCritic(nn.Module):
         trunk_hidden: int = 256,
         region_conv2_kernel: int = 1,
         card_emb_dim: int = 16,
+        num_pool_indices: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.num_actions = int(num_actions)
         self.slot_hidden = int(slot_hidden)
         self.trunk_hidden = int(trunk_hidden)
         self.card_emb_dim = int(card_emb_dim)
+        if num_pool_indices is None:
+            raise ValueError("num_pool_indices is required")
+        self.num_pool_indices = int(num_pool_indices)
         k2 = int(region_conv2_kernel)
         if k2 not in (1, 3):
             raise ValueError("region_conv2_kernel must be 1 or 3")
         self._region_conv2_kernel = k2
 
         self.card_emb = nn.Embedding(
-            _NUM_POOL_INDICES + 1, self.card_emb_dim, padding_idx=0
+            self.num_pool_indices + 1, self.card_emb_dim, padding_idx=0
         )
         self.adapt_choice_emb = nn.Embedding(
             len(ADAPT_KEYS_ALL) + 1, self.card_emb_dim, padding_idx=0
@@ -160,6 +172,7 @@ class MiniBGSlotActorCritic(nn.Module):
             "trunk_hidden": self.trunk_hidden,
             "region_conv2_kernel": self._region_conv2_kernel,
             "card_emb_dim": self.card_emb_dim,
+            "num_pool_indices": self.num_pool_indices,
         }
 
     def _unpack(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
@@ -185,7 +198,9 @@ class MiniBGSlotActorCritic(nn.Module):
         return g, own, shop, hand, enemy, lb, phase, pending
 
     def _encode_region(self, z: torch.Tensor) -> torch.Tensor:
-        z = _split_card_idx_and_cont(z, self.card_emb)
+        z = _split_card_idx_and_cont(
+            z, self.card_emb, max_card_idx=self.num_pool_indices
+        )
         h = z.transpose(1, 2)
         h = F.relu(self.region_conv1(h))
         h = F.relu(self.region_conv2(h))
@@ -202,7 +217,10 @@ class MiniBGSlotActorCritic(nn.Module):
         e_hand = self._encode_region(hand)
         e_enemy = self._encode_region(enemy)
         pending_feat = _encode_pending_with_card_emb(
-            pending, self.card_emb, self.adapt_choice_emb
+            pending,
+            self.card_emb,
+            self.adapt_choice_emb,
+            max_card_idx=self.num_pool_indices,
         )
         feat = torch.cat(
             [e_own, e_shop, e_hand, e_enemy, g, lb, phase, pending_feat], dim=1

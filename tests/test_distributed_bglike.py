@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import numpy as np
 import pytest
 
@@ -23,6 +24,7 @@ from src.training.distributed_trainer import (
     _payload_to_buffer,
     _use_structured_collect,
 )
+from tests.conftest import NUM_POOL_INDICES
 
 
 def test_use_structured_collect_bglike_true():
@@ -44,6 +46,7 @@ def test_bglike_structured_ac_accepts_obs_dim():
         (OBS_DIM,),
         NUM_ENV_ACTIONS,
         slot_hidden_channels=16,
+        num_pool_indices=NUM_POOL_INDICES,
     )
     x = np.zeros(OBS_DIM, dtype=np.float32)
     import torch
@@ -81,6 +84,7 @@ def test_ppo_structured_agent_save_load_bglike(tmp_path):
         slot_hidden=16,
         trunk_hidden=32,
         obs_layout="bglike",
+        num_pool_indices=NUM_POOL_INDICES,
     )
     agent = MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),

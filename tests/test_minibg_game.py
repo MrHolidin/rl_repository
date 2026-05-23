@@ -10,7 +10,7 @@ from src.envs.minibg.actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.bg_catalog.cards import make_minion
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import MiniBGState, PlayerPhase
 
@@ -83,6 +83,9 @@ def test_legal_actions_initial_state():
         int(Action.ROLL),
         int(Action.FINISH),
         int(Action.FINISH_FREEZE_SHOP),
+        int(Action.FREEZE_SHOP_SLOT_0),
+        int(Action.FREEZE_SHOP_SLOT_1),
+        int(Action.FREEZE_SHOP_SLOT_2),
     }
 
 

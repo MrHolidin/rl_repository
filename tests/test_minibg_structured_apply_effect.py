@@ -1,6 +1,7 @@
 """Structured APPLY_EFFECT for targeted effect modals (RL env)."""
 
-from src.bg_catalog.cards import make_minion
+from tests.conftest import obs_encode_pending_choice as encode_pending_choice
+from tests.minibg_helpers import make_minion
 from src.envs.minibg.env import MiniBGEnv
 from src.envs.minibg.obs import (
     OBS_DIM,
@@ -11,7 +12,6 @@ from src.envs.minibg.obs import (
     PENDING_IS_APPLY_OFFSET,
     PENDING_ELIGIBLE_OFFSET,
     PENDING_PICKED_OFFSET,
-    encode_pending_choice,
 )
 from src.envs.minibg.structured_actions import StructAction, StructActionType
 

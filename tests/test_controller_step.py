@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import copy
 
 import numpy as np
@@ -16,6 +17,7 @@ from src.models.ppo_policy_factory import PPO_NETWORK_BGLIKE_STRUCTURED, ppo_net
 from src.training.bglike_perspective import make_bglike_agent_perspective_env
 from src.training.controller_step import describe_seat_controller, lobby_seat_step
 from src.training.opponent_sampler import RandomOpponentSampler
+from tests.conftest import NUM_POOL_INDICES
 
 
 def _make_structured_agent(*, seed: int = 0) -> MiniBGPPOStructuredAgent:
@@ -23,6 +25,7 @@ def _make_structured_agent(*, seed: int = 0) -> MiniBGPPOStructuredAgent:
         slot_hidden=16,
         trunk_hidden=32,
         obs_layout="bglike",
+        num_pool_indices=NUM_POOL_INDICES,
     )
     return MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),

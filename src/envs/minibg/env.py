@@ -40,7 +40,7 @@ from .actions import (
 )
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import OBS_DIM, build_observation
-from .state import MiniBGState, Minion, PlayerPhase, Race
+from .state import MiniBGState, Minion, PendingChoiceKind, PlayerPhase, Race
 from .rl_place import (
     RlPlacePlan,
     commit_rl_place_plan,
@@ -84,6 +84,7 @@ class MiniBGEnv(TurnBasedEnv):
         replay_meta: Optional[Dict[str, Any]] = None,
         shop_excluded_race: Optional[Race] = None,
         shop_full_tribes: bool = False,
+        patch_dir: Optional[str] = None,
     ) -> None:
         self._seed = seed
         # Stored for backward compatibility / introspection only.
@@ -93,10 +94,12 @@ class MiniBGEnv(TurnBasedEnv):
         )
         self._shop_excluded_race = shop_excluded_race
         self._shop_full_tribes = shop_full_tribes
+        self._patch_dir = patch_dir
         self._game: MiniBGGame = MiniBGGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
             shop_full_tribes=shop_full_tribes,
+            patch_dir=patch_dir,
         )
         self._state: Optional[MiniBGState] = None
         self._last_seen_enemy_board: List[List[Minion]] = [[], []]
@@ -125,17 +128,20 @@ class MiniBGEnv(TurnBasedEnv):
                 seed=seed,
                 shop_excluded_race=self._shop_excluded_race,
                 shop_full_tribes=self._shop_full_tribes,
+                patch_dir=self._patch_dir,
             )
         elif self._seed is not None:
             self._game = MiniBGGame(
                 seed=self._seed,
                 shop_excluded_race=self._shop_excluded_race,
                 shop_full_tribes=self._shop_full_tribes,
+                patch_dir=self._patch_dir,
             )
         else:
             self._game = MiniBGGame(
                 shop_excluded_race=self._shop_excluded_race,
                 shop_full_tribes=self._shop_full_tribes,
+                patch_dir=self._patch_dir,
             )
         self._state = self._game.initial_state()
         self._rl_pending = None
@@ -306,6 +312,12 @@ class MiniBGEnv(TurnBasedEnv):
             return out
 
         if player.pending_choice is not None:
+            pc = player.pending_choice
+            if pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION:
+                for slot in range(MAX_SHOP_SLOTS):
+                    if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:
+                        out.append(StructAction(StructActionType.BUY, (slot,)))
+                return out
             for i in range(3):
                 if int(GameAction.DISCOVER_PICK_0) + i in legal_game:
                     out.append(StructAction(StructActionType.DISCOVER_PICK, (i,)))
@@ -744,6 +756,7 @@ class MiniBGEnv(TurnBasedEnv):
             self._last_battle_signed[idx],
             self._last_seen_enemy_board[idx],
             rl_pending=self._rl_pending,
+            patch=self._game._patch,
         )
 
     def _try_place_hand_rl(self, hand_slot: int) -> bool:
@@ -815,7 +828,10 @@ class MiniBGEnv(TurnBasedEnv):
         player.placed_minion_board_index = None
         player.placed_minion_pending_after = None
         flush_triple_reward_queue_if_idle(
-            player, self._state.shop_excluded_race, rng=self._game._rng
+            player,
+            self._state.shop_excluded_race,
+            rng=self._game._rng,
+            patch=self._game._patch,
         )
         if self._rl_place_budget_pending:
             player.shop_actions_used += 1
