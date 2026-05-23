@@ -12,6 +12,7 @@ from .actions import (
     Action,
     is_discover_pick_game_action,
     is_magnet_game_action,
+    magnet_game_action,
     magnet_hand_board_from_game_action,
 )
 
@@ -141,6 +142,44 @@ def target_board_slot(env_action: int) -> int:
     return a - A_TARGET_BOARD_BASE
 
 
+def struct_action_to_game_action(action) -> int:
+    """Map structured shop token to flat game ``Action`` int."""
+    from src.envs.minibg.structured_actions import StructAction, StructActionType
+
+    if not isinstance(action, StructAction):
+        raise TypeError(f"expected StructAction, got {type(action)!r}")
+    if action.type == StructActionType.ROLL:
+        return int(Action.ROLL)
+    if action.type == StructActionType.LEVEL_UP:
+        return int(Action.LEVEL_UP)
+    if action.type == StructActionType.BUY:
+        return int(Action.BUY_SLOT_0) + action.args[0]
+    if action.type == StructActionType.SELL:
+        return int(Action.SELL_BOARD_0) + action.args[0]
+    if action.type == StructActionType.PLACE:
+        return int(Action.PLACE_HAND_0) + action.args[0]
+    if action.type == StructActionType.MAGNET:
+        return int(magnet_game_action(action.args[0], action.args[1]))
+    if action.type == StructActionType.DISCOVER_PICK:
+        return int(Action.DISCOVER_PICK_0) + action.args[0]
+    if action.type == StructActionType.APPLY_EFFECT:
+        return int(Action.TARGET_BOARD_0) + action.args[0]
+    raise ValueError(f"not a shop-phase structured action: {action}")
+
+
+def struct_action_to_log_int(action) -> int:
+    """Flat env action id for replay/logging after a structured step."""
+    from src.envs.minibg.structured_actions import StructAction, StructActionType
+
+    if action.type == StructActionType.COMPLETE_TURN:
+        return int(Action.FINISH)
+    if action.type == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
+        return int(Action.FINISH_FREEZE_SHOP)
+    if action.type == StructActionType.APPLY_EFFECT_SKIP:
+        return int(A_APPLY_EFFECT_SKIP)
+    return struct_action_to_game_action(action)
+
+
 __all__ = [
     "A_APPLY_EFFECT_SKIP",
     "A_BUY_BASE",
@@ -171,6 +210,8 @@ __all__ = [
     "is_swap_board",
     "is_target_board",
     "magnet_hand_board",
+    "struct_action_to_game_action",
+    "struct_action_to_log_int",
     "swap_adj_index_from_env_action",
     "target_board_slot",
     "place_slot",

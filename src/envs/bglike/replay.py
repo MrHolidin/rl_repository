@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TextIO, Union
 
 from src.bg_lobby.player import PlayerState
 
 from src.envs.minibg.replay import minion_to_dict
 
 from .actions import NUM_PLAYERS
-from .lobby_env import BGLobbyEnv, LobbyStepInfo
 from .state import BGLikeState
+
+if TYPE_CHECKING:
+    from .lobby_env import BGLobbyEnv, LobbyStepInfo
+    from .replay_recorder import LobbyReplayConfig
 
 
 def _placed_minion_idx_for_replay(p: PlayerState) -> Optional[int]:
@@ -146,25 +149,52 @@ class ReplayHeuristicEnvBridge:
         return self._lobby.state
 
 
+def _attach_recorder(env: BGLobbyEnv, config: LobbyReplayConfig) -> None:
+    from .replay_recorder import LobbyReplayRecorder
+
+    if env._replay is not None:
+        env._replay.close()
+    env._replay = LobbyReplayRecorder(config)
+
+
 def attach_replay(
     env: BGLobbyEnv,
     path: Union[str, Path],
     header: Dict[str, Any],
     *,
-    record_auto: bool = True,
+    record_seats: frozenset[int] | None = None,
+    sparse: bool = True,
 ) -> ReplayJsonlSink:
-    sink = ReplayJsonlSink(path, {"format": 1, "game": "bglike", **header})
-    env._replay_sink = sink
-    env._replay_record_auto = record_auto
-    env._replay_episode = -1
-    env._replay_frame = 0
-    return sink
+    """Attach JSONL replay capture to a lobby session.
+
+    ``record_seats``: shop frames only for these acting seats (``None`` = all 8).
+    Global events (combat, elimination, lobby end) are always recorded.
+    ``sparse`` (default): milestone shop frames — FINISH / FINISH_FREEZE_SHOP only.
+    """
+    from .replay_recorder import LobbyReplayConfig
+
+    config = LobbyReplayConfig(
+        path=Path(path),
+        header=header,
+        record_seats=record_seats,
+        sparse=sparse,
+    )
+    _attach_recorder(env, config)
+    assert env._replay is not None
+    return env._replay._sink
+
+
+def attach_replay_config(env: BGLobbyEnv, config: LobbyReplayConfig) -> ReplayJsonlSink:
+    """Attach replay from a ``LobbyReplayConfig`` (constructor / programmatic use)."""
+    _attach_recorder(env, config)
+    assert env._replay is not None
+    return env._replay._sink
 
 
 def close_replay(env: BGLobbyEnv) -> None:
-    if env._replay_sink is not None:
-        env._replay_sink.close()
-        env._replay_sink = None
+    if env._replay is not None:
+        env._replay.close()
+        env._replay = None
 
 
 def lobby_step_info_to_replay_info(
@@ -184,6 +214,7 @@ __all__ = [
     "ReplayHeuristicEnvBridge",
     "ReplayJsonlSink",
     "attach_replay",
+    "attach_replay_config",
     "close_replay",
     "lobby_step_info_to_replay_info",
     "player_to_dict",

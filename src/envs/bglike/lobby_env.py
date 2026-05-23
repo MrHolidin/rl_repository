@@ -23,6 +23,8 @@ from .action_map import (
     is_swap_board,
     is_target_board,
     place_slot,
+    struct_action_to_game_action,
+    struct_action_to_log_int,
     swap_adj_index_from_env_action,
     target_board_slot,
 )
@@ -257,6 +259,7 @@ class BGLobbyEnv:
         seed: Optional[int] = None,
         shop_excluded_race=None,
         shop_full_tribes: bool = False,
+        replay: Optional[Any] = None,
     ) -> None:
         if len(seat_configs) != NUM_PLAYERS:
             raise ValueError(f"expected {NUM_PLAYERS} seat configs, got {len(seat_configs)}")
@@ -283,10 +286,11 @@ class BGLobbyEnv:
         self._rl_pending: Dict[int, RlPlacePlan] = {}
         self._rl_place_budget_pending: Set[int] = set()
         self._heuristic_control_seat: Optional[int] = None
-        self._replay_sink: Any = None
-        self._replay_record_auto: bool = True
-        self._replay_episode: int = -1
-        self._replay_frame: int = 0
+        self._replay: Any = None
+        if replay is not None:
+            from .replay import attach_replay_config
+
+            attach_replay_config(self, replay)
 
     @property
     def state(self) -> BGLikeState:
@@ -319,10 +323,8 @@ class BGLobbyEnv:
         self._rl_pending = {}
         self._rl_place_budget_pending = set()
         self._heuristic_control_seat = None
-        if self._replay_sink is not None:
-            self._replay_episode += 1
-            self._replay_sink.episode_break(self._replay_episode)
-            self._replay_frame = 0
+        if self._replay is not None:
+            self._replay.on_reset()
         return self._state
 
     @property
@@ -523,54 +525,36 @@ class BGLobbyEnv:
             self._state = self._game.reorder_board(self._state, seat, perm)
         self._state = self._game.apply_action(self._state, int(shop_phase_finish))
 
-    @staticmethod
-    def _struct_action_to_game_action(action: StructAction) -> int:
-        if action.type == StructActionType.ROLL:
-            return int(GameAction.ROLL)
-        if action.type == StructActionType.LEVEL_UP:
-            return int(GameAction.LEVEL_UP)
-        if action.type == StructActionType.BUY:
-            return int(GameAction.BUY_SLOT_0) + action.args[0]
-        if action.type == StructActionType.SELL:
-            return int(GameAction.SELL_BOARD_0) + action.args[0]
-        if action.type == StructActionType.PLACE:
-            return int(GameAction.PLACE_HAND_0) + action.args[0]
-        if action.type == StructActionType.MAGNET:
-            return int(magnet_game_action(action.args[0], action.args[1]))
-        if action.type == StructActionType.DISCOVER_PICK:
-            return int(GameAction.DISCOVER_PICK_0) + action.args[0]
-        if action.type == StructActionType.APPLY_EFFECT:
-            return int(GameAction.TARGET_BOARD_0) + action.args[0]
-        raise ValueError(f"not a shop-phase structured action: {action}")
+    def _mutate_flat_action(self, seat: int, action_int: int) -> None:
+        s = self.state
+        if seat in self._rl_pending:
+            if is_apply_effect_skip(action_int):
+                plan = self._rl_pending[seat]
+                if not plan.can_skip_second_adjacent():
+                    raise ValueError("APPLY_EFFECT_SKIP not allowed")
+                self._apply_rl_effect_skip(seat)
+            elif is_target_board(action_int):
+                self._apply_rl_effect_pick(seat, target_board_slot(action_int))
+            else:
+                raise ValueError(
+                    f"Expected TARGET_BOARD or APPLY_EFFECT_SKIP during rl_pending, got {action_int}"
+                )
+        elif is_swap_board(action_int):
+            self._state = self._game.swap_board_adjacent(
+                s, seat, swap_adj_index_from_env_action(action_int)
+            )
+        elif is_place(action_int) and seat == s.current_player_index:
+            if not self._try_begin_rl_place(seat, place_slot(action_int)):
+                raise ValueError(f"PLACE hand slot {place_slot(action_int)} failed")
+        else:
+            self._state = self._game.apply_action(s, action_int)
 
-    def step_structured_for_seat(
+    def _mutate_struct_action(
         self,
         seat: int,
         action: StructAction,
-        *,
-        board_perm: Optional[Tuple[int, ...]] = None,
-    ) -> LobbyStepInfo:
-        if not self._seat_can_act(seat):
-            raise ValueError(f"seat {seat} cannot act now (current={self.state.current_player_index})")
-
-        legal = structured_legal_set(tuple(self.legal_structured_actions_for_seat(seat)))
-        if action not in legal:
-            raise ValueError(f"illegal structured action {action!r} for seat {seat}")
-
-        if action.type in (
-            StructActionType.COMPLETE_TURN,
-            StructActionType.COMPLETE_TURN_FREEZE_SHOP,
-        ):
-            if board_perm is None:
-                raise ValueError("COMPLETE_TURN requires board_perm")
-            validate_board_perm(tuple(board_perm), board_size=BOARD_SIZE)
-        elif board_perm is not None:
-            raise ValueError("board_perm only allowed for COMPLETE_TURN")
-
-        eliminated_before = {snap.seat for snap in self.state.eliminated}
-        prev_combat_round = self.state.combat_round
-        prev_hp = tuple(p.health for p in self.state.players)
-
+        board_perm: Optional[Tuple[int, ...]],
+    ) -> None:
         if action.type in (
             StructActionType.COMPLETE_TURN,
             StructActionType.COMPLETE_TURN_FREEZE_SHOP,
@@ -592,13 +576,82 @@ class BGLobbyEnv:
             if not self._try_begin_rl_place(seat, action.args[0]):
                 raise ValueError(f"PLACE hand slot {action.args[0]} failed")
         else:
-            ga = self._struct_action_to_game_action(action)
+            ga = struct_action_to_game_action(action)
             self._state = self._game.apply_action(self.state, ga)
 
+    def _apply_seat_step(
+        self,
+        seat: int,
+        *,
+        flat_action: int | None = None,
+        struct_action: StructAction | None = None,
+        board_perm: Optional[Tuple[int, ...]] = None,
+        auto: bool = False,
+    ) -> LobbyStepInfo:
+        if (flat_action is None) == (struct_action is None):
+            raise ValueError("exactly one of flat_action or struct_action must be provided")
+        if not self._seat_can_act(seat):
+            raise ValueError(
+                f"seat {seat} cannot act now (current={self.state.current_player_index})"
+            )
+
+        eliminated_before = {snap.seat for snap in self.state.eliminated}
+        prev_combat_round = self.state.combat_round
+        prev_hp = tuple(p.health for p in self.state.players)
+
+        if struct_action is not None:
+            legal = structured_legal_set(
+                tuple(self.legal_structured_actions_for_seat(seat))
+            )
+            if struct_action not in legal:
+                raise ValueError(f"illegal structured action {struct_action!r} for seat {seat}")
+            if struct_action.type in (
+                StructActionType.COMPLETE_TURN,
+                StructActionType.COMPLETE_TURN_FREEZE_SHOP,
+            ):
+                if board_perm is None:
+                    raise ValueError("COMPLETE_TURN requires board_perm")
+                validate_board_perm(tuple(board_perm), board_size=BOARD_SIZE)
+            elif board_perm is not None:
+                raise ValueError("board_perm only allowed for COMPLETE_TURN")
+            self._mutate_struct_action(seat, struct_action, board_perm)
+            action_int = struct_action_to_log_int(struct_action)
+        else:
+            action_int = int(flat_action)
+            self._mutate_flat_action(seat, action_int)
+
+        return self._finalize_seat_step(
+            seat,
+            action_int,
+            eliminated_before=eliminated_before,
+            prev_combat_round=prev_combat_round,
+            prev_hp=prev_hp,
+            auto=auto,
+        )
+
+    def step_structured_for_seat(
+        self,
+        seat: int,
+        action: StructAction,
+        *,
+        board_perm: Optional[Tuple[int, ...]] = None,
+    ) -> LobbyStepInfo:
+        return self._apply_seat_step(
+            seat,
+            struct_action=action,
+            board_perm=board_perm,
+            auto=True,
+        )
+
+    def _update_battle_signed(self, prev_hp: Tuple[int, ...], prev_combat_round: int) -> None:
         if self.state.combat_round > prev_combat_round:
             for i in range(NUM_PLAYERS):
                 delta = prev_hp[i] - self.state.players[i].health
                 self._last_battle_signed[i] = float(delta) / float(STARTING_HEALTH)
+
+    def _lobby_step_info(
+        self, seat: int, eliminated_before: Set[int]
+    ) -> LobbyStepInfo:
         newly = tuple(
             snap.seat
             for snap in self.state.eliminated
@@ -614,6 +667,31 @@ class BGLobbyEnv:
             lobby_done=self.state.done,
             placements=placements,
         )
+
+    def _finalize_seat_step(
+        self,
+        seat: int,
+        action_int: int,
+        *,
+        eliminated_before: Set[int],
+        prev_combat_round: int,
+        prev_hp: Tuple[int, ...],
+        auto: bool,
+        illegal: bool = False,
+    ) -> LobbyStepInfo:
+        self._update_battle_signed(prev_hp, prev_combat_round)
+        info = self._lobby_step_info(seat, eliminated_before)
+        if self._replay is not None:
+            self._replay.maybe_record(
+                seat,
+                action_int,
+                info,
+                state=self.state,
+                prev_combat_round=prev_combat_round,
+                auto=auto,
+                illegal=illegal,
+            )
+        return info
 
     def _mark_finished_training(self, seat: int) -> Optional[float]:
         if seat not in self._training_seats or seat in self._finished_training:
@@ -693,76 +771,12 @@ class BGLobbyEnv:
             self._rl_place_budget_pending.discard(seat)
 
     def close_replay(self) -> None:
-        if self._replay_sink is not None:
-            self._replay_sink.close()
-            self._replay_sink = None
+        if self._replay is not None:
+            self._replay.close()
+            self._replay = None
 
     def _apply_action(self, seat: int, action: int, *, auto: bool = False) -> LobbyStepInfo:
-        s = self.state
-        if not self._seat_can_act(seat):
-            raise ValueError(f"seat {seat} cannot act now (current={s.current_player_index})")
-        eliminated_before = {snap.seat for snap in s.eliminated}
-        prev_combat_round = s.combat_round
-        prev_hp = tuple(p.health for p in s.players)
-        action_int = int(action)
-        if seat in self._rl_pending:
-            if is_apply_effect_skip(action_int):
-                plan = self._rl_pending[seat]
-                if not plan.can_skip_second_adjacent():
-                    raise ValueError("APPLY_EFFECT_SKIP not allowed")
-                self._apply_rl_effect_skip(seat)
-            elif is_target_board(action_int):
-                self._apply_rl_effect_pick(seat, target_board_slot(action_int))
-            else:
-                raise ValueError(
-                    f"Expected TARGET_BOARD or APPLY_EFFECT_SKIP during rl_pending, got {action_int}"
-                )
-        elif is_swap_board(action_int):
-            self._state = self._game.swap_board_adjacent(
-                s, seat, swap_adj_index_from_env_action(action_int)
-            )
-        elif is_place(action_int) and seat == s.current_player_index:
-            if not self._try_begin_rl_place(seat, place_slot(action_int)):
-                raise ValueError(f"PLACE hand slot {place_slot(action_int)} failed")
-        else:
-            self._state = self._game.apply_action(s, action_int)
-        if self.state.combat_round > prev_combat_round:
-            for i in range(NUM_PLAYERS):
-                delta = prev_hp[i] - self.state.players[i].health
-                self._last_battle_signed[i] = float(delta) / float(STARTING_HEALTH)
-        newly = tuple(
-            snap.seat
-            for snap in self.state.eliminated
-            if snap.seat not in eliminated_before
-        )
-        placements: Dict[int, int] = {}
-        for el in newly:
-            if el in self._training_seats:
-                placements[el] = placement_for_seat(self.state, el)
-        info = LobbyStepInfo(
-            acting_seat=seat,
-            eliminated_seats=newly,
-            lobby_done=self.state.done,
-            placements=placements,
-        )
-        if self._replay_sink is not None and (self._replay_record_auto or not auto):
-            from .replay import lobby_step_info_to_replay_info
-
-            self._replay_frame += 1
-            self._replay_sink.frame(
-                episode=self._replay_episode,
-                frame=self._replay_frame,
-                seat=seat,
-                action=action_int,
-                auto=auto,
-                illegal=False,
-                state=self.state,
-                info=lobby_step_info_to_replay_info(
-                    info,
-                    combat_advanced=self.state.combat_round > prev_combat_round,
-                ),
-            )
-        return info
+        return self._apply_seat_step(seat, flat_action=int(action), auto=auto)
 
     def step_auto(
         self, seat: Optional[int] = None, *, deterministic: bool = False

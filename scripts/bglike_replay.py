@@ -25,7 +25,7 @@ def _build_env(
     *,
     seed: int,
     bot: str,
-    record_auto: bool,
+    record_seats: frozenset[int] | None,
     replay_path: Path,
     replay_meta: dict,
     agent_by_seat: dict | None = None,
@@ -47,7 +47,7 @@ def _build_env(
         env,
         replay_path,
         {"bot": bot, "seed": seed, **replay_meta},
-        record_auto=record_auto,
+        record_seats=record_seats,
     )
     if bot != "random" and agent_by_seat is None:
         bridge = ReplayHeuristicEnvBridge(env)
@@ -63,7 +63,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
     env = _build_env(
         seed=args.seed,
         bot=args.bot,
-        record_auto=not args.no_auto,
+        record_seats=None if not args.no_shop_frames else frozenset(),
         replay_path=out,
         replay_meta={"episodes": args.episodes},
     )
@@ -125,7 +125,7 @@ def cmd_checkpoints(args: argparse.Namespace) -> None:
         env = _build_env(
             seed=args.seed + i,
             bot=args.opponent if args.mode != "self_play" else "checkpoint",
-            record_auto=not args.no_auto,
+            record_seats=None if not args.no_shop_frames else frozenset(),
             replay_path=jpath,
             replay_meta=meta,
             agent_by_seat=agents,
@@ -160,9 +160,9 @@ def main() -> None:
         help="Heuristic bot name for all seats, or 'random'",
     )
     gen.add_argument(
-        "--no-auto",
+        "--no-shop-frames",
         action="store_true",
-        help="Do not record step_auto frames (still runs them)",
+        help="Skip shop-action frames (combat/elimination/lobby end still recorded)",
     )
     gen.add_argument("--deterministic", action="store_true", default=True)
     gen.add_argument("--render-txt", type=Path, default=None, help="Also write .txt render")
@@ -197,7 +197,7 @@ def main() -> None:
         help="self_play: same checkpoint on all 8 seats; vs_heuristic: seat0=ckpt, rest=bot",
     )
     ck.add_argument("--opponent", type=str, default="structured")
-    ck.add_argument("--no-auto", action="store_true")
+    ck.add_argument("--no-shop-frames", action="store_true")
     ck.set_defaults(func=cmd_checkpoints)
 
     args = ap.parse_args()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
+from src.envs.bglike.action_map import struct_action_to_log_int
 from src.envs.minibg.structured_actions import StructAction, StructActionType
 
 if TYPE_CHECKING:
@@ -70,21 +71,6 @@ def describe_seat_controller(
             parts.append(f"slot=FROZEN#{slot_id}")
     parts.append(f"id={id(agent)}")
     return "/".join(parts)
-
-
-def struct_action_to_log_int(action: StructAction) -> int:
-    """Best-effort flat env action id for replay/logging after a structured step."""
-    from src.envs.bglike.action_map import A_APPLY_EFFECT_SKIP
-    from src.envs.bglike.actions import Action as GameAction
-    from src.envs.bglike.lobby_env import BGLobbyEnv
-
-    if action.type == StructActionType.COMPLETE_TURN:
-        return int(GameAction.FINISH)
-    if action.type == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
-        return int(GameAction.FINISH_FREEZE_SHOP)
-    if action.type == StructActionType.APPLY_EFFECT_SKIP:
-        return int(A_APPLY_EFFECT_SKIP)
-    return BGLobbyEnv._struct_action_to_game_action(action)
 
 
 def lobby_seat_step(
@@ -167,6 +153,5 @@ __all__ = [
     "control_path_for_agent",
     "describe_seat_controller",
     "lobby_seat_step",
-    "struct_action_to_log_int",
     "supports_structured_lobby_control",
 ]
