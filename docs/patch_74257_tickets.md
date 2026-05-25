@@ -19,7 +19,7 @@
 **Pool:** `pool_ids=127` (`isBaconPoolMinion`), из них **77** `BGS_*` native.  
 **Obs:** `SHOP_ROTATION_OBS_DIM=8`, `RACE_ONEHOT_DIM=9`, `SLOT_DIM=70`; bglike `OBS_DIM=1661`, minibg `OBS_DIM=1801` (из `obs.py`, не yaml). Старые ckpt несовместимы.
 
-**Тесты:** `tests/test_patch_74257.py` (58 tests), `tests/test_patch_obs_net.py` (36393 + 74257 layout). Полный suite: **495 passed** (после fix `recruitment_triples` shadowing в `PlayerTurnEngine.apply`).
+**Тесты:** `tests/test_patch_74257.py` (70 tests), `tests/test_patch_obs_net.py` (36393 + 74257 layout). Полный suite: **507 passed** (после fix `recruitment_triples` shadowing в `PlayerTurnEngine.apply`).
 
 **P0 (вне тикетов, 2026-05-23):** локальный `from … import triples as recruitment_triples` внутри `apply()` затенял модульный импорт → `NameError` на BUY/SELL lambdas; исправлено удалением локального import.
 
@@ -733,6 +733,7 @@ D0 → P0-01..05 → P1-* (shop) + P2-* (combat) → B0 → B1 → RL
 
 ## Ссылки
 
+- [patch_74257_retail_normal_fixes.md](./patch_74257_retail_normal_fixes.md) — backlog: retail fidelity normal minions (catalog ↔ engine)  
 - [patch_package.md](./patch_package.md) — формат catalog / meta / bindings  
 - Эталон: `data/bgcore/15_6_2_36393/`  
 - Coverage: `scripts/check_patch_coverage.py`  

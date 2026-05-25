@@ -200,7 +200,7 @@ def test_should_continue_training_respects_episode_and_step_caps():
 
 
 def test_agent_perspective_env_terminal_reward_is_agent_centric():
-    base = MiniBGEnv(seed=0)
+    base = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     sampler = RandomOpponentSampler(seed=2)
     env = AgentPerspectiveEnv(base, sampler, agent_first_probability=0.5)
     trainer = Trainer(env, RandomAgent(seed=1), opponent_sampler=sampler)

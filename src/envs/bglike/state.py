@@ -8,7 +8,6 @@ from typing import Optional, Tuple
 from src.bg_core.minion import Race
 from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot
 from src.bg_lobby.player import (
-    CNT_ACTIVE_SHOP_TRIBES,
     CasterKind,
     CasterRef,
     Minion,
@@ -16,7 +15,6 @@ from src.bg_lobby.player import (
     PendingChoiceKind,
     PlayerPhase,
     PlayerState,
-    ROTATION_SHOP_TRIBES,
 )
 from src.bg_lobby.shared_pool import SharedCardPool
 
@@ -29,8 +27,6 @@ __all__ = [
     "PlayerState",
     "PlayerPhase",
     "Race",
-    "ROTATION_SHOP_TRIBES",
-    "CNT_ACTIVE_SHOP_TRIBES",
     "PendingChoice",
     "PendingChoiceKind",
     "CasterKind",

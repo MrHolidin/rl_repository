@@ -21,7 +21,7 @@ from src.agents.random_agent import RandomAgent
 def test_legal_mask_includes_swap_when_board_has_two_minions():
     agent = RandomAgent(seed=1)
     configs = lobby_from_learned_seats((0,), agent_by_seat={0: agent}, seed=3)
-    lobby = BGLobbyEnv(configs, learned_seats=(0,), seed=3)
+    lobby = BGLobbyEnv(configs, learned_seats=(0,), patch_dir="data/bgcore/15_6_2_36393", seed=3)
     lobby.reset(seed=10)
     seat = 0
     while lobby.current_seat() != seat:
@@ -38,7 +38,7 @@ def test_legal_mask_includes_swap_when_board_has_two_minions():
 def test_swap_adjacent_does_not_end_shop_turn():
     agent = RandomAgent(seed=2)
     configs = lobby_from_learned_seats((0,), agent_by_seat={0: agent}, seed=4)
-    lobby = BGLobbyEnv(configs, learned_seats=(0,), seed=4)
+    lobby = BGLobbyEnv(configs, learned_seats=(0,), patch_dir="data/bgcore/15_6_2_36393", seed=4)
     lobby.reset(seed=11)
     seat = 0
     while lobby.current_seat() != seat:
@@ -96,7 +96,7 @@ def test_heuristic_bots_never_pick_swap():
     from src.envs.bglike.lobby_env import make_bglike_training_env
     from src.agents.random_agent import RandomAgent
 
-    env = make_bglike_training_env(current_seats=(0,), seed=7)
+    env = make_bglike_training_env(current_seats=(0,), seed=7, patch_dir="data/bgcore/15_6_2_36393")
     learner = RandomAgent(seed=1)
     env.set_agents(learner, {s: make_heuristic_agent("structured", seed=2) for s in range(1, 8)})
     env.reset(seed=11)

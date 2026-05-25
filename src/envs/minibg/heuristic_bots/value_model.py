@@ -11,6 +11,9 @@ from src.bg_core.effects import (
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
+    BuffAdjacentBattlecry,
+    BuffAllOtherOfTribe,
+    BuffTargetFriendlyBattlecry,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     HeroImmuneAura,
@@ -146,6 +149,13 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
                 add += 6.5 * float(eff.repeats)
             elif isinstance(eff, AdaptAllMurlocsEffect):
                 add += 9.0 * float(eff.repeats)
+            elif isinstance(eff, BuffAdjacentBattlecry):
+                add += (eff.attack + eff.health) * 2.5 + (1.5 if eff.grant_taunt else 0.0)
+            elif isinstance(eff, BuffTargetFriendlyBattlecry):
+                race_discount = 0.75 if eff.filter_race is not None else 1.0
+                add += (eff.attack + eff.health) * 1.6 * race_discount
+            elif isinstance(eff, BuffAllOtherOfTribe):
+                add += (eff.attack + eff.health) * 2.0
             else:
                 add += 2.2
         elif tr == Trigger.AURA:
@@ -175,6 +185,27 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
             add += 1.6 * float(min(rounds_left, 10))
         elif tr == Trigger.AFTER_FRIENDLY_MINION_PLACED:
             add += 3.2
+        elif tr == Trigger.ON_FRIENDLY_MINION_SUMMONED:
+            add += 3.5
+        elif tr == Trigger.ON_OVERKILL:
+            add += 3.0
+        elif tr == Trigger.ON_SELL:
+            add += 2.5
+        elif tr == Trigger.ON_FRIENDLY_BOUGHT:
+            add += 3.0
+        elif tr in (
+            Trigger.ON_AFTER_ATTACK,
+            Trigger.ON_FRIENDLY_ATTACK,
+            Trigger.ON_FRIENDLY_KILL,
+            Trigger.ON_FRIENDLY_MINION_DIED,
+            Trigger.ON_SURVIVED_ATTACK,
+            Trigger.ON_WHEN_ATTACKED,
+            Trigger.ON_FRIENDLY_WHEN_ATTACKED,
+            Trigger.ON_FRIENDLY_SHIELD_LOST,
+            Trigger.ON_SELF_DAMAGED,
+            Trigger.ON_START_OF_COMBAT,
+        ):
+            add += 2.0
     return add
 
 
@@ -199,8 +230,12 @@ def minion_shop_value(
         v += 3.0
     if Keyword.POISONOUS in m.all_keywords:
         v += 3.8
-    if Keyword.WINDFURY in m.all_keywords:
+    if Keyword.MEGA_WINDFURY in m.all_keywords:
+        v += min(atk * 1.1, 9.0)
+    elif Keyword.WINDFURY in m.all_keywords:
         v += min(atk * 0.55, 5.0)
+    if Keyword.REBORN in m.all_keywords:
+        v += atk * 0.45 + 1.5
     if Keyword.CHARGE in m.all_keywords:
         v += 1.5
     if m.race is not None and dominant is not None and m.race == dominant:

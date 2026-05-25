@@ -12,7 +12,7 @@ from src.training.opponent_sampler import RandomOpponentSampler
 
 
 def test_heuristic_bot_legal_action_in_lobby():
-    env = make_bglike_training_env(current_seats=(0,), seed=7)
+    env = make_bglike_training_env(current_seats=(0,), seed=7, patch_dir="data/bgcore/15_6_2_36393")
     learner = RandomAgent(seed=1)
     bot_agent = make_heuristic_agent("structured", seed=2)
     env.set_agents(learner, {s: bot_agent for s in range(1, 8)})
@@ -46,7 +46,7 @@ def test_pool_scripted_bglike_bot_names():
 
 def test_heuristic_drain_seat_not_learner_acting_seat():
     """Opponent step_auto must not read the learner's acting_seat for mask/player."""
-    env = make_bglike_training_env(current_seats=(0,), seed=7)
+    env = make_bglike_training_env(current_seats=(0,), seed=7, patch_dir="data/bgcore/15_6_2_36393")
     learner = RandomAgent(seed=1)
     bot_agent = make_heuristic_agent("structured", seed=2)
     env.set_agents(learner, {s: bot_agent for s in range(1, 8)})
@@ -97,6 +97,7 @@ def test_agent_perspective_with_heuristic_opponent():
     env = make_bglike_agent_perspective_env(
         OpponentPoolSampler(opponent_pool=pool),
         seed=5,
+        patch_dir="data/bgcore/15_6_2_36393",
     )
     env.set_learner_agent(learner)
     obs = env.reset()

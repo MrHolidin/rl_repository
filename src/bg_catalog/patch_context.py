@@ -24,7 +24,6 @@ from src.bg_core.effects import Ability
 from src.bg_core.minion import Minion, Race
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PATCH_DIR = _REPO_ROOT / "data" / "bgcore" / "15_6_2_36393"
 
 
 @dataclass(frozen=True)
@@ -81,14 +80,18 @@ class PatchContext:
         return fresh
 
     def triple_merge_golden_abilities(self, normal_card_id: str) -> Tuple[Ability, ...]:
-        return resolve_triple_forged_abilities(normal_card_id, self.effects)
+        return resolve_triple_forged_abilities(
+            normal_card_id,
+            self.effects,
+            catalog_path=self.patch_dir / "catalog.json",
+        )
 
     def describe(self, card_id: str) -> PatchCardDescription:
         return self.descriptions[card_id]
 
     @classmethod
-    def load(cls, patch_dir: Optional[Path] = None) -> PatchContext:
-        root = (patch_dir or DEFAULT_PATCH_DIR).resolve()
+    def load(cls, patch_dir: Path) -> PatchContext:
+        root = patch_dir.resolve()
         catalog_path = root / "catalog.json"
         meta_path = root / "meta.json"
         bindings_path = root / "bindings.py"
@@ -310,16 +313,9 @@ def _build_card_index(
     return ids, table
 
 
-@lru_cache(maxsize=4)
-def load_patch_context(patch_dir: Optional[str] = None) -> PatchContext:
-    path = Path(patch_dir).resolve() if patch_dir is not None else DEFAULT_PATCH_DIR
-    return PatchContext.load(path)
-
-
-@lru_cache(maxsize=1)
-def default_patch_context() -> PatchContext:
-    """Pinned 36393 context for tests only — do not use as a runtime fallback."""
-    return PatchContext.load(DEFAULT_PATCH_DIR)
+@lru_cache(maxsize=8)
+def load_patch_context(patch_dir: str) -> PatchContext:
+    return PatchContext.load(Path(patch_dir).resolve())
 
 
 def require_patch(patch: Optional[PatchContext], *, where: str) -> PatchContext:
@@ -329,11 +325,9 @@ def require_patch(patch: Optional[PatchContext], *, where: str) -> PatchContext:
 
 
 __all__ = [
-    "DEFAULT_PATCH_DIR",
     "PatchCardDescription",
     "PatchContext",
     "PatchMeta",
-    "default_patch_context",
     "load_patch_context",
     "require_patch",
 ]

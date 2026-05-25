@@ -105,7 +105,7 @@ def test_bglike_structured_legal_has_no_swap():
     from src.envs.bglike.lobby_env import make_bglike_training_env
     from src.agents import RandomAgent
 
-    env = make_bglike_training_env(current_seats=(0,), seed=1)
+    env = make_bglike_training_env(current_seats=(0,), seed=1, patch_dir="data/bgcore/15_6_2_36393")
     opponents = {i: RandomAgent(seed=i + 1) for i in range(1, 8)}
     env.set_agents(RandomAgent(seed=0), opponents)
     env.reset(seed=1)

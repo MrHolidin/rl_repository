@@ -21,13 +21,21 @@ def apply_transform_into_shop_minion(
     shop_slot: int,
     *,
     patch: PatchContext,
+    copy_golden: bool = False,
 ) -> None:
     if not (0 <= board_idx < len(player.board)):
         raise ValueError(f"invalid transform board index: {board_idx}")
     offer = player.shop[shop_slot]
     if offer is None:
         raise ValueError(f"empty shop slot for transform: {shop_slot}")
-    player.board[board_idx] = make_minion(offer.card_id, patch=patch)
+    if copy_golden:
+        from src.bg_recruitment.triples import make_forged_golden_minion
+
+        player.board[board_idx] = make_forged_golden_minion(
+            offer.card_id, patch=patch
+        )
+    else:
+        player.board[board_idx] = make_minion(offer.card_id, patch=patch)
 
 
 def try_open_transform_shop_modal(
@@ -36,6 +44,7 @@ def try_open_transform_shop_modal(
     *,
     patch: PatchContext,
     rng: np.random.Generator,
+    copy_golden: bool = False,
 ) -> bool:
     """Apply transform or open a shop-slot modal. Returns True if modal opened."""
     slots = filled_shop_slot_indices(player)
@@ -43,7 +52,7 @@ def try_open_transform_shop_modal(
         return False
     if len(slots) == 1:
         apply_transform_into_shop_minion(
-            player, board_idx, slots[0], patch=patch
+            player, board_idx, slots[0], patch=patch, copy_golden=copy_golden
         )
         return False
     opts: list[str] = ["", "", ""]
@@ -72,7 +81,19 @@ def resolve_transform_shop_pick(
     assert pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION
     assert pc.transform_board_idx is not None
     board_idx = pc.transform_board_idx
-    apply_transform_into_shop_minion(player, board_idx, shop_slot, patch=patch)
+    copy_golden = False
+    if 0 <= board_idx < len(player.board):
+        board_minion = player.board[board_idx]
+        if board_minion is not None:
+            from src.bg_core.effects import TransformIntoShopMinionEffect
+
+            for ab in board_minion.abilities:
+                if isinstance(ab.effect, TransformIntoShopMinionEffect):
+                    copy_golden = ab.effect.copy_golden
+                    break
+    apply_transform_into_shop_minion(
+        player, board_idx, shop_slot, patch=patch, copy_golden=copy_golden
+    )
     player.pending_choice = None
     if on_after_placed is not None and 0 <= board_idx < len(player.board):
         on_after_placed(player, player.board[board_idx])

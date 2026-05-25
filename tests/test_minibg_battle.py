@@ -3,6 +3,7 @@ import numpy as np
 from tests.minibg_helpers import PATCH_CTX, make_minion, simulate_battle
 from src.bg_combat.battle import (
     _decide_first_side,
+    _next_attacker,
     _pick_target,
     attack_with_auras,
     build_battle_side,
@@ -79,6 +80,34 @@ def test_decide_first_side_initiative_breaks_tie():
     s2 = build_battle_side(_board("recruit"), patch=PATCH_CTX)
     assert _decide_first_side(s, s2, p0_has_initiative=True) == 0
     assert _decide_first_side(s, s2, p0_has_initiative=False) == 1
+
+
+def test_next_attacker_skips_zero_attack_minions():
+    from copy import copy
+
+    pacifist = copy(make_minion("toy_mech"))
+    pacifist.base_attack = 0
+    pacifist.base_health = 3
+    hitter = copy(make_minion("toy_mech"))
+    hitter.base_health = 3
+    side = build_battle_side([pacifist, hitter], patch=PATCH_CTX)
+    enemy = build_battle_side(_board("recruit"), patch=PATCH_CTX)
+
+    attacker = _next_attacker(side, battle_field=(side, enemy))
+    assert attacker is side.minions[1]
+
+
+def test_next_attacker_uses_effective_attack_not_base_attack():
+    from copy import copy
+
+    pacifist = copy(make_minion("recruit"))
+    pacifist.base_attack = 0
+    side = build_battle_side([make_minion("dire_wolf_alpha"), pacifist], patch=PATCH_CTX)
+    enemy = build_battle_side(_board("recruit"), patch=PATCH_CTX)
+    side.cursor = 1
+
+    attacker = _next_attacker(side, battle_field=(side, enemy))
+    assert attacker is side.minions[1]
 
 
 def test_shield_blocks_first_hit_and_breaks():
@@ -163,6 +192,46 @@ def test_simultaneous_kill_results_in_draw():
     p1 = _board("recruit")
     dmg_p0, dmg_p1 = simulate_battle(p0, p1, p0_has_initiative=True, rng=_rng())
     assert dmg_p0 == 0 and dmg_p1 == 0
+
+
+def test_zero_attack_side_loses_when_other_side_can_attack():
+    from copy import copy
+
+    pacifist = copy(make_minion("recruit"))
+    pacifist.base_attack = 0
+    pacifist.base_health = 3
+
+    dmg_p0, dmg_p1 = simulate_battle(
+        [pacifist],
+        _board("recruit"),
+        p0_has_initiative=True,
+        rng=_rng(),
+    )
+    assert dmg_p0 == 2
+    assert dmg_p1 == 0
+
+
+def test_draw_when_neither_side_has_positive_attackers():
+    from copy import copy
+
+    p0 = copy(make_minion("recruit"))
+    p1 = copy(make_minion("recruit"))
+    p0.base_attack = 0
+    p1.base_attack = 0
+    surv0: list[str] = []
+    surv1: list[str] = []
+
+    dmg_p0, dmg_p1 = simulate_battle(
+        [p0],
+        [p1],
+        p0_has_initiative=True,
+        rng=_rng(),
+        p0_survivors_out=surv0,
+        p1_survivors_out=surv1,
+    )
+    assert (dmg_p0, dmg_p1) == (0, 0)
+    assert surv0 == ["EX1_162"]
+    assert surv1 == ["EX1_162"]
 
 
 def test_death_log_side0_before_side1_on_simultaneous_kill():

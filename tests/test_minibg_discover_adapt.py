@@ -11,7 +11,7 @@ from tests.minibg_helpers import set_acting_player
 
 
 def test_primalfin_blocks_shop_until_discover_pick():
-    g = MiniBGGame(seed=42, shop_full_tribes=True)
+    g = MiniBGGame(seed=42, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     p = s.players[0]
@@ -40,7 +40,7 @@ def test_primalfin_blocks_shop_until_discover_pick():
 
 
 def test_gentle_megasaur_adapt_all_murlocs():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     p = s.players[0]
@@ -60,7 +60,7 @@ def test_gentle_megasaur_adapt_all_murlocs():
 
 
 def test_golden_megasaur_two_adapt_rounds():
-    g = MiniBGGame(seed=1, shop_full_tribes=True)
+    g = MiniBGGame(seed=1, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     p = s.players[0]
@@ -75,7 +75,7 @@ def test_golden_megasaur_two_adapt_rounds():
 
 
 def test_place_primalfin_illegal_if_discover_overflow_hand():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     p = s.players[0]

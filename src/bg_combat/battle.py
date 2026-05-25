@@ -25,9 +25,14 @@ from src.bg_core.effects import (
     AddRandomMinionToHandOnKillEffect,
     BuffSelf,
     BuffSummonedIfRace,
+    BuffDeadMinionNeighborsEffect,
     CleaveOnAttack,
     DealDamageRandomEnemyMinion,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageAllMinions,
     DealExcessDamageToAdjacentEffect,
+    TransferAttackToRandomFriendlyEffect,
+    SummonRandomAndCopyToHandEffect,
     GainGoldOnDeathEffect,
     GrantKeywordRandomFriendly,
     GrantKeywordAllFriendlyOfTribe,
@@ -567,15 +572,72 @@ def _deal_random_enemy_minion_damage(
     if not victims:
         return
     vic = victims[int(rt.rng.integers(0, len(victims)))]
-    if vic.shield_armed and Keyword.SHIELD in vic.template.all_keywords:
-        vic.shield_armed = False
-    else:
-        vic.current_health -= amount
-        if vic.current_health <= 0:
-            vic.current_health = 0
-    _sync_health_all(rt)
-    if not vic.alive:
-        rt.queue.append(MinionDied(enemy_side, vic.instance_id))
+    _deal_damage_to_battle_minion(rt, enemy_side, vic, amount)
+
+
+def _deal_leftmost_enemy_minion_damage(
+    rt: _CombatRuntime, from_side_idx: int, amount: int
+) -> None:
+    if amount <= 0:
+        return
+    enemy_side = 1 - from_side_idx
+    es = rt.side(enemy_side)
+    victims = [m for m in es.minions if m.alive]
+    if not victims:
+        return
+    _deal_damage_to_battle_minion(rt, enemy_side, victims[0], amount)
+
+
+def _deal_damage_all_minions(rt: _CombatRuntime, amount: int) -> None:
+    if amount <= 0:
+        return
+    for side_idx in (0, 1):
+        for m in list(rt.side(side_idx).minions):
+            if m.alive:
+                _deal_damage_to_battle_minion(rt, side_idx, m, amount)
+
+
+def _buff_neighbors_of_dead(
+    rt: _CombatRuntime,
+    side_idx: int,
+    dead: BattleMinion,
+    *,
+    attack: int,
+    health: int,
+) -> None:
+    side = rt.side(side_idx)
+    try:
+        idx = side.minions.index(dead)
+    except ValueError:
+        return
+    for j in (idx - 1, idx + 1):
+        if 0 <= j < len(side.minions):
+            ally = side.minions[j]
+            if not ally.alive:
+                continue
+            ally.template.bonus_attack += attack
+            ally.template.bonus_health += health
+            ally.current_health += health
+
+
+def _queue_combat_hand_add_card(
+    rt: _CombatRuntime, side_idx: int, card_id: str
+) -> None:
+    rt.combat_hand_adds[side_idx].append(card_id)
+
+
+def _summon_attack_immediately_if_requested(
+    rt: _CombatRuntime,
+    bm: Optional[BattleMinion],
+    side_idx: int,
+) -> None:
+    if bm is None or not bm.alive or rt.bonus_attack_depth > 0:
+        return
+    rt.bonus_attack_depth += 1
+    try:
+        _run_attacker_activation(rt, bm, side_idx, 1 - side_idx)
+    finally:
+        rt.bonus_attack_depth -= 1
 
 
 def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
@@ -704,7 +766,12 @@ def _deal_damage_to_battle_minion(
 
 
 def _deal_excess_to_adjacent(
-    rt: _CombatRuntime, victim_side_idx: int, victim_instance_id: int, amount: int
+    rt: _CombatRuntime,
+    victim_side_idx: int,
+    victim_instance_id: int,
+    amount: int,
+    *,
+    both_adjacent: bool = False,
 ) -> None:
     if amount <= 0:
         return
@@ -724,8 +791,12 @@ def _deal_excess_to_adjacent(
                 adj.append(m)
     if not adj:
         return
-    target = adj[int(rt.rng.integers(0, len(adj)))]
-    _deal_damage_to_battle_minion(rt, victim_side_idx, target, amount)
+    if both_adjacent:
+        for target in adj:
+            _deal_damage_to_battle_minion(rt, victim_side_idx, target, amount)
+    else:
+        target = adj[int(rt.rng.integers(0, len(adj)))]
+        _deal_damage_to_battle_minion(rt, victim_side_idx, target, amount)
 
 
 def _fire_friendly_minion_died_listeners(
@@ -742,13 +813,25 @@ def _fire_friendly_minion_died_listeners(
                 dead.template, ab.filter_race
             ):
                 continue
+            if ab.filter_victim_keyword is not None:
+                if ab.filter_victim_keyword not in dead.template.all_keywords:
+                    continue
             eff = ab.effect
             if isinstance(eff, BuffSelf):
                 listener.template.bonus_attack += eff.attack
                 listener.template.bonus_health += eff.health
                 listener.current_health += eff.health
             elif isinstance(eff, DealDamageRandomEnemyMinion):
-                _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
+                for _ in range(max(1, eff.repeats)):
+                    _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
+            elif isinstance(eff, BuffDeadMinionNeighborsEffect):
+                _buff_neighbors_of_dead(
+                    rt,
+                    side_idx,
+                    dead,
+                    attack=eff.attack,
+                    health=eff.health,
+                )
     _sync_health_all(rt)
 
 
@@ -795,7 +878,8 @@ def _fire_after_attack(
             attacker.template.bonus_attack += cur * max(0, eff.factor - 1)
         elif isinstance(eff, AddRandomMinionToHandOnKillEffect):
             if rt.attacker_killed_this_swing:
-                _queue_random_combat_hand_add(rt, side_idx, eff.tribe)
+                for _ in range(max(1, eff.count)):
+                    _queue_random_combat_hand_add(rt, side_idx, eff.tribe)
     _sync_health_all(rt)
 
 
@@ -958,7 +1042,12 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                         for _wave in range(wave_cap):
                             for __ in range(base):
                                 tok = make_minion(effect.token_id, patch=rt.patch)
-                                if _summon_append(rt, target_side, tok) is None:
+                                bm = _summon_append(rt, target_side, tok)
+                                if effect.attack_immediately:
+                                    _summon_attack_immediately_if_requested(
+                                        rt, bm, target_side
+                                    )
+                                if bm is None:
                                     break
             elif isinstance(effect, SummonRandomMinionEffect):
                 race_hs = hs_race_string(effect.race_filter)
@@ -988,6 +1077,63 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                 while rep_dr < _deathrattle_multiplier(side):
                     rep_dr += 1
                     _deal_random_enemy_minion_damage(rt, side_idx, effect.amount)
+            elif isinstance(effect, DealDamageLeftmostEnemyMinion):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    _deal_leftmost_enemy_minion_damage(rt, side_idx, effect.amount)
+            elif isinstance(effect, DealDamageAllMinions):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    _deal_damage_all_minions(rt, effect.amount)
+            elif isinstance(effect, TransferAttackToRandomFriendlyEffect):
+                rep_dr = 0
+                while rep_dr < _deathrattle_multiplier(side):
+                    rep_dr += 1
+                    bf = (rt.side(0), rt.side(1))
+                    atk = attack_value(
+                        dead,
+                        side,
+                        death_resolution=False,
+                        battle_field=bf,
+                    )
+                    if atk <= 0:
+                        continue
+                    pool = [
+                        m
+                        for m in side.minions
+                        if m.alive and (not effect.exclude_self or m is not dead)
+                    ]
+                    if not pool:
+                        continue
+                    tgt = pool[int(rt.rng.integers(0, len(pool)))]
+                    tgt.template.bonus_attack += atk
+                _sync_health_all(rt)
+            elif isinstance(effect, SummonRandomAndCopyToHandEffect):
+                race_hs = hs_race_string(effect.race_filter)
+                pool = summon_pool_for(
+                    None,
+                    False,
+                    False,
+                    race_hs,
+                    dead.template.card_id if effect.exclude_source else None,
+                    patch=rt.patch,
+                )
+                if not pool:
+                    continue
+                target_side = side_idx
+                rep = 0
+                while rep < _deathrattle_multiplier(side):
+                    rep += 1
+                    n_sum = _summon_multiplier(side)
+                    for _ in range(n_sum):
+                        for __ in range(effect.count):
+                            cid = pool[int(rt.rng.integers(0, len(pool)))]
+                            tok = make_minion(cid, patch=rt.patch)
+                            if _summon_append(rt, target_side, tok) is None:
+                                break
+                            _queue_combat_hand_add_card(rt, side_idx, cid)
             elif isinstance(effect, BuffAllFriendlyMinions):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
@@ -1127,13 +1273,17 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
                     if _summon_append(rt, e.attacker_side_idx, tok) is None:
                         return
         elif isinstance(eff, DealDamageRandomEnemyMinion):
-            _deal_random_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)
+            for _ in range(max(1, eff.repeats)):
+                _deal_random_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)
+        elif isinstance(eff, DealDamageLeftmostEnemyMinion):
+            _deal_leftmost_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)
         elif isinstance(eff, DealExcessDamageToAdjacentEffect):
             _deal_excess_to_adjacent(
                 rt,
                 e.victim_side_idx,
                 e.victim_instance_id,
                 e.excess_damage,
+                both_adjacent=eff.both_adjacent,
             )
         elif isinstance(eff, BuffAllOtherOfTribe):
             side = rt.side(e.attacker_side_idx)
@@ -1303,30 +1453,73 @@ def _run_attacker_activation(
     defender_side_idx: int,
 ) -> None:
     """Resolve one board position's attack: Windfury may chain two swings before side swap."""
-    n_swings = 2 if Keyword.WINDFURY in attacker.template.all_keywords else 1
+    attacker_side = rt.side(attacker_side_idx)
+    battle_field = (rt.side(0), rt.side(1))
+    if not _can_attack(attacker, attacker_side, battle_field=battle_field):
+        return
+    kws = attacker.template.all_keywords
+    if Keyword.MEGA_WINDFURY in kws:
+        n_swings = 4
+    elif Keyword.WINDFURY in kws:
+        n_swings = 2
+    else:
+        n_swings = 1
     defender_side = rt.side(defender_side_idx)
     for _ in range(n_swings):
-        if not attacker.alive or not defender_side.has_alive():
+        if (
+            not _can_attack(attacker, attacker_side, battle_field=battle_field)
+            or not defender_side.has_alive()
+        ):
             break
         tgt = _pick_target(
             defender_side,
             rt.rng,
             attacker,
-            battle_field=(rt.side(0), rt.side(1)),
+            battle_field=battle_field,
         )
         if tgt is None:
             break
         _run_single_swing(rt, attacker, tgt, attacker_side_idx, defender_side_idx)
 
 
-def _next_attacker(side: BattleSide) -> Optional[BattleMinion]:
+def _can_attack(
+    minion: BattleMinion,
+    side: BattleSide,
+    *,
+    battle_field: Tuple[BattleSide, BattleSide],
+) -> bool:
+    return (
+        minion.alive
+        and attack_value(
+            minion,
+            side,
+            death_resolution=False,
+            battle_field=battle_field,
+        )
+        > 0
+    )
+
+
+def _side_has_attackers(
+    side: BattleSide,
+    *,
+    battle_field: Tuple[BattleSide, BattleSide],
+) -> bool:
+    return any(_can_attack(m, side, battle_field=battle_field) for m in side.minions)
+
+
+def _next_attacker(
+    side: BattleSide,
+    *,
+    battle_field: Tuple[BattleSide, BattleSide],
+) -> Optional[BattleMinion]:
     n = len(side.minions)
     if n == 0:
         return None
     start = side.cursor % n
     for offset in range(n):
         idx = (start + offset) % n
-        if side.minions[idx].alive:
+        if _can_attack(side.minions[idx], side, battle_field=battle_field):
             side.cursor = (idx + 1) % n
             return side.minions[idx]
     return None
@@ -1474,10 +1667,21 @@ def simulate_battle(
     while side0.has_alive() and side1.has_alive() and attacks < max_attacks:
         attacker_side = sides[attacker_idx]
         defender_side = sides[1 - attacker_idx]
+        attacker_can_attack = _side_has_attackers(attacker_side, battle_field=sides)
+        defender_can_attack = _side_has_attackers(defender_side, battle_field=sides)
 
-        attacker = _next_attacker(attacker_side)
+        if not attacker_can_attack:
+            if not defender_can_attack:
+                break
+            attacker_idx = 1 - attacker_idx
+            continue
+
+        attacker = _next_attacker(attacker_side, battle_field=sides)
         if attacker is None:
-            break
+            if not defender_can_attack:
+                break
+            attacker_idx = 1 - attacker_idx
+            continue
 
         if not defender_side.has_alive():
             break

@@ -9,7 +9,7 @@ from src.envs.minibg.state import MiniBGState, PendingChoiceKind, PlayerPhase, P
 
 def test_discover_pending_stays_legal_when_triple_would_fill_hand():
     """Place discover murloc with 3 recruits on board: triple must not run before discover pick."""
-    g = MiniBGGame(seed=3)
+    g = MiniBGGame(seed=3, patch_dir="data/bgcore/15_6_2_36393")
     triggers = g._shop_triggers
     rec = make_minion("recruit")
     disc = make_minion("BGS_020")

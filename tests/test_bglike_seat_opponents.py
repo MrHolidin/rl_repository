@@ -36,6 +36,7 @@ def test_make_bglike_reset_samples_opponents_per_seat():
         sampler,
         num_current_seats=4,
         seed=7,
+        patch_dir="data/bgcore/15_6_2_36393",
     )
     env.set_learner_agent(RandomAgent(seed=1))
     env.reset()

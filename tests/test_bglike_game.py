@@ -24,7 +24,7 @@ def _finish_one_shop_round(game: BGLikeGame, state):
 
 
 def test_initial_eight_players_hand_ten_shared_pool():
-    game = BGLikeGame(seed=1)
+    game = BGLikeGame(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     s = game.initial_state()
     assert len(s.players) == NUM_PLAYERS == 8
     assert len(s.alive) == 8
@@ -37,7 +37,7 @@ def test_initial_eight_players_hand_ten_shared_pool():
 
 
 def test_pool_reserved_for_initial_shops():
-    game = BGLikeGame(seed=2)
+    game = BGLikeGame(seed=2, patch_dir="data/bgcore/15_6_2_36393")
     s = game.initial_state()
     pool = s.shared_pool
     assert pool is not None
@@ -46,7 +46,7 @@ def test_pool_reserved_for_initial_shops():
 
 
 def test_full_shop_cycle_triggers_combat_pairings():
-    game = BGLikeGame(seed=3)
+    game = BGLikeGame(seed=3, patch_dir="data/bgcore/15_6_2_36393")
     s = game.initial_state()
     assert s.round_number == 1
     assert s.combat_round == 0
@@ -60,7 +60,7 @@ def test_full_shop_cycle_triggers_combat_pairings():
 
 
 def test_second_combat_round_advances_rr_cycle():
-    game = BGLikeGame(seed=4)
+    game = BGLikeGame(seed=4, patch_dir="data/bgcore/15_6_2_36393")
     s = game.initial_state()
     s = _finish_one_shop_round(game, s)
     first_pairs = {(m.a, m.b) for m in s.pairings if m.b is not None}
@@ -71,7 +71,7 @@ def test_second_combat_round_advances_rr_cycle():
 
 
 def test_current_player_is_seat_index():
-    game = BGLikeGame(seed=5)
+    game = BGLikeGame(seed=5, patch_dir="data/bgcore/15_6_2_36393")
     s = game.initial_state()
     assert game.current_player(s) == s.current_player_index
     assert 0 <= game.current_player(s) < NUM_PLAYERS

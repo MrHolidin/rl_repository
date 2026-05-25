@@ -29,6 +29,7 @@ from .actions import (
     MAX_SHOP_SLOTS,
     MAX_TIER,
     NUM_PLAYERS,
+    ROLL_COST,
     STARTING_HEALTH,
     gold_for_round,
 )
@@ -42,8 +43,13 @@ PRESENCE_OFFSET = minibg_obs.PRESENCE_OFFSET
 SLOT_DIM = minibg_obs.SLOT_DIM
 HAND_LEN = HAND_SIZE
 
+# bglike has 3 extra economy globals not in minibg: effective roll cost,
+# free roll charges, and elemental shop bonus.
+BGLIKE_GLOBAL_CORE_DIM = minibg_obs.GLOBAL_CORE_DIM + 3  # 11 + 3 = 14
+BGLIKE_GLOBAL_DIM = BGLIKE_GLOBAL_CORE_DIM + minibg_obs.SHOP_ROTATION_OBS_DIM  # 22
+
 OBS_DIM = (
-    GLOBAL_DIM
+    BGLIKE_GLOBAL_DIM
     + BOARD_SIZE * SLOT_DIM
     + MAX_SHOP_SLOTS * SLOT_DIM
     + HAND_LEN * SLOT_DIM
@@ -135,11 +141,13 @@ def _encode_shop(
             continue
         nh = _count_non_golden_same_card_hand(player, m.card_id)
         nb = _count_non_golden_same_card_board(player, m.card_id)
+        frozen = bool(player.shop_frozen[i]) if i < len(player.shop_frozen) else False
         out[i] = encode_minion(
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
             card_id_to_dense=card_id_to_dense,
+            is_frozen=frozen,
         )
     return out
 
@@ -168,6 +176,9 @@ def build_observation(
         0.0 if me.tavern_tier >= MAX_TIER else float(me.next_tier_up_cost)
     )
 
+    effective_roll_cost = float(
+        me.next_roll_cost_override if me.next_roll_cost_override is not None else ROLL_COST
+    )
     globals_core = np.array(
         [
             state.round_number / MAX_ROUNDS,
@@ -181,6 +192,10 @@ def build_observation(
             i_have_round_initiative(state, seat),
             tier_up_cost / LEVEL_UP_COST_MAX,
             1.0 if is_my_turn else 0.0,
+            # patch-74257 economy globals
+            effective_roll_cost / float(ROLL_COST),
+            min(float(me.free_roll_charges), 5.0) / 5.0,
+            float(me.shop_elemental_bonus) / 4.0,
         ],
         dtype=np.float32,
     )
@@ -223,6 +238,8 @@ def build_observation(
 
 
 __all__ = [
+    "BGLIKE_GLOBAL_CORE_DIM",
+    "BGLIKE_GLOBAL_DIM",
     "BOARD_SIZE",
     "HAND_LEN",
     "OBS_DIM",

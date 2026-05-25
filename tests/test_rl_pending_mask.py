@@ -22,7 +22,7 @@ def _open_pending(env: MiniBGEnv) -> None:
 
 
 def test_rl_pending_mask_excludes_shop_actions():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset(seed=0)
     _open_pending(env)
     mask = env.legal_actions_mask
@@ -32,7 +32,7 @@ def test_rl_pending_mask_excludes_shop_actions():
 
 
 def test_buy_during_rl_pending_raises():
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     env.reset(seed=1)
     _open_pending(env)
     with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):

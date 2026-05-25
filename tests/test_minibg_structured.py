@@ -54,8 +54,8 @@ def test_validate_board_perm_ok():
 
 
 def test_structured_shop_moves_match_int_steps():
-    env_s = MiniBGEnv(seed=9)
-    env_i = MiniBGEnv(seed=9)
+    env_s = MiniBGEnv(seed=9, patch_dir="data/bgcore/15_6_2_36393")
+    env_i = MiniBGEnv(seed=9, patch_dir="data/bgcore/15_6_2_36393")
     env_s.reset()
     env_i.reset()
     for _ in range(3):
@@ -78,7 +78,7 @@ def test_structured_shop_moves_match_int_steps():
 
 
 def test_structured_illegal_complete_turn_without_perm():
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     legal = env.legal_structured_actions()
     assert any(a.type == StructActionType.COMPLETE_TURN for a in legal)
@@ -88,8 +88,8 @@ def test_structured_illegal_complete_turn_without_perm():
 
 def test_structured_complete_turn_matches_finish():
     """Structured COMPLETE_TURN with perm matches a single shop FINISH for k=0."""
-    env_s = MiniBGEnv(seed=42)
-    env_i = MiniBGEnv(seed=42)
+    env_s = MiniBGEnv(seed=42, patch_dir="data/bgcore/15_6_2_36393")
+    env_i = MiniBGEnv(seed=42, patch_dir="data/bgcore/15_6_2_36393")
     env_s.reset()
     env_i.reset()
 
@@ -102,7 +102,7 @@ def test_structured_complete_turn_matches_finish():
 
 
 def test_structured_complete_turn_after_budget_exhaustion():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     from src.envs.minibg.actions import MAX_SHOP_ACTIONS
 
@@ -122,7 +122,7 @@ def test_structured_complete_turn_after_budget_exhaustion():
 
 
 def test_structured_actor_critic_forward_shapes():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     legal = [env.legal_structured_actions()]
     x = torch.from_numpy(obs).float().unsqueeze(0)
@@ -143,7 +143,7 @@ def test_structured_actor_critic_forward_shapes():
 
 
 def test_structured_actor_critic_order_logprob_consistency():
-    env = MiniBGEnv(seed=3)
+    env = MiniBGEnv(seed=3, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     x = torch.from_numpy(obs).float().unsqueeze(0)
     m = MiniBGStructuredActorCritic(
@@ -183,7 +183,7 @@ def test_build_ppo_minibg_structured():
 
 
 def test_structured_actor_critic_grad_flow():
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     legal = [env.legal_structured_actions()]
     x = torch.from_numpy(obs).float().unsqueeze(0)
@@ -261,7 +261,7 @@ def test_structured_ppo_agent_rollout_update_smoke():
     from src.envs.minibg.obs import OBS_DIM
     from src.training.trainer import Transition
 
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     net = MiniBGStructuredActorCritic(
         slot_hidden=4,
@@ -318,7 +318,7 @@ def test_act_structured_eval_does_not_clear_rollout_cache():
     from src.envs.minibg import NUM_ENV_ACTIONS
     from src.envs.minibg.obs import OBS_DIM
 
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     net = MiniBGStructuredActorCritic(
         slot_hidden=4,
@@ -382,12 +382,14 @@ def test_pending_three_option_emb_adapt_uses_distinct_rows():
         order_pos_dim=4,
         num_pool_indices=NUM_POOL_INDICES,
     )
-    p = torch.zeros(1, 9, dtype=torch.float32)
+    from src.envs.minibg.obs import PENDING_CHOICE_DIM, PENDING_OPTIONS_OFFSET
+
+    p = torch.zeros(1, PENDING_CHOICE_DIM, dtype=torch.float32)
     p[0, 0], p[0, 1] = 1.0, 1.0  # pending + is_adapt
-    p[0, 3] = 1.0 / 9.0
-    p[0, 4] = 4.0 / 9.0
-    p[0, 5] = 7.0 / 9.0
-    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb)[0]
+    p[0, PENDING_OPTIONS_OFFSET + 0] = 1.0 / 9.0
+    p[0, PENDING_OPTIONS_OFFSET + 1] = 4.0 / 9.0
+    p[0, PENDING_OPTIONS_OFFSET + 2] = 7.0 / 9.0
+    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb, max_card_idx=NUM_POOL_INDICES)[0]
     assert st.shape == (3, net.card_emb_dim)
     norms = (
         torch.norm(st[0] - st[1]).item(),
@@ -398,8 +400,7 @@ def test_pending_three_option_emb_adapt_uses_distinct_rows():
 
 
 def test_pending_three_option_emb_discover_still_card_embedded():
-    from src.envs.minibg.obs import CARD_ID_TO_DENSE
-
+    from tests.conftest import PATCH_CTX
     from src.models.minibg_slot_ac import _pending_three_option_emb
 
     net = MiniBGStructuredActorCritic(
@@ -411,11 +412,14 @@ def test_pending_three_option_emb_discover_still_card_embedded():
         order_pos_dim=4,
         num_pool_indices=NUM_POOL_INDICES,
     )
+    from src.envs.minibg.obs import PENDING_CHOICE_DIM, PENDING_DISCOVER_IDX_OFFSET
+
     cid_a, cid_b = "EX1_162", "UNG_073"
-    p = torch.zeros(1, 9, dtype=torch.float32)
+    card_id_to_dense = PATCH_CTX.card_id_to_dense
+    p = torch.zeros(1, PENDING_CHOICE_DIM, dtype=torch.float32)
     p[0, 0], p[0, 1] = 1.0, 0.0  # discover
-    p[0, 6] = float(CARD_ID_TO_DENSE[cid_a])
-    p[0, 7] = float(CARD_ID_TO_DENSE[cid_b])
-    p[0, 8] = float(CARD_ID_TO_DENSE[cid_a])
-    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb)[0]
+    p[0, PENDING_DISCOVER_IDX_OFFSET + 0] = float(card_id_to_dense[cid_a])
+    p[0, PENDING_DISCOVER_IDX_OFFSET + 1] = float(card_id_to_dense[cid_b])
+    p[0, PENDING_DISCOVER_IDX_OFFSET + 2] = float(card_id_to_dense[cid_a])
+    st = _pending_three_option_emb(p, net.card_emb, net.adapt_choice_emb, max_card_idx=NUM_POOL_INDICES)[0]
     assert torch.norm(st[0] - st[1]).item() > 1e-6

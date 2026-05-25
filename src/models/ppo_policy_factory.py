@@ -281,22 +281,18 @@ def _restore_actor_critic_cnn(
     )
 
 
-def _default_num_pool_indices() -> int:
-    from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, load_patch_context
-
-    return load_patch_context(str(DEFAULT_PATCH_DIR)).num_pool_indices
-
-
 def _restore_minibg_slot(
     obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
 ) -> nn.Module:
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore minibg_slot checkpoint")
     return MiniBGSlotActorCritic(
         num_actions=int(num_actions),
         slot_hidden=int(kw.get("slot_hidden", 32)),
         trunk_hidden=int(kw.get("trunk_hidden", 256)),
         region_conv2_kernel=int(kw.get("region_conv2_kernel", 1)),
         card_emb_dim=int(kw.get("card_emb_dim", 16)),
-        num_pool_indices=kw.get("num_pool_indices") or _default_num_pool_indices(),
+        num_pool_indices=int(kw["num_pool_indices"]),
     )
 
 
@@ -316,6 +312,8 @@ def _restore_structured_v1(
     # The same V1 class serves minibg and bglike observation layouts.
     # `obs_layout` is sometimes implied by the canonical_type at write-time —
     # restore-time defers to the stored kwarg, or to "minibg" as a last resort.
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v1 checkpoint")
     return MiniBGStructuredActorCritic(
         slot_hidden=int(kw.get("slot_hidden", 32)),
         trunk_hidden=int(kw.get("trunk_hidden", 256)),
@@ -335,7 +333,7 @@ def _restore_structured_v1(
         entity_attention_init_scale=float(kw.get("entity_attention_init_scale", 0.1)),
         use_global_entity_token=bool(kw.get("use_global_entity_token", True)),
         obs_layout=str(kw.get("obs_layout", "minibg")).strip().lower(),
-        num_pool_indices=kw.get("num_pool_indices") or _default_num_pool_indices(),
+        num_pool_indices=int(kw["num_pool_indices"]),
     )
 
 
@@ -352,9 +350,8 @@ def _restore_structured_v2(
 ) -> nn.Module:
     from .bglike_structured_v2 import BGLikeStructuredV2
 
-    kw = dict(kw)
-    if kw.get("num_pool_indices") is None:
-        kw["num_pool_indices"] = _default_num_pool_indices()
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v2 checkpoint")
     return BGLikeStructuredV2(**kw)
 
 

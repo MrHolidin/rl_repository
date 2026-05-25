@@ -9,6 +9,7 @@ class Keyword(Enum):
     TAUNT = auto()
     SHIELD = auto()  # Divine Shield (printed or granted)
     WINDFURY = auto()
+    MEGA_WINDFURY = auto()
     POISONOUS = auto()
     CHARGE = auto()
     MAGNETIC = auto()
@@ -63,6 +64,7 @@ class SummonEffect:
     count: int = 1
     count_from_source_attack: bool = False
     for_opponent: bool = False
+    attack_immediately: bool = False
     # Golden Rat Pack: same DR resolves multiple sweeps before Baron/Duplicator multipliers.
     dr_wave_count: int = 1
 
@@ -177,6 +179,45 @@ class DealDamageRandomEnemyMinion:
     """Combat deathrattle: deal ``amount`` to one random enemy minion (Kaboom Bot)."""
 
     amount: int
+    repeats: int = 1
+
+
+@dataclass(frozen=True)
+class DealDamageLeftmostEnemyMinion:
+    """Combat overkill/deathrattle: deal ``amount`` to the leftmost alive enemy minion."""
+
+    amount: int
+
+
+@dataclass(frozen=True)
+class DealDamageAllMinions:
+    """Combat deathrattle: deal ``amount`` to every alive minion on both sides."""
+
+    amount: int
+
+
+@dataclass(frozen=True)
+class BuffDeadMinionNeighborsEffect:
+    """Combat: when a filtered friendly dies, buff its immediate board neighbors."""
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class TransferAttackToRandomFriendlyEffect:
+    """Combat deathrattle: give this minion's Attack to a random other friendly."""
+
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class SummonRandomAndCopyToHandEffect:
+    """Combat deathrattle: summon random ``race_filter`` minion and queue a hand copy."""
+
+    race_filter: Optional[Any] = None
+    count: int = 1
+    exclude_source: bool = True
 
 
 @dataclass(frozen=True)
@@ -327,7 +368,9 @@ class BuffSelf:
 
 @dataclass(frozen=True)
 class BuffSelfFromHeroDamageTaken:
-    """+0/+X where X = total hero damage taken this game (Annihilan battlecry)."""
+    """+0/+X where X = ``health_per_damage`` × total hero damage taken (Annihilan battlecry)."""
+
+    health_per_damage: int = 1
 
 
 @dataclass(frozen=True)
@@ -377,9 +420,10 @@ class DiscoverMurlocEffect:
 
 @dataclass(frozen=True)
 class SetNextRollCostEffect:
-    """Shop battlecry: next manual refresh costs ``cost`` gold (then clears)."""
+    """Shop battlecry: next ``uses`` manual refreshes cost ``cost`` gold (then clears)."""
 
     cost: int = 0
+    uses: int = 1
 
 
 @dataclass(frozen=True)
@@ -498,10 +542,14 @@ class ConsumeFriendlyBattlecry:
 class AddFromLastOpponentBoardEffect:
     """Shop battlecry: add a random minion from ``last_opponent_board`` to hand."""
 
+    make_golden: bool = False
+
 
 @dataclass(frozen=True)
 class TransformIntoShopMinionEffect:
     """Shop battlecry: transform source into a plain copy of a random shop offer."""
+
+    copy_golden: bool = False
 
 
 @dataclass(frozen=True)
@@ -560,7 +608,9 @@ class BuffRandomFriendlyFromPlacedTierEffect:
 
 @dataclass(frozen=True)
 class DealExcessDamageToAdjacentEffect:
-    """Combat ON_OVERKILL: deal excess kill damage to a random adjacent enemy minion."""
+    """Combat ON_OVERKILL: deal excess kill damage to adjacent enemy minion(s)."""
+
+    both_adjacent: bool = False
 
 
 @dataclass(frozen=True)
@@ -568,6 +618,7 @@ class AddRandomMinionToHandOnKillEffect:
     """Combat ON_AFTER_ATTACK: if this minion killed an enemy, queue a random minion for hand."""
 
     tribe: Optional[Any] = None
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -620,6 +671,11 @@ Effect = Union[
     BuffAllFriendlyMinions,
     BuffRandomOtherFriendlyCombat,
     DealDamageRandomEnemyMinion,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageAllMinions,
+    BuffDeadMinionNeighborsEffect,
+    TransferAttackToRandomFriendlyEffect,
+    SummonRandomAndCopyToHandEffect,
     StartOfCombatDamagePerFriendlyTribe,
     AttackBonusPerOtherMurlocGlobal,
     BuffSummonedIfRace,
@@ -681,6 +737,7 @@ class Ability:
     filter_race: Optional[Any] = None
     condition: Optional[Condition] = None
     filter_victim_keyword: Optional[Keyword] = None
+    combat_only: bool = False
 
 
 __all__ = [
@@ -700,6 +757,11 @@ __all__ = [
     "BuffAllFriendlyMinions",
     "BuffRandomOtherFriendlyCombat",
     "DealDamageRandomEnemyMinion",
+    "DealDamageLeftmostEnemyMinion",
+    "DealDamageAllMinions",
+    "BuffDeadMinionNeighborsEffect",
+    "TransferAttackToRandomFriendlyEffect",
+    "SummonRandomAndCopyToHandEffect",
     "StartOfCombatDamagePerFriendlyTribe",
     "AttackBonusPerOtherMurlocGlobal",
     "BuffSummonedIfRace",

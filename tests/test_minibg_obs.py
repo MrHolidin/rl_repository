@@ -25,7 +25,6 @@ from src.envs.minibg.obs import (
     BOARD_SAME_CARD_COUNT_OFFSET,
     TRIPLE_DISCOVER_TIER_OFFSET,
     TRIPLE_REWARD_SPELL_OFFSET,
-    CARD_ID_TO_DENSE,
     CARD_IDX_OFFSET,
     EFFECT_OFFSET,
     GLOBAL_CORE_DIM,
@@ -72,7 +71,7 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 70
+    assert SLOT_DIM == 95
     assert GLOBAL_DIM == 19
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -155,7 +154,8 @@ def test_encode_minion_mecharoo_layout():
     assert m.card_id == "BOT_445"
     v = encode_minion(m)
     assert v[0] == 1.0
-    assert int(v[CARD_IDX_OFFSET]) == CARD_ID_TO_DENSE["BOT_445"]
+    from tests.conftest import PATCH_CTX
+    assert int(v[CARD_IDX_OFFSET]) == PATCH_CTX.card_id_to_dense["BOT_445"]
     assert v[_T0] == 1.0 and v[_T0 + 1 : _T0 + NUM_TIER_ONEHOT].sum() == 0.0
     assert v[_S0] == 1.0 / 5.0
     assert v[_S0 + 1] == 1.0 / 5.0
@@ -170,7 +170,7 @@ def test_encode_minion_mecharoo_layout():
     assert v[HAND_SAME_CARD_COUNT_OFFSET] == 0.0
     assert v[BOARD_SAME_CARD_COUNT_OFFSET] == 0.0
 def test_build_observation_same_non_golden_copy_counts_own_board_and_hand():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [
@@ -258,7 +258,7 @@ def test_encode_slots_truncates_overflow():
 
 
 def test_initiative_helper_self_centric():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.initiative_player = 0
     s.round_number = 1
@@ -270,7 +270,7 @@ def test_initiative_helper_self_centric():
 
 
 def test_build_observation_shape_and_dtype():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
     assert obs.shape == (OBS_DIM,)
@@ -278,7 +278,7 @@ def test_build_observation_shape_and_dtype():
 
 
 def test_build_observation_globals_match_state():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].health = 10
     s.players[1].health = 7
@@ -309,7 +309,7 @@ def test_build_observation_globals_match_state():
 
 
 def test_build_observation_self_centric():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].health = 10
     s.players[1].health = 7
@@ -330,7 +330,7 @@ def test_build_observation_self_centric():
 
 
 def test_build_observation_empty_enemy_board_zero_block():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
     enemy_block_start = (
@@ -344,7 +344,7 @@ def test_build_observation_empty_enemy_board_zero_block():
 
 
 def test_build_observation_hand_block_and_phase_indicator():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].hand[1] = make_minion("guard")
     obs = build_observation(s, 0, 0.0, [])
@@ -364,7 +364,7 @@ def test_build_observation_hand_block_and_phase_indicator():
 
 
 def test_build_observation_own_board_block_layout():
-    g = MiniBGGame(seed=0, shop_full_tribes=True)
+    g = MiniBGGame(seed=0, shop_full_tribes=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("recruit")]
     obs = build_observation(s, 0, 0.0, [])
@@ -376,7 +376,7 @@ def test_build_observation_own_board_block_layout():
 
 
 def test_build_observation_encodes_shop_excluded_race():
-    g = MiniBGGame(seed=123, shop_excluded_race=Race.MURLOC)
+    g = MiniBGGame(seed=123, shop_excluded_race=Race.MURLOC, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     obs = build_observation(s, 0, 0.0, [])
     rot = obs[GLOBAL_CORE_DIM:GLOBAL_DIM]

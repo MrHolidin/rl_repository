@@ -45,6 +45,11 @@ from src.bg_core.effects import (
     Condition,
     ConditionKind,
     DealDamageRandomEnemyMinion,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageAllMinions,
+    BuffDeadMinionNeighborsEffect,
+    TransferAttackToRandomFriendlyEffect,
+    SummonRandomAndCopyToHandEffect,
     DealHeroDamage,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
@@ -100,6 +105,7 @@ GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
 
 TOKEN_IDS: FrozenSet[str] = frozenset(
     {
+        "CS2_065",
         "BGS_115t",
         "BGS_046t",
         "BGS_061t",
@@ -108,9 +114,10 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BOT_445t",
         "BOT_537t",
         "BRM_006t",
+        "TB_BaconUps_030t",
         "CFM_315t",
         "CFM_316t",
-        "CS2_065",
+        "DMF_533t",
         "EX1_506a",
         "EX1_534t",
         "EX1_finkle",
@@ -177,7 +184,8 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             BuffOnePerListedTribeFriendly(
                 2,
                 2,
-                (Race.MECHANICAL, Race.MURLOC, Race.DEMON, Race.BEAST),
+                (Race.MECHANICAL, Race.MURLOC, Race.DEMON, Race.BEAST,
+                 Race.DRAGON, Race.PIRATE, Race.ELEMENTAL),
                 exclude_self=True,
             ),
         ),
@@ -186,7 +194,10 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_012": (
         Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
     ),
-    "BGS_014": (Ability(Trigger.ON_DEATH, SummonEffect(token_id="CS2_065", count=1)),),
+    "NEW1_027": (
+        Ability(Trigger.AURA, TribalOtherStatAura(Race.PIRATE, attack=1, health=1)),
+    ),
+    "BGS_014": (Ability(Trigger.ON_DEATH, SummonEffect(token_id="BRM_006t", count=1)),),
     "BGS_017": (
         Ability(
             Trigger.ON_FRIENDLY_MINION_SUMMONED,
@@ -233,7 +244,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.MURLOC, attack=2, health=2)),
         Ability(Trigger.ON_DEATH, BuffAllOtherOfTribe(Race.MURLOC, attack=2, health=2)),
     ),
-    "BGS_032": (Ability(Trigger.ON_OVERKILL, DealDamageRandomEnemyMinion(amount=3)),),
+    "BGS_032": (Ability(Trigger.ON_OVERKILL, DealDamageLeftmostEnemyMinion(amount=3)),),
     "BGS_036": (
         Ability(
             Trigger.ON_TURN_END,
@@ -490,10 +501,12 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_FRIENDLY_MINION_SUMMONED,
             GrantListenerKeywordIfSummonedMatches(Race.MECHANICAL, Keyword.SHIELD),
+            combat_only=True,
         ),
         Ability(
             Trigger.ON_FRIENDLY_MINION_SUMMONED,
             BuffListenerIfSummonedMatches(Race.MECHANICAL, attack=1, health=0),
+            combat_only=True,
         ),
     ),
     "BGS_075": (
@@ -537,8 +550,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BGS_112": (
         Ability(
-            Trigger.ON_PLACE,
-            BuffRandomUniqueTribeFriendlies(count=3, attack=2, health=2),
+            Trigger.ON_FRIENDLY_MINION_DIED,
+            BuffDeadMinionNeighborsEffect(attack=2, health=2),
+            filter_victim_keyword=Keyword.TAUNT,
         ),
     ),
     "BGS_113": (
@@ -624,7 +638,12 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_053": (
         Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.PIRATE, attack=3, health=0)),
     ),
-    "BGS_061": (Ability(Trigger.ON_DEATH, SummonEffect(token_id="BGS_061t", count=1)),),
+    "BGS_061": (
+        Ability(
+            Trigger.ON_DEATH,
+            SummonEffect(token_id="BGS_061t", count=1, attack_immediately=True),
+        ),
+    ),
     "BGS_066": (
         Ability(
             Trigger.ON_TURN_END,
@@ -662,7 +681,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_121": (
         Ability(
             Trigger.ON_DEATH,
-            SummonRandomMinionEffect(count=1, race_filter=Race.ELEMENTAL),
+            SummonRandomAndCopyToHandEffect(count=1, race_filter=Race.ELEMENTAL),
         ),
     ),
     "BGS_123": (
@@ -704,6 +723,38 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_FRIENDLY_MINION_SUMMONED,
             BuffListenerIfSummonedMatches(Race.DEMON, attack=1, health=1),
         ),
+    ),
+    "FP1_024": (Ability(Trigger.ON_DEATH, DealDamageAllMinions(amount=1)),),
+    "YOD_026": (Ability(Trigger.ON_DEATH, TransferAttackToRandomFriendlyEffect()),),
+    "BT_010": (
+        Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.MURLOC, attack=1, health=1)),
+    ),
+    "DMF_533": (
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="DMF_533t", count=2)),
+    ),
+    "TB_BaconUps_110": (
+        Ability(Trigger.ON_PLACE, AddFromLastOpponentBoardEffect(make_golden=True)),
+    ),
+    "TB_BaconUps_113": (
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="TB_BaconUps_030t", count=1)),
+    ),
+    "TB_BaconUps_142": (
+        Ability(
+            Trigger.ON_OVERKILL,
+            BuffAllOtherOfTribe(Race.PIRATE, attack=4, health=4),
+        ),
+    ),
+    "TB_BaconUps_166": (
+        Ability(
+            Trigger.ON_OVERKILL,
+            DealExcessDamageToAdjacentEffect(both_adjacent=True),
+        ),
+    ),
+    "TB_BaconUps_167": (
+        Ability(Trigger.ON_PLACE, SetNextRollCostEffect(cost=0, uses=2)),
+    ),
+    "TB_BaconUps_305": (
+        Ability(Trigger.ON_PLACE, TransformIntoShopMinionEffect(copy_golden=True)),
     ),
 }
 

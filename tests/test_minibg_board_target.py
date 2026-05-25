@@ -6,7 +6,7 @@ from src.envs.minibg.structured_actions import StructActionType
 
 
 def test_single_other_minion_auto_buffs_without_modal():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     p = env._state.players[0]
     p.board = [make_minion("recruit")]
@@ -24,7 +24,7 @@ def test_single_other_minion_auto_buffs_without_modal():
 
 
 def test_two_minions_opens_rl_apply_then_buffs_chosen():
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
@@ -46,7 +46,7 @@ def test_two_minions_opens_rl_apply_then_buffs_chosen():
 
 
 def test_env_target_board_pick():
-    env = MiniBGEnv(seed=2)
+    env = MiniBGEnv(seed=2, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     env._state.players[0].board = [make_minion("recruit"), make_minion("guard")]
     env._state.players[0].hand[0] = make_minion("target_buffer")
@@ -66,7 +66,7 @@ def test_brann_buff_target_twice_on_one_pick():
     from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
     from src.envs.minibg.game import MiniBGGame
 
-    g = MiniBGGame(seed=4)
+    g = MiniBGGame(seed=4, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     recruit = make_minion("recruit")
@@ -84,7 +84,7 @@ def test_brann_buff_target_twice_on_one_pick():
 
 
 def test_rl_brann_one_apply_buffs_twice():
-    env = MiniBGEnv(seed=5)
+    env = MiniBGEnv(seed=5, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     idx = env._state.current_player_index
     p = env._state.players[idx]
@@ -106,7 +106,7 @@ def test_rl_brann_one_apply_buffs_twice():
 
 
 def test_finish_blocked_while_rl_effect_pending():
-    env = MiniBGEnv(seed=3)
+    env = MiniBGEnv(seed=3, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     idx = env._state.current_player_index
     env._state.players[idx].board = [make_minion("recruit"), make_minion("guard")]

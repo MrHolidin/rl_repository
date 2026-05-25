@@ -7,13 +7,13 @@ import numpy as np
 from src.envs.bglike.actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS
 from tests.conftest import PATCH_CTX
 from src.envs.bglike.game import BGLikeGame
-from src.envs.bglike.obs import OBS_DIM, SLOT_DIM, build_observation
-from src.envs.minibg.obs import GLOBAL_DIM, LAST_BATTLE_DIM, PENDING_CHOICE_DIM, PHASE_DIM
+from src.envs.bglike.obs import BGLIKE_GLOBAL_DIM, OBS_DIM, SLOT_DIM, build_observation
+from src.envs.minibg.obs import LAST_BATTLE_DIM, PENDING_CHOICE_DIM, PHASE_DIM
 
 
 def test_obs_dim_excludes_enemy_board_block():
     expected = (
-        GLOBAL_DIM
+        BGLIKE_GLOBAL_DIM
         + BOARD_SIZE * SLOT_DIM
         + MAX_SHOP_SLOTS * SLOT_DIM
         + HAND_SIZE * SLOT_DIM
@@ -25,7 +25,7 @@ def test_obs_dim_excludes_enemy_board_block():
 
 
 def test_build_observation_shape():
-    game = BGLikeGame(seed=0)
+    game = BGLikeGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     state = game.initial_state()
     obs = build_observation(
         state,

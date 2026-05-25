@@ -30,7 +30,6 @@ from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 from src.envs.minibg.obs import (
     EFFECT_OFFSET as _EFFECT_OFFSET,
     NUM_EFFECT_CHANNELS as _NUM_EFFECT_CHANNELS,
-    NUM_POOL_INDICES as _NUM_POOL_INDICES,
     NUM_TRIGGER_CHANNELS as _NUM_TRIGGER_CHANNELS,
     TRIGGER_OFFSET as _TRIGGER_OFFSET,
 )

@@ -16,24 +16,47 @@ from .actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context
+from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
+    AdaptSelfRandomEffect,
     AdjacentStatAura,
+    AddFromLastOpponentBoardEffect,
+    AddRandomMinionToShopEffect,
+    AddTokenToHandEffect,
     AttackBonusPerOtherMurlocGlobal,
+    AttackImmediatelyAfterSurvivingEffect,
     BattlecryMultiplierAura,
+    BuffAllShopOffersEffect,
+    BuffRandomFriendlyFromPlacedTierEffect,
+    BuffSelfFromFriendlyTribeCount,
+    BuffSelfFromGoldenFriendlyCount,
+    BuffSelfFromUniqueTribeCount,
+    BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffSummonedIfRace,
     BuffTargetFriendlyBattlecry,
     CleaveOnAttack,
+    ConsumeFriendlyBattlecry,
+    DealExcessDamageToAdjacentEffect,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
+    GainGoldOnDeathEffect,
+    GainGoldThisTurnEffect,
+    GrantKeywordAllFriendlyOfTribe,
     HeroImmuneAura,
+    IncrementShopTribeBonusEffect,
     Keyword,
     KeywordStatAura,
+    MultiplySelfAttackEffect,
     PogoHopperBattlecry,
+    ReduceUpgradeCostEffect,
+    SetNextRollCostEffect,
+    StartOfCombatDamagePerFriendlyTribe,
     SummonMultiplierAura,
+    TransformIntoShopMinionEffect,
     TribalOtherStatAura,
     Trigger,
+    TriggerRandomFriendlyDeathrattleEffect,
     ZappTargeting,
 )
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
@@ -57,12 +80,6 @@ def _resolve_card_id_to_dense(
     return card_id_to_dense
 
 
-def _default_card_index() -> Tuple[Tuple[str, ...], Mapping[str, int], int]:
-    ctx = load_patch_context(str(DEFAULT_PATCH_DIR))
-    return ctx.card_index_ids, ctx.card_id_to_dense, ctx.num_pool_indices
-
-
-CARD_INDEX_IDS, CARD_ID_TO_DENSE, NUM_POOL_INDICES = _default_card_index()
 CARD_INDEX_EMPTY = 0
 
 NUM_TIER_ONEHOT = 6
@@ -80,9 +97,9 @@ _RACE_ORDER: Tuple[Optional[Race], ...] = (
 )
 RACE_ONEHOT_DIM = len(_RACE_ORDER)
 
-NUM_KEYWORD_CHANNELS = 7  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC, REBORN
+NUM_KEYWORD_CHANNELS = 8  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC, REBORN, MEGA_WINDFURY
 NUM_TRIGGER_CHANNELS = 21  # see TRIGGER_INDEX below
-NUM_EFFECT_CHANNELS = 15  # see EFFECT_INDEX below
+NUM_EFFECT_CHANNELS = 38  # see EFFECT_INDEX below
 
 # Slot layout offsets (single source of truth — tests / nets pull these in directly).
 PRESENCE_OFFSET = 0
@@ -100,7 +117,8 @@ HAND_SAME_CARD_COUNT_OFFSET = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
 BOARD_SAME_CARD_COUNT_OFFSET = HAND_SAME_CARD_COUNT_OFFSET + 1
 TRIPLE_REWARD_SPELL_OFFSET = BOARD_SAME_CARD_COUNT_OFFSET + 1
 TRIPLE_DISCOVER_TIER_OFFSET = TRIPLE_REWARD_SPELL_OFFSET + 1
-SLOT_DIM = TRIPLE_DISCOVER_TIER_OFFSET + 1
+FROZEN_OFFSET = TRIPLE_DISCOVER_TIER_OFFSET + 1
+SLOT_DIM = FROZEN_OFFSET + 1
 
 # Trigger channel mapping (preserve historical positions 0..6, 8..10; fill 7=ON_TURN_START, add ON_OVERKILL).
 TRIGGER_INDEX: Dict[Trigger, int] = {
@@ -131,6 +149,7 @@ assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS
 # Effect markers — high-impact aura/multiplier/listener types the network should distinguish
 # beyond the trigger fan-out (Brann/Khadgar/Baron etc. all share AURA trigger but differ wildly).
 _EFFECT_CLASSES: Tuple[type, ...] = (
+    # --- original 15 (preserved in order for checkpoint compat on minibg) ---
     BattlecryMultiplierAura,
     DeathrattleMultiplierAura,
     SummonMultiplierAura,
@@ -146,6 +165,35 @@ _EFFECT_CLASSES: Tuple[type, ...] = (
     DiscoverMurlocEffect,
     AdaptAllMurlocsEffect,
     BuffTargetFriendlyBattlecry,
+    # --- patch 74257 additions ---
+    # economy / shop
+    GainGoldThisTurnEffect,
+    GainGoldOnDeathEffect,
+    SetNextRollCostEffect,
+    ReduceUpgradeCostEffect,
+    IncrementShopTribeBonusEffect,
+    BuffAllShopOffersEffect,
+    AddTokenToHandEffect,
+    # shop manipulation
+    TransformIntoShopMinionEffect,
+    AddFromLastOpponentBoardEffect,
+    AddRandomMinionToShopEffect,
+    # combat unique mechanics
+    MultiplySelfAttackEffect,
+    TriggerRandomFriendlyDeathrattleEffect,
+    AttackImmediatelyAfterSurvivingEffect,
+    DealExcessDamageToAdjacentEffect,
+    StartOfCombatDamagePerFriendlyTribe,
+    # scaling / synergy
+    BuffSelfFromUniqueTribeCount,
+    BuffSelfFromGoldenFriendlyCount,
+    BuffSelfFromFriendlyTribeCount,
+    ConsumeFriendlyBattlecry,
+    AdaptSelfRandomEffect,
+    BuffRandomFriendlyFromPlacedTierEffect,
+    # shop listeners
+    BuffSelfWhenFriendlyDeathrattlePlaced,
+    GrantKeywordAllFriendlyOfTribe,
 )
 assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS
 EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
@@ -157,12 +205,13 @@ GLOBAL_DIM = GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM
 
 # Pending-choice layout (single block at obs tail):
 #   [0]   has_pending
-#   [1]   is_adapt (vs discover_murloc)
+#   [1]   is_adapt (vs discover_murloc / transform)
 #   [2]   extra_modals_after / 5
-#   [3..6) adapt option payload (key_idx/9 for adapt; 0 for discover)
-#   [6..9) discover option card_idx (dense pool index; 0 for adapt / no choice)
+#   [3]   is_transform (TRANSFORM_SHOP_MINION modal; legal actions become BUY not DISCOVER_PICK)
+#   [4..7) adapt option payload (key_idx/9 for adapt; 0 for discover/transform)
+#   [7..10) discover option card_idx (dense pool index; 0 for adapt/transform)
 # The 3 discover indices share the slot card embedding via the network's `self.card_emb`.
-PENDING_HEADER_DIM = 3
+PENDING_HEADER_DIM = 4
 PENDING_OPTIONS_DIM = 3
 PENDING_DISCOVER_IDX_DIM = 3
 PENDING_ELIGIBLE_DIM = BOARD_SIZE
@@ -296,9 +345,11 @@ def encode_pending_choice(
     if pc is None:
         return v
     is_adapt = pc.kind == PendingChoiceKind.ADAPT
+    is_transform = pc.kind == PendingChoiceKind.TRANSFORM_SHOP_MINION
     v[PENDING_HEADER_OFFSET] = 1.0
     v[PENDING_HEADER_OFFSET + 1] = 1.0 if is_adapt else 0.0
     v[PENDING_HEADER_OFFSET + 2] = min(1.0, pc.extra_modals_after / 5.0)
+    v[PENDING_HEADER_OFFSET + 3] = 1.0 if is_transform else 0.0
     for i, tok in enumerate(pc.options):
         if i >= 3:
             break
@@ -359,6 +410,7 @@ def encode_minion(
     same_non_golden_hand_elsewhere: int = 0,
     same_non_golden_board_elsewhere: int = 0,
     card_id_to_dense: Optional[Mapping[str, int]] = None,
+    is_frozen: bool = False,
 ) -> np.ndarray:
     dense = _resolve_card_id_to_dense(card_id_to_dense)
     v = np.zeros(SLOT_DIM, dtype=np.float32)
@@ -389,6 +441,7 @@ def encode_minion(
     v[KEYWORD_OFFSET + 4] = 1.0 if Keyword.CHARGE in kw else 0.0
     v[KEYWORD_OFFSET + 5] = 1.0 if Keyword.MAGNETIC in kw else 0.0
     v[KEYWORD_OFFSET + 6] = 1.0 if Keyword.REBORN in kw else 0.0
+    v[KEYWORD_OFFSET + 7] = 1.0 if Keyword.MEGA_WINDFURY in kw else 0.0
 
     v[SHIELD_OFFSET] = 1.0 if minion.has_shield else 0.0
     v[GOLDEN_OFFSET] = 1.0 if minion.is_golden else 0.0
@@ -411,6 +464,7 @@ def encode_minion(
         tier = minion.triple_discover_tier
         if tier > 0:
             v[TRIPLE_DISCOVER_TIER_OFFSET] = float(tier) / float(MAX_TIER)
+    v[FROZEN_OFFSET] = 1.0 if is_frozen else 0.0
     return v
 
 
@@ -599,10 +653,7 @@ def build_observation(
 
 
 __all__ = [
-    "CARD_INDEX_IDS",
-    "CARD_ID_TO_DENSE",
     "CARD_INDEX_EMPTY",
-    "NUM_POOL_INDICES",
     "NUM_TIER_ONEHOT",
     "RACE_ONEHOT_DIM",
     "NUM_KEYWORD_CHANNELS",
@@ -624,6 +675,7 @@ __all__ = [
     "BOARD_SAME_CARD_COUNT_OFFSET",
     "TRIPLE_REWARD_SPELL_OFFSET",
     "TRIPLE_DISCOVER_TIER_OFFSET",
+    "FROZEN_OFFSET",
     "SLOT_DIM",
     "GLOBAL_DIM",
     "GLOBAL_CORE_DIM",

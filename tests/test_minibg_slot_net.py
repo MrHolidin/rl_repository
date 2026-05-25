@@ -53,7 +53,7 @@ def test_minibg_slot_distinguishes_slot_permutations():
     """
     from src.envs.minibg import NUM_ENV_ACTIONS
 
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     # Force a deterministic, distinguishable shop (recruit / big_guy / None).
     s.players[0].shop = [

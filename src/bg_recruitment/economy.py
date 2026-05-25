@@ -91,7 +91,13 @@ def roll_shop(
 ) -> None:
     cost = effective_roll_cost(player)
     player.gold -= cost
-    if player.next_roll_cost_override is not None:
+    if player.free_roll_charges > 0:
+        player.free_roll_charges -= 1
+        if player.free_roll_charges > 0:
+            player.next_roll_cost_override = 0
+        else:
+            player.next_roll_cost_override = None
+    elif player.next_roll_cost_override is not None:
         player.next_roll_cost_override = None
     refresh_shop(
         player,

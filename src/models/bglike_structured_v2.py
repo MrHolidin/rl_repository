@@ -54,7 +54,6 @@ from .minibg_structured_ac import (
     _build_action_tokens,
     _EXT_DIM,
     _EXT_END,
-    _GLOBALS_FULL_DIM,
     _MAX_REGION_LEN,
     _NUM_REGIONS,
     _NUM_ROLES,
@@ -84,7 +83,6 @@ from .minibg_slot_ac import (
     _split_card_idx_and_cont,
 )
 from src.envs.minibg.obs import (
-    NUM_POOL_INDICES as _NUM_POOL_INDICES,
     PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
     PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
     PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
@@ -149,6 +147,15 @@ class BGLikeStructuredV2(nn.Module):
             self.board_size = BOARD_SIZE
         else:
             raise ValueError(f"obs_layout must be 'minibg' or 'bglike', got {obs_layout!r}")
+
+        # Layout-specific global dim: bglike has 3 extra economy fields.
+        if self.obs_layout == "bglike":
+            from src.envs.bglike.obs import BGLIKE_GLOBAL_DIM as _bglike_global_dim
+            self.global_dim = int(_bglike_global_dim)
+        else:
+            self.global_dim = int(_GLOBAL_DIM)
+        self.globals_full_dim = self.global_dim + int(_LAST_BATTLE_DIM) + int(_PHASE_DIM)
+
         self.pending_len = _PENDING_LEN
         self.entity_slots = (
             self.own_len + self.shop_len + self.hand_len + self.enemy_len
@@ -241,17 +248,18 @@ class BGLikeStructuredV2(nn.Module):
         # CLS token is built from globals (gold/hp/round/...) so by the time the
         # attention runs, the [CLS] slot already carries non-card context. Its
         # post-attention output is the state summary that replaces v1's trunk.
-        self.cls_from_globals = nn.Linear(_GLOBALS_FULL_DIM, self.slot_hidden)
+        self.cls_from_globals = nn.Linear(self.globals_full_dim, self.slot_hidden)
 
         self.pending_to_slot = nn.Linear(self.card_emb_dim, self.slot_hidden)
 
         # --- State summary -> state_emb (no flatten trunk!) --------------
-        # Header info that didn't go into the CLS token via globals: the
-        # pending-choice header (has_pending / is_adapt / extras_after).
-        self._pending_header_dim = 3  # has_pending, is_adapt, extras_modals_after
+        # Full pending vector included so the model sees APPLY_EFFECT context
+        # (effect kind, atk/hp params, picked_mask, eligible_mask) — not just
+        # the first 4 header bytes.  Mirrors what v1 does via pending_feat.
+        self._pending_header_dim = _PENDING_CHOICE_DIM
         state_summary_dim = (
             self.slot_hidden                # CLS token output
-            + _GLOBAL_DIM
+            + self.global_dim
             + _LAST_BATTLE_DIM
             + _PHASE_DIM
             + self._pending_header_dim
@@ -274,7 +282,7 @@ class BGLikeStructuredV2(nn.Module):
 
         self.score_fc = nn.Sequential(
             nn.Linear(
-                self.state_dim + self.action_dim + self.interaction_dim + _GLOBALS_FULL_DIM,
+                self.state_dim + self.action_dim + self.interaction_dim + self.globals_full_dim,
                 self.score_hidden,
             ),
             nn.ReLU(),
@@ -299,7 +307,7 @@ class BGLikeStructuredV2(nn.Module):
             + self.slot_hidden
             + self.order_hidden
             + self.order_pos_dim
-            + _GLOBALS_FULL_DIM
+            + self.globals_full_dim
         )
         self.order_score = nn.Sequential(
             nn.Linear(order_score_in, self.order_score_hidden),
@@ -337,8 +345,8 @@ class BGLikeStructuredV2(nn.Module):
             x = x.view(x.size(0), -1)
         if x.shape[1] != self.obs_dim:
             raise ValueError(f"Expected obs dim {self.obs_dim}, got {x.shape[1]}")
-        g = x[:, :_GLOBAL_DIM]
-        i = _GLOBAL_DIM
+        g = x[:, :self.global_dim]
+        i = self.global_dim
         own = x[:, i : i + self.own_len * _SLOT_DIM].view(-1, self.own_len, _SLOT_DIM)
         i += self.own_len * _SLOT_DIM
         shop = x[:, i : i + self.shop_len * _SLOT_DIM].view(-1, self.shop_len, _SLOT_DIM)
@@ -422,11 +430,9 @@ class BGLikeStructuredV2(nn.Module):
         )
         EXT_pending = torch.zeros(B, self.pending_len, _EXT_DIM, device=device, dtype=dtype)
 
-        # Pending header (3 dims: has_pending / is_adapt / extras_modals_after) —
-        # carry into the state summary directly (not blurred by attention).
         pending_header = pending[..., :self._pending_header_dim]
 
-        g_full = torch.cat([g, lb, phase], dim=-1)  # (B, _GLOBALS_FULL_DIM)
+        g_full = torch.cat([g, lb, phase], dim=-1)  # (B, globals_full_dim)
 
         # Prepend [CLS] (built from globals) and run entity attention. The
         # post-attention CLS output IS the v2 state summary.

@@ -16,10 +16,10 @@ if "othello" not in list_games():
     register_game("othello", OthelloEnv)
 
 if "minibg" not in list_games():
-    register_game("minibg", MiniBGEnv)
+    register_game("minibg", MiniBGEnv, patch_dir="data/bgcore/15_6_2_36393")
 
 if "bglike" not in list_games():
-    register_game("bglike", make_bglike_env)
+    register_game("bglike", make_bglike_env, patch_dir="data/bgcore/15_6_2_36393")
 
 __all__ = [
     "BGLobbySingleAgentEnv",

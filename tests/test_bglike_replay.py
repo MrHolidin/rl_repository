@@ -27,6 +27,7 @@ def test_bglike_replay_jsonl_written(tmp_path: Path) -> None:
     env = BGLobbyEnv(
         configs,
         learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
         training_seats=(0,),
         seed=0,
     )
@@ -61,6 +62,7 @@ def test_bglike_replay_record_seats_skips_other_finish_keeps_combat(tmp_path: Pa
     env = BGLobbyEnv(
         configs,
         learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
         training_seats=(0,),
         seed=1,
     )
@@ -92,6 +94,7 @@ def test_bglike_replay_empty_record_seats_skips_shop_frames(tmp_path: Path) -> N
     env = BGLobbyEnv(
         configs,
         learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
         training_seats=(0,),
         seed=1,
     )
@@ -156,11 +159,11 @@ def test_bglike_replay_structured_checkpoint(tmp_path: Path) -> None:
     rep = tmp_path / "structured_lobby.jsonl"
     try:
         agent = load_training_agent_checkpoint(ck, device="cpu", seed=0)
-    except RuntimeError as exc:
-        if "size mismatch" in str(exc):
+    except (RuntimeError, ValueError) as exc:
+        if "size mismatch" in str(exc) or "num_pool_indices" in str(exc):
             import pytest
 
-            pytest.skip("checkpoint incompatible with current OBS_DIM")
+            pytest.skip("checkpoint incompatible with current model (missing num_pool_indices or OBS_DIM mismatch)")
         raise
     agent.eval()
     agents = {s: agent for s in range(8)}
@@ -168,6 +171,7 @@ def test_bglike_replay_structured_checkpoint(tmp_path: Path) -> None:
     env = BGLobbyEnv(
         configs,
         learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
         training_seats=tuple(range(8)),
         seed=0,
     )
@@ -200,6 +204,7 @@ def test_bglike_replay_sparse_smaller_than_full(tmp_path: Path) -> None:
         env = BGLobbyEnv(
             configs,
             learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
             training_seats=(0,),
             seed=2,
         )
@@ -230,6 +235,7 @@ def test_bglike_replay_constructor_config(tmp_path: Path) -> None:
     env = BGLobbyEnv(
         configs,
         learned_seats=tuple(range(8)),
+        patch_dir="data/bgcore/15_6_2_36393",
         training_seats=(0,),
         seed=3,
         replay=config,

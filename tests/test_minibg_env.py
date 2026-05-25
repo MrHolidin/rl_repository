@@ -41,14 +41,14 @@ def _submit_identity_order(env: MiniBGEnv) -> None:
 
 
 def test_reset_returns_obs_of_correct_shape():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset(seed=0)
     assert obs.shape == (OBS_DIM,)
     assert obs.dtype == np.float32
 
 
 def test_legal_actions_mask_includes_swaps_during_shop():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     mask = env.legal_actions_mask
     assert mask[A_ROLL]
     assert mask[A_FINISH]
@@ -69,7 +69,7 @@ def test_legal_actions_mask_includes_swaps_during_shop():
 
 def test_shop_phase_legal_swap_count():
     """SHOP: adjacent swaps among occupied positions (k−1 when k≥2), alongside shop actions."""
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     for k in range(BOARD_SIZE + 1):
         env.reset(seed=0)
         env._state.players[0].board = [make_minion("recruit") for _ in range(k)]
@@ -80,7 +80,7 @@ def test_shop_phase_legal_swap_count():
 
 
 def test_buy_to_hand_then_place_to_board():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     _set_shop(env, 0, "recruit", "recruit", "recruit")
     env.step(A_BUY_BASE)
     p = env._state.players[0]
@@ -94,7 +94,7 @@ def test_buy_to_hand_then_place_to_board():
 
 
 def test_illegal_swap_for_single_minion_is_rejected():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env._state.players[0].board = [make_minion("recruit")]
     snapshot = env.get_state_hash()
     with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
@@ -107,7 +107,7 @@ def test_illegal_swap_for_single_minion_is_rejected():
 
 
 def test_action_budget_exhaustion_stays_in_shop():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env._state.players[0].gold = 1000
     for _ in range(MAX_SHOP_ACTIONS):
         env.step(A_ROLL)
@@ -119,7 +119,7 @@ def test_action_budget_exhaustion_stays_in_shop():
 
 
 def test_swap_action_with_empty_board_is_illegal():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     snapshot = env.get_state_hash()
     with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
         env.step(A_SWAP_BOARD_0)
@@ -127,7 +127,7 @@ def test_swap_action_with_empty_board_is_illegal():
 
 
 def test_terminal_reward_for_winner():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env._state.players[0].health = 1
     env._state.players[0].board = []
     env._state.players[1].board = [make_minion("big_guy")]
@@ -139,7 +139,7 @@ def test_terminal_reward_for_winner():
 
 
 def test_run_full_random_episode_terminates():
-    env = MiniBGEnv(seed=7)
+    env = MiniBGEnv(seed=7, patch_dir="data/bgcore/15_6_2_36393")
     rng = np.random.default_rng(7)
     steps = 0
     while not env.done and steps < 5000:
@@ -156,7 +156,7 @@ def test_make_game_passes_battle_damage_shaping():
 
 
 def test_illegal_action_raises_not_soft_penalty():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset(seed=0)
     with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
         env.step(NUM_ENV_ACTIONS)

@@ -18,7 +18,7 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment.shop_triggers import ShopTriggers
 
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context
+from src.bg_catalog.patch_context import PatchContext, load_patch_context
 
 from . import actions as bglike_actions
 from .state import (
@@ -41,7 +41,7 @@ def _resolve_patch(
         return load_patch_context(patch_dir)
     if patch is not None:
         return patch
-    return load_patch_context(str(DEFAULT_PATCH_DIR))
+    raise ValueError("BGLikeGame requires patch or patch_dir")
 
 
 class BGLikeGame(TurnBasedGame[BGLikeState]):

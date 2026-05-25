@@ -510,6 +510,7 @@ def test_refreshing_anomaly_sets_next_roll_free():
     triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
     triggers.fire_on_place(anomaly, p, None)
     assert effective_roll_cost(p) == 0
+    assert p.free_roll_charges == 1
 
 
 def test_toggle_shop_slot_frozen():
@@ -704,6 +705,52 @@ def test_faceless_modal_picks_shop_slot():
     engine.apply(p, int(Action.BUY_SLOT_1), turn_ctx)
     assert p.pending_choice is None
     assert p.board[0].card_id == "BGS_020"
+
+
+def test_murozond_forged_adds_golden_to_hand():
+    from src.bg_core.board_helpers import snapshot_warband
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    opponent = ctx.make_minion("BGS_019")
+    p.last_opponent_board = snapshot_warband([opponent])
+    muro = ctx.make_minion("BGS_043")
+    muro.abilities = ctx.triple_merge_golden_abilities("BGS_043")
+    muro.is_golden = True
+    triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
+    triggers.fire_on_place(muro, p, None)
+    hand = next(h for h in p.hand if h is not None)
+    assert hand.is_golden
+    assert hand.card_id == "BGS_019"
+    assert hand.base_attack == ctx.templates["BGS_019"].base_attack * 2
+
+
+def test_faceless_forged_transforms_into_golden_copy():
+    from src.bg_recruitment.place import place_from_hand
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    offer = ctx.make_minion("BGS_019")
+    p.shop[0] = offer
+    faceless = ctx.make_minion("BGS_113")
+    faceless.abilities = ctx.triple_merge_golden_abilities("BGS_113")
+    faceless.is_golden = True
+    p.hand[0] = faceless
+    triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
+    place_from_hand(
+        p,
+        0,
+        None,
+        board_size=7,
+        triggers=triggers,
+        rng=np.random.default_rng(0),
+    )
+    assert len(p.board) == 1
+    assert p.board[0].card_id == "BGS_019"
+    assert p.board[0].is_golden
+    assert p.board[0].base_attack == ctx.templates["BGS_019"].base_attack * 2
 
 
 def test_faceless_token_in_patch():
@@ -1090,3 +1137,327 @@ def test_bolvar_buffs_on_friendly_shield_lost():
     )
     bol = next(m for m in p0_out if m.card_id == "ICC_858")
     assert bol.bonus_attack >= 2
+
+
+def test_qiraji_harbinger_buffs_neighbors_when_taunt_dies():
+    ctx = PatchContext.load(PATCH_74257)
+    taunt = ctx.make_minion("BGS_039")
+    taunt.base_health = 1
+    harbinger = ctx.make_minion("BGS_112")
+    filler = make_minion("recruit")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    enemy.base_health = 5
+    p0_out: list = []
+    simulate_battle(
+        [taunt, harbinger, filler],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    har = next(m for m in p0_out if m.card_id == "BGS_112")
+    assert har.bonus_attack >= 2
+    assert har.bonus_health >= 2
+
+
+def test_qiraji_harbinger_ignores_non_taunt_death():
+    ctx = PatchContext.load(PATCH_74257)
+    vanilla = make_minion("recruit")
+    vanilla.base_health = 1
+    harbinger = ctx.make_minion("BGS_112")
+    filler = make_minion("recruit")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    simulate_battle(
+        [vanilla, harbinger, filler],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    har = next(m for m in p0_out if m.card_id == "BGS_112")
+    assert har.bonus_attack == 0
+    assert har.bonus_health == 0
+
+
+def test_imprisoner_summons_imp():
+    ctx = PatchContext.load(PATCH_74257)
+    imprisoner = ctx.make_minion("BGS_014")
+    imprisoner.base_health = 1
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    simulate_battle(
+        [imprisoner],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    token = next(m for m in p0_out if m.card_id == "BRM_006t")
+    assert token.raw_attack == 1
+    assert token.max_health == 1
+    assert Keyword.TAUNT not in token.all_keywords
+
+
+def test_forged_imprisoner_summons_golden_imp():
+    ctx = PatchContext.load(PATCH_74257)
+    imprisoner = ctx.make_minion("BGS_014")
+    imprisoner.abilities = ctx.triple_merge_golden_abilities("BGS_014")
+    imprisoner.base_health = 1
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    simulate_battle(
+        [imprisoner],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    token = next(m for m in p0_out if m.card_id == "TB_BaconUps_030t")
+    assert token.raw_attack == 2
+    assert token.max_health == 2
+
+
+def test_refreshing_anomaly_golden_two_free_rolls():
+    from src.bg_recruitment.economy import effective_roll_cost, roll_shop
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player(gold=10)
+    anomaly = ctx.make_minion("BGS_116")
+    anomaly.abilities = ctx.triple_merge_golden_abilities("BGS_116")
+    triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
+    triggers.fire_on_place(anomaly, p, None)
+    assert effective_roll_cost(p) == 0
+    assert p.free_roll_charges == 2
+    roll_shop(p, None, rng=np.random.default_rng(1), patch=ctx)
+    assert effective_roll_cost(p) == 0
+    assert p.free_roll_charges == 1
+    roll_shop(p, None, rng=np.random.default_rng(2), patch=ctx)
+    assert p.free_roll_charges == 0
+    assert p.next_roll_cost_override is None
+
+
+def test_southsea_captain_buffs_other_pirates():
+    from src.bg_combat.battle import attack_value, build_battle_side
+
+    ctx = PatchContext.load(PATCH_74257)
+    captain = ctx.make_minion("NEW1_027")
+    pirate = ctx.make_minion("BGS_061")
+    pirate.base_attack = 1
+    pirate.base_health = 1
+    side = build_battle_side([captain, pirate], patch=ctx)
+    assert attack_value(side.minions[0], side, death_resolution=False) == captain.base_attack
+    assert attack_value(side.minions[1], side, death_resolution=False) == 2
+
+
+def test_wildfire_golden_hits_both_adjacent():
+    ctx = PatchContext.load(PATCH_74257)
+    wild = ctx.make_minion("BGS_126")
+    wild.abilities = ctx.triple_merge_golden_abilities("BGS_126")
+    wild.base_attack = 10
+    left = make_minion("recruit")
+    left.base_health = 5
+    left.base_attack = 0
+    mid = make_minion("recruit")
+    mid.base_health = 1
+    mid.base_attack = 0
+    right = make_minion("recruit")
+    right.base_health = 5
+    right.base_attack = 0
+    p1_out: list = []
+    simulate_battle(
+        [wild],
+        [left, mid, right],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p1_board_out=p1_out,
+    )
+    assert not any(m.card_id == "recruit" and m.max_health == 5 for m in p1_out)
+
+
+def test_herald_of_flame_overkill_damages_leftmost_enemy():
+    ctx = PatchContext.load(PATCH_74257)
+    herald = ctx.make_minion("BGS_032")
+    herald.base_attack = 10
+    left = make_minion("recruit")
+    left.base_health = 1
+    right = make_minion("recruit")
+    right.base_health = 3
+    p1_out: list = []
+    simulate_battle(
+        [herald],
+        [left, right],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p1_board_out=p1_out,
+        max_attacks=1,
+    )
+    assert len(p1_out) == 0
+
+
+def test_deflect_o_bot_ignores_shop_mechanic_summons():
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    bot = ctx.make_minion("BGS_071")
+    mech = ctx.make_minion("BGS_071")
+    mech.race = Race.MECHANICAL
+    atk_before = bot.bonus_attack
+    triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
+    triggers.fire_shop_friendly_summoned(p, mech)
+    assert bot.bonus_attack == atk_before
+
+
+def test_deflect_o_bot_buffs_on_combat_mech_summon():
+    ctx = PatchContext.load(PATCH_74257)
+    bot = ctx.make_minion("BGS_071")
+    bot.base_health = 10
+    damaged_mech = ctx.make_minion("BOT_218")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 1
+    enemy.base_health = 10
+    p0_out: list = []
+    simulate_battle(
+        [bot, damaged_mech],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    bot_out = next(m for m in p0_out if m.card_id == "BGS_071")
+    assert bot_out.bonus_attack >= 1
+
+
+def test_gentle_djinni_summons_elemental_and_copies_to_hand():
+    ctx = PatchContext.load(PATCH_74257)
+    djinni = ctx.make_minion("BGS_121")
+    djinni.base_health = 1
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    combat_hand: list[list[str]] = [[], []]
+    simulate_battle(
+        [djinni],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+        combat_hand_adds_out=combat_hand,
+    )
+    assert len(p0_out) >= 1
+    assert any(m.race == Race.ELEMENTAL for m in p0_out)
+    assert len(combat_hand[0]) == 1
+
+
+def test_scallywag_token_attacks_immediately():
+    ctx = PatchContext.load(PATCH_74257)
+    scally = ctx.make_minion("BGS_061")
+    scally.base_health = 1
+    enemy1 = make_minion("recruit")
+    enemy1.base_health = 1
+    enemy2 = make_minion("recruit")
+    enemy2.base_health = 10
+    enemy2.base_attack = 0
+    p1_out: list = []
+    simulate_battle(
+        [scally],
+        [enemy1, enemy2],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p1_board_out=p1_out,
+    )
+    assert len(p1_out) <= 1
+
+
+def test_unstable_ghoul_damages_all_minions():
+    ctx = PatchContext.load(PATCH_74257)
+    ghoul = ctx.make_minion("FP1_024")
+    ghoul.base_health = 1
+    ally = make_minion("recruit")
+    ally.base_health = 5
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    p1_out: list = []
+    simulate_battle(
+        [ally, ghoul],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+        p1_board_out=p1_out,
+    )
+    if ally in p0_out or any(m.card_id == ally.card_id for m in p0_out):
+        ally_out = next(m for m in p0_out if m.card_id == ally.card_id)
+        assert ally_out.current_health <= 4
+
+
+def test_fiendish_servant_transfers_attack():
+    ctx = PatchContext.load(PATCH_74257)
+    servant = ctx.make_minion("YOD_026")
+    servant.base_health = 1
+    buddy = make_minion("recruit")
+    buddy.base_health = 5
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    simulate_battle(
+        [servant, buddy],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    buddy_out = next(m for m in p0_out if m.card_id == buddy.card_id)
+    assert buddy_out.bonus_attack >= servant.base_attack
+
+
+def test_felfin_navigator_buffs_other_murlocs():
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    murloc = ctx.make_minion("BGS_020")
+    nav = ctx.make_minion("BT_010")
+    p.board = [murloc]
+    triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
+    triggers.fire_on_place(nav, p, None)
+    assert murloc.bonus_attack >= 1
+    assert murloc.bonus_health >= 1
+
+
+def test_ring_matron_summons_fiery_imps():
+    ctx = PatchContext.load(PATCH_74257)
+    matron = ctx.make_minion("DMF_533")
+    matron.base_health = 1
+    enemy = make_minion("recruit")
+    enemy.base_attack = 5
+    p0_out: list = []
+    simulate_battle(
+        [matron],
+        [enemy],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    imps = [m for m in p0_out if m.card_id == "DMF_533t"]
+    assert len(imps) == 2
+    assert all(m.raw_attack == 3 and m.max_health == 2 for m in imps)

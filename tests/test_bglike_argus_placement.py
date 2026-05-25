@@ -21,7 +21,7 @@ from src.envs.bglike.seat_config import build_training_lobby_configs
 def _lobby_for_seat(seat: int = 0) -> BGLobbyMultiCurrentEnv:
     cur = RandomAgent(seed=1)
     opp = RandomAgent(seed=2)
-    env = BGLobbyMultiCurrentEnv([seat], seed=10)
+    env = BGLobbyMultiCurrentEnv([seat], seed=10, patch_dir="data/bgcore/15_6_2_36393")
     env.set_agents(cur, {s: opp for s in range(1, 8)})
     env.reset()
     return env

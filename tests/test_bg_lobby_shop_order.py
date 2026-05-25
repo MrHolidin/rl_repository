@@ -13,7 +13,7 @@ def test_sample_shop_turn_order_is_permutation_of_two():
 
 
 def test_initial_state_current_matches_shop_turn_order():
-    g = MiniBGGame(seed=11)
+    g = MiniBGGame(seed=11, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     assert s.shop_turn_order in ((0, 1), (1, 0))
     assert s.current_player_index == s.shop_turn_order[0]
@@ -23,7 +23,7 @@ def test_after_advance_current_matches_shop_turn_order():
     orders: list[tuple[int, int]] = []
     currents: list[int] = []
     for _ in range(2):
-        g = MiniBGGame(seed=7)
+        g = MiniBGGame(seed=7, patch_dir="data/bgcore/15_6_2_36393")
         s = g.initial_state()
         s.players[0].phase = PlayerPhase.DONE
         s.players[1].phase = PlayerPhase.DONE

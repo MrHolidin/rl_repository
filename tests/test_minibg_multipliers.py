@@ -7,7 +7,7 @@ from src.envs.minibg.game import MiniBGGame
 
 
 def test_brann_triples_vulgar_hero_hits():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("brann_golden")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")
@@ -16,7 +16,7 @@ def test_brann_triples_vulgar_hero_hits():
 
 
 def test_two_branns_multiply_battlecries():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("brann"), make_minion("brann")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")

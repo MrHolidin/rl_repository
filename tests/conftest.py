@@ -6,7 +6,9 @@ from typing import List, Optional
 
 import pytest
 
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context
+from src.bg_catalog.patch_context import PatchContext, load_patch_context
+
+_PATCH_36393 = "data/bgcore/15_6_2_36393"
 from src.envs.minibg.obs import (
     build_observation as _build_observation,
     encode_minion as _encode_minion,
@@ -15,7 +17,7 @@ from src.envs.minibg.obs import (
 )
 from src.envs.minibg.state import MiniBGState, Minion
 
-PATCH_CTX: PatchContext = load_patch_context(str(DEFAULT_PATCH_DIR))
+PATCH_CTX: PatchContext = load_patch_context(_PATCH_36393)
 NUM_POOL_INDICES: int = PATCH_CTX.num_pool_indices
 
 

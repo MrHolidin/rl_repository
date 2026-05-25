@@ -863,6 +863,7 @@ class BGLobbyEnv:
     def drain_until_lobby_done(self, *, deterministic: bool = False) -> List[Tuple[int, int, LobbyStepInfo]]:
         log: List[Tuple[int, int, LobbyStepInfo]] = []
         steps = 0
+        trace: List[str] = []
         while not self.lobby_done and steps < MAX_DRAIN_STEPS:
             steps += 1
             cur = self.current_seat()
@@ -872,14 +873,30 @@ class BGLobbyEnv:
                 self._raise_drain_stall(
                     where="BGLobbyEnv.drain_until_lobby_done",
                     cur=cur,
+                    drain_trace=trace,
                 )
             auto = self.step_auto(cur, deterministic=deterministic)
             log.append((auto.seat, auto.action, auto.info))
+            _append_drain_trace(
+                trace,
+                _format_drain_auto_line(
+                    steps,
+                    cur=cur,
+                    seat=auto.seat,
+                    action=auto.action,
+                    elim=auto.info.eliminated_seats,
+                    controller=auto.controller,
+                    control_path=auto.control_path,
+                    struct_action=auto.struct_action,
+                    deterministic=deterministic,
+                ),
+            )
         if steps >= MAX_DRAIN_STEPS:
             self._raise_drain_exceeded_cap(
                 where="BGLobbyEnv.drain_until_lobby_done",
                 steps=steps,
                 cap=MAX_DRAIN_STEPS,
+                drain_trace=trace,
             )
         if self.lobby_done:
             for s in range(NUM_PLAYERS):
@@ -1478,7 +1495,6 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         deterministic: bool,
         trace: List[str],
         repeat_counts: Dict[Tuple[int, int, Tuple[int, ...]], int],
-        action_repeat_counts: Dict[Tuple[int, int], int],
         prefix: str = "",
     ) -> LobbyStepInfo:
         assert self._lobby is not None
@@ -1486,8 +1502,6 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         auto = self._lobby.step_auto(seat, deterministic=deterministic)
         repeat_key = (auto.seat, auto.action, board_sig)
         repeat_counts[repeat_key] = repeat_counts.get(repeat_key, 0) + 1
-        action_key = (auto.seat, auto.action)
-        action_repeat_counts[action_key] = action_repeat_counts.get(action_key, 0) + 1
         _append_drain_trace(
             trace,
             _format_drain_auto_line(
@@ -1512,18 +1526,6 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
                 f"board_sig={board_sig} controller={auto.controller} "
                 f"path={auto.control_path}",
             )
-        if action_repeat_counts[action_key] >= MAX_DRAIN_REPEAT_WARN:
-            finish_mask = self._lobby.legal_mask_for_seat(auto.seat)
-            if bool(finish_mask[int(GameAction.FINISH)]):
-                fin_info = self._lobby.step_action(auto.seat, int(GameAction.FINISH))
-                _append_drain_trace(
-                    trace,
-                    f"#{steps} FORCE_FINISH seat={auto.seat} after "
-                    f"{action_repeat_counts[action_key]}x action={auto.action} "
-                    f"controller={auto.controller}",
-                )
-                action_repeat_counts[action_key] = 0
-                return fin_info
         return auto.info
 
     def _drain_to_acting(self) -> None:
@@ -1532,7 +1534,6 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         cap = MAX_DRAIN_TO_ACTING_STEPS
         trace: List[str] = []
         repeat_counts: Dict[Tuple[int, int, Tuple[int, ...]], int] = {}
-        action_repeat_counts: Dict[Tuple[int, int], int] = {}
         while not self._lobby.episode_done and steps < cap:
             steps += 1
             active = self._active_current_seats()
@@ -1558,7 +1559,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
                     deterministic=other_current,
                     trace=trace,
                     repeat_counts=repeat_counts,
-                    action_repeat_counts=action_repeat_counts,
+
                 )
                 for el in drain_info.eliminated_seats:
                     self._lobby._mark_finished_training(el)
@@ -1577,7 +1578,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
                     deterministic=other_current,
                     trace=trace,
                     repeat_counts=repeat_counts,
-                    action_repeat_counts=action_repeat_counts,
+
                     prefix="scan ",
                 )
                 advanced = True

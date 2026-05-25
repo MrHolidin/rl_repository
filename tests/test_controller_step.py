@@ -44,7 +44,7 @@ def test_lobby_seat_step_structured_opponent_via_step_auto():
     opponent = copy.deepcopy(learner)
     opponent.eval()
 
-    env = make_bglike_training_env(current_seats=(0,), seed=7)
+    env = make_bglike_training_env(current_seats=(0,), seed=7, patch_dir="data/bgcore/15_6_2_36393")
     env.set_agents(learner, {s: opponent for s in range(1, 8)})
     env.reset(seed=11)
 
@@ -80,7 +80,7 @@ def test_lobby_seat_step_structured_opponent_via_step_auto():
 
 def test_lobby_seat_step_multi_current_structured_drain():
     agent = _make_structured_agent(seed=2)
-    env = make_bglike_training_env(current_seats=(0, 1), seed=5)
+    env = make_bglike_training_env(current_seats=(0, 1), seed=5, patch_dir="data/bgcore/15_6_2_36393")
     opponents = {s: RandomAgent(seed=s + 10) for s in range(2, 8)}
     env.set_agents(agent, opponents)
     env.reset(seed=13)
@@ -116,7 +116,7 @@ def test_lobby_seat_step_multi_current_structured_drain():
 
 def test_lobby_seat_step_direct_structured():
     agent = _make_structured_agent(seed=3)
-    env = make_bglike_training_env(current_seats=(0,), seed=1)
+    env = make_bglike_training_env(current_seats=(0,), seed=1, patch_dir="data/bgcore/15_6_2_36393")
     env.set_agents(agent, {s: RandomAgent(seed=s) for s in range(1, 8)})
     env.reset(seed=2)
     inner = env.lobby
@@ -140,7 +140,7 @@ def test_describe_seat_controller_heuristic():
     from src.envs.bglike.heuristic_bots import make_heuristic_agent
 
     agent = make_heuristic_agent("t1_random", seed=0)
-    env = make_bglike_training_env(current_seats=(0,), seed=1)
+    env = make_bglike_training_env(current_seats=(0,), seed=1, patch_dir="data/bgcore/15_6_2_36393")
     opponents = {s: agent if s == 1 else RandomAgent(seed=s + 10) for s in range(1, 8)}
     env.set_agents(RandomAgent(seed=2), opponents)
     env._opponent_slot_by_seat = {1: -2}
@@ -166,7 +166,7 @@ def test_perspective_reset_with_structured_self_play_opponent():
         def sample_for_seats(self, seats):
             return {int(s): opp for s in seats}
 
-    env = make_bglike_agent_perspective_env(_SingleSeatSampler(), seed=9)
+    env = make_bglike_agent_perspective_env(_SingleSeatSampler(), seed=9, patch_dir="data/bgcore/15_6_2_36393")
     env.set_learner_agent(learner)
     obs = env.reset()
     steps = 0

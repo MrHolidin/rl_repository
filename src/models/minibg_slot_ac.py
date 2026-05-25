@@ -14,7 +14,6 @@ from src.envs.minibg.obs import (
     GLOBAL_DIM as _GLOBAL_DIM,
     HAND_LEN as _HAND_LEN,
     LAST_BATTLE_DIM as _LAST_BATTLE_DIM,
-    NUM_POOL_INDICES as _NUM_POOL_INDICES,
     OBS_DIM as _OBS_DIM,
     PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
     PENDING_DISCOVER_IDX_DIM as _PENDING_DISCOVER_IDX_DIM,
@@ -46,7 +45,9 @@ def _pending_three_option_emb(
 ) -> torch.Tensor:
     """``(B, 3, D)`` per-modal option vectors; mirrors ``encode_pending_choice``."""
 
-    cap = _NUM_POOL_INDICES if max_card_idx is None else max_card_idx
+    if max_card_idx is None:
+        raise ValueError("max_card_idx is required")
+    cap = max_card_idx
     is_adapt = pending[..., _PENDING_IS_ADAPT_CH] > 0.5
     opt_scaled = pending[
         ...,
@@ -85,7 +86,9 @@ def _split_card_idx_and_cont(
     z: torch.Tensor, card_emb: nn.Embedding, *, max_card_idx: Optional[int] = None
 ) -> torch.Tensor:
     """``(B, L, SLOT_DIM)`` → ``(B, L, (SLOT_DIM-1) + card_emb_dim)`` by replacing card_idx channel with its embedding."""
-    cap = _NUM_POOL_INDICES if max_card_idx is None else max_card_idx
+    if max_card_idx is None:
+        raise ValueError("max_card_idx is required")
+    cap = max_card_idx
     cid_f = z[..., _CARD_IDX_OFFSET]
     cid_long = cid_f.long().clamp_(min=0, max=cap)
     emb = card_emb(cid_long)

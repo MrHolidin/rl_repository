@@ -7,7 +7,6 @@ import numpy as np
 from tests.minibg_helpers import make_minion
 from tests.conftest import PATCH_CTX
 from src.bg_lobby.shared_pool import (
-    POOL_SIZE_BY_TIER,
     SharedCardPool,
     build_initial_shared_pool,
 )
@@ -34,7 +33,7 @@ def _empty_player(*, tier: int = 1) -> PlayerState:
 def test_initial_pool_tier_counts():
     pool = build_initial_shared_pool(None, patch=PATCH_CTX)
     cid = "EX1_162"  # recruit tier 1
-    assert pool.remaining_copies(cid) == POOL_SIZE_BY_TIER[1]
+    assert pool.remaining_copies(cid) == PATCH_CTX.meta.pool_copies_by_tier[1]
 
 
 def test_fill_slot_reserves_release_on_clear():
@@ -98,7 +97,7 @@ def test_two_players_share_pool_via_game():
     from src.envs.minibg.game import MiniBGGame
 
     fresh_cap = sum(build_initial_shared_pool(None, patch=PATCH_CTX).remaining.values())
-    g = MiniBGGame(seed=0, use_shared_pool=True)
+    g = MiniBGGame(seed=0, use_shared_pool=True, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     assert s.shared_pool is not None
     after_setup = sum(s.shared_pool.remaining.values())

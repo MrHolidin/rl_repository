@@ -27,11 +27,9 @@ from .patch_catalog import (
     tier_by_dbf_id,
 )
 from .patch_context import (
-    DEFAULT_PATCH_DIR,
     PatchCardDescription,
     PatchContext,
     PatchMeta,
-    default_patch_context,
     load_patch_context,
     require_patch,
 )
@@ -43,7 +41,6 @@ from .patch_runtime import (
 from .triple_effects import implicit_triple_golden_effect, resolve_triple_forged_abilities
 
 __all__ = [
-    "DEFAULT_PATCH_DIR",
     "PatchCardDescription",
     "PatchContext",
     "PatchMeta",
@@ -52,7 +49,6 @@ __all__ = [
     "TavernMinionRecord",
     "build_card_templates",
     "catalog_path",
-    "default_patch_context",
     "load_patch_context",
     "require_patch",
     "golden_upgrade_card_id",

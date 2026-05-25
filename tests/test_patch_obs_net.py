@@ -1,26 +1,29 @@
 import pytest
 
 from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
-from src.bg_catalog.patch_context import default_patch_context
+from src.bg_catalog.patch_context import load_patch_context
 from src.envs.bglike.game import BGLikeGame
 from src.envs.bglike.obs import OBS_DIM, build_observation
-from src.envs.minibg.obs import CARD_ID_TO_DENSE, encode_minion
+from src.envs.minibg.obs import encode_minion
 from src.models.bglike_structured_v2 import BGLikeStructuredV2
 from src.training.patch_config import (
     apply_patch_to_agent_params,
     assert_checkpoint_patch_build,
 )
 
+_PATCH_36393 = "data/bgcore/15_6_2_36393"
+
 
 def test_encode_minion_uses_explicit_card_index():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     m = ctx.make_minion("EX1_162")
     v = encode_minion(m, card_id_to_dense=ctx.card_id_to_dense)
     assert int(v[1]) == ctx.card_id_to_dense["EX1_162"]
 
 
 def test_game_obs_uses_patch_card_index():
-    game = BGLikeGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
+    game = BGLikeGame(seed=0, patch_dir=_PATCH_36393)
+    ctx = load_patch_context(_PATCH_36393)
     state = game.initial_state()
     obs = build_observation(
         state,
@@ -30,17 +33,17 @@ def test_game_obs_uses_patch_card_index():
         patch=game._patch,
     )
     assert obs.shape[0] > 0
-    assert game._patch.card_id_to_dense["EX1_162"] == CARD_ID_TO_DENSE["EX1_162"]
+    assert game._patch.card_id_to_dense["EX1_162"] == ctx.card_id_to_dense["EX1_162"]
 
 
 def test_structured_v2_card_emb_sized_from_patch():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     net = BGLikeStructuredV2(num_pool_indices=ctx.num_pool_indices)
     assert net.card_emb.num_embeddings == ctx.num_pool_indices + 1
 
 
 def test_checkpoint_patch_build_mismatch_rejected(tmp_path):
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     net = BGLikeStructuredV2(num_pool_indices=ctx.num_pool_indices)
     agent = MiniBGPPOStructuredAgent(
         observation_shape=(OBS_DIM,),
@@ -67,7 +70,7 @@ def test_assert_checkpoint_patch_build_helper():
 
 
 def test_apply_patch_to_agent_params_fills_missing():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     game_params = {"patch_dir": str(ctx.patch_dir)}
     agent_params: dict = {}
     out = apply_patch_to_agent_params(game_params, agent_params)
@@ -77,7 +80,7 @@ def test_apply_patch_to_agent_params_fills_missing():
 
 
 def test_apply_patch_to_agent_params_accepts_matching_values():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     game_params = {"patch_dir": str(ctx.patch_dir)}
     agent_params = {
         "num_pool_indices": ctx.num_pool_indices,
@@ -89,7 +92,7 @@ def test_apply_patch_to_agent_params_accepts_matching_values():
 
 
 def test_apply_patch_to_agent_params_rejects_num_pool_indices_mismatch():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     game_params = {"patch_dir": str(ctx.patch_dir)}
     agent_params = {"num_pool_indices": ctx.num_pool_indices + 1}
     with pytest.raises(ValueError, match="num_pool_indices"):
@@ -97,7 +100,7 @@ def test_apply_patch_to_agent_params_rejects_num_pool_indices_mismatch():
 
 
 def test_apply_patch_to_agent_params_rejects_patch_build_mismatch():
-    ctx = default_patch_context()
+    ctx = load_patch_context(_PATCH_36393)
     game_params = {"patch_dir": str(ctx.patch_dir)}
     agent_params = {"patch_build": ctx.build + 1}
     with pytest.raises(ValueError, match="patch_build"):
@@ -114,7 +117,8 @@ def test_build_observation_74257_game():
 
 
 def test_shop_rotation_74257_excluded_dragon():
-    from src.envs.minibg.obs import GLOBAL_CORE_DIM, SHOP_ROTATION_OBS_DIM
+    from src.envs.bglike.obs import BGLIKE_GLOBAL_CORE_DIM
+    from src.envs.minibg.obs import SHOP_ROTATION_OBS_DIM
     from src.bg_core.minion import Race
 
     game = BGLikeGame(
@@ -124,7 +128,7 @@ def test_shop_rotation_74257_excluded_dragon():
     )
     state = game.initial_state()
     obs = build_observation(state, 0, 0.0, is_my_turn=True, patch=game._patch)
-    obs_rot = obs[GLOBAL_CORE_DIM : GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM]
+    obs_rot = obs[BGLIKE_GLOBAL_CORE_DIM : BGLIKE_GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM]
     idx = game._patch.meta.rotation_tribes.index(Race.DRAGON)
     assert idx == 4
     assert obs_rot[idx] == 1.0
@@ -146,12 +150,13 @@ def test_shop_rotation_globals_follow_patch_meta():
     assert rot[0] == 0.0
     assert rot[7] == pytest.approx(0.75)
 
-    game = BGLikeGame(seed=0, shop_excluded_race=Race.MURLOC)
+    game = BGLikeGame(seed=0, patch_dir=_PATCH_36393, shop_excluded_race=Race.MURLOC)
     state = game.initial_state()
     obs = build_observation(state, 0, 0.0, is_my_turn=True, patch=game._patch)
+    from src.envs.bglike.obs import BGLIKE_GLOBAL_CORE_DIM
     from src.envs.minibg.obs import SHOP_ROTATION_OBS_DIM
 
-    obs_rot = obs[GLOBAL_CORE_DIM : GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM]
+    obs_rot = obs[BGLIKE_GLOBAL_CORE_DIM : BGLIKE_GLOBAL_CORE_DIM + SHOP_ROTATION_OBS_DIM]
     idx = game._patch.meta.rotation_tribes.index(Race.MURLOC)
     assert obs_rot[idx] == 1.0
     assert obs_rot[7] == pytest.approx(

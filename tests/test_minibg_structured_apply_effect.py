@@ -17,7 +17,7 @@ from src.envs.minibg.structured_actions import StructAction, StructActionType
 
 
 def test_obs_encodes_apply_effect_modal():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
@@ -35,7 +35,7 @@ def test_obs_encodes_apply_effect_modal():
 
 
 def test_structured_legal_apply_effect_tokens():
-    env = MiniBGEnv(seed=1)
+    env = MiniBGEnv(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
@@ -50,7 +50,7 @@ def test_structured_legal_apply_effect_tokens():
 
 
 def test_structured_step_apply_effect():
-    env = MiniBGEnv(seed=2)
+    env = MiniBGEnv(seed=2, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     env._state.players[0].board = [make_minion("recruit"), make_minion("guard")]
     env._state.players[0].hand[0] = make_minion("target_buffer")
@@ -66,13 +66,13 @@ def test_structured_step_apply_effect():
 
 
 def test_obs_dim_includes_apply_section():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     obs = env.reset()
     assert obs.shape == (OBS_DIM,)
 
 
 def test_obs_apply_remaining_and_picked_mask():
-    env = MiniBGEnv(seed=4)
+    env = MiniBGEnv(seed=4, patch_dir="data/bgcore/15_6_2_36393")
     env.reset()
     idx = env._state.current_player_index
     p = env._state.players[idx]

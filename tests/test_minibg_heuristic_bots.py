@@ -11,7 +11,7 @@ def test_bot_always_chooses_legal_action(name: str) -> None:
     from src.envs.minibg.env import MiniBGEnv
 
     for seed in range(5):
-        env = MiniBGEnv(seed=seed + 9000)
+        env = MiniBGEnv(seed=seed + 9000, patch_dir="data/bgcore/15_6_2_36393")
         bot = make_bot(name, seed + 11)
         for _ in range(200):
             if env.done:

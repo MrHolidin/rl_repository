@@ -35,7 +35,7 @@ def _player(board=None, gold=10, tier=1):
 
 
 def test_buff_random_friendly_no_others_is_noop():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     buffer_card = make_minion("buffer")
     p = _player(board=[buffer_card])
     g._fire_on_place(buffer_card, p, None)
@@ -44,7 +44,7 @@ def test_buff_random_friendly_no_others_is_noop():
 
 
 def test_buff_random_friendly_picks_only_other_minion():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     target = make_minion("murloc_warleader")
     buffer_card = make_minion("buffer")
     p = _player(board=[target, buffer_card])
@@ -56,7 +56,7 @@ def test_buff_random_friendly_picks_only_other_minion():
 
 
 def test_mentor_on_turn_end_buffs_other_friendly():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     mentor = make_minion("mentor")
     mech = make_minion("toy_mech")
     p = _player(board=[mentor, mech])
@@ -69,7 +69,7 @@ def test_mentor_on_turn_end_buffs_other_friendly():
 
 
 def test_mentor_on_turn_end_no_others_is_noop():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     mentor = make_minion("mentor")
     p = _player(board=[mentor])
     g._fire_on_turn_end(p)
@@ -78,7 +78,7 @@ def test_mentor_on_turn_end_no_others_is_noop():
 
 
 def test_two_mentors_both_fire():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     m1 = make_minion("mentor")
     m2 = make_minion("mentor")
     mech = make_minion("toy_mech")
@@ -195,7 +195,7 @@ def test_two_malganis_buff_each_other_and_stack_on_third_demon():
 def test_defender_argus_buffs_adjacent_in_shop():
     from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
 
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     left = make_minion("recruit")
     right = make_minion("recruit")
     argus = make_minion("defender_argus")

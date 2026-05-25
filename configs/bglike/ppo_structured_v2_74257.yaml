@@ -44,7 +44,7 @@ agent:
 
 train:
   max_episodes: 10000000
-  total_steps: 5000
+  total_steps: 5000000
   deterministic: false
   track_timings: false
   start_policy: random
@@ -90,5 +90,5 @@ eval:
   deterministic: true
 
 distributed:
-  workers: 2
+  workers: 10
   worker_device: cpu

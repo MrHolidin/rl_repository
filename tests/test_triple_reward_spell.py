@@ -46,7 +46,7 @@ def test_triple_merge_grants_spell_not_immediate_discover():
 
 
 def test_place_spell_on_full_board_opens_discover():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     rng = np.random.default_rng(0)
     triggers = g._shop_triggers
     p = PlayerState(
@@ -79,7 +79,7 @@ def test_place_spell_on_full_board_opens_discover():
 
 
 def test_place_golden_does_not_open_discover():
-    g = MiniBGGame(seed=1)
+    g = MiniBGGame(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     rng = np.random.default_rng(1)
     p = _player_with_triple_in_hand()
     resolve_one_triple(p, patch=PATCH_CTX)

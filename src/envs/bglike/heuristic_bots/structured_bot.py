@@ -294,15 +294,19 @@ class StructuredHeuristicBot(HeuristicBot):
 
         best_buy = pick_best_buy()
 
+        def _should_roll() -> bool:
+            if not bool(mask[A_ROLL]) or A_ROLL not in legal:
+                return False
+            if p.shop_actions_used >= 19:
+                return False
+            if p.free_roll_charges > 0 or p.next_roll_cost_override == 0:
+                return True
+            return max_shop_offer_score() < thr
+
         if len(p.board) < BOARD_SIZE:
             if best_buy is not None:
                 return int(best_buy)
-            if (
-                bool(mask[A_ROLL])
-                and A_ROLL in legal
-                and max_shop_offer_score() < thr
-                and p.shop_actions_used < 19
-            ):
+            if _should_roll():
                 return A_ROLL
             pool = [a for a in legal if not is_sell(a) or a in ok_sell]
             if not pool:
@@ -331,12 +335,7 @@ class StructuredHeuristicBot(HeuristicBot):
 
             return int(min(sell_legal, key=sell_key))
 
-        if (
-            bool(mask[A_ROLL])
-            and A_ROLL in legal
-            and max_shop_offer_score() < thr
-            and p.shop_actions_used < 19
-        ):
+        if _should_roll():
             return A_ROLL
 
         pool = [a for a in legal if not is_sell(a) or a in ok_sell]

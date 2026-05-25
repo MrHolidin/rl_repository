@@ -8,7 +8,7 @@ from src.training.trainer import Trainer
 
 
 def test_active_role_predicate_minibg():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     env.reset(seed=0)
     role_p1 = active_role(env, agent_token=1)
     role_p_neg1 = active_role(env, agent_token=-1)
@@ -16,7 +16,7 @@ def test_active_role_predicate_minibg():
 
 
 def test_minibg_trainer_smoke_with_perspective_env():
-    base = MiniBGEnv(seed=0)
+    base = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     sampler = RandomOpponentSampler(seed=2)
     env = AgentPerspectiveEnv(base, sampler, agent_first_probability=0.5)
     trainer = Trainer(env, RandomAgent(seed=1), opponent_sampler=sampler)

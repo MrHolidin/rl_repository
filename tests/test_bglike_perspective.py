@@ -26,6 +26,7 @@ def test_multi_current_agent_perspective_episode():
         RandomOpponentSampler(seed=2),
         num_current_seats=2,
         seed=10,
+        patch_dir="data/bgcore/15_6_2_36393",
     )
     env.set_learner_agent(learner)
     obs = env.reset()

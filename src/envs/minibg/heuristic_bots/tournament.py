@@ -29,7 +29,7 @@ def play_game(
     timeout_sec: Optional[float] = None,
 ) -> GameOutcome:
     """Play one game. ``seed`` fixes env RNG (reproducible). ``timeout_sec`` caps wall time."""
-    env = MiniBGEnv(seed=seed)
+    env = MiniBGEnv(seed=seed, patch_dir="data/bgcore/15_6_2_36393")
     deadline = (
         time.perf_counter() + timeout_sec if timeout_sec is not None else None
     )

@@ -9,6 +9,7 @@ import numpy as np
 
 from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext, require_patch
+from src.bg_catalog.golden_catalog import forged_golden_keywords
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion, Race
 from src.bg_recruitment.discover_pool import (
@@ -42,6 +43,34 @@ def hand_has_free_slot(player: PlayerState) -> bool:
     return any(s is None for s in player.hand)
 
 
+def make_forged_golden_minion(normal_card_id: str, *, patch: PatchContext) -> Minion:
+    """Instant golden copy (Murozond / Faceless), not triple-forged from three bodies."""
+    ctx = require_patch(patch, where="triples.make_forged_golden_minion")
+    tpl = ctx.templates[normal_card_id]
+    kws = forged_golden_keywords(
+        normal_card_id,
+        tpl.keywords,
+        ctx.patch_dir / "catalog.json",
+    )
+    return Minion(
+        card_id=normal_card_id,
+        base_attack=tpl.base_attack * 2,
+        base_health=tpl.base_health * 2,
+        tier=tpl.tier,
+        name=tpl.name,
+        race=tpl.race,
+        keywords=kws,
+        granted_keywords=frozenset(),
+        abilities=ctx.triple_merge_golden_abilities(normal_card_id),
+        has_shield=Keyword.SHIELD in kws,
+        is_token=tpl.is_token,
+        is_golden=True,
+        from_triple_merge=False,
+        dbf_id=tpl.dbf_id,
+        sell_value=tpl.sell_value,
+    )
+
+
 def merge_three_non_golden_into_golden(
     card_id: str,
     a: Minion,
@@ -63,6 +92,11 @@ def merge_three_non_golden_into_golden(
     shield = a.has_shield or b.has_shield or c.has_shield or (
         Keyword.SHIELD in merged_kw
     )
+    forged_kw = forged_golden_keywords(
+        card_id,
+        frozenset(merged_kw),
+        ctx.patch_dir / "catalog.json",
+    )
     return Minion(
         card_id=card_id,
         base_attack=tpl.base_attack * 2,
@@ -72,7 +106,7 @@ def merge_three_non_golden_into_golden(
         bonus_attack=a.bonus_attack + b.bonus_attack + c.bonus_attack,
         bonus_health=a.bonus_health + b.bonus_health + c.bonus_health,
         race=tpl.race,
-        keywords=frozenset(merged_kw),
+        keywords=forged_kw,
         granted_keywords=frozenset(),
         abilities=ctx.triple_merge_golden_abilities(card_id),
         has_shield=shield,
@@ -134,13 +168,14 @@ def resolve_one_triple(
         groups[candidate], key=lambda t: (0 if t[0] == "b" else 1, t[1])
     )[:3]
     m0, m1, m2 = ordered[0][2], ordered[1][2], ordered[2][2]
-    if shared_pool is not None:
+    is_token_triple = m0.is_token
+    if shared_pool is not None and not is_token_triple:
         for m in (m0, m1, m2):
             on_sell_minion(shared_pool, m)
     merged = merge_three_non_golden_into_golden(
         candidate, m0, m1, m2, patch=patch
     )
-    if shared_pool is not None:
+    if shared_pool is not None and not is_token_triple:
         if not shared_pool.acquire_new(merged.card_id, 3):
             raise RuntimeError(
                 f"shared pool: cannot reserve 3 copies for golden {merged.card_id!r}"
@@ -252,6 +287,7 @@ __all__ = [
     "hand_has_free_slot",
     "is_triple_reward_discover_spell",
     "make_triple_reward_discover_spell",
+    "make_forged_golden_minion",
     "merge_three_non_golden_into_golden",
     "open_triple_reward_discover_modal",
     "play_triple_reward_discover_spell_from_hand",

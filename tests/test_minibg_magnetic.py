@@ -9,7 +9,7 @@ from src.envs.minibg.game import MiniBGGame
 
 
 def test_magnet_illegal_without_mech_target():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("recruit")]
@@ -18,7 +18,7 @@ def test_magnet_illegal_without_mech_target():
 
 
 def test_magnet_illegal_non_magnetic_in_hand():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("toy_mech")]
@@ -27,7 +27,7 @@ def test_magnet_illegal_non_magnetic_in_hand():
 
 
 def test_magnet_merges_stats_dr_order_and_strips_magnetic():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("mech_base_dr")]
@@ -47,7 +47,7 @@ def test_magnet_merges_stats_dr_order_and_strips_magnetic():
 
 
 def test_magnet_preserves_board_buffs():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     t = make_minion("toy_mech")
@@ -63,7 +63,7 @@ def test_magnet_preserves_board_buffs():
 
 def test_golden_magnetic_adds_double_stats_but_not_golden_identity():
     """BG-style: magnet stats from a golden module apply; merged minion stays its card identity (not golden)."""
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("toy_mech")]
@@ -76,7 +76,7 @@ def test_golden_magnetic_adds_double_stats_but_not_golden_identity():
 
 
 def test_annoy_module_adds_taunt_divine_shield():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     p = s.players[0]
     p.board = [make_minion("toy_mech")]
@@ -88,7 +88,7 @@ def test_annoy_module_adds_taunt_divine_shield():
 
 
 def test_env_mask_includes_magnet_when_legal():
-    env = MiniBGEnv(seed=0)
+    env = MiniBGEnv(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     p = env.state.players[0]
     p.board = [make_minion("toy_mech")]
     p.hand[0] = make_minion("annoy_o_module")

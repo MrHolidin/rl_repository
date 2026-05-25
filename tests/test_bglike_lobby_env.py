@@ -19,6 +19,7 @@ def test_single_agent_env_reset_and_step() -> None:
         learned_seats=(2,),
         agent_by_seat={2: agent},
         seed=10,
+        patch_dir="data/bgcore/15_6_2_36393",
     )
     obs = env.reset()
     from src.envs.bglike.obs import OBS_DIM
@@ -45,7 +46,7 @@ def test_two_learned_agents_one_lobby() -> None:
         agent_by_seat={0: a0, 3: a3},
         seed=30,
     )
-    lobby = BGLobbyEnv(configs, learned_seats=(0, 3), seed=30)
+    lobby = BGLobbyEnv(configs, learned_seats=(0, 3), patch_dir="data/bgcore/15_6_2_36393", seed=30)
     result = run_lobby_episode(lobby, record_seats=(0, 3), deterministic=False)
     assert lobby.lobby_done or lobby.episode_done
     for seat in (0, 3):
@@ -58,7 +59,7 @@ def test_two_learned_agents_one_lobby() -> None:
 def test_placement_reward_on_elimination_recorded() -> None:
     agent = RandomAgent(seed=40)
     configs = lobby_from_learned_seats((1,), agent_by_seat={1: agent}, seed=41)
-    lobby = BGLobbyEnv(configs, learned_seats=(1,), training_seats=(1,), seed=41)
+    lobby = BGLobbyEnv(configs, learned_seats=(1,), patch_dir="data/bgcore/15_6_2_36393", training_seats=(1,), seed=41)
     result = run_lobby_episode(lobby, record_seats=(1,))
     tr = result.transitions[1]
     if tr:
@@ -74,7 +75,7 @@ def test_all_random_lobby_completes() -> None:
         configs = list(configs)
         configs[i] = SeatConfig(SeatKind.RANDOM, RandomAgent(seed=60 + i))
         configs = tuple(configs)
-    lobby = BGLobbyEnv(configs, learned_seats=(0,), seed=50)
+    lobby = BGLobbyEnv(configs, learned_seats=(0,), patch_dir="data/bgcore/15_6_2_36393", seed=50)
     lobby.reset()
     lobby.drain_until_lobby_done()
     assert lobby.lobby_done

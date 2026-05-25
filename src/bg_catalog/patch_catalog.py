@@ -130,6 +130,13 @@ def minion_by_id(path: Optional[Path] = None) -> Dict[str, TavernMinionRecord]:
     return {m.id: m for m in load_tavern_minions(path)}
 
 
+def _text_has_mega_windfury(text: Optional[str]) -> bool:
+    if not text:
+        return False
+    cleaned = re.sub(r"<[^>]+>", "", text).lower()
+    return "mega-windfury" in cleaned
+
+
 def keywords_for_tavern_record(rec: TavernMinionRecord) -> FrozenSet[Keyword]:
     out: set[Keyword] = set()
     for tag in rec.mechanics:
@@ -143,6 +150,8 @@ def keywords_for_tavern_record(rec: TavernMinionRecord) -> FrozenSet[Keyword]:
         k = _MECHANIC_KEYWORDS.get(tag)
         if k is not None:
             out.add(k)
+    if _text_has_mega_windfury(rec.text):
+        out.add(Keyword.MEGA_WINDFURY)
     return frozenset(out)
 
 

@@ -25,7 +25,7 @@ def _force_shop(state: MiniBGState, player_idx: int, *card_ids):
 
 
 def _make_game(seed=0):
-    g = MiniBGGame(seed=seed)
+    g = MiniBGGame(seed=seed, patch_dir="data/bgcore/15_6_2_36393")
     return g, g.initial_state()
 
 
@@ -180,7 +180,7 @@ def test_hand_persists_across_rounds():
 
 
 def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
-    g = MiniBGGame(seed=1234)
+    g = MiniBGGame(seed=1234, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     s.players[0].board = [make_minion("murloc_warleader")]
@@ -197,7 +197,7 @@ def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
     assert rp.card_id == "UNG_073"
     assert rp.bonus_attack == 0 and rp.bonus_health == 0
 
-    g = MiniBGGame(seed=1234)
+    g = MiniBGGame(seed=1234, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     set_acting_player(s, 0)
     s.players[0].hand[0] = make_minion("recruit")
@@ -215,7 +215,7 @@ def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
 
 
 def test_crowd_favorite_buff_when_battlecry_minion_placed():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("AT_121")]
     s.players[0].hand[0] = make_minion("buffer")
@@ -226,7 +226,7 @@ def test_crowd_favorite_buff_when_battlecry_minion_placed():
 
 
 def test_vulgar_homunculus_damage_blocked_by_mal_ganis():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("mal_ganis")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")
@@ -236,7 +236,7 @@ def test_vulgar_homunculus_damage_blocked_by_mal_ganis():
 
 
 def test_wrath_weaver_buffs_when_demon_placed_damage_not_blocked():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("wrath_weaver")]
     s.players[0].hand[0] = make_minion("imp_demon")
@@ -250,7 +250,7 @@ def test_wrath_weaver_buffs_when_demon_placed_damage_not_blocked():
 
 
 def test_annihilan_gains_stats_from_cumulative_hero_damage():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("wrath_weaver")]
     s.players[0].hand[0] = make_minion("imp_demon")
@@ -261,7 +261,7 @@ def test_annihilan_gains_stats_from_cumulative_hero_damage():
     assert ann.card_id == "BGS_010"
     assert ann.bonus_attack == 0 and ann.bonus_health == 1
 
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("mentor"), make_minion("toy_mech")]
     s_done = g.apply_action(s, int(Action.FINISH))
@@ -279,7 +279,7 @@ def test_terminal_apply_raises():
 
 
 def test_game_runs_to_max_rounds_and_draws_when_no_damage():
-    g = MiniBGGame(seed=42)
+    g = MiniBGGame(seed=42, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     while not s.done:
         s.players[s.current_player_index].board = []
@@ -289,7 +289,7 @@ def test_game_runs_to_max_rounds_and_draws_when_no_damage():
 
 
 def test_game_ends_when_player_dies():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = []
     s.players[0].health = 1

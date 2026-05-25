@@ -293,6 +293,8 @@ class ShopTriggers:
             for ab in m.abilities:
                 if ab.trigger != Trigger.ON_FRIENDLY_MINION_SUMMONED:
                     continue
+                if ab.combat_only:
+                    continue
                 eff = ab.effect
                 if isinstance(eff, BuffSummonedIfRace):
                     if self.minion_matches_tribe(summoned, eff.tribe):
@@ -342,7 +344,9 @@ class ShopTriggers:
             source.bonus_attack += effect.attack
             source.bonus_health += effect.health
         elif isinstance(effect, BuffSelfFromHeroDamageTaken):
-            source.bonus_health += player.hero_damage_taken_total
+            source.bonus_health += (
+                player.hero_damage_taken_total * effect.health_per_damage
+            )
         elif isinstance(effect, BuffAllOtherOfTribe):
             self.apply_buff_all_other_tribe(player, source, effect)
         elif isinstance(effect, BuffAllFriendlyOfTribe):
@@ -357,6 +361,7 @@ class ShopTriggers:
             player.upgrade_cost_delta -= effect.amount
         elif isinstance(effect, SetNextRollCostEffect):
             player.next_roll_cost_override = effect.cost
+            player.free_roll_charges = effect.uses
         elif isinstance(effect, GainGoldThisTurnEffect):
             if effect.filter_race is None or (
                 placed is not None and self.minion_matches_tribe(placed, effect.filter_race)
@@ -383,7 +388,14 @@ class ShopTriggers:
             slot = first_free_hand_slot(player)
             if slot is None:
                 return
-            player.hand[slot] = make_minion(pick.card_id, patch=self._patch)
+            if effect.make_golden:
+                from src.bg_recruitment.triples import make_forged_golden_minion
+
+                player.hand[slot] = make_forged_golden_minion(
+                    pick.card_id, patch=self._patch
+                )
+            else:
+                player.hand[slot] = make_minion(pick.card_id, patch=self._patch)
         elif isinstance(effect, TransformIntoShopMinionEffect):
             try:
                 idx = player.board.index(source)
@@ -396,7 +408,7 @@ class ShopTriggers:
                 return
             pick = slots[int(self._rng.integers(0, len(slots)))]
             apply_transform_into_shop_minion(
-                player, idx, pick, patch=self._patch
+                player, idx, pick, patch=self._patch, copy_golden=effect.copy_golden
             )
         elif isinstance(effect, AddRandomMinionToHandEffect):
             add_random_minion_to_hand(
@@ -513,7 +525,11 @@ class ShopTriggers:
 
                 idx = player.board.index(placed)
                 try_open_transform_shop_modal(
-                    player, idx, patch=self._patch, rng=self._rng
+                    player,
+                    idx,
+                    patch=self._patch,
+                    rng=self._rng,
+                    copy_golden=e.copy_golden,
                 )
                 return
         for ab in placed.abilities:

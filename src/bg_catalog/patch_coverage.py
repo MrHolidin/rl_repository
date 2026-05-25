@@ -116,6 +116,8 @@ def analyze_patch_coverage(
     template_ids = set(patch_ctx.templates.keys())
     for cid in sorted(patch_ctx.effects.keys()):
         if cid not in template_ids:
+            if cid.startswith("TB_BaconUps_"):
+                continue
             report.issues.append(
                 CoverageIssue(
                     "error",

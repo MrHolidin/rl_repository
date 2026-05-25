@@ -46,7 +46,7 @@ def test_try_open_rejects_full_hand():
 
 
 def test_brann_chain_truncated_to_free_slots():
-    g = MiniBGGame(seed=5)
+    g = MiniBGGame(seed=5, patch_dir="data/bgcore/15_6_2_36393")
     p = PlayerState(
         health=40,
         gold=10,
@@ -70,7 +70,7 @@ def test_brann_chain_truncated_to_free_slots():
 
 
 def test_discover_pick_triples_after_chain_closed():
-    g = MiniBGGame(seed=7)
+    g = MiniBGGame(seed=7, patch_dir="data/bgcore/15_6_2_36393")
     rec = make_minion("recruit")
     p = PlayerState(
         health=40,

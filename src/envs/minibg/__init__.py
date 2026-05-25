@@ -65,15 +65,12 @@ from src.bg_core.effects import (
 from .env import INVALID_ACTION_REWARD, MiniBGEnv
 from .game import MiniBGGame, PLAYER_TOKENS
 from .obs import (
-    CARD_ID_TO_DENSE,
     CARD_IDX_OFFSET,
     CARD_INDEX_EMPTY,
-    CARD_INDEX_IDS,
     GLOBAL_CORE_DIM,
     GLOBAL_DIM,
     HAND_LEN,
     LAST_BATTLE_DIM,
-    NUM_POOL_INDICES,
     OBS_DIM,
     PENDING_CHOICE_DIM,
     PHASE_DIM,
@@ -84,13 +81,11 @@ from .obs import (
     encode_slots,
 )
 from .state import (
-    CNT_ACTIVE_SHOP_TRIBES,
     MiniBGState,
     Minion,
     PlayerPhase,
     PlayerState,
     Race,
-    ROTATION_SHOP_TRIBES,
 )
 from .structured_actions import (
     StructAction,
@@ -142,8 +137,6 @@ __all__ = [
     "PlayerState",
     "PlayerPhase",
     "Race",
-    "CNT_ACTIVE_SHOP_TRIBES",
-    "ROTATION_SHOP_TRIBES",
     "MiniBGEnv",
     "INVALID_ACTION_REWARD",
     "StructAction",
@@ -187,11 +180,8 @@ __all__ = [
     "PENDING_CHOICE_DIM",
     "PHASE_DIM",
     "HAND_LEN",
-    "CARD_INDEX_IDS",
-    "CARD_ID_TO_DENSE",
     "CARD_INDEX_EMPTY",
     "CARD_IDX_OFFSET",
-    "NUM_POOL_INDICES",
     "encode_minion",
     "encode_slots",
     "build_observation",

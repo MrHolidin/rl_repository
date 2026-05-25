@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import List, Optional, Tuple
 
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, load_patch_context
 from src.bg_core.minion import Minion, Race
 from src.envs.minibg.actions import MAX_SHOP_SLOTS
 
@@ -15,8 +14,6 @@ __all__ = [
     "PlayerState",
     "PlayerPhase",
     "Race",
-    "ROTATION_SHOP_TRIBES",
-    "CNT_ACTIVE_SHOP_TRIBES",
     "PendingChoiceKind",
     "PendingChoice",
     "CasterKind",
@@ -63,12 +60,6 @@ class CasterRef:
     hand_idx: Optional[int] = None
 
 
-# Layout/test defaults for the pinned 36393 package — not a runtime fallback path.
-_DEFAULT_PATCH = load_patch_context(str(DEFAULT_PATCH_DIR))
-ROTATION_SHOP_TRIBES: Tuple[Race, ...] = _DEFAULT_PATCH.meta.rotation_tribes
-CNT_ACTIVE_SHOP_TRIBES = _DEFAULT_PATCH.meta.cnt_active_shop_tribes
-
-
 @dataclass
 class PlayerState:
     health: int
@@ -84,6 +75,7 @@ class PlayerState:
     shop_frozen: Tuple[bool, ...] = (False,) * MAX_SHOP_SLOTS
     upgrade_cost_delta: int = 0
     next_roll_cost_override: Optional[int] = None
+    free_roll_charges: int = 0
     last_combat_won: bool = False
     last_opponent_board: Tuple[Minion, ...] = ()
     shop_elemental_bonus: int = 0

@@ -54,9 +54,6 @@ def _build_action_enum() -> type[IntEnum]:
     for i in range(BOARD_SIZE):
         members[f"TARGET_BOARD_{i}"] = n
         n += 1
-    for i in range(MAX_SHOP_SLOTS):
-        members[f"FREEZE_SHOP_SLOT_{i}"] = n
-        n += 1
     return IntEnum("Action", members)
 
 

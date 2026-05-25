@@ -9,7 +9,7 @@ from src.envs.minibg.game import MiniBGGame
 
 
 def test_resolve_battle_preserves_shop_boards():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     before = make_minion("recruit")
     s.players[0].board = [before]
@@ -21,7 +21,7 @@ def test_resolve_battle_preserves_shop_boards():
 
 
 def test_micro_machine_turn_start_after_round_increment():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     s.players[0].board = [make_minion("micro_machine")]
     s.players[1].board = []
@@ -33,7 +33,7 @@ def test_micro_machine_turn_start_after_round_increment():
 
 
 def test_turn_start_board_left_to_right_two_sources():
-    g = MiniBGGame(seed=1)
+    g = MiniBGGame(seed=1, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     m1 = make_minion("recruit")
     m2 = make_minion("recruit")
@@ -46,7 +46,7 @@ def test_turn_start_board_left_to_right_two_sources():
 
 
 def test_turn_start_hand_slot_runs_after_board():
-    g = MiniBGGame(seed=0)
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/15_6_2_36393")
     s = g.initial_state()
     hb = make_minion("recruit")
     hb.abilities = (Ability(Trigger.ON_TURN_START, BuffSelf(attack=5, health=0)),)

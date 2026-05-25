@@ -58,7 +58,7 @@ def test_heuristic_choose_action_always_in_mask():
     """Smoke: scripted bot never returns an action outside env mask."""
     from src.envs.minibg.env import MiniBGEnv
 
-    env = MiniBGEnv(seed=42)
+    env = MiniBGEnv(seed=42, patch_dir="data/bgcore/15_6_2_36393")
     bot = Tier1RandomBot(seed=1)
     for step_i in range(200):
         if env.done:

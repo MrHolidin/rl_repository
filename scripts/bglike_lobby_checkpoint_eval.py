@@ -238,6 +238,7 @@ def main() -> None:
     )
     ap.add_argument("--num-games", type=int, default=40)
     ap.add_argument("--seed", type=int, default=77)
+    # For this BGLike lobby replay workload, inference is faster on CPU than GPU.
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument("--drain-steps", type=int, default=20_000)
     ap.add_argument(

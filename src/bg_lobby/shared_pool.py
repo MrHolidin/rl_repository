@@ -8,14 +8,10 @@ from typing import Dict, List, Mapping, Optional
 import numpy as np
 
 from src.bg_catalog.cards import shop_minion_allowed_with_exclusion
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR, PatchContext, load_patch_context, require_patch
+from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.minion import Minion, Race
 
-_DEFAULT_PATCH = load_patch_context(str(DEFAULT_PATCH_DIR))
-POOL_SIZE_BY_TIER: Dict[int, int] = dict(_DEFAULT_PATCH.meta.pool_copies_by_tier)
-
 __all__ = [
-    "POOL_SIZE_BY_TIER",
     "SharedCardPool",
     "build_initial_shared_pool",
     "copies_for_minion",
