@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -18,7 +18,7 @@ class PlayerTurnContext:
     rng: np.random.Generator
     triggers: ShopTriggers
     patch: PatchContext
-    shop_excluded_race: Optional[Race] = None
+    shop_excluded_race: Optional[Tuple[Race, ...]] = None
     shared_pool: Optional[SharedCardPool] = None
 
 

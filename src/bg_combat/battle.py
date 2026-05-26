@@ -246,6 +246,24 @@ def _recipient_gets_stat_from_source(
     return atk, hp
 
 
+def _mark_health_aura_dirty(rt: "_CombatRuntime", *side_indices: int) -> None:
+    for side_idx in side_indices:
+        rt.health_aura_dirty[side_idx] = True
+
+
+def _grant_keyword(
+    rt: "_CombatRuntime",
+    side_idx: int,
+    minion: BattleMinion,
+    keyword: Keyword,
+) -> None:
+    if keyword not in minion.template.keywords:
+        minion.template.keywords = frozenset(minion.template.keywords | {keyword})
+        _mark_health_aura_dirty(rt, side_idx)
+    if keyword == Keyword.SHIELD:
+        minion.shield_armed = True
+
+
 def _iter_stat_aura_contributions(
     recipient: BattleMinion,
     source: BattleMinion,
@@ -343,8 +361,14 @@ def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
 
 def _sync_health_all(rt: _CombatRuntime) -> None:
     dr = rt.in_death_resolution
-    _sync_health_aura_side(rt.side(0), dr)
-    _sync_health_aura_side(rt.side(1), dr)
+    if rt.health_aura_dr_snapshot != dr:
+        _mark_health_aura_dirty(rt, 0, 1)
+        rt.health_aura_dr_snapshot = dr
+    for side_idx in (0, 1):
+        if not rt.health_aura_dirty[side_idx]:
+            continue
+        _sync_health_aura_side(rt.side(side_idx), dr)
+        rt.health_aura_dirty[side_idx] = False
 
 
 def attack_with_auras(minion: BattleMinion, side: BattleSide) -> int:
@@ -372,6 +396,8 @@ class _CombatRuntime:
         default_factory=dict
     )
     attacker_killed_this_swing: bool = False
+    health_aura_dirty: List[bool] = field(default_factory=lambda: [True, True])
+    health_aura_dr_snapshot: Optional[bool] = None
 
     def alloc_id(self) -> int:
         i = self.next_id
@@ -511,6 +537,8 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
             strike.attacker_instance_id,
         )
         rt.attacker_killed_this_swing = True
+    if hp_before > 0 and vic.current_health <= 0:
+        _mark_health_aura_dirty(rt, strike.victim_side_idx)
     for ev in reversed(trailing):
         rt.queue.appendleft(ev)
     _sync_health_all(rt)
@@ -552,6 +580,7 @@ def _summon_append(
     bid = rt.alloc_id()
     bm = BattleMinion.from_minion(copy(template), bid)
     side.minions.append(bm)
+    _mark_health_aura_dirty(rt, side_idx)
     rt.queue.append(MinionSummoned(side_idx, bid, template.card_id))
     _sync_health_all(rt)
     return bm
@@ -696,11 +725,7 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
                     summoned.current_health += eff.health
             elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
                 if _matches_tribe_for_aura(summoned.template, eff.tribe):
-                    listener.template.keywords = frozenset(
-                        listener.template.keywords | {eff.keyword}
-                    )
-                    if eff.keyword == Keyword.SHIELD:
-                        listener.shield_armed = True
+                    _grant_keyword(rt, e.side_idx, listener, eff.keyword)
             elif isinstance(eff, BuffListenerIfSummonedMatches):
                 if _matches_tribe_for_aura(summoned.template, eff.tribe):
                     listener.template.bonus_attack += eff.attack
@@ -758,6 +783,7 @@ def _deal_damage_to_battle_minion(
     bm.current_health -= amount
     if bm.current_health <= 0:
         bm.current_health = 0
+        _mark_health_aura_dirty(rt, side_idx)
     _sync_health_all(rt)
     if not bm.alive:
         rt.queue.append(MinionDied(side_idx, bm.instance_id))
@@ -1211,13 +1237,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                         if not pool:
                             continue
                         t = pool[int(rt.rng.integers(0, len(pool)))]
-                        t.template.keywords = frozenset(
-                            t.template.keywords | {effect.keyword}
-                        )
-                        if effect.keyword == Keyword.SHIELD:
-                            t.shield_armed = True
-                        if effect.keyword == Keyword.POISONOUS:
-                            pass
+                        _grant_keyword(rt, side_idx, t, effect.keyword)
             elif isinstance(effect, GrantKeywordAllFriendlyOfTribe):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
@@ -1227,11 +1247,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                             continue
                         if not _matches_tribe_for_aura(m.template, effect.tribe):
                             continue
-                        m.template.keywords = frozenset(
-                            m.template.keywords | {effect.keyword}
-                        )
-                        if effect.keyword == Keyword.SHIELD:
-                            m.shield_armed = True
+                        _grant_keyword(rt, side_idx, m, effect.keyword)
             elif isinstance(effect, GainGoldOnDeathEffect):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
@@ -1334,6 +1350,7 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     bm.reborn_consumed = True
     _strip_reborn_keyword(bm)
     bm.current_health = 1
+    _mark_health_aura_dirty(rt, side_idx)
 
 
 def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:
@@ -1539,9 +1556,93 @@ def _decide_first_side(
     return 0 if p0_has_initiative else 1
 
 
+def _winner_damage_raw(side: BattleSide, winner_tavern_tier: int) -> int:
+    """Uncapped winner damage formula INCLUDING tavern tier (used for HP)."""
+    return int(winner_tavern_tier) + sum(m.tier for m in side.minions if m.alive)
+
+
+def _winner_damage_board_only(side: BattleSide) -> int:
+    """Board-only damage component: ``Σ alive_minion_tiers``, no tavern tier.
+
+    Used as the auxiliary battle-prediction head's regression target. The
+    tavern-tier contribution is excluded on purpose: it's deterministic from
+    the pre-combat state (both seats' tavern tiers are known scalars) and
+    would let the head trivially memorize it from ``state_emb`` if exposed.
+    Keeping the target board-derived makes the prediction depend only on the
+    minions that actually fought.
+    """
+    return sum(m.tier for m in side.minions if m.alive)
+
+
 def _winner_damage(side: BattleSide, winner_tavern_tier: int, damage_cap: int) -> int:
-    raw = int(winner_tavern_tier) + sum(m.tier for m in side.minions if m.alive)
-    return min(int(damage_cap), raw)
+    return min(int(damage_cap), _winner_damage_raw(side, winner_tavern_tier))
+
+
+@dataclass(frozen=True)
+class RawBattleSnapshot:
+    """Side-neutral snapshot of boards at a specific step of combat.
+
+    ``step_index=0`` is the pre-combat state (boards as they entered
+    ``simulate_battle``). Future mid-battle snapshots will have higher indices.
+    """
+
+    side0_board: Tuple[Minion, ...]
+    side1_board: Tuple[Minion, ...]
+    step_index: int = 0
+
+
+@dataclass(frozen=True)
+class BattleResult:
+    """Structured combat result. Backward-compatible with the legacy ``(dmg_p0, dmg_p1)``
+    tuple via iter/index protocols so existing call sites that do
+    ``dmg_p0, dmg_p1 = simulate_battle(...)`` keep working.
+
+    Fields beyond the legacy pair:
+    - ``raw_damage_p0`` / ``raw_damage_p1``: **board-only** uncapped damage —
+      just ``Σ alive_minion_tiers`` on the winning side (no tavern-tier term).
+      Zero for the loser/draws. Target for the auxiliary battle-prediction
+      head. Tavern tier is excluded so the head's prediction depends only on
+      what minions fought, not on the trivially-known hero state.
+    - ``attack_first_side``: which side struck first (0 or 1); 0 by default for
+      degenerate cases (both empty / one empty pre-combat).
+    - ``snapshots``: at least the initial pre-combat snapshot.
+    """
+
+    damage_p0: int
+    damage_p1: int
+    raw_damage_p0: int
+    raw_damage_p1: int
+    attack_first_side: int
+    snapshots: Tuple[RawBattleSnapshot, ...]
+
+    def __iter__(self):
+        # Legacy callsites: ``dmg_p0, dmg_p1 = simulate_battle(...)``
+        return iter((self.damage_p0, self.damage_p1))
+
+    def __getitem__(self, idx: int) -> int:
+        return (self.damage_p0, self.damage_p1)[idx]
+
+    def __len__(self) -> int:
+        return 2
+
+    def __eq__(self, other) -> bool:
+        # Allow direct comparisons with legacy ``(dmg_p0, dmg_p1)`` tuples so
+        # callers using ``simulate_battle(...) == (0, 0)`` keep working.
+        if isinstance(other, BattleResult):
+            return (
+                self.damage_p0 == other.damage_p0
+                and self.damage_p1 == other.damage_p1
+                and self.raw_damage_p0 == other.raw_damage_p0
+                and self.raw_damage_p1 == other.raw_damage_p1
+                and self.attack_first_side == other.attack_first_side
+                and self.snapshots == other.snapshots
+            )
+        if isinstance(other, tuple) and len(other) == 2:
+            return (self.damage_p0, self.damage_p1) == other
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.damage_p0, self.damage_p1, self.raw_damage_p0, self.raw_damage_p1))
 
 
 def persist_shop_board_from_side(side: BattleSide, max_slots: int) -> List[Minion]:
@@ -1604,7 +1705,18 @@ def simulate_battle(
     patch: PatchContext,
     combat_gold_out: Optional[List[int]] = None,
     combat_hand_adds_out: Optional[List[List[str]]] = None,
-) -> Tuple[int, int]:
+) -> "BattleResult":
+    # Snapshot the input boards (deep-ish copy by tuple) BEFORE any combat
+    # mutation. This is the initial (step=0) snapshot fed to the battle
+    # prediction head. ``p0_board`` / ``p1_board`` are passed by reference and
+    # ``_build_side`` constructs ``BattleSide`` objects from them — the original
+    # Minion templates remain unchanged, so a tuple suffices.
+    _initial_snapshot = RawBattleSnapshot(
+        side0_board=tuple(p0_board),
+        side1_board=tuple(p1_board),
+        step_index=0,
+    )
+    _snapshots: Tuple[RawBattleSnapshot, ...] = (_initial_snapshot,)
     ctx = require_patch(patch, where="battle.simulate_battle")
     rt = _CombatRuntime(
         sides=(BattleSide(), BattleSide()),
@@ -1624,6 +1736,28 @@ def simulate_battle(
     side0, side1 = rt.sides
     _sync_health_all(rt)
 
+    def _make_result(damage_p0: int, damage_p1: int, attack_first_side: int = 0) -> "BattleResult":
+        # raw_damage_pX is the BOARD-ONLY uncapped winner-damage (no tavern tier).
+        # Used as the auxiliary head's regression target; tier is deliberately
+        # excluded so the head learns purely from board composition.
+        if damage_p0 > 0 and damage_p1 == 0:
+            raw_p0 = _winner_damage_board_only(side1)
+            raw_p1 = 0
+        elif damage_p1 > 0 and damage_p0 == 0:
+            raw_p0 = 0
+            raw_p1 = _winner_damage_board_only(side0)
+        else:
+            raw_p0 = 0
+            raw_p1 = 0
+        return BattleResult(
+            damage_p0=int(damage_p0),
+            damage_p1=int(damage_p1),
+            raw_damage_p0=int(raw_p0),
+            raw_damage_p1=int(raw_p1),
+            attack_first_side=int(attack_first_side),
+            snapshots=_snapshots,
+        )
+
     if not side0.has_alive() and not side1.has_alive():
         _emit_survivor_outputs(
             side0,
@@ -1634,7 +1768,7 @@ def simulate_battle(
             p1_board_out=p1_board_out,
             max_board_slots=max_board_slots,
         )
-        return 0, 0
+        return _make_result(0, 0)
     if not side0.has_alive():
         _emit_survivor_outputs(
             side0,
@@ -1645,7 +1779,7 @@ def simulate_battle(
             p1_board_out=p1_board_out,
             max_board_slots=max_board_slots,
         )
-        return _winner_damage(side1, p1_tavern_tier, rt.damage_cap), 0
+        return _make_result(_winner_damage(side1, p1_tavern_tier, rt.damage_cap), 0, attack_first_side=1)
     if not side1.has_alive():
         _emit_survivor_outputs(
             side0,
@@ -1656,11 +1790,12 @@ def simulate_battle(
             p1_board_out=p1_board_out,
             max_board_slots=max_board_slots,
         )
-        return 0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap)
+        return _make_result(0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap), attack_first_side=0)
 
     _fire_start_of_combat(rt)
 
     attacker_idx = _decide_first_side(side0, side1, p0_has_initiative)
+    _first_side = attacker_idx
     sides = (side0, side1)
 
     attacks = 0
@@ -1705,14 +1840,14 @@ def simulate_battle(
     if p0_alive and not p1_alive:
         _emit_combat_gold(rt, combat_gold_out)
         _emit_combat_hand_adds(rt, combat_hand_adds_out)
-        return 0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap)
+        return _make_result(0, _winner_damage(side0, p0_tavern_tier, rt.damage_cap), attack_first_side=_first_side)
     if p1_alive and not p0_alive:
         _emit_combat_gold(rt, combat_gold_out)
         _emit_combat_hand_adds(rt, combat_hand_adds_out)
-        return _winner_damage(side1, p1_tavern_tier, rt.damage_cap), 0
+        return _make_result(_winner_damage(side1, p1_tavern_tier, rt.damage_cap), 0, attack_first_side=_first_side)
     _emit_combat_gold(rt, combat_gold_out)
     _emit_combat_hand_adds(rt, combat_hand_adds_out)
-    return 0, 0
+    return _make_result(0, 0, attack_first_side=_first_side)
 
 
 def _emit_combat_hand_adds(

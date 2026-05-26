@@ -11,11 +11,40 @@ from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot, GHOST_OPPONENT_ID
 from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
-from src.bg_lobby.player import PlayerPhase, PlayerState
+from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
 from src.envs.bglike.actions import gold_for_round
+
+
+def _count_board_tribes(board: Sequence[Minion]) -> dict:
+    """Per-race count over a board. ``Race.ALL`` minions count toward every
+    specific tribe (mirrors real-BG tribe-lock semantics)."""
+    from collections import Counter
+
+    counts: Counter = Counter()
+    all_count = 0
+    for m in board:
+        r = m.race
+        if r is None:
+            continue
+        if r == Race.ALL:
+            all_count += 1
+            continue
+        counts[r] += 1
+    if all_count:
+        for r in (
+            Race.BEAST,
+            Race.DEMON,
+            Race.MECHANICAL,
+            Race.MURLOC,
+            Race.DRAGON,
+            Race.PIRATE,
+            Race.ELEMENTAL,
+        ):
+            counts[r] += all_count
+    return dict(counts)
 
 
 def _alive_indices(state) -> Tuple[int, ...]:
@@ -132,6 +161,13 @@ def resolve_combat_round(
         state.winner = state.alive[0] if state.alive else None
         return
 
+    # Snapshot tribe counts BEFORE combat mutates anything so the obs builder
+    # can show the "≥4 of tribe" indicator for the round that just ended.
+    # Eliminated players keep their stored snapshot (frozen at elimination time).
+    for seat in state.alive:
+        p = state.players[seat]
+        p.last_round_tribe_counts = _count_board_tribes(p.board)
+
     matches, state.full_lobby_cycle_round = compute_pairings(
         state.alive,
         state.recent_opponents,
@@ -153,7 +189,7 @@ def resolve_combat_round(
             live = state.players[match.a]
             ghost_board = list(match.ghost.last_board)
             p0_first = _initiative_for_ghost(state, match.a, match.ghost)
-            dmg_live, _ = simulate_battle(
+            battle_result = simulate_battle(
                 live.board,
                 ghost_board,
                 p0_has_initiative=p0_first,
@@ -165,7 +201,24 @@ def resolve_combat_round(
                 p1_tavern_tier=match.ghost.tavern_tier,
                 patch=patch,
             )
+            dmg_live = battle_result.damage_p0
             _apply_hero_damage(state, match.a, dmg_live)
+            # Record battle-prediction-head snapshots for the live seat. Ghost
+            # is treated like a normal opponent: own=side0 (live), opp=side1
+            # (ghost board). raw_signed: +raw_p1 if I won (raw_damage_p1 is
+            # the damage *I dealt*), -raw_p0 if I lost (raw_damage_p0 is dmg I took).
+            initial = battle_result.snapshots[0]
+            live.last_battle_snapshots = (
+                BattleSnapshot(
+                    own_board=initial.side0_board,
+                    opp_board=initial.side1_board,
+                    step_index=0,
+                ),
+            )
+            live.last_attack_first = (battle_result.attack_first_side == 0)
+            live.last_battle_raw_signed = float(
+                battle_result.raw_damage_p1 - battle_result.raw_damage_p0
+            )
             ghost_rec = record_combat_opponent(
                 state.recent_opponents[match.a], GHOST_OPPONENT_ID
             )
@@ -183,7 +236,7 @@ def resolve_combat_round(
         p0_first = _initiative_for_pair(state, a, b)
         combat_gold = [0, 0]
         combat_hand_adds: list[list[str]] = [[], []]
-        dmg_a, dmg_b = simulate_battle(
+        battle_result = simulate_battle(
             pa.board,
             pb.board,
             p0_has_initiative=p0_first,
@@ -196,6 +249,34 @@ def resolve_combat_round(
             patch=patch,
             combat_gold_out=combat_gold,
             combat_hand_adds_out=combat_hand_adds,
+        )
+        dmg_a, dmg_b = battle_result.damage_p0, battle_result.damage_p1
+        # Battle-prediction-head snapshots for both seats. Orientation is
+        # per-seat: pa sees side0 as own, pb sees side1 as own. The signed raw
+        # damage is "damage I dealt minus damage I took" with the uncapped
+        # formula, so positive = won decisively, negative = lost decisively.
+        _initial = battle_result.snapshots[0]
+        pa.last_battle_snapshots = (
+            BattleSnapshot(
+                own_board=_initial.side0_board,
+                opp_board=_initial.side1_board,
+                step_index=0,
+            ),
+        )
+        pb.last_battle_snapshots = (
+            BattleSnapshot(
+                own_board=_initial.side1_board,
+                opp_board=_initial.side0_board,
+                step_index=0,
+            ),
+        )
+        pa.last_attack_first = (battle_result.attack_first_side == 0)
+        pb.last_attack_first = (battle_result.attack_first_side == 1)
+        pa.last_battle_raw_signed = float(
+            battle_result.raw_damage_p1 - battle_result.raw_damage_p0
+        )
+        pb.last_battle_raw_signed = float(
+            battle_result.raw_damage_p0 - battle_result.raw_damage_p1
         )
         if p0_first:
             _apply_hero_damage(state, a, dmg_a)

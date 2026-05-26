@@ -132,6 +132,13 @@ class EmaPairwiseRating(RatingSystem):
         return self._stats.get(int(slot_id))
 
 
+# Lower bound for σ² when removing the τ²-inflation from immutable slots: σ=0
+# would crash the next ``rate()`` (Gaussian with zero variance is degenerate),
+# so we clamp to a tiny positive value. Empirically frozen σ converges to
+# ~0.1–0.3 with this floor; well below the τ-floor of ~0.7 it used to plateau at.
+_SIGMA_FLOOR_SQ = 1e-6
+
+
 @dataclass
 class _TrueSkillState:
     mu: float
@@ -205,14 +212,28 @@ class TrueSkillRating(RatingSystem):
         for sid, group in zip(slot_ids, new_groups):
             merged[sid].append(group[0])
 
+        # TrueSkill's ``rate()`` inflates each participant's prior by τ² before
+        # computing the posterior — that's the "skill may drift between matches"
+        # term. It's correct for the live learner but wrong for frozen / scripted
+        # slots whose policy is immutable: their σ should monotonically shrink
+        # toward zero, not plateau at the τ-induced floor. Undo the residual τ²
+        # for every non-current slot; posterior μ is left untouched.
+        tau_sq = float(self._env.tau) ** 2
         for sid, ratings in merged.items():
             mu = sum(r.mu for r in ratings) / len(ratings)
             sigma = sum(r.sigma for r in ratings) / len(ratings)
+            if sid != SLOT_CURRENT and tau_sq > 0.0:
+                corrected_sq = sigma * sigma - tau_sq
+                sigma = math.sqrt(max(corrected_sq, _SIGMA_FLOOR_SQ))
             state = self._ratings[sid]
             state.mu = float(mu)
             state.sigma = float(sigma)
             state.games += 1
         return True
+
+    def set_sigma(self, slot_id: int, sigma: float) -> None:
+        self.register(slot_id)
+        self._ratings[int(slot_id)].sigma = float(sigma)
 
     def _win_prob(self, winner: _TrueSkillState, loser: _TrueSkillState) -> float:
         delta = winner.mu - loser.mu
@@ -228,6 +249,10 @@ class TrueSkillRating(RatingSystem):
         if state is None:
             return float(self._env.mu), float(self._env.sigma)
         return float(state.mu), float(state.sigma)
+
+    def set_mu(self, slot_id: int, mu: float) -> None:
+        self.register(slot_id)
+        self._ratings[int(slot_id)].mu = float(mu)
 
     def match_quality_vs_current(self, slot_id: int) -> float:
         opp = self.get_mu_sigma(slot_id)

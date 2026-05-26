@@ -38,6 +38,7 @@ from .actions import (
     STARTING_HEALTH,
     magnet_game_action,
 )
+from src.bg_lobby.player import BATTLE_HISTORY_LEN
 from src.envs.minibg.structured_actions import (
     StructAction,
     StructActionType,
@@ -258,6 +259,7 @@ class BGLobbyEnv:
         training_seats: Optional[Sequence[int]] = None,
         seed: Optional[int] = None,
         shop_excluded_race=None,
+        shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         replay: Optional[Any] = None,
         patch_dir: Optional[str] = None,
@@ -280,6 +282,7 @@ class BGLobbyEnv:
         self._game = BGLikeGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
+            shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
             patch_dir=patch_dir,
         )
@@ -318,6 +321,7 @@ class BGLobbyEnv:
             self._game = BGLikeGame(
                 seed=seed,
                 shop_excluded_race=self._game._shop_excluded_race_fixed,
+                shop_excluded_count=self._game._shop_excluded_count,
                 shop_full_tribes=self._game._shop_full_tribes,
                 patch_dir=self._patch_dir,
             )
@@ -658,7 +662,10 @@ class BGLobbyEnv:
         if self.state.combat_round > prev_combat_round:
             for i in range(NUM_PLAYERS):
                 delta = prev_hp[i] - self.state.players[i].health
-                self._last_battle_signed[i] = float(delta) / float(STARTING_HEALTH)
+                normalized = float(delta) / float(STARTING_HEALTH)
+                self._last_battle_signed[i] = normalized
+                p = self.state.players[i]
+                p.battle_history = (p.battle_history + (normalized,))[-BATTLE_HISTORY_LEN:]
 
     def _lobby_step_info(
         self, seat: int, eliminated_before: Set[int]
@@ -862,10 +869,24 @@ class BGLobbyEnv:
 
     def drain_until_lobby_done(self, *, deterministic: bool = False) -> List[Tuple[int, int, LobbyStepInfo]]:
         log: List[Tuple[int, int, LobbyStepInfo]] = []
-        steps = 0
+        total_steps = 0
+        round_steps = 0
+        guard_combat_round = self.state.combat_round
         trace: List[str] = []
-        while not self.lobby_done and steps < MAX_DRAIN_STEPS:
-            steps += 1
+        while not self.lobby_done:
+            if self.state.combat_round != guard_combat_round:
+                guard_combat_round = self.state.combat_round
+                round_steps = 0
+                trace = []
+            if round_steps >= MAX_DRAIN_STEPS:
+                self._raise_drain_exceeded_cap(
+                    where="BGLobbyEnv.drain_until_lobby_done",
+                    steps=round_steps,
+                    cap=MAX_DRAIN_STEPS,
+                    drain_trace=trace,
+                )
+            total_steps += 1
+            round_steps += 1
             cur = self.current_seat()
             if not self._seat_can_act(cur):
                 if self.state.done:
@@ -880,7 +901,7 @@ class BGLobbyEnv:
             _append_drain_trace(
                 trace,
                 _format_drain_auto_line(
-                    steps,
+                    total_steps,
                     cur=cur,
                     seat=auto.seat,
                     action=auto.action,
@@ -890,13 +911,6 @@ class BGLobbyEnv:
                     struct_action=auto.struct_action,
                     deterministic=deterministic,
                 ),
-            )
-        if steps >= MAX_DRAIN_STEPS:
-            self._raise_drain_exceeded_cap(
-                where="BGLobbyEnv.drain_until_lobby_done",
-                steps=steps,
-                cap=MAX_DRAIN_STEPS,
-                drain_trace=trace,
             )
         if self.lobby_done:
             for s in range(NUM_PLAYERS):
@@ -922,9 +936,19 @@ def run_lobby_episode(
     env.reset()
     transitions: Dict[int, List[SeatTransition]] = {s: [] for s in record_seats}
     record_set = frozenset(record_seats)
-    steps = 0
-    while not env.lobby_done and steps < MAX_DRAIN_STEPS:
-        steps += 1
+    round_steps = 0
+    guard_combat_round = env.state.combat_round
+    while not env.lobby_done:
+        if env.state.combat_round != guard_combat_round:
+            guard_combat_round = env.state.combat_round
+            round_steps = 0
+        if round_steps >= MAX_DRAIN_STEPS:
+            env._raise_drain_exceeded_cap(
+                where="run_lobby_episode",
+                steps=round_steps,
+                cap=MAX_DRAIN_STEPS,
+            )
+        round_steps += 1
         cur = env.current_seat()
         if not env._seat_can_act(cur):
             if env.state.done:
@@ -968,12 +992,6 @@ def run_lobby_episode(
         )
         if env.lobby_done:
             break
-    if steps >= MAX_DRAIN_STEPS and not env.lobby_done:
-        env._raise_drain_exceeded_cap(
-            where="run_lobby_episode",
-            steps=steps,
-            cap=MAX_DRAIN_STEPS,
-        )
     placements = env.finalize_placements()
     outcomes = {
         s: LobbyStepInfo(acting_seat=s, placements={s: placements[s]})
@@ -996,6 +1014,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         seed: Optional[int] = None,
         reward_config: Optional[RewardConfig] = None,
         shop_excluded_race=None,
+        shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         patch_dir: Optional[str] = None,
     ) -> None:
@@ -1013,6 +1032,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
             training_seats=(training_seat,),
             seed=seed,
             shop_excluded_race=shop_excluded_race,
+            shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
             patch_dir=patch_dir,
         )
@@ -1131,6 +1151,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         seed: Optional[int] = None,
         reward_config: Optional[RewardConfig] = None,
         shop_excluded_race=None,
+        shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         patch_dir: Optional[str] = None,
     ) -> None:
@@ -1145,6 +1166,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._opponent_slot_by_seat: Dict[int, int] = {}
         self._seed = seed
         self._shop_excluded_race = shop_excluded_race
+        self._shop_excluded_count = shop_excluded_count
         self._shop_full_tribes = shop_full_tribes
         self._patch_dir = patch_dir
         self._lobby: Optional[BGLobbyEnv] = None
@@ -1226,6 +1248,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             training_seats=self._current_seats,
             seed=self._seed,
             shop_excluded_race=self._shop_excluded_race,
+            shop_excluded_count=self._shop_excluded_count,
             shop_full_tribes=self._shop_full_tribes,
             patch_dir=self._patch_dir,
         )

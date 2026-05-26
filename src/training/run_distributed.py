@@ -13,6 +13,8 @@ from src.features.action_space import DiscreteActionSpace
 from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED,
     PPO_NETWORK_BGLIKE_STRUCTURED_V2,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V3,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V4,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import reject_flat_bg_network
@@ -119,6 +121,8 @@ def run_distributed(
         PPO_NETWORK_MINIBG_STRUCTURED,
         PPO_NETWORK_BGLIKE_STRUCTURED,
         PPO_NETWORK_BGLIKE_STRUCTURED_V2,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V3,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V4,
     )
     game_params["use_structured"] = use_structured
 

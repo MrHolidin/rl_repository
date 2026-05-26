@@ -83,6 +83,7 @@ class MiniBGEnv(TurnBasedEnv):
         replay_path: Optional[Union[str, Path]] = None,
         replay_meta: Optional[Dict[str, Any]] = None,
         shop_excluded_race: Optional[Race] = None,
+        shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         patch_dir: Optional[str] = None,
     ) -> None:
@@ -93,11 +94,13 @@ class MiniBGEnv(TurnBasedEnv):
             invalid_action=INVALID_ACTION_REWARD
         )
         self._shop_excluded_race = shop_excluded_race
+        self._shop_excluded_count = shop_excluded_count
         self._shop_full_tribes = shop_full_tribes
         self._patch_dir = patch_dir
         self._game: MiniBGGame = MiniBGGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
+            shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
             patch_dir=patch_dir,
         )
@@ -127,6 +130,7 @@ class MiniBGEnv(TurnBasedEnv):
             self._game = MiniBGGame(
                 seed=seed,
                 shop_excluded_race=self._shop_excluded_race,
+                shop_excluded_count=self._shop_excluded_count,
                 shop_full_tribes=self._shop_full_tribes,
                 patch_dir=self._patch_dir,
             )
@@ -134,12 +138,14 @@ class MiniBGEnv(TurnBasedEnv):
             self._game = MiniBGGame(
                 seed=self._seed,
                 shop_excluded_race=self._shop_excluded_race,
+                shop_excluded_count=self._shop_excluded_count,
                 shop_full_tribes=self._shop_full_tribes,
                 patch_dir=self._patch_dir,
             )
         else:
             self._game = MiniBGGame(
                 shop_excluded_race=self._shop_excluded_race,
+                shop_excluded_count=self._shop_excluded_count,
                 shop_full_tribes=self._shop_full_tribes,
                 patch_dir=self._patch_dir,
             )

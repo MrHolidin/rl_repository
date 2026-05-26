@@ -21,6 +21,7 @@ from src.training.opponent_sampler import (
 )
 from src.training.callbacks import (
     CheckpointCallback,
+    EntropyCoefScheduleCallback,
     EpsilonDecayCallback,
     LearningRateDecayCallback,
     MetricsFileCallback,
@@ -197,6 +198,25 @@ def _build_lr_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallback]:
         min_lr=min_lr,
         optimizer_attr=optimizer_attr,
         metric_key=metric_key,
+    )
+
+
+def _build_entropy_schedule_callback(cb: CallbackConfig) -> Optional[TrainerCallback]:
+    if not cb.enabled or cb.type.lower() not in ("entropy_schedule", "entropy_coef_schedule"):
+        return None
+    p = cb.params
+    if "start_coef" not in p or "end_coef" not in p:
+        raise ValueError(
+            "entropy_schedule callback requires 'start_coef' and 'end_coef' params"
+        )
+    if "schedule_steps" not in p:
+        raise ValueError("entropy_schedule callback requires 'schedule_steps'")
+    return EntropyCoefScheduleCallback(
+        start_coef=float(p["start_coef"]),
+        end_coef=float(p["end_coef"]),
+        schedule_steps=int(p["schedule_steps"]),
+        interval_steps=int(p.get("interval_steps", 1000)),
+        metric_key=str(p.get("metric_key", "entropy_coef")),
     )
 
 
@@ -481,7 +501,11 @@ def run(
         if built is not None:
             callbacks.append(built)
             continue
-        for builder in (_build_epsilon_decay_callback, _build_lr_decay_callback):
+        for builder in (
+            _build_epsilon_decay_callback,
+            _build_lr_decay_callback,
+            _build_entropy_schedule_callback,
+        ):
             built = builder(cb_cfg)
             if built is not None:
                 callbacks.append(built)

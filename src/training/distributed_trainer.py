@@ -331,6 +331,10 @@ def _payload_to_buffer(data: bytes, mg: dict) -> Any:
 def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
     if _use_structured_collect(mg):
         out = StructuredMiniBGRolloutBuffer()
+        # Per-worker episode_ids start from 0; offset by the running max so
+        # merged sequences for BPTT (grouped by (episode_id, seat_id)) don't
+        # collide across workers.
+        next_ep_offset = 0
         for buf in buffers:
             out.obs.extend(buf.obs)
             out.legal_lists.extend(buf.legal_lists)
@@ -345,6 +349,31 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
             out.next_obs.extend(buf.next_obs)
             out.next_legal_lists.extend(buf.next_legal_lists)
             out.seat_ids.extend(buf.seat_ids)
+            if getattr(buf, "h_prev", None):
+                out.h_prev.extend(buf.h_prev)
+            ep_ids = getattr(buf, "episode_ids", None) or []
+            if ep_ids:
+                shifted = [int(e) + next_ep_offset for e in ep_ids]
+                out.episode_ids.extend(shifted)
+                next_ep_offset = max(shifted) + 1
+            else:
+                # Pad with a sentinel episode id so length matches `obs`. Non-recurrent
+                # agents never look at episode_ids; recurrent ones populate them.
+                out.episode_ids.extend([next_ep_offset] * len(buf.obs))
+                next_ep_offset += 1
+            # Battle-prediction-head fields. Workers either populate all 5 with
+            # proper shapes (head enabled) or leave placeholder zeros (head off).
+            # Either way length must match buf.obs.
+            for field_name in (
+                "own_board_obs",
+                "opp_board_obs",
+                "attack_first",
+                "battle_target",
+                "battle_target_valid",
+            ):
+                src_list = getattr(buf, field_name, None)
+                if src_list is not None:
+                    getattr(out, field_name).extend(src_list)
         return out
     out = RolloutBuffer()
     for buf in buffers:
@@ -1172,7 +1201,7 @@ class DistributedTrainer(BaseTrainer):
         )
 
     def _add_to_pool(self, sd_bytes: bytes) -> None:
-        slot_id = self._league.add_frozen_bytes(sd_bytes)
+        slot_id = self._league.add_frozen_bytes(sd_bytes, copy_current_mu=True)
         self._frozen_pool[slot_id] = sd_bytes
         self._league.evict_worst(self._max_pool_size)
         live = {s.slot_id for s in self._league.frozen_slots()}

@@ -36,7 +36,7 @@ class MiniBGState:
     initiative_player: int
     winner: Optional[int]
     done: bool
-    shop_excluded_race: Optional[Race] = None
+    shop_excluded_race: Optional[Tuple[Race, ...]] = None
     shop_turn_order: Tuple[int, int] = (0, 1)
     shared_pool: Optional[SharedCardPool] = None
     patch_build: Optional[int] = None

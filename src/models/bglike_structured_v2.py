@@ -47,14 +47,15 @@ from src.envs.minibg.structured_actions import (
     slot_pick_sequence_to_perm,
 )
 
-# Reuse v1's frozen building blocks. These do not depend on the v1 class's layer
-# layout — just module-level helpers and a generic attention block.
-from .minibg_structured_ac import (
+# Shared structured-AC building blocks (attention block, action-token packing,
+# region / role constants). Same source as v1 — moved to a common module so
+# v3 can reuse them without depending on v1's frozen file layout.
+from .structured_common import (
+    BattlePredictionHead,
     EntityAttentionBlock,
     _build_action_tokens,
     _EXT_DIM,
     _EXT_END,
-    _MAX_REGION_LEN,
     _NUM_REGIONS,
     _NUM_ROLES,
     _NUM_STRUCT_TYPES,
@@ -118,6 +119,7 @@ class BGLikeStructuredV2(nn.Module):
         entity_attention_init_scale: float = 0.1,
         obs_layout: str = "bglike",
         num_pool_indices: Optional[int] = None,
+        battle_pred_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
 
@@ -315,6 +317,32 @@ class BGLikeStructuredV2(nn.Module):
             nn.Linear(self.order_score_hidden, 1),
         )
 
+        # --- Optional auxiliary battle-prediction head ------------------
+        # Predicts signed uncapped combat damage from (own_board, opp_board,
+        # attack_first, state_emb). Reuses parent conv weights + own_pos_emb
+        # for board encoding; the head itself owns enemy_pos_emb, an attention
+        # block, and a small MLP. Gradient through the head's own forward
+        # always flows; whether it propagates to the parent encoder is
+        # controlled per-call by ``detach_features`` in ``predict_battle``.
+        self.battle_pred_config = dict(battle_pred_config or {})
+        self._battle_pred_enabled = bool(self.battle_pred_config.get("enabled", False))
+        if self._battle_pred_enabled:
+            self.battle_head = BattlePredictionHead(
+                slot_hidden=self.slot_hidden,
+                board_size=self.board_size,
+                head_hidden=int(self.battle_pred_config.get("head_hidden", 128)),
+                n_heads=int(
+                    self.battle_pred_config.get(
+                        "head_attn_heads", self.entity_attention_heads
+                    )
+                ),
+                attn_init_scale=float(
+                    self.battle_pred_config.get("attn_init_scale", 0.1)
+                ),
+            )
+        else:
+            self.battle_head = None
+
     def get_constructor_kwargs(self) -> Dict[str, Any]:
         return {
             "slot_hidden": self.slot_hidden,
@@ -334,7 +362,58 @@ class BGLikeStructuredV2(nn.Module):
             "entity_attention_init_scale": self.entity_attention_init_scale,
             "obs_layout": self.obs_layout,
             "num_pool_indices": self.num_pool_indices,
+            "battle_pred_config": dict(self.battle_pred_config),
         }
+
+    # ------------------------------------------------------------------
+    # Battle-prediction head (auxiliary)
+    # ------------------------------------------------------------------
+
+    def predict_battle(
+        self,
+        own_board_obs: torch.Tensor,
+        opp_board_obs: torch.Tensor,
+        attack_first: torch.Tensor,
+        *,
+        detach_features: bool = False,
+    ) -> torch.Tensor:
+        """Score the auxiliary battle-prediction head.
+
+        Board-only inputs (no state_emb): shop/hand/past-battles deliberately
+        do NOT leak into the prediction, keeping it aligned with the
+        board-only damage label.
+
+        ``own_board_obs`` / ``opp_board_obs``: ``(B, BOARD_SIZE, SLOT_DIM)``
+        slot tensors (encoded via :func:`src.envs.bglike.obs.encode_board_minions`
+        from snapshots taken on combat-resolution steps).
+        ``attack_first``: ``(B,)`` or ``(B, 1)`` float, 0/1.
+
+        If ``detach_features=True``, the encoded board features are detached
+        before reaching the head; the parent encoder receives NO gradient
+        from the head loss (diagnostic mode). The head's own MLP/attention
+        weights still receive gradient through the forward.
+        """
+        if not self._battle_pred_enabled or self.battle_head is None:
+            raise RuntimeError(
+                "predict_battle called but battle_head is disabled. "
+                "Pass battle_pred_config={'enabled': True, ...} at construction."
+            )
+        # Encode each board through shared conv stack + position embeddings.
+        e_own = self._encode_region_slots(own_board_obs)
+        e_own = self._add_pos_region(e_own, self.own_pos_emb, REG_OWN)
+        e_enemy = self._encode_region_slots(opp_board_obs)
+        # Enemy gets its own pos_emb (lives on the head module).
+        L = e_enemy.shape[1]
+        pe = self.battle_head.enemy_pos_emb.weight[:L].unsqueeze(0)
+        # Keep an explicit region offset for the enemy slots so attention can
+        # distinguish own vs enemy by region as well as by position.
+        re = self.slot_region_emb.weight[4].view(1, 1, -1)  # 4 = REG_ENEMY
+        e_enemy = e_enemy + pe + re
+
+        if detach_features:
+            e_own = e_own.detach()
+            e_enemy = e_enemy.detach()
+        return self.battle_head(e_own, e_enemy, attack_first)
 
     # ------------------------------------------------------------------
     # Encoding
@@ -384,12 +463,8 @@ class BGLikeStructuredV2(nn.Module):
         region_id: int,
     ) -> torch.Tensor:
         _, L, H = E.shape
-        device = E.device
-        pos_ids = torch.arange(L, device=device, dtype=torch.long)
-        pe = pos_emb(pos_ids).unsqueeze(0)
-        re = self.slot_region_emb(
-            torch.tensor(region_id, device=device, dtype=torch.long)
-        ).view(1, 1, H)
+        pe = pos_emb.weight[:L].unsqueeze(0)
+        re = self.slot_region_emb.weight[region_id].view(1, 1, H)
         return E + pe + re
 
     def encode_state(

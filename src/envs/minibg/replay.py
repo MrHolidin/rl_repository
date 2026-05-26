@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO, Union
 
+from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_core.effects import Ability, Effect, Keyword
 from .state import Minion, MiniBGState, PlayerState
 
@@ -106,6 +107,7 @@ def player_to_dict(p: PlayerState) -> Dict[str, Any]:
 
 
 def state_to_dict(state: MiniBGState) -> Dict[str, Any]:
+    excluded = normalize_shop_excluded_races(state.shop_excluded_race)
     return {
         "round": state.round_number,
         "cur": state.current_player_index,
@@ -113,8 +115,9 @@ def state_to_dict(state: MiniBGState) -> Dict[str, Any]:
         "done": state.done,
         "winner": state.winner,
         "shop_excluded_race": (
-            None if state.shop_excluded_race is None else state.shop_excluded_race.name
+            excluded[0].name if len(excluded) == 1 else None
         ),
+        "shop_excluded_races": [race.name for race in excluded],
         "p0": player_to_dict(state.players[0]),
         "p1": player_to_dict(state.players[1]),
     }

@@ -201,6 +201,15 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         base_step = self._bg_base.step_structured(action, board_perm=board_perm)
         info = dict(base_step.info) if isinstance(base_step.info, dict) else {}
 
+        # On combat-resolution steps the env now carries per-seat snapshots of
+        # the just-resolved combat (own/opp boards in their final pre-combat
+        # order + signed uncapped damage + attack_first). The PPO agent reads
+        # this in observe() and back-fills the last FINISH-row for each seat
+        # with the battle-prediction head's target. Computed for *all* training
+        # seats (alive at start of combat), so we don't miss any battles.
+        if info.get("combat_advanced"):
+            info["battle_data_per_seat"] = self._collect_battle_data_per_seat()
+
         lobby_done = bool(self._bg_base.done)
         if lobby_done:
             reward = self._final_reward_for_agent(info)
@@ -216,6 +225,37 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             truncated=False,
             info=info,
         )
+
+    def _collect_battle_data_per_seat(self) -> Dict[int, Dict[str, Any]]:
+        """Snapshot per-seat battle data on a combat-resolution step.
+
+        Returns a dict from training-seat to dict with keys
+        ``own_board_obs``, ``opp_board_obs`` (np.ndarray (BOARD_SIZE, SLOT_DIM)),
+        ``attack_first`` (float 0/1), ``damage_signed_uncapped`` (float).
+        """
+        from src.envs.bglike.obs import encode_board_minions
+
+        out: Dict[int, Dict[str, Any]] = {}
+        state = self._bg_base.state
+        lobby = self._bg_base.lobby
+        patch = lobby._game._patch
+        card_id_to_dense = patch.card_id_to_dense
+        for seat in self._bg_base.current_seats:
+            player = state.players[seat]
+            if not player.last_battle_snapshots:
+                continue
+            snap = player.last_battle_snapshots[0]
+            out[int(seat)] = {
+                "own_board_obs": encode_board_minions(
+                    snap.own_board, card_id_to_dense=card_id_to_dense
+                ),
+                "opp_board_obs": encode_board_minions(
+                    snap.opp_board, card_id_to_dense=card_id_to_dense
+                ),
+                "attack_first": float(player.last_attack_first),
+                "damage_signed_uncapped": float(player.last_battle_raw_signed),
+            }
+        return out
 
     def _final_reward_for_agent(self, info: Dict[str, Any]) -> float:
         if isinstance(info, dict) and info.get("placement_reward") is not None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Mapping
+from typing import Dict, Iterable, List, Mapping, Tuple
 
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import Ability
@@ -83,21 +83,39 @@ def make_minion(card_id: str, *, patch: PatchContext) -> Minion:
     return ctx.make_minion(resolve_card_id(card_id))
 
 
+def normalize_shop_excluded_races(
+    shop_excluded_race: Race | Iterable[Race] | None,
+) -> Tuple[Race, ...]:
+    if shop_excluded_race is None:
+        return ()
+    if isinstance(shop_excluded_race, Race):
+        return (shop_excluded_race,)
+    out: list[Race] = []
+    seen: set[Race] = set()
+    for race in shop_excluded_race:
+        if race in seen:
+            continue
+        out.append(race)
+        seen.add(race)
+    return tuple(out)
+
+
 def shop_minion_allowed_with_exclusion(
     m: Minion,
-    shop_excluded_race: Race | None,
+    shop_excluded_race: Race | Iterable[Race] | None,
 ) -> bool:
     if m.race is None or m.race == Race.ALL:
         return True
-    if shop_excluded_race is None:
+    excluded = normalize_shop_excluded_races(shop_excluded_race)
+    if not excluded:
         return True
-    return m.race != shop_excluded_race
+    return m.race not in excluded
 
 
 def shop_pool_for_tier(
     tier: int,
     *,
-    shop_excluded_race: Race | None = None,
+    shop_excluded_race: Race | Iterable[Race] | None = None,
     patch: PatchContext,
 ) -> List[str]:
     ctx = require_patch(patch, where="cards.shop_pool_for_tier")

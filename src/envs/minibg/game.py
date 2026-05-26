@@ -33,6 +33,7 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment.shop_triggers import ShopTriggers
 
+from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_catalog.patch_context import PatchContext, load_patch_context
 
 from . import board_order as minibg_board_order
@@ -67,7 +68,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         self,
         seed: Optional[int] = None,
         *,
-        shop_excluded_race: Optional[Race] = None,
+        shop_excluded_race: Optional[Race | Tuple[Race, ...]] = None,
+        shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         use_shared_pool: bool = False,
         patch: Optional[PatchContext] = None,
@@ -76,8 +78,17 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         self._rng = np.random.default_rng(seed)
         self._shop_full_tribes = shop_full_tribes
         self._use_shared_pool = use_shared_pool
-        self._shop_excluded_race_fixed = shop_excluded_race
         self._patch = _resolve_patch(patch, patch_dir)
+        self._shop_excluded_race_fixed = (
+            tuple(normalize_shop_excluded_races(shop_excluded_race))
+            if shop_excluded_race is not None
+            else None
+        )
+        self._shop_excluded_count = (
+            self._patch.meta.rotation_excluded_count
+            if shop_excluded_count is None
+            else int(shop_excluded_count)
+        )
         self._shop_triggers = ShopTriggers(self._rng, patch=self._patch)
         self._player_turn = PlayerTurnEngine()
 
@@ -90,14 +101,18 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             patch=self._patch,
         )
 
-    def _pick_shop_excluded_race(self) -> Optional[Race]:
+    def _pick_shop_excluded_race(self) -> Optional[Tuple[Race, ...]]:
         if self._shop_excluded_race_fixed is not None:
             return self._shop_excluded_race_fixed
         if self._shop_full_tribes:
             return None
         tribes = self._patch.meta.rotation_tribes
-        i = int(self._rng.integers(0, len(tribes)))
-        return tribes[i]
+        max_excluded = max(0, len(tribes) - 1)
+        excluded_count = max(0, min(int(self._shop_excluded_count), max_excluded))
+        if excluded_count <= 0:
+            return None
+        picks = self._rng.choice(len(tribes), size=excluded_count, replace=False)
+        return tuple(tribes[int(i)] for i in picks)
 
     def initial_state(self) -> MiniBGState:
         initiative_player = int(self._rng.integers(0, 2))

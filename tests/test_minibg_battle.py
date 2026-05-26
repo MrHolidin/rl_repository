@@ -400,3 +400,64 @@ def test_malganis_health_bonus_drops_when_aura_source_dies():
     _sync_health_aura_side(side, False)
     assert health_aura_bonus(imp, side, death_resolution=False) == 0
     assert imp.current_health == 1
+
+
+def test_nonlethal_damage_skips_health_aura_resync_when_side_not_dirty(monkeypatch):
+    import src.bg_combat.battle as battle
+
+    mal = battle.BattleMinion.from_minion(make_minion("mal_ganis"), 1)
+    imp = battle.BattleMinion.from_minion(make_minion("imp_demon"), 2)
+    rt = battle._CombatRuntime(
+        sides=(battle.BattleSide(minions=[mal, imp]), battle.BattleSide()),
+        rng=_rng(0),
+        combat_board_max=7,
+        damage_cap=15,
+        patch=PATCH_CTX,
+    )
+    battle._sync_health_all(rt)
+    assert imp.current_health == 3
+
+    calls = 0
+    orig = battle._sync_health_aura_side
+
+    def wrapped(side, death_resolution):
+        nonlocal calls
+        calls += 1
+        return orig(side, death_resolution)
+
+    monkeypatch.setattr(battle, "_sync_health_aura_side", wrapped)
+    battle._deal_damage_to_battle_minion(rt, 0, imp, 1)
+
+    assert imp.current_health == 2
+    assert calls == 0
+
+
+def test_lethal_damage_marks_health_aura_side_dirty_and_resyncs(monkeypatch):
+    import src.bg_combat.battle as battle
+
+    mal = battle.BattleMinion.from_minion(make_minion("mal_ganis"), 1)
+    imp = battle.BattleMinion.from_minion(make_minion("imp_demon"), 2)
+    rt = battle._CombatRuntime(
+        sides=(battle.BattleSide(minions=[mal, imp]), battle.BattleSide()),
+        rng=_rng(0),
+        combat_board_max=7,
+        damage_cap=15,
+        patch=PATCH_CTX,
+    )
+    battle._sync_health_all(rt)
+    assert imp.current_health == 3
+
+    calls = 0
+    orig = battle._sync_health_aura_side
+
+    def wrapped(side, death_resolution):
+        nonlocal calls
+        calls += 1
+        return orig(side, death_resolution)
+
+    monkeypatch.setattr(battle, "_sync_health_aura_side", wrapped)
+    battle._deal_damage_to_battle_minion(rt, 0, mal, mal.current_health)
+
+    assert calls > 0
+    assert mal.current_health == 0
+    assert imp.current_health == 1

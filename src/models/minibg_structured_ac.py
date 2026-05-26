@@ -28,9 +28,6 @@ from src.envs.minibg.structured_actions import StructAction, StructActionType
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 
 from src.envs.minibg.obs import (
-    EFFECT_OFFSET as _EFFECT_OFFSET,
-    NUM_EFFECT_CHANNELS as _NUM_EFFECT_CHANNELS,
-    NUM_TRIGGER_CHANNELS as _NUM_TRIGGER_CHANNELS,
     TRIGGER_OFFSET as _TRIGGER_OFFSET,
 )
 
@@ -59,183 +56,43 @@ from .minibg_slot_ac import (
     _split_card_idx_and_cont,
 )
 
-_EXT_DIM = _NUM_TRIGGER_CHANNELS + _NUM_EFFECT_CHANNELS
-_EXT_END = _EFFECT_OFFSET + _NUM_EFFECT_CHANNELS
+# Shared helpers / constants live in ``structured_common``. They are re-imported
+# here so external code that already does
+# ``from src.models.minibg_structured_ac import EntityAttentionBlock`` (tests,
+# benches, v2 historically) keeps working without modification.
+from .structured_common import (  # noqa: F401  (re-exported)
+    EntityAttentionBlock,
+    _EXT_DIM,
+    _EXT_END,
+    _NUM_REGIONS,
+    _NUM_ROLES,
+    _NUM_STRUCT_TYPES,
+    _PENDING_LEN,
+    _REGION_HAND,
+    _REGION_NULL,
+    _REGION_OWN,
+    _REGION_PENDING,
+    _REGION_SHOP,
+    _ROLE_BOARD,
+    _ROLE_HAND,
+    _ROLE_NONE,
+    _ROLE_PENDING,
+    _ROLE_SHOP,
+    REG_ENEMY,
+    REG_HAND,
+    REG_OWN,
+    REG_PENDING,
+    REG_SHOP,
+    _build_action_tokens,
+    _struct_action_codes,
+    role_for_struct,
+)
 
-_NUM_STRUCT_TYPES = len(StructActionType)
-_ROLE_NONE = 0
-_ROLE_SHOP = 1
-_ROLE_BOARD = 2
-_ROLE_HAND = 3
-_ROLE_PENDING = 4
-_NUM_ROLES = 5
-
-# Region "kinds" used by the batched action embedding gather. Index 0 is reserved
-# for null-entity actions (ROLL/LEVEL_UP/COMPLETE_TURN) so padded slots also map there.
-# PENDING covers discover/adapt option indices [0..2].
-_REGION_NULL = 0
-_REGION_SHOP = 1
-_REGION_OWN = 2
-_REGION_HAND = 3
-_REGION_PENDING = 4
-_NUM_REGIONS = 5
-_PENDING_LEN = 3
 _MAX_REGION_LEN = max(_OWN_LEN, _SHOP_LEN, _HAND_LEN, _PENDING_LEN, 1)
 
 # Globals (gold, round, healths, actions_left, ...) + last_battle + phase routed
 # explicitly into action / order scoring heads so the actor stops ignoring them.
 _GLOBALS_FULL_DIM = _GLOBAL_DIM + _LAST_BATTLE_DIM + _PHASE_DIM
-
-# Indices into ``slot_region_emb`` (additive post-conv geometry). Not the same as
-# ``_REGION_*`` action-token region kinds used by the legal-action gather.
-REG_OWN = 0
-REG_SHOP = 1
-REG_HAND = 2
-REG_ENEMY = 3
-REG_PENDING = 4
-
-
-class EntityAttentionBlock(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        *,
-        num_heads: int = 4,
-        ff_mult: int = 2,
-        init_scale: float = 0.1,
-    ) -> None:
-        super().__init__()
-        if dim % num_heads != 0:
-            raise ValueError(f"dim={dim} must be divisible by num_heads={num_heads}")
-
-        self.ln_attn = nn.LayerNorm(dim)
-        self.attn = nn.MultiheadAttention(
-            embed_dim=dim,
-            num_heads=num_heads,
-            dropout=0.0,
-            batch_first=True,
-        )
-
-        self.ln_ff = nn.LayerNorm(dim)
-        ff_dim = ff_mult * dim
-        self.ff = nn.Sequential(
-            nn.Linear(dim, ff_dim),
-            nn.GELU(),
-            nn.Linear(ff_dim, dim),
-        )
-
-        self.attn_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
-        self.ff_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        h = self.ln_attn(x)
-        a, _ = self.attn(h, h, h, need_weights=False)
-        x = x + a * self.attn_scale.view(1, 1, -1)
-
-        h = self.ln_ff(x)
-        x = x + self.ff(h) * self.ff_scale.view(1, 1, -1)
-
-        return x
-
-
-def role_for_struct(a: StructAction) -> int:
-    t = a.type
-    if t == StructActionType.BUY:
-        return _ROLE_SHOP
-    if t == StructActionType.SELL:
-        return _ROLE_BOARD
-    if t == StructActionType.PLACE or t == StructActionType.MAGNET:
-        return _ROLE_HAND
-    if t == StructActionType.DISCOVER_PICK:
-        return _ROLE_PENDING
-    if t == StructActionType.APPLY_EFFECT:
-        return _ROLE_BOARD
-    if t == StructActionType.APPLY_EFFECT_SKIP:
-        return _ROLE_BOARD
-    return _ROLE_NONE
-
-
-def _struct_action_codes(a: StructAction) -> Tuple[int, int, int, int, int, int]:
-    """Return ``(type_id, role_id, src_region, src_slot, tgt_region, tgt_slot)``.
-
-    Two-entity tokens so MAGNET carries both source (hand) and target (board), and
-    DISCOVER_PICK carries the picked pending option as its source entity.
-    """
-    t = a.type
-    if t == StructActionType.BUY:
-        return (int(t), _ROLE_SHOP, _REGION_SHOP, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.SELL:
-        return (int(t), _ROLE_BOARD, _REGION_OWN, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.PLACE:
-        return (int(t), _ROLE_HAND, _REGION_HAND, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.MAGNET:
-        return (
-            int(t),
-            _ROLE_HAND,
-            _REGION_HAND,
-            int(a.args[0]),
-            _REGION_OWN,
-            int(a.args[1]),
-        )
-    if t == StructActionType.DISCOVER_PICK:
-        return (int(t), _ROLE_PENDING, _REGION_PENDING, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.APPLY_EFFECT:
-        return (
-            int(t),
-            _ROLE_BOARD,
-            _REGION_NULL,
-            0,
-            _REGION_OWN,
-            int(a.args[0]),
-        )
-    if t == StructActionType.APPLY_EFFECT_SKIP:
-        return (int(t), _ROLE_BOARD, _REGION_NULL, 0, _REGION_NULL, 0)
-    # ROLL / LEVEL_UP / COMPLETE_TURN: null entity on both sides.
-    return (int(t), _ROLE_NONE, _REGION_NULL, 0, _REGION_NULL, 0)
-
-
-def _build_action_tokens(
-    legal_actions: Sequence[Sequence[StructAction]],
-    Lmax: int,
-) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
-]:
-    """Pack (B, Lmax) int64 token arrays + bool mask. Padded slots stay at NULL/0.
-
-    Returns (type_ids, role_ids, src_region_kinds, src_region_slots,
-    tgt_region_kinds, tgt_region_slots, mask).
-    """
-    B = len(legal_actions)
-    type_ids = np.zeros((B, Lmax), dtype=np.int64)
-    role_ids = np.zeros((B, Lmax), dtype=np.int64)
-    src_region_kinds = np.zeros((B, Lmax), dtype=np.int64)
-    src_region_slots = np.zeros((B, Lmax), dtype=np.int64)
-    tgt_region_kinds = np.zeros((B, Lmax), dtype=np.int64)
-    tgt_region_slots = np.zeros((B, Lmax), dtype=np.int64)
-    mask = np.zeros((B, Lmax), dtype=bool)
-    for b in range(B):
-        row = legal_actions[b]
-        L = len(row)
-        if L == 0:
-            continue
-        for l in range(L):
-            t, r, sk, ss, tk, ts = _struct_action_codes(row[l])
-            type_ids[b, l] = t
-            role_ids[b, l] = r
-            src_region_kinds[b, l] = sk
-            src_region_slots[b, l] = ss
-            tgt_region_kinds[b, l] = tk
-            tgt_region_slots[b, l] = ts
-        mask[b, :L] = True
-    return (
-        type_ids,
-        role_ids,
-        src_region_kinds,
-        src_region_slots,
-        tgt_region_kinds,
-        tgt_region_slots,
-        mask,
-    )
 
 
 class MiniBGStructuredActorCritic(nn.Module):

@@ -1,7 +1,8 @@
-# BGLike 8p distributed PPO — patch 19.6.0 / build 74257.
+# BGLike 8p distributed PPO — patch 19.6.0 / build 74257, structured v4.
+# v4 = v3 + round-level recurrence (GRU hidden state carried across rounds).
 #   python -m src.cli.train_distributed \
-#       --config configs/bglike/ppo_structured_v2_74257.yaml \
-#       --run_dir runs/bglike/dist_ppo_74257_001
+#       --config configs/bglike/ppo_structured_v4_74257.yaml \
+#       --run_dir runs/bglike/dist_ppo_v4_74257_001
 seed: 13
 
 game:
@@ -15,7 +16,7 @@ game:
 agent:
   id: ppo
   params:
-    network_type: bglike_structured_v2
+    network_type: bglike_structured_v4
     observation_type: vector
     slot_hidden_channels: 64
     region_conv2_kernel: 1
@@ -24,6 +25,15 @@ agent:
     entity_attention_heads: 4
     entity_attention_ff_mult: 2
     entity_attention_init_scale: 0.1
+    # v3 cross-attention knobs (inherited).
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    # v4 round-level GRU. recurrent_hidden_dim 128 ≈ +50K params; the GRU is
+    # init'd with a small gain so the policy at step 0 is close to v3 (hidden
+    # is zeros, GRU output is small, state_summary is dominated by current obs).
+    recurrent_hidden_dim: 128
+    round_gru_init_scale: 0.1
     state_dim: 128
     action_dim: 64
     order_hidden: 64
@@ -38,7 +48,11 @@ agent:
     value_coef: 1.0
     max_grad_norm: 1.0
     rollout_steps: 8096
-    ppo_epochs: 4
+    # BPTT-friendly: fewer PPO epochs reduce off-policy drift in the recurrent
+    # forward chain (the stored h_prev was computed under the old policy).
+    ppo_epochs: 2
+    # Minibatch size targets the *flat* step count; the recurrent update
+    # picks ``seqs_per_minibatch = max(1, minibatch_size / mean_seq_len)``.
     minibatch_size: 512
     device: cuda
 
@@ -78,8 +92,8 @@ train:
   callbacks:
     - type: checkpoint
       params:
-        interval: 50000
-        prefix: dist_bglike_ppo_74257
+        interval: 100000
+        prefix: dist_bglike_ppo_v4_74257
     - type: metrics_file
       params:
         interval: 1
@@ -90,5 +104,5 @@ eval:
   deterministic: true
 
 distributed:
-  workers: 10
+  workers: 12
   worker_device: cpu

@@ -5,6 +5,7 @@ from src.training.trainer import TrainerCallback
 from .checkpoint import CheckpointCallback
 from .early_stop import EarlyStopCallback
 from .eval import EvalCallback
+from .entropy_schedule import EntropyCoefScheduleCallback
 from .epsilon_decay import EpsilonDecayCallback
 from .lr_decay import LearningRateDecayCallback
 from .metrics_file import MetricsFileCallback
@@ -17,6 +18,7 @@ __all__ = [
     "CheckpointCallback",
     "EvalCallback",
     "WandbLoggerCallback",
+    "EntropyCoefScheduleCallback",
     "EpsilonDecayCallback",
     "EarlyStopCallback",
     "LearningRateDecayCallback",

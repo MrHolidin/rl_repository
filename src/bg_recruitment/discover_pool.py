@@ -6,7 +6,12 @@ from typing import Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 
-from src.bg_catalog.cards import shop_minion_allowed_with_exclusion, shop_pool_for_tier, templates
+from src.bg_catalog.cards import (
+    normalize_shop_excluded_races,
+    shop_minion_allowed_with_exclusion,
+    shop_pool_for_tier,
+    templates,
+)
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import Ability, Keyword, SummonEffect, Trigger
 from src.bg_core.minion import Minion, Race
@@ -61,7 +66,7 @@ def roll_discover_murloc_triple(
     ctx = require_patch(patch, where="discover_pool.roll_discover_murloc_triple")
     tpl = ctx.templates
     cap = min(_MAX_TIER, tavern_tier + 1)
-    if shop_excluded_race == Race.MURLOC:
+    if Race.MURLOC in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
         eligible = [

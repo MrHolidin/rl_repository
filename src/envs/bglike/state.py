@@ -49,6 +49,6 @@ class BGLikeState:
     initiative_player: int
     winner: Optional[int]
     done: bool
-    shop_excluded_race: Optional[Race] = None
+    shop_excluded_race: Optional[Tuple[Race, ...]] = None
     shared_pool: Optional[SharedCardPool] = None
     patch_build: Optional[int] = None

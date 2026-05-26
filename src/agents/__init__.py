@@ -16,6 +16,8 @@ from ..models.minibg_structured_ac import MiniBGStructuredActorCritic
 from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED,
     PPO_NETWORK_BGLIKE_STRUCTURED_V2,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V3,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V4,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -237,8 +239,21 @@ if "ppo" not in list_agents():
         is_minibg_structured = network_type == PPO_NETWORK_MINIBG_STRUCTURED
         is_bglike_structured = network_type == PPO_NETWORK_BGLIKE_STRUCTURED
         is_bglike_structured_v2 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V2
+        is_bglike_structured_v3 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V3
+        is_bglike_structured_v4 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V4
+        is_bglike_v_any = (
+            is_bglike_structured
+            or is_bglike_structured_v2
+            or is_bglike_structured_v3
+            or is_bglike_structured_v4
+        )
         is_structured_v1 = is_minibg_structured or is_bglike_structured
-        is_structured = is_structured_v1 or is_bglike_structured_v2
+        is_structured = (
+            is_structured_v1
+            or is_bglike_structured_v2
+            or is_bglike_structured_v3
+            or is_bglike_structured_v4
+        )
         is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
         obs_type = kwargs.get("observation_type")
@@ -246,7 +261,7 @@ if "ppo" not in list_agents():
         patch_build = kwargs.pop("patch_build", None)
 
         if obs_shape is None:
-            if is_bglike_structured or is_bglike_structured_v2:
+            if is_bglike_v_any:
                 from src.envs.bglike.obs import OBS_DIM as _expected_obs
 
                 obs_shape = (_expected_obs,)
@@ -282,7 +297,7 @@ if "ppo" not in list_agents():
                     f"PPO network_type {network_type!r} requires num_actions and "
                     "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
-            if is_bglike_structured or is_bglike_structured_v2:
+            if is_bglike_v_any:
                 from src.envs.bglike.obs import OBS_DIM as _expected_obs
 
                 if tuple(obs_shape) != (_expected_obs,):
@@ -304,17 +319,26 @@ if "ppo" not in list_agents():
             entity_attention_ff_mult = int(kwargs.pop("entity_attention_ff_mult", 2))
             entity_attention_init_scale = float(kwargs.pop("entity_attention_init_scale", 0.1))
 
-            if is_bglike_structured_v2:
-                from ..models.bglike_structured_v2 import BGLikeStructuredV2
-
+            if is_bglike_structured_v2 or is_bglike_structured_v3 or is_bglike_structured_v4:
+                # v2 / v3 / v4 share the exact same kwarg surface up to and including
+                # entity self-attention. v3 additionally consumes action_cross_attn_*
+                # knobs; v4 additionally consumes recurrent_hidden_dim and
+                # round_gru_init_scale. Defaults match the class defaults.
                 slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 48))
                 state_dim = int(kwargs.pop("state_dim", 128))
                 entity_attention_layers = int(kwargs.pop("entity_attention_layers", 2))
-                # v2 ignores trunk_hidden / use_global_entity_token by design;
-                # accept-and-warn if a v1 config bleeds through.
+                # v2/v3 ignore trunk_hidden / use_global_entity_token by design;
+                # accept-and-drop if a v1 config bleeds through.
                 kwargs.pop("trunk_hidden_size", None)
                 kwargs.pop("use_global_entity_token", None)
-                net = BGLikeStructuredV2(
+                # Auxiliary battle-prediction head: optional dict in yaml under
+                # ``agent.params.battle_pred``. When ``enabled=true`` the model
+                # adds a small head + the agent computes Huber loss vs the
+                # signed uncapped damage label collected on combat-resolution
+                # steps. ``aux_coef`` controls joint backbone-regularization
+                # strength; ``detach_features=true`` makes it purely diagnostic.
+                battle_pred_config = kwargs.pop("battle_pred", None)
+                common_kwargs = dict(
                     slot_hidden=slot_hidden_channels,
                     region_conv2_kernel=region_conv2_kernel,
                     state_dim=state_dim,
@@ -332,7 +356,46 @@ if "ppo" not in list_agents():
                     entity_attention_init_scale=entity_attention_init_scale,
                     obs_layout="bglike",
                     num_pool_indices=num_pool_indices,
+                    battle_pred_config=battle_pred_config,
                 )
+                if is_bglike_structured_v3 or is_bglike_structured_v4:
+                    action_cross_attn_heads = int(
+                        kwargs.pop("action_cross_attn_heads", 4)
+                    )
+                    action_cross_attn_ff_mult = int(
+                        kwargs.pop("action_cross_attn_ff_mult", 2)
+                    )
+                    action_cross_attn_init_scale = float(
+                        kwargs.pop("action_cross_attn_init_scale", 0.1)
+                    )
+                    v3_v4_kwargs = dict(
+                        action_cross_attn_heads=action_cross_attn_heads,
+                        action_cross_attn_ff_mult=action_cross_attn_ff_mult,
+                        action_cross_attn_init_scale=action_cross_attn_init_scale,
+                        **common_kwargs,
+                    )
+                    if is_bglike_structured_v4:
+                        from ..models.bglike_structured_v4 import BGLikeStructuredV4
+
+                        recurrent_hidden_dim = int(
+                            kwargs.pop("recurrent_hidden_dim", 128)
+                        )
+                        round_gru_init_scale = float(
+                            kwargs.pop("round_gru_init_scale", 0.1)
+                        )
+                        net = BGLikeStructuredV4(
+                            recurrent_hidden_dim=recurrent_hidden_dim,
+                            round_gru_init_scale=round_gru_init_scale,
+                            **v3_v4_kwargs,
+                        )
+                    else:
+                        from ..models.bglike_structured_v3 import BGLikeStructuredV3
+
+                        net = BGLikeStructuredV3(**v3_v4_kwargs)
+                else:
+                    from ..models.bglike_structured_v2 import BGLikeStructuredV2
+
+                    net = BGLikeStructuredV2(**common_kwargs)
             else:
                 slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 32))
                 trunk_hidden_size = int(kwargs.pop("trunk_hidden_size", 256))

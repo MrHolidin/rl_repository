@@ -137,9 +137,18 @@ class LeagueController:
         self._sync_view(slot_id)
         return slot_id
 
-    def add_frozen_bytes(self, weights_bytes: bytes, *, episode: Optional[int] = None) -> int:
+    def add_frozen_bytes(
+        self,
+        weights_bytes: bytes,
+        *,
+        episode: Optional[int] = None,
+        copy_current_mu: bool = False,
+    ) -> int:
         slot_id = self._registry.add_bytes(weights_bytes, episode=episode)
         self._rating.register(slot_id)
+        if copy_current_mu and isinstance(self._rating, TrueSkillRating):
+            current_mu, _ = self._rating.get_mu_sigma(SLOT_CURRENT)
+            self._rating.set_mu(slot_id, current_mu)
         self._sync_view(slot_id)
         return slot_id
 

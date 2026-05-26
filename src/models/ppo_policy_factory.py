@@ -36,6 +36,8 @@ PPO_NETWORK_MINIBG_STRUCTURED = "minibg_structured"
 PPO_NETWORK_BGLIKE_STRUCTURED = "bglike_structured"
 PPO_NETWORK_BGLIKE_STRUCTURED_V1 = "bglike_structured_v1"
 PPO_NETWORK_BGLIKE_STRUCTURED_V2 = "bglike_structured_v2"
+PPO_NETWORK_BGLIKE_STRUCTURED_V3 = "bglike_structured_v3"
+PPO_NETWORK_BGLIKE_STRUCTURED_V4 = "bglike_structured_v4"
 PPO_NETWORK_FLAT_MLP = "flat_mlp"
 
 
@@ -212,6 +214,40 @@ def build_ppo_actor_critic(
             obs_layout="bglike",
             num_pool_indices=num_pool_indices,
         )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V3:
+        from src.envs.bglike.obs import OBS_DIM as _BG_OBS_DIM
+        from .bglike_structured_v3 import BGLikeStructuredV3
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM}]"
+            )
+        # Same minimal-kwargs path as v2; cross-attn hyper-params use the class
+        # defaults here (the YAML / agents.__init__ branch carries the full set).
+        return BGLikeStructuredV3(
+            slot_hidden=int(slot_hidden_channels),
+            region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
+            obs_layout="bglike",
+            num_pool_indices=num_pool_indices,
+        )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V4:
+        from src.envs.bglike.obs import OBS_DIM as _BG_OBS_DIM
+        from .bglike_structured_v4 import BGLikeStructuredV4
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM}]"
+            )
+        # v4 adds recurrent_hidden_dim on top of v3; uses the class default here
+        # (YAML / agents.__init__ branch carries the full knob set).
+        return BGLikeStructuredV4(
+            slot_hidden=int(slot_hidden_channels),
+            region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
+            obs_layout="bglike",
+            num_pool_indices=num_pool_indices,
+        )
     if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
         if len(observation_shape) != 1:
             raise ValueError(
@@ -355,6 +391,26 @@ def _restore_structured_v2(
     return BGLikeStructuredV2(**kw)
 
 
+def _restore_structured_v3(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v3 import BGLikeStructuredV3
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v3 checkpoint")
+    return BGLikeStructuredV3(**kw)
+
+
+def _restore_structured_v4(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v4 import BGLikeStructuredV4
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v4 checkpoint")
+    return BGLikeStructuredV4(**kw)
+
+
 register_ppo_network(
     PPO_NETWORK_ACTOR_CRITIC_CNN,
     ActorCriticCNN,
@@ -395,7 +451,29 @@ def _register_v2_lazy() -> None:
     )
 
 
+def _register_v3_lazy() -> None:
+    from .bglike_structured_v3 import BGLikeStructuredV3
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V3,
+        BGLikeStructuredV3,
+        restore=_restore_structured_v3,
+    )
+
+
+def _register_v4_lazy() -> None:
+    from .bglike_structured_v4 import BGLikeStructuredV4
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V4,
+        BGLikeStructuredV4,
+        restore=_restore_structured_v4,
+    )
+
+
 _register_v2_lazy()
+_register_v3_lazy()
+_register_v4_lazy()
 
 
 __all__ = [
@@ -411,5 +489,7 @@ __all__ = [
     "PPO_NETWORK_BGLIKE_STRUCTURED",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V1",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V2",
+    "PPO_NETWORK_BGLIKE_STRUCTURED_V3",
+    "PPO_NETWORK_BGLIKE_STRUCTURED_V4",
     "PPO_NETWORK_FLAT_MLP",
 ]

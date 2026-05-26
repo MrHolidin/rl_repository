@@ -38,6 +38,17 @@ METRICS_PRESET_PPO: Tuple[str, ...] = (
     "return_mean",
     "advantage_mean",
     "advantage_std",
+    # Scheduled-hyperparam callbacks emit these when active; blank otherwise.
+    "entropy_coef",
+    # v4+ recurrent PPO emits these; blank for non-recurrent runs.
+    "bptt_sequences",
+    "bptt_seqs_per_mb",
+    "bptt_mean_seq_len",
+    # Auxiliary battle-prediction head; emitted only when ``battle_pred.enabled``.
+    "battle_pred_loss",
+    "battle_pred_mae",
+    "battle_pred_corr",
+    "battle_pred_sign_acc",
 )
 
 # Unknown agents: small generic set (both DQN and PPO often expose loss / grad_norm).

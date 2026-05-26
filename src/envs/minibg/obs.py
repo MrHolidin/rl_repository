@@ -16,6 +16,7 @@ from .actions import (
     STARTING_HEALTH,
     gold_for_round,
 )
+from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
@@ -256,7 +257,7 @@ _STAT_NORM = 5.0
 
 
 def _encode_shop_rotation_globals(
-    shop_excluded_race: Optional[Race],
+    shop_excluded_race: Optional[Race | tuple[Race, ...]],
     *,
     rotation_tribes: Sequence[Race],
     cnt_active_shop_tribes: int,
@@ -265,15 +266,17 @@ def _encode_shop_rotation_globals(
     v = np.zeros(SHOP_ROTATION_OBS_DIM, dtype=np.float32)
     tribe_slots = SHOP_ROTATION_OBS_DIM - 1
     n_rot = len(rotation_tribes)
-    if shop_excluded_race is None:
+    excluded = normalize_shop_excluded_races(shop_excluded_race)
+    if not excluded:
         v[tribe_slots] = 1.0
         return v
-    for i, r in enumerate(rotation_tribes):
-        if i >= tribe_slots:
-            break
-        if r == shop_excluded_race:
-            v[i] = 1.0
-            break
+    for excluded_race in excluded:
+        for i, r in enumerate(rotation_tribes):
+            if i >= tribe_slots:
+                break
+            if r == excluded_race:
+                v[i] = 1.0
+                break
     if n_rot > 0:
         v[tribe_slots] = float(cnt_active_shop_tribes) / float(n_rot)
     else:
@@ -611,7 +614,11 @@ def build_observation(
             _encode_shop_rotation_globals(
                 state.shop_excluded_race,
                 rotation_tribes=meta.rotation_tribes,
-                cnt_active_shop_tribes=meta.cnt_active_shop_tribes,
+                cnt_active_shop_tribes=max(
+                    0,
+                    len(meta.rotation_tribes)
+                    - len(normalize_shop_excluded_races(state.shop_excluded_race)),
+                ),
             ),
         ]
     )

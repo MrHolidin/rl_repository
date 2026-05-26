@@ -244,6 +244,54 @@ def compute_pairings(
     return tuple(matches), full_lobby_cycle_round
 
 
+def peek_next_opponent(
+    alive: Sequence[int],
+    recent_opponents: Sequence[Sequence[int]],
+    *,
+    n_seats: int = DEFAULT_LOBBY_SIZE,
+    full_lobby_cycle_round: int = 0,
+    seat: int,
+) -> Optional[int]:
+    """Return ``seat``'s opponent for the upcoming combat, or ``None`` if it is
+    not deterministically known (odd-alive bye / ghost pick branches in
+    ``compute_pairings`` are rng-driven).
+
+    Mirrors ``compute_pairings`` for the deterministic branches only:
+    full-lobby round-robin, 2-alive (forced pair), and even-count flexible
+    pairing (which does not consume rng). The obs builder uses this in the
+    shop phase to expose "who I'm fighting next" without advancing state rng.
+    """
+    alive_tuple = tuple(sorted(alive))
+    if seat not in alive_tuple:
+        return None
+    if len(alive_tuple) < 2:
+        return None
+    if len(alive_tuple) == 2:
+        return alive_tuple[1] if alive_tuple[0] == seat else alive_tuple[0]
+    if len(alive_tuple) == n_seats and all(
+        s in alive_tuple for s in range(n_seats)
+    ):
+        schedule = build_round_robin_schedule(n_seats)
+        r = full_lobby_cycle_round % (n_seats - 1)
+        pairs = schedule[r]
+        for a, b in pairs:
+            if a == seat:
+                return b
+            if b == seat:
+                return a
+        return None
+    if len(alive_tuple) % 2 == 1:
+        # Odd-alive: bye / ghost choice is rng-driven → not deterministic.
+        return None
+    pairs = _flexible_pairing(alive_tuple, recent_opponents)
+    for a, b in pairs:
+        if a == seat:
+            return b
+        if b == seat:
+            return a
+    return None
+
+
 def opponents_met_in_cycle(
     cycle_rounds_played: int,
     n_seats: int = DEFAULT_LOBBY_SIZE,
@@ -257,6 +305,7 @@ __all__ = [
     "DEFAULT_LOBBY_SIZE",
     "GHOST_OPPONENT_ID",
     "CombatMatch",
+    "peek_next_opponent",
     "EliminatedSnapshot",
     "build_round_robin_schedule",
     "compute_pairings",
