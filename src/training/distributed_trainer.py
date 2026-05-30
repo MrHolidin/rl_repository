@@ -346,8 +346,11 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
             out.dones.extend(buf.dones)
             out.values.extend(buf.values)
             out.log_probs.extend(buf.log_probs)
-            out.next_obs.extend(buf.next_obs)
-            out.next_legal_lists.extend(buf.next_legal_lists)
+            # Only the global-last next_obs feeds the GAE bootstrap; buffers are
+            # merged in order so the last non-empty worker's slot is the true
+            # final transition. (next_legal_lists was never read — dropped.)
+            if getattr(buf, "last_next_obs", None) is not None:
+                out.last_next_obs = buf.last_next_obs
             out.seat_ids.extend(buf.seat_ids)
             if getattr(buf, "h_prev", None):
                 out.h_prev.extend(buf.h_prev)
@@ -1069,6 +1072,7 @@ class DistributedTrainer(BaseTrainer):
         sampler_kind: str = "fractional",
         start_episode: int = 0,
         run_dir: Optional[str] = None,
+        frozen_pool_checkpoints: Optional[Sequence[str]] = None,
     ) -> None:
         self._scripted_distribution: Dict[str, float] = dict(
             scripted_distribution or {"random": 1.0}
@@ -1106,6 +1110,7 @@ class DistributedTrainer(BaseTrainer):
         self._max_pool_size = max_pool_size
         self._start_episode = int(start_episode)
         self._run_dir = str(run_dir) if run_dir else ""
+        self._frozen_pool_checkpoints: List[str] = list(frozen_pool_checkpoints or [])
         self._conns: List[Any] = []
         self._procs: List[mp.Process] = []
 
@@ -1121,6 +1126,8 @@ class DistributedTrainer(BaseTrainer):
         enable_stack_dump_on_signal()
         self._target_total_steps = total_steps
         self._spawn_workers()
+        if self._frozen_pool_checkpoints:
+            self._seed_frozen_pool_from_checkpoints(self._frozen_pool_checkpoints)
         self._broadcast_sync_league()
 
         for cb in self.callbacks:
@@ -1208,6 +1215,56 @@ class DistributedTrainer(BaseTrainer):
         self._frozen_pool = {k: v for k, v in self._frozen_pool.items() if k in live}
         self._broadcast_sync_league()
 
+    def _seed_frozen_pool_from_checkpoints(self, paths: Sequence[str]) -> None:
+        """Repopulate the frozen self-play pool from past-self checkpoints.
+
+        Each periodic checkpoint corresponds to one historical freeze (the pool
+        is filled from the same weights right after each checkpoint save), so a
+        run's ``checkpoints/`` dir IS its past-self pool — just not persisted as
+        one. We extract each file's ``policy_state_dict``, re-serialize it into
+        the exact bytes format workers expect (``torch.save(state_dict)``), and
+        register it as a frozen slot. Ratings start at the default prior
+        (``copy_current_mu=False``): the restored agents earn real ratings as
+        they play, protected from premature eviction by the grace period.
+        Eviction (ordered by mu then episode) keeps the most-recent
+        ``max_frozen_agents``.
+        """
+        import torch
+
+        loaded = 0
+        for p in paths:
+            path = Path(p)
+            if not path.is_file():
+                print(f"[dist_ppo] seed frozen: skip missing {path}", flush=True)
+                continue
+            try:
+                ck = torch.load(str(path), map_location="cpu", weights_only=False)
+                sd = ck.get("policy_state_dict") if isinstance(ck, dict) else None
+                if sd is None:
+                    print(f"[dist_ppo] seed frozen: no policy_state_dict in {path.name}", flush=True)
+                    continue
+                bio = BytesIO()
+                torch.save({k: v.detach().cpu() for k, v in sd.items()}, bio)
+                sd_bytes = bio.getvalue()
+                episode = int(ck.get("step_count", 0)) if isinstance(ck, dict) else 0
+                slot_id = self._league.add_frozen_bytes(
+                    sd_bytes, episode=episode, copy_current_mu=False
+                )
+                self._frozen_pool[slot_id] = sd_bytes
+                loaded += 1
+            except Exception as exc:  # keep startup resilient to a bad file
+                print(f"[dist_ppo] seed frozen: failed {path.name}: {exc}", flush=True)
+
+        # Cap to max_frozen_agents (grace fallback keeps the most-recent by episode).
+        self._league.evict_worst(self._max_pool_size)
+        live = {s.slot_id for s in self._league.frozen_slots()}
+        self._frozen_pool = {k: v for k, v in self._frozen_pool.items() if k in live}
+        print(
+            f"[dist_ppo] seeded frozen pool: loaded {loaded}, kept {len(self._frozen_pool)} "
+            f"(cap {self._max_pool_size})",
+            flush=True,
+        )
+
     def _broadcast_sync_league(self) -> None:
         snap = self._league.sync_snapshot()
         league_sync = LeagueSyncState(
@@ -1219,9 +1276,29 @@ class DistributedTrainer(BaseTrainer):
         for conn in self._conns:
             conn.send(("sync_league", league_sync))
 
+    @staticmethod
+    def _worker_mp_context():
+        """Prefer ``forkserver`` so workers fork from a clean server process
+        instead of re-importing torch in every worker.
+
+        Under ``spawn`` each worker is a fresh interpreter that re-runs
+        ``import torch`` — ~480 MB private RSS apiece (measured). ``forkserver``
+        starts one minimal server process, preloads torch/numpy there once, and
+        forks workers from it so those pages are shared copy-on-write. The
+        server is its own process (not a fork of the CUDA-initialized main), and
+        ``import torch`` doesn't create a CUDA context, so this stays
+        CUDA-safe even though the learner holds a cuda model. Falls back to
+        ``spawn`` where forkserver is unavailable (e.g. Windows)."""
+        try:
+            ctx = mp.get_context("forkserver")
+            ctx.set_forkserver_preload(["torch", "numpy"])
+            return ctx
+        except (ValueError, AttributeError):
+            return mp.get_context("spawn")
+
     def _spawn_workers(self) -> None:
         per_worker = math.ceil(self._rollout_steps / self._workers)
-        ctx = mp.get_context("spawn")
+        ctx = self._worker_mp_context()
         for w in range(self._workers):
             parent, child = ctx.Pipe(duplex=True)
             p = ctx.Process(

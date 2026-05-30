@@ -53,6 +53,19 @@ from .rl_placement import (
     open_rl_place_plan,
 )
 from .obs import OBS_DIM, build_observation
+from .obs_v5 import OBS_DIM_V5, build_observation_v5
+
+OBS_KIND_BGLIKE = "bglike"
+OBS_KIND_BGLIKE_V5 = "bglike_v5"
+_VALID_OBS_KINDS = frozenset({OBS_KIND_BGLIKE, OBS_KIND_BGLIKE_V5})
+
+
+def _obs_dim_for_kind(obs_kind: str) -> int:
+    if obs_kind == OBS_KIND_BGLIKE_V5:
+        return int(OBS_DIM_V5)
+    if obs_kind == OBS_KIND_BGLIKE:
+        return int(OBS_DIM)
+    raise ValueError(f"unknown obs_kind {obs_kind!r}; expected one of {sorted(_VALID_OBS_KINDS)}")
 from .seat_config import build_training_lobby_configs
 from .placement import (
     is_seat_eliminated,
@@ -261,11 +274,18 @@ class BGLobbyEnv:
         shop_excluded_race=None,
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
+        high_mode: bool = False,
         replay: Optional[Any] = None,
         patch_dir: Optional[str] = None,
+        obs_kind: str = OBS_KIND_BGLIKE,
     ) -> None:
         if len(seat_configs) != NUM_PLAYERS:
             raise ValueError(f"expected {NUM_PLAYERS} seat configs, got {len(seat_configs)}")
+        if obs_kind not in _VALID_OBS_KINDS:
+            raise ValueError(
+                f"obs_kind={obs_kind!r} not in {sorted(_VALID_OBS_KINDS)}"
+            )
+        self._obs_kind = obs_kind
         self._seat_configs: List[SeatConfig] = list(seat_configs)
         self._learned_seats: Set[int] = frozenset(learned_seats)
         if not self._learned_seats:
@@ -279,11 +299,13 @@ class BGLobbyEnv:
         if not self._training_seats <= self._learned_seats:
             raise ValueError("training_seats must be subset of learned_seats")
         self._patch_dir = patch_dir
+        self._high_mode = bool(high_mode)
         self._game = BGLikeGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
             shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
+            high_mode=self._high_mode,
             patch_dir=patch_dir,
         )
         self._state: Optional[BGLikeState] = None
@@ -316,6 +338,11 @@ class BGLobbyEnv:
     def training_seats(self) -> frozenset[int]:
         return self._training_seats
 
+    def set_high_mode(self, flag: bool) -> None:
+        """Trainer-controlled: the next ``reset`` builds a high-mode start."""
+        self._high_mode = bool(flag)
+        self._game.set_high_mode(self._high_mode)
+
     def reset(self, seed: Optional[int] = None) -> BGLikeState:
         if seed is not None:
             self._game = BGLikeGame(
@@ -323,8 +350,11 @@ class BGLobbyEnv:
                 shop_excluded_race=self._game._shop_excluded_race_fixed,
                 shop_excluded_count=self._game._shop_excluded_count,
                 shop_full_tribes=self._game._shop_full_tribes,
+                high_mode=self._high_mode,
                 patch_dir=self._patch_dir,
             )
+        # Honor the current flag every reset (covers the no-seed reuse path too).
+        self._game.set_high_mode(self._high_mode)
         self._state = self._game.initial_state()
         self._finished_training = set()
         self._last_battle_signed = {i: 0.0 for i in range(NUM_PLAYERS)}
@@ -422,7 +452,12 @@ class BGLobbyEnv:
         return self._rl_pending.get(seat)
 
     def obs_for_seat(self, seat: int) -> np.ndarray:
-        return build_observation(
+        builder = (
+            build_observation_v5
+            if self._obs_kind == OBS_KIND_BGLIKE_V5
+            else build_observation
+        )
+        return builder(
             self.state,
             seat,
             self._last_battle_signed.get(seat, 0.0),
@@ -430,6 +465,14 @@ class BGLobbyEnv:
             rl_pending=self._rl_pending.get(seat),
             patch=self._game._patch,
         )
+
+    @property
+    def obs_kind(self) -> str:
+        return self._obs_kind
+
+    @property
+    def obs_dim(self) -> int:
+        return _obs_dim_for_kind(self._obs_kind)
 
     def last_battle_signed(self, seat: int) -> float:
         return float(self._last_battle_signed.get(seat, 0.0))
@@ -1016,7 +1059,9 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         shop_excluded_race=None,
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
+        high_mode: bool = False,
         patch_dir: Optional[str] = None,
+        obs_kind: str = OBS_KIND_BGLIKE,
     ) -> None:
         if not 0 <= training_seat < NUM_PLAYERS:
             raise ValueError(f"training_seat must be 0..{NUM_PLAYERS - 1}")
@@ -1034,7 +1079,9 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
             shop_excluded_race=shop_excluded_race,
             shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
+            high_mode=high_mode,
             patch_dir=patch_dir,
+            obs_kind=obs_kind,
         )
         self.reward_config = reward_config or RewardConfig(
             invalid_action=INVALID_ACTION_REWARD
@@ -1063,6 +1110,9 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         if cfg.kind != SeatKind.LEARNED:
             raise ValueError("training seat is not LEARNED")
         cfg.agent = agent
+
+    def set_high_mode(self, flag: bool) -> None:
+        self._lobby.set_high_mode(flag)
 
     def reset(self, seed: Optional[int] = None) -> np.ndarray:
         if seed is not None:
@@ -1154,9 +1204,14 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         patch_dir: Optional[str] = None,
+        obs_kind: str = OBS_KIND_BGLIKE,
     ) -> None:
         if not current_seats:
             raise ValueError("current_seats must be non-empty")
+        if obs_kind not in _VALID_OBS_KINDS:
+            raise ValueError(
+                f"obs_kind={obs_kind!r} not in {sorted(_VALID_OBS_KINDS)}"
+            )
         self._current_seats: Tuple[int, ...] = tuple(sorted(set(current_seats)))
         for s in self._current_seats:
             if not 0 <= s < NUM_PLAYERS:
@@ -1169,6 +1224,9 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._shop_excluded_count = shop_excluded_count
         self._shop_full_tribes = shop_full_tribes
         self._patch_dir = patch_dir
+        self._obs_kind = obs_kind
+        # Trainer-controlled per-game high-mode flag (set before each reset).
+        self._high_mode = False
         self._lobby: Optional[BGLobbyEnv] = None
         self._acting_seat: Optional[int] = None
         self._rewarded_seats: Set[int] = set()
@@ -1184,7 +1242,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
 
     @property
     def observation_shape(self) -> tuple[int, ...]:
-        return (OBS_DIM,)
+        return (_obs_dim_for_kind(self._obs_kind),)
 
     @property
     def num_actions(self) -> int:
@@ -1201,6 +1259,13 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         for s in self._current_seats:
             if not 0 <= s < NUM_PLAYERS:
                 raise ValueError(f"invalid seat {s}")
+
+    def set_high_mode(self, flag: bool) -> None:
+        """Trainer-controlled per-game flag; applied when the lobby is (re)built
+        at the next reset."""
+        self._high_mode = bool(flag)
+        if self._lobby is not None:
+            self._lobby.set_high_mode(self._high_mode)
 
     @property
     def acting_seat(self) -> Optional[int]:
@@ -1250,7 +1315,9 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             shop_excluded_race=self._shop_excluded_race,
             shop_excluded_count=self._shop_excluded_count,
             shop_full_tribes=self._shop_full_tribes,
+            high_mode=self._high_mode,
             patch_dir=self._patch_dir,
+            obs_kind=self._obs_kind,
         )
         self._lobby._controller_env = self
 

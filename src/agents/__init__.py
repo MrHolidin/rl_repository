@@ -18,6 +18,8 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V2,
     PPO_NETWORK_BGLIKE_STRUCTURED_V3,
     PPO_NETWORK_BGLIKE_STRUCTURED_V4,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V6,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -241,11 +243,16 @@ if "ppo" not in list_agents():
         is_bglike_structured_v2 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V2
         is_bglike_structured_v3 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V3
         is_bglike_structured_v4 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V4
+        is_bglike_structured_v5 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V5
+        is_bglike_structured_v6 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V6
+        is_bglike_v5_or_v6 = is_bglike_structured_v5 or is_bglike_structured_v6
         is_bglike_v_any = (
             is_bglike_structured
             or is_bglike_structured_v2
             or is_bglike_structured_v3
             or is_bglike_structured_v4
+            or is_bglike_structured_v5
+            or is_bglike_structured_v6
         )
         is_structured_v1 = is_minibg_structured or is_bglike_structured
         is_structured = (
@@ -253,6 +260,8 @@ if "ppo" not in list_agents():
             or is_bglike_structured_v2
             or is_bglike_structured_v3
             or is_bglike_structured_v4
+            or is_bglike_structured_v5
+            or is_bglike_structured_v6
         )
         is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
@@ -261,7 +270,11 @@ if "ppo" not in list_agents():
         patch_build = kwargs.pop("patch_build", None)
 
         if obs_shape is None:
-            if is_bglike_v_any:
+            if is_bglike_v5_or_v6:
+                from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _expected_obs
+
+                obs_shape = (_expected_obs,)
+            elif is_bglike_v_any:
                 from src.envs.bglike.obs import OBS_DIM as _expected_obs
 
                 obs_shape = (_expected_obs,)
@@ -297,7 +310,14 @@ if "ppo" not in list_agents():
                     f"PPO network_type {network_type!r} requires num_actions and "
                     "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
-            if is_bglike_v_any:
+            if is_bglike_v5_or_v6:
+                from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _expected_obs
+
+                if tuple(obs_shape) != (_expected_obs,):
+                    raise ValueError(
+                        f"PPO network_type {network_type!r} requires observation_shape [{_expected_obs}]"
+                    )
+            elif is_bglike_v_any:
                 from src.envs.bglike.obs import OBS_DIM as _expected_obs
 
                 if tuple(obs_shape) != (_expected_obs,):
@@ -319,11 +339,21 @@ if "ppo" not in list_agents():
             entity_attention_ff_mult = int(kwargs.pop("entity_attention_ff_mult", 2))
             entity_attention_init_scale = float(kwargs.pop("entity_attention_init_scale", 0.1))
 
-            if is_bglike_structured_v2 or is_bglike_structured_v3 or is_bglike_structured_v4:
-                # v2 / v3 / v4 share the exact same kwarg surface up to and including
-                # entity self-attention. v3 additionally consumes action_cross_attn_*
-                # knobs; v4 additionally consumes recurrent_hidden_dim and
-                # round_gru_init_scale. Defaults match the class defaults.
+            if (
+                is_bglike_structured_v2
+                or is_bglike_structured_v3
+                or is_bglike_structured_v4
+                or is_bglike_structured_v5
+                or is_bglike_structured_v6
+            ):
+                # v2 / v3 / v4 / v5 / v6 share the exact same kwarg surface up
+                # to and including entity self-attention. v3+ additionally
+                # consumes action_cross_attn_* knobs; v4 also consumes
+                # recurrent_hidden_dim / round_gru_init_scale; v5 also consumes
+                # ability_emb_dim / ability_attention_init_scale; v6 only
+                # consumes ability_emb_dim (no separate attention init since
+                # the pool is a single-query softmax, not a sub-block).
+                # Defaults match the class defaults.
                 slot_hidden_channels = int(kwargs.pop("slot_hidden_channels", 48))
                 state_dim = int(kwargs.pop("state_dim", 128))
                 entity_attention_layers = int(kwargs.pop("entity_attention_layers", 2))
@@ -358,7 +388,12 @@ if "ppo" not in list_agents():
                     num_pool_indices=num_pool_indices,
                     battle_pred_config=battle_pred_config,
                 )
-                if is_bglike_structured_v3 or is_bglike_structured_v4:
+                if (
+                    is_bglike_structured_v3
+                    or is_bglike_structured_v4
+                    or is_bglike_structured_v5
+                    or is_bglike_structured_v6
+                ):
                     action_cross_attn_heads = int(
                         kwargs.pop("action_cross_attn_heads", 4)
                     )
@@ -386,6 +421,26 @@ if "ppo" not in list_agents():
                         net = BGLikeStructuredV4(
                             recurrent_hidden_dim=recurrent_hidden_dim,
                             round_gru_init_scale=round_gru_init_scale,
+                            **v3_v4_kwargs,
+                        )
+                    elif is_bglike_structured_v5:
+                        from ..models.bglike_structured_v5 import BGLikeStructuredV5
+
+                        ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
+                        ability_attention_init_scale = float(
+                            kwargs.pop("ability_attention_init_scale", 0.1)
+                        )
+                        net = BGLikeStructuredV5(
+                            ability_emb_dim=ability_emb_dim,
+                            ability_attention_init_scale=ability_attention_init_scale,
+                            **v3_v4_kwargs,
+                        )
+                    elif is_bglike_structured_v6:
+                        from ..models.bglike_structured_v6 import BGLikeStructuredV6
+
+                        ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
+                        net = BGLikeStructuredV6(
+                            ability_emb_dim=ability_emb_dim,
                             **v3_v4_kwargs,
                         )
                     else:

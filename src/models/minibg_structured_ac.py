@@ -28,10 +28,6 @@ from src.envs.minibg.structured_actions import StructAction, StructActionType
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 
 from src.envs.minibg.obs import (
-    TRIGGER_OFFSET as _TRIGGER_OFFSET,
-)
-
-from src.envs.minibg.obs import (
     PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
     PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
     PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
@@ -62,8 +58,6 @@ from .minibg_slot_ac import (
 # benches, v2 historically) keeps working without modification.
 from .structured_common import (  # noqa: F401  (re-exported)
     EntityAttentionBlock,
-    _EXT_DIM,
-    _EXT_END,
     _NUM_REGIONS,
     _NUM_ROLES,
     _NUM_STRUCT_TYPES,
@@ -281,11 +275,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         # weights from source so the model doesn't have to learn an arbitrary tag
         # to distinguish "the hand source" from "the board target" inside one Linear.
         self.entity_to_action_tgt = nn.Linear(self.slot_hidden, self.action_dim)
-        # Direct bypass for trigger/effect bits — avoids the slot_hidden bottleneck
-        # so action scoring distinguishes Brann/Khadgar/Baron via the effect channels
-        # without depending on the conv head retaining that information.
-        self.ent_extras = nn.Linear(_EXT_DIM, self.action_dim)
-        self.ent_extras_tgt = nn.Linear(_EXT_DIM, self.action_dim)
         # Discover/adapt option entity: pending tail only has card_idx — project the
         # shared card embedding into slot_hidden so the standard E_regions gather
         # path covers PENDING the same way it covers SHOP/OWN/HAND.
@@ -479,12 +468,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         else:
             E_enemy = enemy.new_zeros(enemy.size(0), 0, self.slot_hidden)
 
-        # Raw trigger+effect bits per slot — fed directly into action embedding so
-        # multipliers/auras keep an identity-strong signal even with slot_hidden compression.
-        EXT_own = own[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_shop = shop[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_hand = hand[..., _TRIGGER_OFFSET:_EXT_END]
-
         # Pending entities (3 discover or ADAPT options). Indices route through ``card_emb``
         # or dedicated ``adapt_choice_emb`` matching ``encode_pending_choice``.
         B = x.size(0)
@@ -503,7 +486,6 @@ class MiniBGStructuredActorCritic(nn.Module):
         E_pending = self._add_pos_region(
             self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING
         )
-        EXT_pending = torch.zeros(B, self.pending_len, _EXT_DIM, device=device, dtype=dtype)
 
         g_full = torch.cat([g, lb, phase], dim=-1)
         E_own, E_shop, E_hand, E_enemy, E_pending = self._contextualize_entities(
@@ -537,10 +519,6 @@ class MiniBGStructuredActorCritic(nn.Module):
             "E_hand": E_hand,
             "E_enemy": E_enemy,
             "E_pending": E_pending,
-            "EXT_own": EXT_own,
-            "EXT_shop": EXT_shop,
-            "EXT_hand": EXT_hand,
-            "EXT_pending": EXT_pending,
             "trunk": t,
             "g_full": g_full,
             "pending_feat": pending_feat,
@@ -588,48 +566,26 @@ class MiniBGStructuredActorCritic(nn.Module):
             B, _NUM_REGIONS * self.max_region_len, self.slot_hidden
         )
 
-        EXT_regions = torch.zeros(
-            B,
-            _NUM_REGIONS,
-            self.max_region_len,
-            _EXT_DIM,
-            device=device,
-            dtype=dtype,
-        )
-        EXT_regions[:, _REGION_SHOP, : self.shop_len] = cache["EXT_shop"]
-        EXT_regions[:, _REGION_OWN, : self.own_len] = cache["EXT_own"]
-        EXT_regions[:, _REGION_HAND, : self.hand_len] = cache["EXT_hand"]
-        EXT_regions[:, _REGION_PENDING, : self.pending_len] = cache["EXT_pending"]
-        EXT_regions_flat = EXT_regions.view(
-            B, _NUM_REGIONS * self.max_region_len, _EXT_DIM
-        )
-
         def _gather_entity(
             region_kinds: torch.Tensor,
             region_slots: torch.Tensor,
             ent_lin: nn.Linear,
-            ext_lin: nn.Linear,
         ) -> torch.Tensor:
             flat_idx = region_kinds * self.max_region_len + region_slots
             ent_idx = flat_idx.unsqueeze(-1).expand(-1, -1, self.slot_hidden)
-            ext_idx = flat_idx.unsqueeze(-1).expand(-1, -1, _EXT_DIM)
             ent_slot = torch.gather(E_regions_flat, dim=1, index=ent_idx)
-            ext_slot = torch.gather(EXT_regions_flat, dim=1, index=ext_idx)
-            ent_from_slot = ent_lin(ent_slot) + ext_lin(ext_slot)
-            # Null-region tokens (e.g. padded slots, ROLL/LEVEL_UP/COMPLETE_TURN sources,
-            # tgt of all single-entity actions) must zero out — otherwise the Linear bias
-            # term leaks into the action embedding for every "empty" entity slot.
+            ent_from_slot = ent_lin(ent_slot)
+            # Null-region tokens (padded slots, ROLL/LEVEL_UP/COMPLETE_TURN sources,
+            # tgt of all single-entity actions) must zero out — otherwise the Linear
+            # bias term leaks into the action embedding for every "empty" entity slot.
             is_null = (region_kinds == _REGION_NULL).unsqueeze(-1)
             return ent_from_slot.masked_fill(is_null, 0.0)
 
         src_ent = _gather_entity(
-            src_region_kinds, src_region_slots, self.entity_to_action, self.ent_extras
+            src_region_kinds, src_region_slots, self.entity_to_action
         )
         tgt_ent = _gather_entity(
-            tgt_region_kinds,
-            tgt_region_slots,
-            self.entity_to_action_tgt,
-            self.ent_extras_tgt,
+            tgt_region_kinds, tgt_region_slots, self.entity_to_action_tgt
         )
 
         # Tokens whose source AND target are both NULL (ROLL/LEVEL_UP/COMPLETE_TURN

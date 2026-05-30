@@ -73,6 +73,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         rng: Optional[random.Random] = None,
         shaping_fn: Optional[ShapingFn] = None,
         reward_config: Optional[RewardConfig] = None,
+        percent_high_game: float = 0.0,
     ) -> None:
         super().__init__(
             base_env,
@@ -87,6 +88,9 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._learner: Optional[BaseAgent] = None
         self._opponent_slot_by_seat: Dict[int, int] = {}
         self._lobby_league_recorded: bool = False
+        # Curriculum: fraction of games started in high mode. The decision lives
+        # here in the training harness (with this env's RNG), not in the game.
+        self._percent_high_game = max(0.0, min(1.0, float(percent_high_game)))
 
     @property
     def supports_seat_segments(self) -> bool:
@@ -95,9 +99,19 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
     def set_learner_agent(self, agent: BaseAgent) -> None:
         self._learner = agent
 
+    def set_high_mode(self, flag: bool) -> None:
+        """Forward an explicit per-game high-mode decision to the lobby."""
+        self._bg_base.set_high_mode(flag)
+
     def reset(self):
         for _ in range(self.MAX_RESET_RETRIES):
             episode_seed = self._rng.randrange(self._SEED_SPACE)
+            # Roll this game's high-mode flag (trainer-side decision, this env's
+            # RNG) and push it to the lobby before it builds the initial state.
+            if self._percent_high_game > 0.0:
+                self._bg_base.set_high_mode(
+                    self._rng.random() < self._percent_high_game
+                )
             n = self._num_current or len(self._bg_base.current_seats)
             n = max(1, min(int(n), NUM_PLAYERS))
             self._bg_base.set_current_seats(
@@ -306,8 +320,11 @@ def make_bglike_agent_perspective_env(
     shaping_fn: Optional[ShapingFn] = None,
     reward_config: Optional[RewardConfig] = None,
     rng: Optional[random.Random] = None,
+    percent_high_game: float = 0.0,
     **lobby_kwargs: Any,
 ) -> BGLikeAgentPerspectiveEnv:
+    # ``percent_high_game`` is consumed by the perspective wrapper (trainer-side
+    # curriculum), never forwarded to the inner lobby/game constructors.
     base = make_bglike_training_env(
         current_seats=current_seats or (0,),
         seed=seed,
@@ -321,6 +338,7 @@ def make_bglike_agent_perspective_env(
         rng=rng,
         shaping_fn=shaping_fn,
         reward_config=reward_config,
+        percent_high_game=percent_high_game,
     )
 
 

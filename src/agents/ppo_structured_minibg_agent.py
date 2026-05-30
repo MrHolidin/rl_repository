@@ -45,6 +45,27 @@ INFO_STRUCT_LEGAL = "minibg_struct_legal"
 INFO_STRUCT_NEXT_LEGAL = "minibg_struct_next_legal"
 
 
+def _stack_and_release(arrs: List[np.ndarray]) -> np.ndarray:
+    """Stack equal-shape arrays into one contiguous array, releasing each
+    source as it's copied.
+
+    ``np.stack`` holds both the input list and the new contiguous array at
+    peak — for the obs buffer that's ~2x the obs footprint (~1 GB at 32k
+    steps / v6 obs). Copying row-by-row and dropping each source reference
+    keeps the peak at ~1x (the result array) plus a shrinking remainder.
+    Mutates ``arrs`` in place (entries set to ``None``); the caller's buffer
+    is cleared right after the update anyway.
+    """
+    n = len(arrs)
+    if n == 0:
+        raise ValueError("_stack_and_release: empty list")
+    out = np.empty((n, *np.asarray(arrs[0]).shape), dtype=np.float32)
+    for i in range(n):
+        out[i] = arrs[i]
+        arrs[i] = None  # type: ignore[call-overload]
+    return out
+
+
 class StructuredMiniBGRolloutBuffer:
     def __init__(self) -> None:
         self.obs: List[np.ndarray] = []
@@ -57,8 +78,12 @@ class StructuredMiniBGRolloutBuffer:
         self.dones: List[bool] = []
         self.values: List[float] = []
         self.log_probs: List[float] = []
-        self.next_obs: List[np.ndarray] = []
-        self.next_legal_lists: List[List[StructAction]] = []
+        # Only the *last* transition's next_obs is ever consumed (GAE bootstrap
+        # of the final step — every interior step uses the next step's stored
+        # value via GAE, never its own next_obs). Storing the full per-step
+        # next_obs duplicated the entire obs buffer (~0.5 GB at 32k steps / v6
+        # obs) for nothing, so we keep a single rolling slot instead.
+        self.last_next_obs: Optional[np.ndarray] = None
         self.seat_ids: List[int] = []
         # v4 recurrent fields (optional — populated only by recurrent agents):
         # ``h_prev[t]`` = hidden state used by the model at decision time at step ``t``;
@@ -104,8 +129,10 @@ class StructuredMiniBGRolloutBuffer:
         self.dones.append(bool(done))
         self.values.append(float(value))
         self.log_probs.append(float(log_prob))
-        self.next_obs.append(np.asarray(next_obs, dtype=np.float32))
-        self.next_legal_lists.append(list(next_legal_list))
+        # Overwrite the single rolling slot; only the final step's value is read
+        # for the GAE bootstrap. ``next_legal_list`` is accepted for caller
+        # compatibility but no longer stored (it was never read by the update).
+        self.last_next_obs = np.asarray(next_obs, dtype=np.float32)
         self.seat_ids.append(int(seat_id))
         if h_prev is not None:
             self.h_prev.append(np.asarray(h_prev, dtype=np.float32))
@@ -133,8 +160,7 @@ class StructuredMiniBGRolloutBuffer:
         self.dones.clear()
         self.values.clear()
         self.log_probs.clear()
-        self.next_obs.clear()
-        self.next_legal_lists.clear()
+        self.last_next_obs = None
         self.seat_ids.clear()
         self.h_prev.clear()
         self.episode_ids.clear()
@@ -573,8 +599,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         buf = self.rollout_buffer
         device = self.device
 
-        obs_arr = np.stack(buf.obs, axis=0)
-        next_obs_arr = np.stack(buf.next_obs, axis=0)
+        obs_arr = _stack_and_release(buf.obs)
         rewards_arr = np.array(buf.rewards, dtype=np.float32)
         dones_arr = np.array(buf.dones, dtype=np.bool_)
         values_arr = np.array(buf.values, dtype=np.float32)
@@ -586,7 +611,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
         N = obs_arr.shape[0]
         obs_tensor = torch.as_tensor(obs_arr, dtype=torch.float32, device=device)
-        next_obs_last = torch.as_tensor(next_obs_arr[-1:], dtype=torch.float32, device=device)
+        if buf.last_next_obs is None:
+            raise RuntimeError("rollout buffer has no last_next_obs for bootstrap")
+        next_obs_last = torch.as_tensor(
+            buf.last_next_obs[None], dtype=torch.float32, device=device
+        )
         values_tensor = torch.as_tensor(values_arr, dtype=torch.float32, device=device)
         log_probs_old_tensor = torch.as_tensor(log_probs_old_arr, dtype=torch.float32, device=device)
         actions_tensor = torch.as_tensor(actions_arr, dtype=torch.long, device=device)
@@ -908,8 +937,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         buf = self.rollout_buffer
         device = self.device
 
-        obs_arr = np.stack(buf.obs, axis=0)
-        next_obs_arr = np.stack(buf.next_obs, axis=0)
+        obs_arr = _stack_and_release(buf.obs)
         rewards_arr = np.array(buf.rewards, dtype=np.float32)
         dones_arr = np.array(buf.dones, dtype=np.bool_)
         values_arr = np.array(buf.values, dtype=np.float32)
@@ -933,8 +961,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         if bool(dones_arr[-1]):
             last_bootstrap = 0.0
         else:
+            if buf.last_next_obs is None:
+                raise RuntimeError("rollout buffer has no last_next_obs for bootstrap")
             next_obs_last_t = torch.as_tensor(
-                next_obs_arr[-1:], dtype=torch.float32, device=device
+                buf.last_next_obs[None], dtype=torch.float32, device=device
             )
             if buf.h_prev:
                 h_last_t = torch.as_tensor(
@@ -1107,10 +1137,6 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                     "E_hand": parts["E_hand"],
                     "E_enemy": parts["E_enemy"],
                     "E_pending": parts["E_pending"],
-                    "EXT_own": parts["EXT_own"],
-                    "EXT_shop": parts["EXT_shop"],
-                    "EXT_hand": parts["EXT_hand"],
-                    "EXT_pending": parts["EXT_pending"],
                     "g_full": parts["g_full"],
                     "trunk": summary_n_BT,
                     "h_prev": None,

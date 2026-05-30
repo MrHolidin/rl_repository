@@ -23,8 +23,11 @@ class SegmentRolloutBuffer(Protocol):
     rewards: List[float]
     dones: List[bool]
     obs: List[np.ndarray]
-    next_obs: List[np.ndarray]
     seat_ids: List[int]
+    # ``next_obs`` (per-step list) is optional: the flat PPO buffer keeps it; the
+    # structured buffer retains only a single ``last_next_obs``. The terminal
+    # next_obs written below is never read anyway (``dones[idx]`` is set True →
+    # GAE skips its bootstrap), so we only write it when the list exists.
 
 
 def acting_seat_from_info(info: Any) -> int:
@@ -41,11 +44,13 @@ def close_rollout_segment(
     terminal_reward: float,
 ) -> bool:
     seat = int(seat)
+    next_obs_list = getattr(buf, "next_obs", None)
     for idx in range(len(buf.seat_ids) - 1, -1, -1):
         if buf.seat_ids[idx] == seat:
             buf.rewards[idx] = float(terminal_reward)
             buf.dones[idx] = True
-            buf.next_obs[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
+            if next_obs_list is not None and idx < len(next_obs_list):
+                next_obs_list[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
             return True
     return False
 

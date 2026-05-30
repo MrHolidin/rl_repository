@@ -59,6 +59,42 @@ from src.bg_core.effects import (
     Trigger,
     TriggerRandomFriendlyDeathrattleEffect,
     ZappTargeting,
+    # --- effect classes that were missing from the registry (appended) ---
+    AddRandomMinionToHandEffect,
+    AddRandomMinionToHandOnKillEffect,
+    BuffAdjacentBattlecry,
+    BuffAdjacentOnAttackedEffect,
+    BuffAllFriendlyMinions,
+    BuffAllFriendlyOfTribe,
+    BuffAllOtherOfTribe,
+    BuffAllWithKeyword,
+    BuffAttackedMinionEffect,
+    BuffAttackerOnFriendlyAttackEffect,
+    BuffDeadMinionNeighborsEffect,
+    BuffLeftmostRepeatedEffect,
+    BuffListenerIfSummonedMatches,
+    BuffOnePerListedTribeFriendly,
+    BuffRandomFriendly,
+    BuffRandomOtherFriendlyCombat,
+    BuffRandomUniqueTribeFriendlies,
+    BuffSelf,
+    BuffSelfFromHeroDamageTaken,
+    BuffSelfWhenFriendlyBattlecryPlaced,
+    BuffTargetFromPiratesBoughtBattlecry,
+    DealDamageAllMinions,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageRandomEnemyMinion,
+    DealHeroDamage,
+    GrantKeywordRandomFriendly,
+    GrantListenerKeywordIfSummonedMatches,
+    StatAura,
+    SummonEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    SummonOnSelfDamaged,
+    SummonRandomAndCopyToHandEffect,
+    SummonRandomMinionEffect,
+    SummonRandomOnSelfDamagedEffect,
+    TransferAttackToRandomFriendlyEffect,
 )
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 from .state import (
@@ -99,8 +135,8 @@ _RACE_ORDER: Tuple[Optional[Race], ...] = (
 RACE_ONEHOT_DIM = len(_RACE_ORDER)
 
 NUM_KEYWORD_CHANNELS = 8  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC, REBORN, MEGA_WINDFURY
-NUM_TRIGGER_CHANNELS = 21  # see TRIGGER_INDEX below
-NUM_EFFECT_CHANNELS = 38  # see EFFECT_INDEX below
+NUM_TRIGGER_CHANNELS = 22  # see TRIGGER_INDEX below
+NUM_EFFECT_CHANNELS = 73  # see EFFECT_INDEX below (38 head + 35 appended)
 
 # Slot layout offsets (single source of truth — tests / nets pull these in directly).
 PRESENCE_OFFSET = 0
@@ -111,10 +147,12 @@ RACE_OFFSET = STATS_OFFSET + 4
 KEYWORD_OFFSET = RACE_OFFSET + RACE_ONEHOT_DIM
 SHIELD_OFFSET = KEYWORD_OFFSET + NUM_KEYWORD_CHANNELS
 GOLDEN_OFFSET = SHIELD_OFFSET + 1
-TRIGGER_OFFSET = GOLDEN_OFFSET + 1
-EFFECT_OFFSET = TRIGGER_OFFSET + NUM_TRIGGER_CHANNELS
+# Trigger/effect one-hot bitmaps used to live here. They were strictly subsumed
+# by the v6 ability-token tail (which encodes each ability's full effect_id /
+# trigger_id / condition / params), so the slot vector no longer carries them
+# — saves ~95 floats per slot.
 # Non-golden copies of the same ``card_id`` elsewhere (triple / buy planning); normalized.
-HAND_SAME_CARD_COUNT_OFFSET = EFFECT_OFFSET + NUM_EFFECT_CHANNELS
+HAND_SAME_CARD_COUNT_OFFSET = GOLDEN_OFFSET + 1
 BOARD_SAME_CARD_COUNT_OFFSET = HAND_SAME_CARD_COUNT_OFFSET + 1
 TRIPLE_REWARD_SPELL_OFFSET = BOARD_SAME_CARD_COUNT_OFFSET + 1
 TRIPLE_DISCOVER_TIER_OFFSET = TRIPLE_REWARD_SPELL_OFFSET + 1
@@ -144,8 +182,18 @@ TRIGGER_INDEX: Dict[Trigger, int] = {
     Trigger.ON_FRIENDLY_SHIELD_LOST: 18,
     Trigger.ON_WHEN_ATTACKED: 19,
     Trigger.ON_FRIENDLY_WHEN_ATTACKED: 20,
+    Trigger.ON_FRIENDLY_KILL: 21,
 }
-assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS
+assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS, (
+    f"TRIGGER_INDEX has {len(TRIGGER_INDEX)} entries but "
+    f"NUM_TRIGGER_CHANNELS={NUM_TRIGGER_CHANNELS}"
+)
+_missing_triggers = [t.name for t in Trigger if t not in TRIGGER_INDEX]
+if _missing_triggers:
+    raise RuntimeError(
+        f"TRIGGER_INDEX is missing Trigger members: {_missing_triggers}. "
+        "Add them (and bump NUM_TRIGGER_CHANNELS) — changes obs dim, needs retrain."
+    )
 
 # Effect markers — high-impact aura/multiplier/listener types the network should distinguish
 # beyond the trigger fan-out (Brann/Khadgar/Baron etc. all share AURA trigger but differ wildly).
@@ -195,9 +243,81 @@ _EFFECT_CLASSES: Tuple[type, ...] = (
     # shop listeners
     BuffSelfWhenFriendlyDeathrattlePlaced,
     GrantKeywordAllFriendlyOfTribe,
+    # --- coverage completion: every remaining effect class in effects.py.
+    # Appended (not interleaved) so the indices of the head above stay stable
+    # for existing checkpoints. Order here is module-enumeration order.
+    AddRandomMinionToHandEffect,
+    AddRandomMinionToHandOnKillEffect,
+    BuffAdjacentBattlecry,
+    BuffAdjacentOnAttackedEffect,
+    BuffAllFriendlyMinions,
+    BuffAllFriendlyOfTribe,
+    BuffAllOtherOfTribe,
+    BuffAllWithKeyword,
+    BuffAttackedMinionEffect,
+    BuffAttackerOnFriendlyAttackEffect,
+    BuffDeadMinionNeighborsEffect,
+    BuffLeftmostRepeatedEffect,
+    BuffListenerIfSummonedMatches,
+    BuffOnePerListedTribeFriendly,
+    BuffRandomFriendly,
+    BuffRandomOtherFriendlyCombat,
+    BuffRandomUniqueTribeFriendlies,
+    BuffSelf,
+    BuffSelfFromHeroDamageTaken,
+    BuffSelfWhenFriendlyBattlecryPlaced,
+    BuffTargetFromPiratesBoughtBattlecry,
+    DealDamageAllMinions,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageRandomEnemyMinion,
+    DealHeroDamage,
+    GrantKeywordRandomFriendly,
+    GrantListenerKeywordIfSummonedMatches,
+    StatAura,
+    SummonEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    SummonOnSelfDamaged,
+    SummonRandomAndCopyToHandEffect,
+    SummonRandomMinionEffect,
+    SummonRandomOnSelfDamagedEffect,
+    TransferAttackToRandomFriendlyEffect,
 )
-assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS
+assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS, (
+    f"_EFFECT_CLASSES has {len(_EFFECT_CLASSES)} entries but "
+    f"NUM_EFFECT_CHANNELS={NUM_EFFECT_CHANNELS}"
+)
 EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
+
+
+def _assert_effect_registry_complete() -> None:
+    """Fail loudly at import if any effect class in ``effects.py`` is missing
+    from ``_EFFECT_CLASSES``. Forces a deliberate registry update (and obs-dim
+    bump / retrain) whenever the engine gains an effect — never silently drop
+    an ability to the padding bucket again."""
+    import dataclasses as _dc
+    import inspect as _inspect
+
+    import src.bg_core.effects as _effects_mod
+
+    _non_effect_dataclasses = {"Condition", "Ability"}
+    known = set(_EFFECT_CLASSES)
+    missing = sorted(
+        obj.__name__
+        for _name, obj in _inspect.getmembers(_effects_mod, _inspect.isclass)
+        if obj.__module__ == _effects_mod.__name__
+        and _dc.is_dataclass(obj)
+        and obj.__name__ not in _non_effect_dataclasses
+        and obj not in known
+    )
+    if missing:
+        raise RuntimeError(
+            "EFFECT_INDEX is missing effect classes from src.bg_core.effects: "
+            f"{missing}. Append them to _EFFECT_CLASSES (and bump "
+            "NUM_EFFECT_CHANNELS) — this changes obs dim and requires retrain."
+        )
+
+
+_assert_effect_registry_complete()
 
 GLOBAL_CORE_DIM = 11
 # Max rotation tribes across supported patches (74257: 7 + 1 ratio slot).
@@ -449,13 +569,8 @@ def encode_minion(
     v[SHIELD_OFFSET] = 1.0 if minion.has_shield else 0.0
     v[GOLDEN_OFFSET] = 1.0 if minion.is_golden else 0.0
 
-    for ab in minion.abilities:
-        ti = TRIGGER_INDEX.get(ab.trigger)
-        if ti is not None:
-            v[TRIGGER_OFFSET + ti] = 1.0
-        ei = EFFECT_INDEX.get(type(ab.effect))
-        if ei is not None:
-            v[EFFECT_OFFSET + ei] = 1.0
+    # Trigger / effect bits are no longer per-slot — the v6 ability tokens at
+    # the obs tail encode them more richly (and per-ability, not per-minion).
     v[HAND_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_hand_elsewhere) / float(
         HAND_SIZE
     )
@@ -676,8 +791,6 @@ __all__ = [
     "KEYWORD_OFFSET",
     "SHIELD_OFFSET",
     "GOLDEN_OFFSET",
-    "TRIGGER_OFFSET",
-    "EFFECT_OFFSET",
     "HAND_SAME_CARD_COUNT_OFFSET",
     "BOARD_SAME_CARD_COUNT_OFFSET",
     "TRIPLE_REWARD_SPELL_OFFSET",

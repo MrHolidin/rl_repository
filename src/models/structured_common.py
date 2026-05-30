@@ -29,22 +29,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from src.envs.minibg.obs import (
-    EFFECT_OFFSET as _EFFECT_OFFSET,
-    NUM_EFFECT_CHANNELS as _NUM_EFFECT_CHANNELS,
-    NUM_TRIGGER_CHANNELS as _NUM_TRIGGER_CHANNELS,
-)
 from src.envs.minibg.structured_actions import StructAction, StructActionType
 
 
 # ---------------------------------------------------------------------------
 # Shape / vocabulary constants
 # ---------------------------------------------------------------------------
-
-# Raw trigger + effect-class bit window inside a slot vector — used by the
-# ent_extras bypass so the action head sees these bits directly.
-_EXT_DIM = _NUM_TRIGGER_CHANNELS + _NUM_EFFECT_CHANNELS
-_EXT_END = _EFFECT_OFFSET + _NUM_EFFECT_CHANNELS
 
 _NUM_STRUCT_TYPES = len(StructActionType)
 
@@ -124,9 +114,20 @@ class EntityAttentionBlock(nn.Module):
         self.attn_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
         self.ff_scale = nn.Parameter(torch.full((dim,), float(init_scale)))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """``key_padding_mask``: bool (B, L), True = mask out (padded) — same
+        contract as ``nn.MultiheadAttention.key_padding_mask``. Padded query
+        rows still get computed but their output is irrelevant (the FF residual
+        keeps them passing through; callers should drop padded rows downstream
+        or mask them again before pooling)."""
         h = self.ln_attn(x)
-        a, _ = self.attn(h, h, h, need_weights=False)
+        a, _ = self.attn(
+            h, h, h, need_weights=False, key_padding_mask=key_padding_mask
+        )
         x = x + a * self.attn_scale.view(1, 1, -1)
 
         h = self.ln_ff(x)
@@ -181,10 +182,20 @@ class CrossAttentionBlock(nn.Module):
         self.attn_scale = nn.Parameter(torch.full((embed_dim,), float(init_scale)))
         self.ff_scale = nn.Parameter(torch.full((embed_dim,), float(init_scale)))
 
-    def forward(self, q: torch.Tensor, kv: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        q: torch.Tensor,
+        kv: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """``key_padding_mask``: bool (B, L_kv), True = mask out (padded). Use
+        when ``kv`` includes padded slots (e.g. v5 ability tokens) so action
+        queries don't attend to them."""
         q_ln = self.ln_q(q)
         kv_ln = self.ln_kv(kv)
-        a, _ = self.attn(q_ln, kv_ln, kv_ln, need_weights=False)
+        a, _ = self.attn(
+            q_ln, kv_ln, kv_ln, need_weights=False, key_padding_mask=key_padding_mask
+        )
         q = q + a * self.attn_scale.view(1, 1, -1)
 
         h = self.ln_ff(q)
@@ -381,8 +392,6 @@ __all__ = [
     "role_for_struct",
     "_struct_action_codes",
     "_build_action_tokens",
-    "_EXT_DIM",
-    "_EXT_END",
     "_NUM_STRUCT_TYPES",
     "_ROLE_NONE",
     "_ROLE_SHOP",

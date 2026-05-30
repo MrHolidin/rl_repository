@@ -1,8 +1,14 @@
-# BGLike 8p distributed PPO — patch 19.6.0 / build 74257, structured v3.
-# v3 = v2 + cross-attention from action tokens to the entity sequence.
+# BGLike 8p distributed PPO — patch 19.6.0 / build 74257, structured v5.
+# v5 = v3 + per-ability tokens. Every minion (own/shop/hand) and every
+# minion-typed pending discover option expands into up to K_ABIL ability
+# tokens that join the main entity self-attention. Each ability token packs
+# (effect_class, trigger, condition_kind, condition_arg_race, filter_race,
+# combat_only, atk, hp, amount, repeats, count) — the model can finally see
+# the condition gate on Primalfin Lookout-style cards directly. See
+# src/envs/bglike/obs_v5.py and src/models/bglike_structured_v5.py.
 #   python -m src.cli.train_distributed \
-#       --config configs/bglike/ppo_structured_v3_74257.yaml \
-#       --run_dir runs/bglike/dist_ppo_v3_74257_001
+#       --config configs/bglike/ppo_structured_v5_74257.yaml \
+#       --run_dir runs/bglike/dist_ppo_v5_74257_001
 seed: 13
 
 game:
@@ -13,11 +19,15 @@ game:
     num_current_seats: 4
     patch_dir: data/bgcore/19_6_0_74257
     shop_excluded_count: 3
+    # v5 obs builder: appends per-ability token block at the obs tail.
+    # The trainer also auto-pins this from network_type=bglike_structured_v5
+    # but we set it explicitly so the YAML doc-itself is unambiguous.
+    obs_kind: bglike_v5
 
 agent:
   id: ppo
   params:
-    network_type: bglike_structured_v3
+    network_type: bglike_structured_v7
     observation_type: vector
     slot_hidden_channels: 64
     region_conv2_kernel: 1
@@ -26,12 +36,21 @@ agent:
     entity_attention_heads: 4
     entity_attention_ff_mult: 2
     entity_attention_init_scale: 0.1
-    # v3 cross-attention (Q = action token, K/V = entity sequence). slot_to_action
-    # is zero-initialized so v3 reproduces v2 at step 0 and learns to use the
-    # extra signal during training.
+    # v3 cross-attention (Q = action token, K/V = entity sequence). v5 extends
+    # the K/V to also include the post-self-attention ability tokens, so action
+    # queries can read live abilities directly without going through the host
+    # slot. slot_to_action stays zero-initialized → v5 reproduces v2 at step 0
+    # for the slot-only path; the model has to learn to pull weight onto the
+    # ability-aware contribution.
     action_cross_attn_heads: 4
     action_cross_attn_ff_mult: 2
     action_cross_attn_init_scale: 0.1
+    # v5 ability-token encoder: per-ability embedding width for the 5
+    # categorical channels (effect / trigger / condition_kind / cond_arg_race /
+    # filter_race). Total per-token feature is 5*ability_emb_dim + 1 + 5 →
+    # Linear → slot_hidden.
+    ability_emb_dim: 8
+    ability_attention_init_scale: 0.1
     state_dim: 128
     action_dim: 64
     order_hidden: 64
@@ -93,7 +112,7 @@ train:
     - type: checkpoint
       params:
         interval: 100000
-        prefix: dist_bglike_ppo_v3_74257
+        prefix: dist_bglike_ppo_v5_74257
     - type: metrics_file
       params:
         interval: 1

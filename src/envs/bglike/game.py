@@ -18,7 +18,11 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment.shop_triggers import ShopTriggers
 
-from src.bg_catalog.cards import normalize_shop_excluded_races
+from src.bg_catalog.cards import (
+    make_minion,
+    normalize_shop_excluded_races,
+    shop_minion_allowed_with_exclusion,
+)
 from src.bg_catalog.patch_context import PatchContext, load_patch_context
 
 from . import actions as bglike_actions
@@ -53,11 +57,17 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         shop_excluded_race: Optional[Race | Tuple[Race, ...]] = None,
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
+        high_mode: bool = False,
         patch: Optional[PatchContext] = None,
         patch_dir: Optional[str] = None,
     ) -> None:
         self._rng = np.random.default_rng(seed)
         self._shop_full_tribes = shop_full_tribes
+        # Deterministic flag: when set, ``initial_state`` builds a "high mode"
+        # start (all players at tier 5 / 10 gold / round 8 with a random tier-5
+        # + tier-6 board). The *decision* of which games are high mode belongs
+        # to the trainer (curriculum + its RNG); the game is a pure mechanism.
+        self._high_mode = bool(high_mode)
         self._patch = _resolve_patch(patch, patch_dir)
         self._shop_excluded_race_fixed = (
             tuple(normalize_shop_excluded_races(shop_excluded_race))
@@ -94,15 +104,28 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         picks = self._rng.choice(len(tribes), size=excluded_count, replace=False)
         return tuple(tribes[int(i)] for i in picks)
 
+    def set_high_mode(self, flag: bool) -> None:
+        """Trainer-controlled switch for the next ``initial_state`` build."""
+        self._high_mode = bool(flag)
+
     def initial_state(self) -> BGLikeState:
         n = bglike_actions.NUM_PLAYERS
+        high_mode = self._high_mode
+        round_number = (
+            bglike_actions.HIGH_MODE_START_ROUND if high_mode else 1
+        )
         shop_excluded = self._pick_shop_excluded_race()
         shared_pool = build_initial_shared_pool(
             shop_excluded,
             patch=self._patch,
         )
+        make_player = self._fresh_player_high if high_mode else self._fresh_player
         players = tuple(
-            self._fresh_player(round_number=1, shop_excluded_race=shop_excluded, shared_pool=shared_pool)
+            make_player(
+                round_number=round_number,
+                shop_excluded_race=shop_excluded,
+                shared_pool=shared_pool,
+            )
             for _ in range(n)
         )
         alive = tuple(range(n))
@@ -110,7 +133,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         return BGLikeState(
             players=players,
             alive=alive,
-            round_number=1,
+            round_number=round_number,
             combat_round=0,
             full_lobby_cycle_round=0,
             current_player_index=order[0],
@@ -303,6 +326,75 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             placed_minion_board_index=None,
             placed_minion_pending_after=None,
         )
+        self._refresh_shop(player, shop_excluded_race, shared_pool=shared_pool)
+        return player
+
+    def _random_minion_of_tier(
+        self,
+        tier: int,
+        shop_excluded_race: Optional[Race],
+        shared_pool: SharedCardPool,
+    ):
+        """A fresh ``Minion`` of exactly ``tier``. Prefers shop-eligible cards
+        (respecting excluded races); if the exclusion empties the tier it falls
+        back to the full tier so a high-mode board is *always* seeded. Returns
+        ``None`` only if the patch has no card of that tier at all (unreachable
+        in practice). Reserves a pool copy best-effort for shared-pool
+        accounting."""
+        tpl = self._patch.templates
+
+        def _candidates(respect_exclusion: bool) -> List[str]:
+            return [
+                cid
+                for cid, t in tpl.items()
+                if not t.is_token
+                and not t.is_golden
+                and not t.is_triple_reward_spell
+                and t.tier == tier
+                and (
+                    shop_minion_allowed_with_exclusion(t, shop_excluded_race)
+                    if respect_exclusion
+                    else True
+                )
+            ]
+
+        cands = _candidates(respect_exclusion=True) or _candidates(respect_exclusion=False)
+        if not cands:
+            return None
+        cid = cands[int(self._rng.integers(0, len(cands)))]
+        if shared_pool is not None:
+            shared_pool.acquire_new(cid)  # best-effort; synthetic board start
+        return make_minion(cid, patch=self._patch)
+
+    def _fresh_player_high(
+        self,
+        round_number: int,
+        shop_excluded_race: Optional[Race],
+        *,
+        shared_pool: SharedCardPool,
+    ) -> PlayerState:
+        """High-mode player: tier 5, gold for ``round_number`` (10 at round 8),
+        and a board seeded with one random tier-5 and one random tier-6 minion."""
+        tier = bglike_actions.HIGH_MODE_START_TIER
+        player = PlayerState(
+            health=bglike_actions.STARTING_HEALTH,
+            hero_damage_taken_total=0,
+            gold=bglike_actions.gold_for_round(round_number),
+            tavern_tier=tier,
+            next_tier_up_cost=bglike_actions.LEVEL_UP_COSTS.get(tier, 0),
+            board=[],
+            shop=[None for _ in range(bglike_actions.MAX_SHOP_SLOTS)],
+            hand=[None for _ in range(bglike_actions.HAND_SIZE)],
+            phase=PlayerPhase.SHOP,
+            shop_actions_used=0,
+            pending_choice=None,
+            placed_minion_board_index=None,
+            placed_minion_pending_after=None,
+        )
+        for seed_tier in (5, 6):
+            m = self._random_minion_of_tier(seed_tier, shop_excluded_race, shared_pool)
+            if m is not None:
+                player.board.append(m)
         self._refresh_shop(player, shop_excluded_race, shared_pool=shared_pool)
         return player
 

@@ -15,6 +15,8 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V2,
     PPO_NETWORK_BGLIKE_STRUCTURED_V3,
     PPO_NETWORK_BGLIKE_STRUCTURED_V4,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V6,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import reject_flat_bg_network
@@ -123,8 +125,28 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V2,
         PPO_NETWORK_BGLIKE_STRUCTURED_V3,
         PPO_NETWORK_BGLIKE_STRUCTURED_V4,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V6,
     )
     game_params["use_structured"] = use_structured
+    # v5 / v6 require the per-ability ``obs_kind="bglike_v5"`` layout. We
+    # auto-pin it here so existing v3-shaped configs don't accidentally feed
+    # them the smaller obs (which would fail the model's obs_dim check at
+    # startup).
+    if (
+        network_type
+        in (PPO_NETWORK_BGLIKE_STRUCTURED_V5, PPO_NETWORK_BGLIKE_STRUCTURED_V6)
+        and game_id == "bglike"
+    ):
+        from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V5
+
+        existing = game_params.get("obs_kind")
+        if existing is not None and existing != OBS_KIND_BGLIKE_V5:
+            raise ValueError(
+                f"network_type={network_type!r} requires obs_kind={OBS_KIND_BGLIKE_V5!r}, "
+                f"got {existing!r}"
+            )
+        game_params["obs_kind"] = OBS_KIND_BGLIKE_V5
 
     if game_id in ("minibg", "bglike"):
         from src.training.patch_config import apply_patch_to_agent_params
@@ -136,7 +158,9 @@ def run_distributed(
         from src.training.obs_sizing import apply_bg_observation_defaults
 
         num_actions = int(NUM_ENV_ACTIONS)
-        apply_bg_observation_defaults(game_id, agent_params)
+        apply_bg_observation_defaults(
+            game_id, agent_params, obs_kind=game_params.get("obs_kind")
+        )
     elif game_id == "minibg":
         from src.envs.minibg.action_map import NUM_ENV_ACTIONS
         from src.training.obs_sizing import apply_bg_observation_defaults
@@ -249,6 +273,35 @@ def run_distributed(
     )
     write_meta_json(run_dir / "meta.json", meta)
 
+    # Optionally re-seed the frozen self-play pool from a run's checkpoints dir
+    # (each periodic checkpoint == one historical freeze). Keep only files with a
+    # numeric step suffix (skip init.pt / *_final.pt); the trainer caps to
+    # max_frozen_agents, keeping the most-recent past selves.
+    frozen_pool_checkpoints: list = []
+    if dist_cfg.restore_frozen_from:
+
+        def _ckpt_step(path: Path) -> Optional[int]:
+            stem = path.stem  # e.g. dist_bglike_ppo_v6_74257_4012425
+            tail = stem.rsplit("_", 1)[-1]
+            return int(tail) if tail.isdigit() else None
+
+        src = Path(dist_cfg.restore_frozen_from)
+        if src.is_dir():
+            cands = sorted(
+                (p for p in src.glob("*.pt") if _ckpt_step(p) is not None),
+                key=lambda p: _ckpt_step(p),
+            )
+        elif src.is_file():
+            cands = [src]
+        else:
+            cands = []
+            print(f"[dist_ppo] restore_frozen_from not found: {src}", flush=True)
+        frozen_pool_checkpoints = [str(p) for p in cands]
+        print(
+            f"[dist_ppo] restore_frozen_from={src}: {len(frozen_pool_checkpoints)} checkpoint(s)",
+            flush=True,
+        )
+
     trainer = DistributedTrainer(
         agent,
         worker_ckpt_path,
@@ -270,6 +323,7 @@ def run_distributed(
         sampler_kind=sampler_kind,
         start_episode=start_episode,
         run_dir=str(run_dir),
+        frozen_pool_checkpoints=frozen_pool_checkpoints,
     )
 
     _current_trainer = trainer

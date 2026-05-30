@@ -446,12 +446,29 @@ def run(
     base_env = None
     if game_id == "bglike":
         from src.envs.bglike.action_map import NUM_ENV_ACTIONS
+        from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V5
+        from src.models.ppo_policy_factory import (
+            PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+        )
         from src.training.obs_sizing import apply_bg_observation_defaults
+
+        nt = str(agent_params.get("network_type", "")).strip().lower()
+        if nt in (PPO_NETWORK_BGLIKE_STRUCTURED_V5, PPO_NETWORK_BGLIKE_STRUCTURED_V6):
+            existing = game_params.get("obs_kind")
+            if existing is not None and existing != OBS_KIND_BGLIKE_V5:
+                raise ValueError(
+                    f"network_type={nt!r} requires obs_kind={OBS_KIND_BGLIKE_V5!r}, "
+                    f"got {existing!r}"
+                )
+            game_params["obs_kind"] = OBS_KIND_BGLIKE_V5
 
         num_actions = int(NUM_ENV_ACTIONS)
         agent_params.setdefault("num_actions", num_actions)
         agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))
-        apply_bg_observation_defaults(game_id, agent_params)
+        apply_bg_observation_defaults(
+            game_id, agent_params, obs_kind=game_params.get("obs_kind")
+        )
     else:
         base_env = make_game(app_cfg.game.id, **game_params)
         legal_mask = getattr(base_env, "legal_actions_mask", None)

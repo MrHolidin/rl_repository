@@ -35,7 +35,6 @@ import torch.nn as nn
 
 from src.envs.minibg.obs import (
     PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
-    TRIGGER_OFFSET as _TRIGGER_OFFSET,
 )
 from .bglike_structured_v3 import BGLikeStructuredV3
 from .minibg_slot_ac import (
@@ -48,8 +47,6 @@ from .structured_common import (
     REG_OWN,
     REG_PENDING,
     REG_SHOP,
-    _EXT_DIM,
-    _EXT_END,
     _build_action_tokens,
 )
 
@@ -164,10 +161,6 @@ class BGLikeStructuredV4(BGLikeStructuredV3):
             self._encode_region_slots(hand), self.hand_pos_emb, REG_HAND
         )
 
-        EXT_own = own[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_shop = shop[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_hand = hand[..., _TRIGGER_OFFSET:_EXT_END]
-
         B = x.size(0)
         device = x.device
         dtype = E_own.dtype
@@ -182,7 +175,6 @@ class BGLikeStructuredV4(BGLikeStructuredV3):
         E_pending = self._add_pos_region(
             self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING
         )
-        EXT_pending = torch.zeros(B, self.pending_len, _EXT_DIM, device=device, dtype=dtype)
 
         pending_header = pending[..., :self._pending_header_dim]
         g_full = torch.cat([g, lb, phase], dim=-1)
@@ -210,10 +202,6 @@ class BGLikeStructuredV4(BGLikeStructuredV3):
             "E_hand": E_hand,
             "E_enemy": E_enemy,
             "E_pending": E_pending,
-            "EXT_own": EXT_own,
-            "EXT_shop": EXT_shop,
-            "EXT_hand": EXT_hand,
-            "EXT_pending": EXT_pending,
             "g_full": g_full,
             "g": g,
             "lb": lb,
@@ -280,10 +268,6 @@ class BGLikeStructuredV4(BGLikeStructuredV3):
             "E_hand": parts["E_hand"],
             "E_enemy": parts["E_enemy"],
             "E_pending": parts["E_pending"],
-            "EXT_own": parts["EXT_own"],
-            "EXT_shop": parts["EXT_shop"],
-            "EXT_hand": parts["EXT_hand"],
-            "EXT_pending": parts["EXT_pending"],
             "trunk": state_summary_n,
             "g_full": parts["g_full"],
             "h_prev": h_prev,

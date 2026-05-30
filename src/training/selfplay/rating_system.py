@@ -42,6 +42,11 @@ class RatingSystem(ABC):
     def eviction_sort_key(self, slot_id: int, *, episode: int) -> Tuple[float, int]:
         """Sort ascending; first entry is evicted first."""
 
+    @abstractmethod
+    def games(self, slot_id: int) -> int:
+        """Games the slot has played (0 if unknown). Used to grant freshly
+        added frozen agents a grace period before they're eviction-eligible."""
+
 
 def trueskill_match_quality(
     mu_a: float,
@@ -84,6 +89,10 @@ class EmaPairwiseRating(RatingSystem):
 
     def remove(self, slot_id: int) -> None:
         self._stats.pop(int(slot_id), None)
+
+    def games(self, slot_id: int) -> int:
+        stats = self._stats.get(int(slot_id))
+        return int(stats.games) if stats is not None else 0
 
     def update(self, record: GameRecord) -> bool:
         updates = league_updates_from_record(record)
@@ -186,6 +195,10 @@ class TrueSkillRating(RatingSystem):
 
     def remove(self, slot_id: int) -> None:
         self._ratings.pop(int(slot_id), None)
+
+    def games(self, slot_id: int) -> int:
+        state = self._ratings.get(int(slot_id))
+        return int(state.games) if state is not None else 0
 
     def update(self, record: GameRecord) -> bool:
         participants = record.participants

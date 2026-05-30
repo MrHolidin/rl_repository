@@ -54,8 +54,6 @@ from .structured_common import (
     BattlePredictionHead,
     EntityAttentionBlock,
     _build_action_tokens,
-    _EXT_DIM,
-    _EXT_END,
     _NUM_REGIONS,
     _NUM_ROLES,
     _NUM_STRUCT_TYPES,
@@ -87,7 +85,6 @@ from src.envs.minibg.obs import (
     PENDING_CHOICE_DIM as _PENDING_CHOICE_DIM,
     PENDING_DISCOVER_IDX_OFFSET as _PENDING_DISCOVER_IDX_OFFSET,
     PENDING_IS_APPLY_OFFSET as _PENDING_IS_APPLY_OFFSET,
-    TRIGGER_OFFSET as _TRIGGER_OFFSET,
 )
 
 
@@ -275,8 +272,6 @@ class BGLikeStructuredV2(nn.Module):
         self.role_emb = nn.Embedding(_NUM_ROLES, self.action_dim)
         self.entity_to_action = nn.Linear(self.slot_hidden, self.action_dim)
         self.entity_to_action_tgt = nn.Linear(self.slot_hidden, self.action_dim)
-        self.ent_extras = nn.Linear(_EXT_DIM, self.action_dim)
-        self.ent_extras_tgt = nn.Linear(_EXT_DIM, self.action_dim)
         self.null_entity_action = nn.Parameter(torch.zeros(self.action_dim))
 
         self.state_to_interact = nn.Linear(self.state_dim, self.interaction_dim, bias=False)
@@ -483,11 +478,6 @@ class BGLikeStructuredV2(nn.Module):
             self._encode_region_slots(hand), self.hand_pos_emb, REG_HAND
         )
 
-        # Raw trigger+effect bits — bypass for action scoring (matches v1).
-        EXT_own = own[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_shop = shop[..., _TRIGGER_OFFSET:_EXT_END]
-        EXT_hand = hand[..., _TRIGGER_OFFSET:_EXT_END]
-
         # Pending: 3 discover / adapt options.
         B = x.size(0)
         device = x.device
@@ -503,7 +493,6 @@ class BGLikeStructuredV2(nn.Module):
         E_pending = self._add_pos_region(
             self.pending_to_slot(opt_stack), self.pending_pos_emb, REG_PENDING
         )
-        EXT_pending = torch.zeros(B, self.pending_len, _EXT_DIM, device=device, dtype=dtype)
 
         pending_header = pending[..., :self._pending_header_dim]
 
@@ -539,10 +528,6 @@ class BGLikeStructuredV2(nn.Module):
             "E_hand": E_hand,
             "E_enemy": E_enemy,
             "E_pending": E_pending,
-            "EXT_own": EXT_own,
-            "EXT_shop": EXT_shop,
-            "EXT_hand": EXT_hand,
-            "EXT_pending": EXT_pending,
             # Critic reads `trunk`. In v2, trunk == post-LN state summary.
             "trunk": state_summary_n,
             "g_full": g_full,
@@ -586,45 +571,23 @@ class BGLikeStructuredV2(nn.Module):
             B, _NUM_REGIONS * self.max_region_len, self.slot_hidden
         )
 
-        EXT_regions = torch.zeros(
-            B,
-            _NUM_REGIONS,
-            self.max_region_len,
-            _EXT_DIM,
-            device=device,
-            dtype=dtype,
-        )
-        EXT_regions[:, _REGION_SHOP, : self.shop_len] = cache["EXT_shop"]
-        EXT_regions[:, _REGION_OWN, : self.own_len] = cache["EXT_own"]
-        EXT_regions[:, _REGION_HAND, : self.hand_len] = cache["EXT_hand"]
-        EXT_regions[:, _REGION_PENDING, : self.pending_len] = cache["EXT_pending"]
-        EXT_regions_flat = EXT_regions.view(
-            B, _NUM_REGIONS * self.max_region_len, _EXT_DIM
-        )
-
         def _gather_entity(
             region_kinds: torch.Tensor,
             region_slots: torch.Tensor,
             ent_lin: nn.Linear,
-            ext_lin: nn.Linear,
         ) -> torch.Tensor:
             flat_idx = region_kinds * self.max_region_len + region_slots
             ent_idx = flat_idx.unsqueeze(-1).expand(-1, -1, self.slot_hidden)
-            ext_idx = flat_idx.unsqueeze(-1).expand(-1, -1, _EXT_DIM)
             ent_slot = torch.gather(E_regions_flat, dim=1, index=ent_idx)
-            ext_slot = torch.gather(EXT_regions_flat, dim=1, index=ext_idx)
-            ent_from_slot = ent_lin(ent_slot) + ext_lin(ext_slot)
+            ent_from_slot = ent_lin(ent_slot)
             is_null = (region_kinds == _REGION_NULL).unsqueeze(-1)
             return ent_from_slot.masked_fill(is_null, 0.0)
 
         src_ent = _gather_entity(
-            src_region_kinds, src_region_slots, self.entity_to_action, self.ent_extras
+            src_region_kinds, src_region_slots, self.entity_to_action
         )
         tgt_ent = _gather_entity(
-            tgt_region_kinds,
-            tgt_region_slots,
-            self.entity_to_action_tgt,
-            self.ent_extras_tgt,
+            tgt_region_kinds, tgt_region_slots, self.entity_to_action_tgt
         )
 
         ent_null = self.null_entity_action.view(1, 1, -1).expand(B, Lmax, -1)

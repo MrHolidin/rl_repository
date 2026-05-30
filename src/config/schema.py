@@ -60,6 +60,10 @@ class DistributedConfig:
     workers: int = 4
     worker_device: str = "cpu"
     checkpoint: Optional[str] = None  # path to starting .pt; None → fresh start
+    # Directory of periodic checkpoints (or explicit list) to seed the frozen
+    # self-play pool on restart. Each checkpoint = one past-self opponent; the
+    # most recent ``max_frozen_agents`` survive eviction. None → empty pool.
+    restore_frozen_from: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DistributedConfig":
@@ -67,6 +71,11 @@ class DistributedConfig:
             workers=int(data.get("workers", 4)),
             worker_device=str(data.get("worker_device", "cpu")),
             checkpoint=str(data["checkpoint"]) if data.get("checkpoint") else None,
+            restore_frozen_from=(
+                str(data["restore_frozen_from"])
+                if data.get("restore_frozen_from")
+                else None
+            ),
         )
 
 

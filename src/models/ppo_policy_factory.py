@@ -38,6 +38,8 @@ PPO_NETWORK_BGLIKE_STRUCTURED_V1 = "bglike_structured_v1"
 PPO_NETWORK_BGLIKE_STRUCTURED_V2 = "bglike_structured_v2"
 PPO_NETWORK_BGLIKE_STRUCTURED_V3 = "bglike_structured_v3"
 PPO_NETWORK_BGLIKE_STRUCTURED_V4 = "bglike_structured_v4"
+PPO_NETWORK_BGLIKE_STRUCTURED_V5 = "bglike_structured_v5"
+PPO_NETWORK_BGLIKE_STRUCTURED_V6 = "bglike_structured_v6"
 PPO_NETWORK_FLAT_MLP = "flat_mlp"
 
 
@@ -248,6 +250,34 @@ def build_ppo_actor_critic(
             obs_layout="bglike",
             num_pool_indices=num_pool_indices,
         )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V5:
+        from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _BG_OBS_DIM_V5
+        from .bglike_structured_v5 import BGLikeStructuredV5
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM_V5:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM_V5}]"
+            )
+        return BGLikeStructuredV5(
+            slot_hidden=int(slot_hidden_channels),
+            region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
+            num_pool_indices=num_pool_indices,
+        )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V6:
+        from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _BG_OBS_DIM_V5
+        from .bglike_structured_v6 import BGLikeStructuredV6
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM_V5:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM_V5}]"
+            )
+        return BGLikeStructuredV6(
+            slot_hidden=int(slot_hidden_channels),
+            region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
+            num_pool_indices=num_pool_indices,
+        )
     if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
         if len(observation_shape) != 1:
             raise ValueError(
@@ -411,6 +441,26 @@ def _restore_structured_v4(
     return BGLikeStructuredV4(**kw)
 
 
+def _restore_structured_v5(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v5 import BGLikeStructuredV5
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v5 checkpoint")
+    return BGLikeStructuredV5(**kw)
+
+
+def _restore_structured_v6(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v6 import BGLikeStructuredV6
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v6 checkpoint")
+    return BGLikeStructuredV6(**kw)
+
+
 register_ppo_network(
     PPO_NETWORK_ACTOR_CRITIC_CNN,
     ActorCriticCNN,
@@ -471,9 +521,31 @@ def _register_v4_lazy() -> None:
     )
 
 
+def _register_v5_lazy() -> None:
+    from .bglike_structured_v5 import BGLikeStructuredV5
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+        BGLikeStructuredV5,
+        restore=_restore_structured_v5,
+    )
+
+
+def _register_v6_lazy() -> None:
+    from .bglike_structured_v6 import BGLikeStructuredV6
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+        BGLikeStructuredV6,
+        restore=_restore_structured_v6,
+    )
+
+
 _register_v2_lazy()
 _register_v3_lazy()
 _register_v4_lazy()
+_register_v5_lazy()
+_register_v6_lazy()
 
 
 __all__ = [
@@ -491,5 +563,7 @@ __all__ = [
     "PPO_NETWORK_BGLIKE_STRUCTURED_V2",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V3",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V4",
+    "PPO_NETWORK_BGLIKE_STRUCTURED_V5",
+    "PPO_NETWORK_BGLIKE_STRUCTURED_V6",
     "PPO_NETWORK_FLAT_MLP",
 ]

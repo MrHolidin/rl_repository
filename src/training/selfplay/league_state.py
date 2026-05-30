@@ -205,15 +205,25 @@ class LeagueController:
     def snapshot(self) -> LeagueSnapshot:
         return self.sync_snapshot()
 
-    def evict_worst(self, max_size: int) -> None:
+    def evict_worst(self, max_size: int, *, min_games: int = 100) -> None:
         if max_size <= 0:
             for sid in list(self._registry.frozen_ids()):
                 self.remove_slot(sid)
             return
         frozen = self._registry.frozen_entries()
         while len(frozen) > max_size:
+            # A freshly added frozen inherits the learner's current mu
+            # (``copy_current_mu``); when the learner trails the pool that mu is
+            # depressed, so eviction-by-mu would cull the new snapshot before it
+            # plays a single game. Grant a grace period: only agents with
+            # ``games >= min_games`` are eviction candidates. Fallback to the
+            # full set when none are established yet, so the hard cap still holds.
+            established = [
+                e for e in frozen if self._rating.games(e.slot_id) >= min_games
+            ]
+            candidates = established if established else frozen
             worst = min(
-                frozen,
+                candidates,
                 key=lambda e: self._rating.eviction_sort_key(
                     e.slot_id,
                     episode=e.episode if e.episode is not None else e.slot_id,
