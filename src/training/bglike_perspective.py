@@ -294,6 +294,17 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         return self._battle_shaping_for_acting_seat(info)
 
     def notify_episode_end(self, info: Dict[str, Any]) -> None:
+        # Reliable per-lobby boundary for the learner: in bglike the learner
+        # never sees a transition with terminated/truncated=True (it finishes
+        # via segment closures / lobby end), so any per-episode agent state must
+        # be reset here, not on a transition flag. DvD uses this to hand out a
+        # fresh, collision-free seat→identity assignment each lobby.
+        learner = self._learner
+        if learner is not None:
+            hook = getattr(learner, "on_episode_boundary", None)
+            if hook is not None:
+                hook()
+
         if self.opponent_sampler is None:
             self._episode_index += 1
             return

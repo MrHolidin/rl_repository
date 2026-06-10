@@ -190,6 +190,8 @@ def _sample_distributed_opponent(
     gid: str,
     current_sd: bytes,
     ppo_opponent: Any,
+    learner_agent: Any = None,
+    dvd_num_identities: int = 0,
 ) -> Tuple[Any, int]:
     """Sample one opponent agent and league slot_id (per non-current lobby seat)."""
     frozen_pool = league_sync.frozen_pool
@@ -205,11 +207,24 @@ def _sample_distributed_opponent(
     )
     slot_id = int(sample.slot_id)
     if slot_id == SLOT_CURRENT:
+        # DvD: a self-play seat is a *sibling* — the same live learner net under
+        # a different fixed identity (true co-play, no deepcopy). The learner's
+        # own current seats already span identities (per-seat mode); siblings
+        # add more identity diversity at the table.
+        if learner_agent is not None and dvd_num_identities > 0:
+            from src.agents.ppo_dvd_agent import SiblingOpponent
+
+            ident = game_rng.randrange(dvd_num_identities)
+            return SiblingOpponent(learner_agent, identity=ident), slot_id
         opp = copy.deepcopy(ppo_opponent)
         _load_state_dict_bytes(opp, current_sd)
     elif slot_id in frozen_pool:
         opp = copy.deepcopy(ppo_opponent)
         _load_state_dict_bytes(opp, frozen_pool[slot_id])
+        # A frozen DvD snapshot carries all identities; pin one explicitly so it
+        # doesn't replay the random identity from its constructor.
+        if dvd_num_identities > 0 and hasattr(opp, "set_episode_identity"):
+            opp.set_episode_identity(game_rng.randrange(dvd_num_identities))
     else:
         key = sample.scripted_key or slot_id_to_scripted_key.get(slot_id, "random")
         opp = _create_scripted_opponent(
@@ -287,7 +302,9 @@ def _game_id(mg: dict) -> str:
 
 def _minibg_game_kwargs(mg: dict) -> dict:
     skip = frozenset({"game_id", "use_structured", "num_current_seats"})
-    return {k: v for k, v in mg.items() if k not in skip}
+    return {
+        k: v for k, v in mg.items() if k not in skip and not k.startswith("dvd_")
+    }
 
 
 def _use_structured_collect(mg: dict) -> bool:
@@ -418,6 +435,19 @@ def _load_dist_agent(
     mg: dict,
 ) -> Any:
     patch_build = mg.get("patch_build")
+    if mg.get("dvd_network_type") == "bglike_structured_v7":
+        from src.agents.ppo_dvd_agent import PPODvDAgent
+
+        return PPODvDAgent.load(
+            ck_path,
+            device=device,
+            seed=seed,
+            patch_build=patch_build,
+            diversity_coef=float(mg.get("dvd_diversity_coef", 0.0)),
+            diversity_ema=float(mg.get("dvd_diversity_ema", 0.1)),
+            identity_tribes=mg.get("dvd_identity_tribes"),
+            diversity_reward_mode=str(mg.get("dvd_reward_mode", "final")),
+        )
     if _use_structured_collect(mg):
         return MiniBGPPOStructuredAgent.load(
             ck_path,
@@ -462,6 +492,7 @@ def _make_collect_env(
                 "battle_damage_shaping",
                 "seed",
             )
+            and not k.startswith("dvd_")  # agent/sampler knobs, not env kwargs
         }
         return make_bglike_agent_perspective_env(
             opp_sampler,
@@ -526,6 +557,8 @@ def _make_bglike_opp_sampler(
     gid: str,
     current_sd: bytes,
     ppo_opponent: Any,
+    learner_agent: Any = None,
+    dvd_num_identities: int = 0,
 ) -> "_DistributedBglikeOpponentSampler":
     return _DistributedBglikeOpponentSampler(
         game_rng=game_rng,
@@ -540,6 +573,8 @@ def _make_bglike_opp_sampler(
         gid=gid,
         current_sd=current_sd,
         ppo_opponent=ppo_opponent,
+        learner_agent=learner_agent,
+        dvd_num_identities=int(dvd_num_identities),
     )
 
 
@@ -585,6 +620,8 @@ def _collect_until_steps_flat(
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
+            learner_agent=agent if mg.get("dvd_network_type") == "bglike_structured_v7" else None,
+            dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
     else:
         opp_sampler = _MutableOpponentSampler()
@@ -716,6 +753,8 @@ def _collect_until_steps_structured(
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
+            learner_agent=agent if mg.get("dvd_network_type") == "bglike_structured_v7" else None,
+            dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
     else:
         opp_sampler = _MutableOpponentSampler()
@@ -943,7 +982,14 @@ def _worker_main(
             t1 = time.perf_counter()
             payload = _buffer_to_payload(buf)
             upload_s = time.perf_counter() - t1
-            cmd_conn.send(("rollout", ng, nsteps, len(payload), play_s, upload_s, payload, outcomes))
+            dvd_snap = (
+                agent.dvd_state_snapshot()
+                if hasattr(agent, "dvd_state_snapshot")
+                else None
+            )
+            cmd_conn.send(
+                ("rollout", ng, nsteps, len(payload), play_s, upload_s, payload, outcomes, dvd_snap)
+            )
 
         elif tag == "stop":
             break
@@ -1161,10 +1207,13 @@ class DistributedTrainer(BaseTrainer):
             conn.send(("play", round_idx))
 
         play_data: List[Tuple] = []
+        dvd_snaps: List[Any] = []
         for conn in self._conns:
-            tag, ng, nsteps, nbytes, play_s, upload_s, payload, outcomes = conn.recv()
+            tag, ng, nsteps, nbytes, play_s, upload_s, payload, outcomes, dvd_snap = conn.recv()
             assert tag == "rollout"
             play_data.append((play_s, upload_s, payload, ng, nsteps, nbytes, outcomes))
+            if dvd_snap is not None:
+                dvd_snaps.append(dvd_snap)
 
         merged = _merge_buffers(
             [_payload_to_buffer(p[2], self._game_kwargs) for p in play_data],
@@ -1184,6 +1233,11 @@ class DistributedTrainer(BaseTrainer):
         # Sync step_count: observe() runs on workers so host agent never increments it.
         self.agent.step_count += n_steps
         self.agent.rollout_buffer = merged
+        # DvD: merge workers' φ / placement EMA / novelty accumulators into the
+        # host agent so ``update()`` emits non-zero dvd_* metrics (φ lives on
+        # the workers that collect rollouts; the host only runs the PPO update).
+        if hasattr(self.agent, "merge_dvd_state") and dvd_snaps:
+            self.agent.merge_dvd_state(dvd_snaps)
         t0 = perf_counter()
         metrics: Dict[str, Any] = self.agent.update() or {}
         host_s = perf_counter() - t0

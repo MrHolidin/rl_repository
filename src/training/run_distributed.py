@@ -17,6 +17,7 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V4,
     PPO_NETWORK_BGLIKE_STRUCTURED_V5,
     PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V7,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import reject_flat_bg_network
@@ -127,15 +128,37 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V4,
         PPO_NETWORK_BGLIKE_STRUCTURED_V5,
         PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V7,
     )
     game_params["use_structured"] = use_structured
+    # DvD/v7: thread the population knobs through to workers (mg) so each worker
+    # builds a PPODvDAgent with the right identity count / repulsion strength.
+    is_dvd_v7 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
+    if is_dvd_v7:
+        game_params["dvd_network_type"] = network_type
+        game_params["dvd_num_identities"] = int(agent_params.get("num_identities", 8))
+        game_params["dvd_diversity_coef"] = float(agent_params.get("diversity_coef", 0.0))
+        game_params["dvd_diversity_ema"] = float(agent_params.get("diversity_ema", 0.1))
+        # Per-identity tribe assignment MUST reach the worker that computes the
+        # bonus, else _resolve_identity_tribes(None) auto-assigns a *different*
+        # tribe set ([None, BEAST, DEMON, MECH...]) and every identity is
+        # rewarded for the wrong tribe (the dist_ppo_078 collapse bug).
+        game_params["dvd_identity_tribes"] = agent_params.get("identity_tribes")
+        game_params["dvd_reward_mode"] = str(agent_params.get("diversity_reward_mode", "final"))
+        game_params["dvd_sibling_fraction"] = float(
+            agent_params.get("sibling_fraction", 0.5)
+        )
     # v5 / v6 require the per-ability ``obs_kind="bglike_v5"`` layout. We
     # auto-pin it here so existing v3-shaped configs don't accidentally feed
     # them the smaller obs (which would fail the model's obs_dim check at
     # startup).
     if (
         network_type
-        in (PPO_NETWORK_BGLIKE_STRUCTURED_V5, PPO_NETWORK_BGLIKE_STRUCTURED_V6)
+        in (
+            PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+        )
         and game_id == "bglike"
     ):
         from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V5
@@ -195,7 +218,25 @@ def run_distributed(
     # Load from checkpoint or create fresh; either way workers get a file path.
     ck_path = Path(dist_cfg.checkpoint).resolve() if dist_cfg.checkpoint else None
     if ck_path is not None and ck_path.is_file():
-        if use_structured:
+        if is_dvd_v7:
+            from src.agents.ppo_dvd_agent import PPODvDAgent
+
+            agent = PPODvDAgent.load(
+                str(ck_path),
+                device=device,
+                seed=seed,
+                patch_build=agent_params.get("patch_build"),
+                diversity_coef=float(agent_params.get("diversity_coef", 0.0)),
+                diversity_ema=float(agent_params.get("diversity_ema", 0.1)),
+                # Pass identity_tribes so the host's dvd_* metrics resolve the
+                # configured tribes (workers already get these via game_params;
+                # without this the host auto-assigns the wrong tribe set on resume
+                # and dvd_assigned_frac_i is mislabelled). Do NOT pass
+                # identity_init_std → the trained gate is kept, not re-randomised.
+                identity_tribes=agent_params.get("identity_tribes"),
+                diversity_reward_mode=str(agent_params.get("diversity_reward_mode", "final")),
+            )
+        elif use_structured:
             agent = MiniBGPPOStructuredAgent.load(
                 str(ck_path),
                 device=device,

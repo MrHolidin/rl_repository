@@ -569,21 +569,50 @@ def _handle_attack_completed(rt: _CombatRuntime, e: AttackCompleted) -> None:
         rt.queue.append(MinionDied(sidx, m.instance_id))
 
 
-def _summon_append(
+def _summon_insert(
     rt: _CombatRuntime,
     side_idx: int,
     template: Minion,
+    at_idx: Optional[int] = None,
 ) -> Optional[BattleMinion]:
+    """Summon at list position ``at_idx`` (None / past-end → rightmost).
+
+    Inserting at or before the side's scan cursor shifts the cursor right so
+    the attack rotation neither skips nor repeats a minion; a token inserted
+    behind the pointer waits for the next pass (real-BG behaviour).
+    """
     side = rt.side(side_idx)
     if side.alive_count() >= rt.combat_board_max:
         return None
     bid = rt.alloc_id()
     bm = BattleMinion.from_minion(copy(template), bid)
-    side.minions.append(bm)
+    if at_idx is None or at_idx >= len(side.minions):
+        side.minions.append(bm)
+    else:
+        side.minions.insert(at_idx, bm)
+        if at_idx <= side.cursor:
+            side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)
     rt.queue.append(MinionSummoned(side_idx, bid, template.card_id))
     _sync_health_all(rt)
     return bm
+
+
+def _summon_append(
+    rt: _CombatRuntime,
+    side_idx: int,
+    template: Minion,
+) -> Optional[BattleMinion]:
+    return _summon_insert(rt, side_idx, template, None)
+
+
+def _insert_idx_after(side: BattleSide, anchor: Optional[BattleMinion]) -> Optional[int]:
+    """List index right after ``anchor``. Dead bodies stay in the minion list,
+    so a dead source is a valid anchor; ``None`` anchor → append at the end."""
+    if anchor is None:
+        return None
+    idx = _board_index(side, anchor)
+    return None if idx is None else idx + 1
 
 
 def _summon_target_side(dead_side_idx: int, for_opponent: bool) -> int:
@@ -677,12 +706,20 @@ def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> N
             continue
         eff = ab.effect
         if isinstance(eff, SummonOnSelfDamaged):
+            anchor: Optional[BattleMinion] = bm
             n_sum = _summon_multiplier(rt.side(side_idx))
             for _ in range(max(0, eff.count)):
                 for __ in range(n_sum):
                     tok = make_minion(eff.token_id, patch=rt.patch)
-                    if _summon_append(rt, side_idx, tok) is None:
+                    summoned = _summon_insert(
+                        rt,
+                        side_idx,
+                        tok,
+                        _insert_idx_after(rt.side(side_idx), anchor),
+                    )
+                    if summoned is None:
                         return
+                    anchor = summoned
         elif isinstance(eff, SummonRandomOnSelfDamagedEffect):
             race_hs = hs_race_string(eff.race_filter)
             pool = summon_pool_for(
@@ -695,6 +732,7 @@ def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> N
             )
             if not pool:
                 return
+            anchor2: Optional[BattleMinion] = bm
             n_sum = _summon_multiplier(rt.side(side_idx))
             for _ in range(max(0, eff.count)):
                 for __ in range(n_sum):
@@ -702,8 +740,15 @@ def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> N
                     tok = make_minion(cid, patch=rt.patch)
                     if eff.grant_taunt:
                         tok.keywords = frozenset(tok.keywords | {Keyword.TAUNT})
-                    if _summon_append(rt, side_idx, tok) is None:
+                    summoned = _summon_insert(
+                        rt,
+                        side_idx,
+                        tok,
+                        _insert_idx_after(rt.side(side_idx), anchor2),
+                    )
+                    if summoned is None:
                         return
+                    anchor2 = summoned
 
 
 def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
@@ -1059,6 +1104,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     base = max(0, effect.count)
                 rt.in_death_resolution = True
                 target_side = _summon_target_side(side_idx, effect.for_opponent)
+                anchor = dead if target_side == side_idx else None
                 wave_cap = max(1, getattr(effect, "dr_wave_count", 1))
                 rep = 0
                 while rep < _deathrattle_multiplier(rt.side(side_idx)):
@@ -1068,7 +1114,14 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                         for _wave in range(wave_cap):
                             for __ in range(base):
                                 tok = make_minion(effect.token_id, patch=rt.patch)
-                                bm = _summon_append(rt, target_side, tok)
+                                bm = _summon_insert(
+                                    rt,
+                                    target_side,
+                                    tok,
+                                    _insert_idx_after(rt.side(target_side), anchor),
+                                )
+                                if bm is not None and anchor is not None:
+                                    anchor = bm
                                 if effect.attack_immediately:
                                     _summon_attack_immediately_if_requested(
                                         rt, bm, target_side
@@ -1088,6 +1141,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                 if not pool:
                     continue
                 target_side = _summon_target_side(side_idx, effect.for_opponent)
+                anchor = dead if target_side == side_idx else None
                 rep = 0
                 while rep < _deathrattle_multiplier(rt.side(side_idx)):
                     rep += 1
@@ -1096,8 +1150,16 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                         for __ in range(effect.count):
                             cid = pool[int(rt.rng.integers(0, len(pool)))]
                             tok = make_minion(cid, patch=rt.patch)
-                            if _summon_append(rt, target_side, tok) is None:
+                            bm = _summon_insert(
+                                rt,
+                                target_side,
+                                tok,
+                                _insert_idx_after(rt.side(target_side), anchor),
+                            )
+                            if bm is None:
                                 break
+                            if anchor is not None:
+                                anchor = bm
             elif isinstance(effect, DealDamageRandomEnemyMinion):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
@@ -1149,6 +1211,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                 if not pool:
                     continue
                 target_side = side_idx
+                anchor = dead
                 rep = 0
                 while rep < _deathrattle_multiplier(side):
                     rep += 1
@@ -1157,8 +1220,15 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                         for __ in range(effect.count):
                             cid = pool[int(rt.rng.integers(0, len(pool)))]
                             tok = make_minion(cid, patch=rt.patch)
-                            if _summon_append(rt, target_side, tok) is None:
+                            bm = _summon_insert(
+                                rt,
+                                target_side,
+                                tok,
+                                _insert_idx_after(rt.side(target_side), anchor),
+                            )
+                            if bm is None:
                                 break
+                            anchor = bm
                             _queue_combat_hand_add_card(rt, side_idx, cid)
             elif isinstance(effect, BuffAllFriendlyMinions):
                 rep_dr = 0
@@ -1210,6 +1280,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     t.current_health += effect.health
                 _sync_health_all(rt)
             elif isinstance(effect, SummonFirstDeadFriendlyMechsThisCombat):
+                anchor = dead
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
                     rep_dr += 1
@@ -1218,8 +1289,15 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                     n_sum = _summon_multiplier(side)
                     for _k in range(n_sum):
                         for tpl in take:
-                            if _summon_append(rt, side_idx, copy(tpl)) is None:
+                            bm = _summon_insert(
+                                rt,
+                                side_idx,
+                                copy(tpl),
+                                _insert_idx_after(side, anchor),
+                            )
+                            if bm is None:
                                 break
+                            anchor = bm
             elif isinstance(effect, GrantKeywordRandomFriendly):
                 rep_dr = 0
                 while rep_dr < _deathrattle_multiplier(side):
@@ -1282,12 +1360,20 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
             if eff.for_opponent or eff.count_from_source_attack:
                 continue
             side = rt.side(e.attacker_side_idx)
+            anchor: Optional[BattleMinion] = att
             n_sum = _summon_multiplier(side)
             for _ in range(max(0, eff.count)):
                 for __ in range(n_sum):
                     tok = make_minion(eff.token_id, patch=rt.patch)
-                    if _summon_append(rt, e.attacker_side_idx, tok) is None:
+                    summoned = _summon_insert(
+                        rt,
+                        e.attacker_side_idx,
+                        tok,
+                        _insert_idx_after(side, anchor),
+                    )
+                    if summoned is None:
                         return
+                    anchor = summoned
         elif isinstance(eff, DealDamageRandomEnemyMinion):
             for _ in range(max(1, eff.repeats)):
                 _deal_random_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)

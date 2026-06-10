@@ -385,6 +385,21 @@ def _build_opponent_sampler(
             scripted=scripted,
             current_agent=agent,
         )
+        # DvD/v7 population co-play: fill opponent seats with sibling identities
+        # of the live net + frozen snapshots (league memory). Triggered by the
+        # agent exposing the population-identity API.
+        if hasattr(agent, "set_episode_identity") and getattr(
+            agent, "num_identities", 0
+        ):
+            from src.training.opponent_sampler import DvDPopulationSampler
+
+            ap = dict(app_cfg.agent.params or {})
+            return DvDPopulationSampler(
+                opponent_pool=pool,
+                num_identities=int(agent.num_identities),
+                sibling_fraction=float(ap.get("sibling_fraction", 0.5)),
+                seed=use_seed,
+            )
         return OpponentPoolSampler(opponent_pool=pool)
     raise ValueError(f"Unknown opponent_sampler type: {cfg.type}")
 
@@ -450,11 +465,16 @@ def run(
         from src.models.ppo_policy_factory import (
             PPO_NETWORK_BGLIKE_STRUCTURED_V5,
             PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V7,
         )
         from src.training.obs_sizing import apply_bg_observation_defaults
 
         nt = str(agent_params.get("network_type", "")).strip().lower()
-        if nt in (PPO_NETWORK_BGLIKE_STRUCTURED_V5, PPO_NETWORK_BGLIKE_STRUCTURED_V6):
+        if nt in (
+            PPO_NETWORK_BGLIKE_STRUCTURED_V5,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+        ):
             existing = game_params.get("obs_kind")
             if existing is not None and existing != OBS_KIND_BGLIKE_V5:
                 raise ValueError(

@@ -67,11 +67,11 @@ def _obs_dim_for_kind(obs_kind: str) -> int:
         return int(OBS_DIM)
     raise ValueError(f"unknown obs_kind {obs_kind!r}; expected one of {sorted(_VALID_OBS_KINDS)}")
 from .seat_config import build_training_lobby_configs
+from .board_shaping import BoardShapingConfig, terminal_reward_breakdown, terminal_reward_for_seat
 from .placement import (
     is_seat_eliminated,
     is_seat_finished,
     placement_for_seat,
-    placement_reward,
     placement_reward_for_seat,
 )
 from .seat_config import SeatConfig, SeatKind, default_random_lobby, lobby_from_learned_seats
@@ -1060,6 +1060,8 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         high_mode: bool = False,
+        minions_shaping: Optional[Any] = None,
+        tribes_shaping: Optional[Any] = None,
         patch_dir: Optional[str] = None,
         obs_kind: str = OBS_KIND_BGLIKE,
     ) -> None:
@@ -1071,6 +1073,10 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         if seat_configs is None:
             seat_configs = lobby_from_learned_seats(ls, agent_by_seat=agent_by_seat, seed=seed)
         self._training_seat = training_seat
+        self._board_shaping = BoardShapingConfig.from_params(
+            minions_shaping=minions_shaping,
+            tribes_shaping=tribes_shaping,
+        )
         self._lobby = BGLobbyEnv(
             seat_configs,
             learned_seats=ls,
@@ -1149,19 +1155,40 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         terminated = False
         if seat in info.eliminated_seats or self._lobby.lobby_done:
             if is_seat_finished(self._lobby.state, seat):
-                reward = placement_reward_for_seat(self._lobby.state, seat)
+                place = placement_for_seat(self._lobby.state, seat)
+                reward = terminal_reward_for_seat(
+                    self._lobby.state,
+                    seat,
+                    place,
+                    self._board_shaping,
+                )
                 terminated = True
                 self._done = True
         if not terminated:
             self._drain_to_agent()
             if self._lobby.episode_done:
                 if is_seat_finished(self._lobby.state, seat):
-                    reward = placement_reward_for_seat(self._lobby.state, seat)
+                    place = placement_for_seat(self._lobby.state, seat)
+                    reward = terminal_reward_for_seat(
+                        self._lobby.state,
+                        seat,
+                        place,
+                        self._board_shaping,
+                    )
                 terminated = True
                 self._done = True
         place = None
+        reward_info: Dict[str, Any] = {}
         if is_seat_finished(self._lobby.state, seat):
             place = placement_for_seat(self._lobby.state, seat)
+            reward_info = dict(
+                terminal_reward_breakdown(
+                    self._lobby.state,
+                    seat,
+                    place,
+                    self._board_shaping,
+                )
+            )
         return StepResult(
             obs=self._obs(),
             reward=reward,
@@ -1170,9 +1197,16 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
             info={
                 "training_seat": seat,
                 "placement": place,
-                "placement_reward": placement_reward(place) if place else None,
+                "placement_reward": reward_info.get("placement_reward")
+                if place
+                else None,
                 "lobby_done": self._lobby.lobby_done,
                 "winner": self._lobby.state.winner,
+                **{
+                    k: v
+                    for k, v in reward_info.items()
+                    if k != "placement_reward"
+                },
             },
         )
 
@@ -1203,6 +1237,8 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         shop_excluded_race=None,
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
+        minions_shaping: Optional[Any] = None,
+        tribes_shaping: Optional[Any] = None,
         patch_dir: Optional[str] = None,
         obs_kind: str = OBS_KIND_BGLIKE,
     ) -> None:
@@ -1223,6 +1259,10 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._shop_excluded_race = shop_excluded_race
         self._shop_excluded_count = shop_excluded_count
         self._shop_full_tribes = shop_full_tribes
+        self._board_shaping = BoardShapingConfig.from_params(
+            minions_shaping=minions_shaping,
+            tribes_shaping=tribes_shaping,
+        )
         self._patch_dir = patch_dir
         self._obs_kind = obs_kind
         # Trainer-controlled per-game high-mode flag (set before each reset).
@@ -1239,6 +1279,26 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
     @property
     def delegates_opponent_play(self) -> bool:
         return True
+
+    def _terminal_reward_for_seat(self, seat: int, place: int) -> float:
+        assert self._lobby is not None
+        return terminal_reward_for_seat(
+            self._lobby.state,
+            seat,
+            place,
+            self._board_shaping,
+        )
+
+    def _terminal_reward_breakdown(self, seat: int, place: int) -> Dict[str, float]:
+        assert self._lobby is not None
+        return dict(
+            terminal_reward_breakdown(
+                self._lobby.state,
+                seat,
+                place,
+                self._board_shaping,
+            )
+        )
 
     @property
     def observation_shape(self) -> tuple[int, ...]:
@@ -1331,6 +1391,11 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._lobby.reset(seed=self._seed)
         self._done = False
         self._rewarded_seats = set()
+        # Closures produced while draining opponents/combat between learner steps
+        # are buffered here and flushed into the next built info, so a learner
+        # seat whose placement is decided mid-drain (notably the winner, decided
+        # in the final combat) still gets its terminal reward delivered.
+        self._pending_closures = []
         self._last_info = {}
         self._drain_to_acting()
         return self._obs()
@@ -1446,10 +1511,15 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         return self._rewarded_seats >= set(self._current_seats)
 
     def _segment_closure_dict(self, seat: int, place: int) -> Dict[str, Any]:
+        breakdown = self._terminal_reward_breakdown(seat, place)
         return {
             "seat": seat,
             "placement": place,
-            "placement_reward": placement_reward(place),
+            "placement_reward": breakdown["placement_reward"],
+            "placement_reward_base": breakdown["placement_reward_base"],
+            "minions_shaping": breakdown["minions_shaping"],
+            "tribes_shaping": breakdown["tribes_shaping"],
+            "board_shaping_total": breakdown["board_shaping_total"],
         }
 
     def _finalize_lobby_if_needed(self) -> Tuple[List[Dict[str, Any]], Dict[int, int]]:
@@ -1559,12 +1629,22 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         assert self._lobby is not None
         seat = acting_seat
         place = placements.get(seat)
+        reward_info: Dict[str, Any] = {}
+        if place is not None:
+            reward_info = self._terminal_reward_breakdown(seat, place)
+        # Flush any closures buffered during inter-step drains ahead of this
+        # step's own closures, so they are delivered exactly once.
+        merged_closures = list(self._pending_closures) + list(segment_closures or ())
+        self._pending_closures = []
+        segment_closures = merged_closures
         return {
             "acting_seat": seat,
             "next_acting_seat": self._acting_seat,
             "current_seats": self._current_seats,
             "placement": place,
-            "placement_reward": placement_reward(place) if place is not None else None,
+            "placement_reward": reward_info.get("placement_reward")
+            if place is not None
+            else None,
             "placements_current": placements,
             "placements_full": self._placements_full(),
             "segment_closures": list(segment_closures or ()),
@@ -1574,6 +1654,11 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             "lobby_done": self._lobby.lobby_done,
             "winner": self._lobby.state.winner,
             "eliminated_seats": step_info.eliminated_seats,
+            **{
+                k: v
+                for k, v in reward_info.items()
+                if k != "placement_reward"
+            },
         }
 
     def _process_drain_auto_step(
@@ -1689,7 +1774,13 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
                 drain_trace=trace,
             )
         self._acting_seat = None
-        self._finalize_lobby_if_needed()
+        # Buffer (don't drop) closures finalized mid-drain — they carry the
+        # terminal placement reward + DvD bonus and must reach the learner via
+        # the next built info. Dropping them here was why the winning seat (and
+        # any seat eliminated during a drain) never got its terminal reward.
+        drained_closures, _ = self._finalize_lobby_if_needed()
+        if drained_closures:
+            self._pending_closures.extend(drained_closures)
         if self._lobby.lobby_done:
             self._done = True
 
@@ -1707,6 +1798,9 @@ def make_bglike_env(
     **kwargs: Any,
 ) -> BGLobbySingleAgentEnv:
     """Factory used by ``register_game('bglike', ...)``."""
+    from .tribe_config import apply_tribe_params_to_lobby_kwargs
+
+    kwargs = apply_tribe_params_to_lobby_kwargs(kwargs)
     return BGLobbySingleAgentEnv(
         training_seat=training_seat,
         learned_seats=learned_seats,
@@ -1725,6 +1819,9 @@ def make_bglike_training_env(
     **kwargs: Any,
 ) -> BGLobbyMultiCurrentEnv:
     """Multi-current lobby base for ``AgentPerspectiveEnv``."""
+    from .tribe_config import apply_tribe_params_to_lobby_kwargs
+
+    kwargs = apply_tribe_params_to_lobby_kwargs(kwargs)
     return BGLobbyMultiCurrentEnv(
         current_seats,
         seed=seed,

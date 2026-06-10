@@ -38,6 +38,9 @@ METRICS_PRESET_PPO: Tuple[str, ...] = (
     "return_mean",
     "advantage_mean",
     "advantage_std",
+    # 1 - Var(R - V)/Var(R) of the pre-update critic on the rollout. Unlike raw
+    # value_loss this stays comparable as the opponent pool strengthens.
+    "explained_variance",
     # Scheduled-hyperparam callbacks emit these when active; blank otherwise.
     "entropy_coef",
     # v4+ recurrent PPO emits these; blank for non-recurrent runs.
@@ -49,6 +52,28 @@ METRICS_PRESET_PPO: Tuple[str, ...] = (
     "battle_pred_mae",
     "battle_pred_corr",
     "battle_pred_sign_acc",
+)
+
+# DvD population-diversity scalars from PPODvDAgent.update (blank for plain PPO).
+# Aggregates are identity-count agnostic; per-identity columns cover up to 8.
+_DVD_MAX_IDENTITIES_LOGGED = 8
+METRICS_PRESET_PPO_DVD: Tuple[str, ...] = (
+    METRICS_PRESET_PPO
+    + (
+        "dvd_pop_diversity",       # mean pairwise tribe-composition distance (EMA)
+        "dvd_identity_coverage",   # fraction of identities with data
+        "dvd_distinct_tribes",     # # of distinct dominant tribes across identities
+        "dvd_placement_best",      # best / worst / spread of per-identity placement EMA
+        "dvd_placement_worst",
+        "dvd_placement_spread",
+        "dvd_mean_assigned_frac",  # mean board-fraction of identities' assigned tribe
+        "dvd_mean_bonus",          # coef * assigned_frac (intrinsic reward added)
+        "dvd_bonus_place_ratio",   # mean_bonus / mean|placement| — tuning signal
+        "dvd_identity_contrib_norm",  # ||identity_proj contribution|| (is z used at all)
+    )
+    + tuple(f"dvd_place_{i}" for i in range(_DVD_MAX_IDENTITIES_LOGGED))
+    + tuple(f"dvd_tribe_{i}" for i in range(_DVD_MAX_IDENTITIES_LOGGED))
+    + tuple(f"dvd_assigned_frac_{i}" for i in range(_DVD_MAX_IDENTITIES_LOGGED))
 )
 
 # Unknown agents: small generic set (both DQN and PPO often expose loss / grad_norm).
@@ -99,6 +124,8 @@ def resolve_metrics_csv_fieldnames(
         suffix = METRICS_PRESET_DQN
     elif p == "ppo":
         suffix = METRICS_PRESET_PPO
+    elif p in ("ppo_dvd", "dvd"):
+        suffix = METRICS_PRESET_PPO_DVD
     elif p == "minimal":
         suffix = METRICS_PRESET_MINIMAL
     else:
@@ -120,6 +147,7 @@ __all__ = [
     "METRICS_CSV_PREFIX",
     "METRICS_PRESET_DQN",
     "METRICS_PRESET_PPO",
+    "METRICS_PRESET_PPO_DVD",
     "METRICS_PRESET_MINIMAL",
     "LEGACY_DQN_METRICS_FIELDS",
     "resolve_metrics_csv_fieldnames",

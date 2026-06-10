@@ -648,6 +648,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         return_mean = returns.mean().item()
         adv_mean = advantages.mean().item()
         adv_std = advantages.std(unbiased=False).item()
+        # Explained variance of the pre-update critic on this rollout's returns:
+        # 1 - Var(R - V)/Var(R). Self-normalizes against the return distribution
+        # of the current opponent pool, so it stays comparable as the league
+        # strengthens (unlike raw value_loss).
+        ret_var = float(np.var(ret_np))
+        explained_variance = (
+            1.0 - float(np.var(ret_np - values_arr)) / ret_var if ret_var > 1e-12 else 0.0
+        )
 
         # Pre-tokenize the entire rollout buffer's legal lists. One H2D copy per update
         # replaces O(N * Lmax * mini_batches * epochs) per-action kernel launches that were
@@ -908,6 +916,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "return_mean": return_mean,
             "advantage_mean": adv_mean,
             "advantage_std": adv_std,
+            "explained_variance": explained_variance,
         }
         if total_battle_batches > 0:
             out_metrics["battle_pred_loss"] = total_battle_loss / total_battle_batches
@@ -991,6 +1000,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         return_mean = float(ret_t.mean().item())
         adv_mean = float(adv_t_norm.mean().item())
         adv_std = float(adv_t_norm.std(unbiased=False).item())
+        ret_var = float(np.var(ret_np))
+        explained_variance = (
+            1.0 - float(np.var(ret_np - values_arr)) / ret_var if ret_var > 1e-12 else 0.0
+        )
 
         # ---- Pre-tokenize legal_lists once ----
         Lmax_global = max((len(row) for row in buf.legal_lists), default=0)
@@ -1257,6 +1270,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "return_mean": return_mean,
             "advantage_mean": adv_mean,
             "advantage_std": adv_std,
+            "explained_variance": explained_variance,
             "bptt_sequences": float(n_seqs),
             "bptt_seqs_per_mb": float(seqs_per_mb),
             "bptt_mean_seq_len": float(mean_seq_len),

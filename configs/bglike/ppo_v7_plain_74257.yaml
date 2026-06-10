@@ -1,3 +1,13 @@
+# 083-like baseline WITHOUT identity tribes: same v7 net / hparams / league as
+# dist_ppo_083, but diversity_coef = 0.0 and no identity_tribes — the identity
+# one-hot is still fed (architecture unchanged, checkpoints stay v7-shaped) but
+# carries no reward, so this is the plain-placement A/B against any DvD run.
+#
+# NOTE: trains on the post-2026-06-10 game rules — MAX_SHOP_ACTIONS=30,
+# in-place deathrattle/self-damaged summons, and 3 new obs counters
+# (elementals_played / pirates_bought_this_turn / hero_damage_taken_total).
+# The obs dim changed (OBS_DIM_V5 2533 → 2536), so older checkpoints cannot
+# warm-start this config.
 seed: 13
 
 game:
@@ -5,26 +15,23 @@ game:
   params:
     seed: 13
     battle_damage_shaping: 0.0
-    minions_shaping:
-      "Nomi, Kitchen Nightmare": 0.3
-      "Mythrax the Unraveler": -0.3
-      "Lightfang Enforcer": -0.3
-    tribes_shaping:
-      MECHANICAL: -0.1
     num_current_seats: 4
     patch_dir: data/bgcore/19_6_0_74257
-    shop_excluded_count: 3
-    # Optional fixed tribe rotation (instead of random shop_excluded_count):
-    # excluded_tribes: [DRAGON, PIRATE, ELEMENTAL]
-    # forced_tribes: [BEAST, DEMON, MECHANICAL, MURLOC]
+    shop_excluded_count: 1
     obs_kind: bglike_v5
-    percent_high_game: 0.2
+    percent_high_game: 0.0
 
 agent:
   id: ppo
   params:
-    network_type: bglike_structured_v6
+    network_type: bglike_structured_v7
     observation_type: vector
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- v6-equivalent architecture (identical to 083) ---
     slot_hidden_channels: 64
     region_conv2_kernel: 1
     card_emb_dim: 16
@@ -32,16 +39,9 @@ agent:
     entity_attention_heads: 4
     entity_attention_ff_mult: 4
     entity_attention_init_scale: 0.1
-    # v3 cross-attention is inherited unchanged. Action tokens cross-attend to
-    # the post-self-attention slot tokens, which in v6 already carry the
-    # ability bundle — no separate ability region in the K/V.
     action_cross_attn_heads: 4
     action_cross_attn_ff_mult: 2
     action_cross_attn_init_scale: 0.1
-    # Per-ability encoder embedding width (effect / trigger / cond_kind /
-    # cond_arg_race / filter_race ids each get this many dims; 5 * emb_dim +
-    # 1 + 5 → Linear → slot_hidden). 8 is the same default as v5 — keep
-    # comparable for ablation.
     ability_emb_dim: 8
     state_dim: 128
     action_dim: 64
@@ -60,16 +60,10 @@ agent:
     ppo_epochs: 4
     minibatch_size: 1024
     device: cuda
-    battle_pred:
-      enabled: true
-      aux_coef: 0.01
-      detach_features: false
-      huber_delta: 5.0
-      head_hidden: 128
 
 train:
   max_episodes: 10000000
-  total_steps: 5000000
+  total_steps: 10000000
   deterministic: false
   track_timings: false
   start_policy: random
@@ -104,10 +98,11 @@ train:
     - type: checkpoint
       params:
         interval: 200000
-        prefix: dist_bglike_ppo_v6_74257
+        prefix: dist_bglike_ppo_v7_plain
     - type: metrics_file
       params:
         interval: 1
+        preset: ppo_dvd
 
 eval:
   enabled: false
@@ -115,5 +110,5 @@ eval:
   deterministic: true
 
 distributed:
-  workers: 8
+  workers: 10
   worker_device: cpu

@@ -40,6 +40,7 @@ PPO_NETWORK_BGLIKE_STRUCTURED_V3 = "bglike_structured_v3"
 PPO_NETWORK_BGLIKE_STRUCTURED_V4 = "bglike_structured_v4"
 PPO_NETWORK_BGLIKE_STRUCTURED_V5 = "bglike_structured_v5"
 PPO_NETWORK_BGLIKE_STRUCTURED_V6 = "bglike_structured_v6"
+PPO_NETWORK_BGLIKE_STRUCTURED_V7 = "bglike_structured_v7"
 PPO_NETWORK_FLAT_MLP = "flat_mlp"
 
 
@@ -278,6 +279,22 @@ def build_ppo_actor_critic(
             card_emb_dim=int(card_emb_dim),
             num_pool_indices=num_pool_indices,
         )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V7:
+        from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _BG_OBS_DIM_V5
+        from .bglike_structured_v7 import BGLikeStructuredV7
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM_V5:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM_V5}]"
+            )
+        # num_identities / identity_emb_dim use class defaults here; the full
+        # knob set is carried by the YAML / agents.__init__ factory branch.
+        return BGLikeStructuredV7(
+            slot_hidden=int(slot_hidden_channels),
+            region_conv2_kernel=int(region_conv2_kernel),
+            card_emb_dim=int(card_emb_dim),
+            num_pool_indices=num_pool_indices,
+        )
     if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):
         if len(observation_shape) != 1:
             raise ValueError(
@@ -461,6 +478,16 @@ def _restore_structured_v6(
     return BGLikeStructuredV6(**kw)
 
 
+def _restore_structured_v7(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v7 import BGLikeStructuredV7
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v7 checkpoint")
+    return BGLikeStructuredV7(**kw)
+
+
 register_ppo_network(
     PPO_NETWORK_ACTOR_CRITIC_CNN,
     ActorCriticCNN,
@@ -541,11 +568,22 @@ def _register_v6_lazy() -> None:
     )
 
 
+def _register_v7_lazy() -> None:
+    from .bglike_structured_v7 import BGLikeStructuredV7
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+        BGLikeStructuredV7,
+        restore=_restore_structured_v7,
+    )
+
+
 _register_v2_lazy()
 _register_v3_lazy()
 _register_v4_lazy()
 _register_v5_lazy()
 _register_v6_lazy()
+_register_v7_lazy()
 
 
 __all__ = [
@@ -565,5 +603,6 @@ __all__ = [
     "PPO_NETWORK_BGLIKE_STRUCTURED_V4",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V5",
     "PPO_NETWORK_BGLIKE_STRUCTURED_V6",
+    "PPO_NETWORK_BGLIKE_STRUCTURED_V7",
     "PPO_NETWORK_FLAT_MLP",
 ]

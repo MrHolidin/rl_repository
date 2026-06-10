@@ -8,6 +8,7 @@ from .qlearning_agent import QLearningAgent
 from .dqn.agent import DQNAgent
 from .ppo_agent import PPOAgent
 from .ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
+from .ppo_dvd_agent import PPODvDAgent
 from .alphazero.agent import AlphaZeroAgent
 from ..features.action_space import DiscreteActionSpace
 from ..features.observation_builder import BoardChannels
@@ -20,6 +21,7 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V4,
     PPO_NETWORK_BGLIKE_STRUCTURED_V5,
     PPO_NETWORK_BGLIKE_STRUCTURED_V6,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V7,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -245,7 +247,12 @@ if "ppo" not in list_agents():
         is_bglike_structured_v4 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V4
         is_bglike_structured_v5 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V5
         is_bglike_structured_v6 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V6
-        is_bglike_v5_or_v6 = is_bglike_structured_v5 or is_bglike_structured_v6
+        is_bglike_structured_v7 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
+        # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
+        # appends the identity tail before feeding the net).
+        is_bglike_v5_or_v6 = (
+            is_bglike_structured_v5 or is_bglike_structured_v6 or is_bglike_structured_v7
+        )
         is_bglike_v_any = (
             is_bglike_structured
             or is_bglike_structured_v2
@@ -253,6 +260,7 @@ if "ppo" not in list_agents():
             or is_bglike_structured_v4
             or is_bglike_structured_v5
             or is_bglike_structured_v6
+            or is_bglike_structured_v7
         )
         is_structured_v1 = is_minibg_structured or is_bglike_structured
         is_structured = (
@@ -262,6 +270,7 @@ if "ppo" not in list_agents():
             or is_bglike_structured_v4
             or is_bglike_structured_v5
             or is_bglike_structured_v6
+            or is_bglike_structured_v7
         )
         is_flat_mlp = network_type in ("minibg_mlp", "mlp", "flat_mlp")
         obs_shape = kwargs.get("observation_shape")
@@ -345,6 +354,7 @@ if "ppo" not in list_agents():
                 or is_bglike_structured_v4
                 or is_bglike_structured_v5
                 or is_bglike_structured_v6
+                or is_bglike_structured_v7
             ):
                 # v2 / v3 / v4 / v5 / v6 share the exact same kwarg surface up
                 # to and including entity self-attention. v3+ additionally
@@ -393,6 +403,7 @@ if "ppo" not in list_agents():
                     or is_bglike_structured_v4
                     or is_bglike_structured_v5
                     or is_bglike_structured_v6
+                    or is_bglike_structured_v7
                 ):
                     action_cross_attn_heads = int(
                         kwargs.pop("action_cross_attn_heads", 4)
@@ -443,6 +454,24 @@ if "ppo" not in list_agents():
                             ability_emb_dim=ability_emb_dim,
                             **v3_v4_kwargs,
                         )
+                    elif is_bglike_structured_v7:
+                        from ..models.bglike_structured_v7 import BGLikeStructuredV7
+
+                        ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
+                        # Agent-level DvD knobs (not net constructor args except
+                        # num_identities, which also sets the net's obs width).
+                        dvd_num_identities = int(kwargs.pop("num_identities", 8))
+                        dvd_diversity_coef = float(kwargs.pop("diversity_coef", 0.0))
+                        dvd_diversity_ema = float(kwargs.pop("diversity_ema", 0.1))
+                        dvd_identity_seed = int(kwargs.pop("identity_seed", 0))
+                        dvd_identity_tribes = kwargs.pop("identity_tribes", None)
+                        dvd_identity_init_std = float(kwargs.pop("identity_init_std", 0.0))
+                        dvd_reward_mode = str(kwargs.pop("diversity_reward_mode", "final"))
+                        net = BGLikeStructuredV7(
+                            ability_emb_dim=ability_emb_dim,
+                            num_identities=dvd_num_identities,
+                            **v3_v4_kwargs,
+                        )
                     else:
                         from ..models.bglike_structured_v3 import BGLikeStructuredV3
 
@@ -488,6 +517,17 @@ if "ppo" not in list_agents():
             if patch_build is not None:
                 kwargs["patch_build"] = patch_build
             kwargs.pop("action_space", None)
+            if is_bglike_structured_v7:
+                return PPODvDAgent(
+                    num_identities=dvd_num_identities,
+                    diversity_coef=dvd_diversity_coef,
+                    diversity_ema=dvd_diversity_ema,
+                    identity_seed=dvd_identity_seed,
+                    identity_tribes=dvd_identity_tribes,
+                    identity_init_std=dvd_identity_init_std,
+                    diversity_reward_mode=dvd_reward_mode,
+                    **_filter_ppo_agent_kwargs(kwargs),
+                )
             return MiniBGPPOStructuredAgent(**_filter_ppo_agent_kwargs(kwargs))
 
         if is_minibg:

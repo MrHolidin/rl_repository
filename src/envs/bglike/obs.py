@@ -67,9 +67,12 @@ BATTLE_HISTORY_OBS_DIM = (
     + 1  # next opp known flag
 )
 
-# bglike has 3 extra economy globals not in minibg: effective roll cost,
-# free roll charges, and elemental shop bonus.
-BGLIKE_GLOBAL_CORE_DIM = minibg_obs.GLOBAL_CORE_DIM + 3  # 11 + 3 = 14
+# bglike extra globals not in minibg: effective roll cost, free roll charges,
+# elemental shop bonus, plus 3 counters cards scale from (Majordomo /
+# Strongarm-Hoggarr / Champion of Y'Shaarj read these — without them the model
+# cannot value those effects at all): elementals played this turn, pirates
+# bought this turn, total hero damage taken.
+BGLIKE_GLOBAL_CORE_DIM = minibg_obs.GLOBAL_CORE_DIM + 6  # 11 + 6 = 17
 BGLIKE_GLOBAL_DIM = (
     BGLIKE_GLOBAL_CORE_DIM
     + minibg_obs.SHOP_ROTATION_OBS_DIM
@@ -385,6 +388,10 @@ def build_observation(
             effective_roll_cost / float(ROLL_COST),
             min(float(me.free_roll_charges), 5.0) / 5.0,
             float(me.shop_elemental_bonus) / 4.0,
+            # per-turn / lifetime counters consumed by card effects
+            min(float(me.elementals_played), 10.0) / 5.0,
+            min(float(me.pirates_bought_this_turn), 10.0) / 5.0,
+            float(me.hero_damage_taken_total) / STARTING_HEALTH,
         ],
         dtype=np.float32,
     )
