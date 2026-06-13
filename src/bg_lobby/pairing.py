@@ -244,6 +244,27 @@ def compute_pairings(
     return tuple(matches), full_lobby_cycle_round
 
 
+def opponent_from_pairings(
+    pairings: Sequence[CombatMatch],
+    seat: int,
+) -> Optional[int]:
+    """``seat``'s opponent in pre-drawn pairings (ghost → the snapshot's seat).
+
+    Returns None when ``seat`` has no match (finished / not in pairings) or
+    ``pairings`` is empty (state built without ``draw_combat_pairings``).
+    """
+    for m in pairings:
+        if m.a == seat:
+            if m.b is not None:
+                return int(m.b)
+            if m.ghost is not None:
+                return int(m.ghost.seat)
+            return None
+        if m.b == seat:
+            return int(m.a)
+    return None
+
+
 def peek_next_opponent(
     alive: Sequence[int],
     recent_opponents: Sequence[Sequence[int]],
@@ -305,6 +326,7 @@ __all__ = [
     "DEFAULT_LOBBY_SIZE",
     "GHOST_OPPONENT_ID",
     "CombatMatch",
+    "opponent_from_pairings",
     "peek_next_opponent",
     "EliminatedSnapshot",
     "build_round_robin_schedule",

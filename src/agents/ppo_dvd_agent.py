@@ -400,7 +400,9 @@ class PPODvDAgent(MiniBGPPOStructuredAgent):
             return 0.0
         return self._assigned_tribe_bonus(i, desc)
 
-    def close_segment(self, seat: int, terminal_reward: float) -> bool:
+    def close_segment(
+        self, seat: int, terminal_reward: float, placement: Optional[int] = None
+    ) -> bool:
         if self.training:
             raw = float(terminal_reward)
             # Always track the identity EMA so φ-metrics stay valid.
@@ -444,7 +446,7 @@ class PPODvDAgent(MiniBGPPOStructuredAgent):
             self._acc_bonus += frac
             self._acc_count += count
             self._acc_abs_place += abs(raw)
-        return super().close_segment(seat, terminal_reward)
+        return super().close_segment(seat, terminal_reward, placement=placement)
 
     def observe(self, transition: Any, is_augmented: bool = False) -> dict:
         n_before = len(self.rollout_buffer)

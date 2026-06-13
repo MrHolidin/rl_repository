@@ -1,0 +1,119 @@
+# v8 = v7-plain + DISTRIBUTIONAL placement critic. Identical net trunk /
+# hparams / league to ppo_v7_plain_74257; the only change is the critic: an
+# 8-way softmax over final placement trained with cross-entropy on the actual
+# placement of each seat segment (labels backfilled at segment close).
+# V for GAE = expectation of the placement-reward vector under that softmax,
+# so PPO itself is untouched. value_loss in metrics.csv becomes the CE
+# (uniform baseline ln 8 ≈ 2.08); watch placement_acc (uniform = 0.125).
+#
+# Keep diversity_coef / shaping at 0: any non-placement reward term is
+# invisible to the placement distribution and would bias V.
+#
+# Trains on post-2026-06-10 rules + obs (OBS_DIM_V5 = 2536); v7-plain
+# checkpoints from the same rules warm-start with strict=False (only
+# critic_dist.* is new), pre-rule-change checkpoints do not.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5
+    percent_high_game: 0.2
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v8
+    observation_type: vector
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- v6-equivalent architecture (identical to 083 / v7-plain) ---
+    slot_hidden_channels: 64
+    region_conv2_kernel: 1
+    card_emb_dim: 16
+    entity_attention_layers: 4
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    # value clipping is a regression concept; the CE path ignores it.
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 10000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v8_dist
+    - type: metrics_file
+      params:
+        interval: 1
+        preset: ppo_dvd
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 10
+  worker_device: cpu

@@ -141,6 +141,38 @@ def _eliminate_seat(
     state.alive = tuple(alive)
 
 
+def draw_combat_pairings(state, *, rng: np.random.Generator) -> None:
+    """Pre-draw pairings for the UPCOMING combat (incl. the ghost pick).
+
+    Called at round start (and from ``initial_state``) so the shop phase
+    observes the true matchup — the "next opponent" in the obs is always the
+    seat actually fought, ghost rounds included.
+    """
+    matches, state.full_lobby_cycle_round = compute_pairings(
+        state.alive,
+        state.recent_opponents,
+        state.eliminated,
+        n_seats=len(state.players),
+        full_lobby_cycle_round=state.full_lobby_cycle_round,
+        rng=rng,
+    )
+    state.pairings = matches
+
+
+def _pairings_valid(state) -> bool:
+    """Pre-drawn pairings are stale if a participant died during the shop
+    phase (hero self-damage, e.g. Wrath Weaver) or were never drawn."""
+    if not state.pairings:
+        return False
+    alive = set(state.alive)
+    for m in state.pairings:
+        if m.a not in alive:
+            return False
+        if m.b is not None and m.b not in alive:
+            return False
+    return True
+
+
 def resolve_combat_round(
     state,
     *,
@@ -168,15 +200,11 @@ def resolve_combat_round(
         p = state.players[seat]
         p.last_round_tribe_counts = _count_board_tribes(p.board)
 
-    matches, state.full_lobby_cycle_round = compute_pairings(
-        state.alive,
-        state.recent_opponents,
-        state.eliminated,
-        n_seats=len(state.players),
-        full_lobby_cycle_round=state.full_lobby_cycle_round,
-        rng=rng,
-    )
-    state.pairings = matches
+    # Pairings were pre-drawn at round start (visible to the shop phase). The
+    # redraw fallback covers shop-phase deaths and manually built states.
+    if not _pairings_valid(state):
+        draw_combat_pairings(state, rng=rng)
+    matches = state.pairings
     state.combat_round += 1
 
     if state.shared_pool is None:
@@ -351,5 +379,8 @@ def resolve_combat_round(
     state.shop_turn_order = tuple(alive_list[i] for i in perm)
     state.current_player_index = state.shop_turn_order[0]
 
+    # Draw next combat's pairings now — the upcoming shop phase observes them.
+    draw_combat_pairings(state, rng=rng)
 
-__all__ = ["after_player_finished", "resolve_combat_round"]
+
+__all__ = ["after_player_finished", "draw_combat_pairings", "resolve_combat_round"]

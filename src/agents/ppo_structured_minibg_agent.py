@@ -99,6 +99,10 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first: List[float] = []
         self.battle_target: List[float] = []
         self.battle_target_valid: List[bool] = []
+        # Final placement (1..8) of the row's seat segment; -1 until the segment
+        # closes (``close_rollout_segment`` backfills the whole segment). CE
+        # target for the v8 distributional critic; ignored by scalar critics.
+        self.placement_label: List[int] = []
 
     def add(
         self,
@@ -145,6 +149,7 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first.append(0.0)
         self.battle_target.append(0.0)
         self.battle_target_valid.append(False)
+        self.placement_label.append(-1)
 
     def __len__(self) -> int:
         return len(self.obs)
@@ -169,6 +174,7 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first.clear()
         self.battle_target.clear()
         self.battle_target_valid.clear()
+        self.placement_label.clear()
 
 
 class MiniBGPPOStructuredAgent(BaseAgent):
@@ -272,6 +278,16 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # row so the PPO update can group steps into (episode, seat) sequences
         # for BPTT replay.
         self._episode_id: int = 0
+
+        # --- Distributional placement critic (v8) ----------------------
+        # Detected from the network surface; replaces value-MSE with CE on
+        # per-segment final-placement labels (backfilled at segment close).
+        self._distributional: bool = hasattr(self.policy_net, "placement_logits")
+        if self._distributional and self._is_recurrent:
+            raise ValueError(
+                "distributional placement critic is not wired into the recurrent "
+                "(v4 BPTT) update path; use a non-recurrent network"
+            )
 
         # --- Battle-prediction-head hyperparameters --------------------
         # Mirror the values on the model (which carries them via constructor
@@ -567,11 +583,19 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 buf.battle_target_valid[idx] = True
                 break
 
-    def close_segment(self, seat: int, terminal_reward: float) -> bool:
-        """Mark the last rollout step for ``seat`` as segment-terminal with ``terminal_reward``."""
+    def close_segment(
+        self, seat: int, terminal_reward: float, placement: Optional[int] = None
+    ) -> bool:
+        """Mark the last rollout step for ``seat`` as segment-terminal with ``terminal_reward``.
+
+        ``placement`` (1..8, bglike) backfills the distributional-critic CE
+        label over the whole segment; ``None`` keeps scalar-critic behaviour.
+        """
         if not self.training:
             return False
-        return close_rollout_segment(self.rollout_buffer, seat, terminal_reward)
+        return close_rollout_segment(
+            self.rollout_buffer, seat, terminal_reward, placement=placement
+        )
 
     def update(self) -> Dict[str, float]:
         if not self.training:
@@ -588,6 +612,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
     def _value_only(self, obs_1: torch.Tensor) -> torch.Tensor:
         _, enc_cache = self.policy_net.encode_state(obs_1)
+        if self._distributional:
+            return self.policy_net.value_from_trunk(enc_cache["trunk"]).reshape(-1)
         return self.policy_net.critic(enc_cache["trunk"]).reshape(-1)
 
     def _ppo_struct_update(self) -> Dict[str, float]:
@@ -622,6 +648,17 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         complete_tensor = torch.as_tensor(complete_arr, dtype=torch.bool, device=device)
         occupied_tensor = torch.as_tensor(occupied_arr, dtype=torch.bool, device=device)
         picks_tensor = torch.as_tensor(picks_arr, dtype=torch.long, device=device)
+        # v8 distributional critic: per-row final-placement labels (1..8, -1 = no
+        # label — only possible for segments cut at the buffer edge; masked out).
+        placement_tensor = (
+            torch.as_tensor(
+                np.array(buf.placement_label, dtype=np.int64),
+                dtype=torch.long,
+                device=device,
+            )
+            if self._distributional
+            else None
+        )
 
         # GAE on CPU/numpy: zero bootstrap across seat segment boundaries.
         if bool(dones_arr[-1]):
@@ -722,6 +759,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_battle_sign_acc = 0.0
         total_battle_batches = 0
         total_battle_corr_batches = 0  # corr undefined for single-sample minibatches
+        total_placement_acc = 0.0
+        total_placement_batches = 0
         grad_norm: torch.Tensor | float = 0.0
 
         indices = np.arange(N, dtype=np.int64)
@@ -801,7 +840,27 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
                 values_old_flat = values_old_mb.reshape(-1)
                 returns_flat = returns_mb.reshape(-1)
-                if self.clip_value_loss:
+                if self._distributional:
+                    # CE on final placement replaces the value regression; the
+                    # scalar V (its expectation) still feeds GAE unchanged.
+                    # Value clipping is a regression concept — not applied.
+                    place_mb = placement_tensor[mb_idx_t]
+                    place_valid = place_mb >= 1
+                    pl_logits = self.policy_net.placement_logits(cache["trunk"])
+                    if bool(place_valid.any()):
+                        value_loss = F.cross_entropy(
+                            pl_logits[place_valid], place_mb[place_valid] - 1
+                        )
+                        with torch.no_grad():
+                            acc_t = (
+                                pl_logits[place_valid].argmax(dim=-1) + 1
+                                == place_mb[place_valid]
+                            ).float().mean()
+                        total_placement_acc += float(acc_t.item())
+                        total_placement_batches += 1
+                    else:
+                        value_loss = pl_logits.sum() * 0.0
+                elif self.clip_value_loss:
                     eps_v = (
                         float(self.value_clip_eps)
                         if self.value_clip_eps is not None
@@ -924,6 +983,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             out_metrics["battle_pred_sign_acc"] = total_battle_sign_acc / total_battle_batches
             if total_battle_corr_batches > 0:
                 out_metrics["battle_pred_corr"] = total_battle_corr / total_battle_corr_batches
+        if total_placement_batches > 0:
+            # value_loss above is the placement CE; acc is its readable companion
+            # (uniform baseline = 0.125).
+            out_metrics["placement_acc"] = total_placement_acc / total_placement_batches
         return out_metrics
 
     # ------------------------------------------------------------------

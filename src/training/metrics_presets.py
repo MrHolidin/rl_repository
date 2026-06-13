@@ -41,6 +41,9 @@ METRICS_PRESET_PPO: Tuple[str, ...] = (
     # 1 - Var(R - V)/Var(R) of the pre-update critic on the rollout. Unlike raw
     # value_loss this stays comparable as the opponent pool strengthens.
     "explained_variance",
+    # v8 distributional critic: top-1 accuracy of the placement head
+    # (uniform baseline 0.125); blank for scalar-critic runs.
+    "placement_acc",
     # Scheduled-hyperparam callbacks emit these when active; blank otherwise.
     "entropy_coef",
     # v4+ recurrent PPO emits these; blank for non-recurrent runs.

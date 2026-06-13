@@ -42,15 +42,32 @@ def close_rollout_segment(
     buf: SegmentRolloutBuffer,
     seat: int,
     terminal_reward: float,
+    placement: "int | None" = None,
 ) -> bool:
     seat = int(seat)
     next_obs_list = getattr(buf, "next_obs", None)
+    labels = getattr(buf, "placement_label", None)
     for idx in range(len(buf.seat_ids) - 1, -1, -1):
         if buf.seat_ids[idx] == seat:
             buf.rewards[idx] = float(terminal_reward)
             buf.dones[idx] = True
             if next_obs_list is not None and idx < len(next_obs_list):
                 next_obs_list[idx] = np.asarray(buf.obs[idx], dtype=np.float32)
+            if labels is not None and placement is not None:
+                # Stamp the final placement on EVERY row of this seat's segment
+                # (distributional critic CE target). Walk back over this seat's
+                # rows until the previous segment's terminal row (dones=True
+                # before the one just set) or an already-labeled row.
+                p = int(placement)
+                j = idx
+                while j >= 0:
+                    if buf.seat_ids[j] != seat:
+                        j -= 1
+                        continue
+                    if labels[j] >= 1 or (j < idx and buf.dones[j]):
+                        break
+                    labels[j] = p
+                    j -= 1
             return True
     return False
 

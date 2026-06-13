@@ -394,6 +394,14 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
                 src_list = getattr(buf, field_name, None)
                 if src_list is not None:
                     getattr(out, field_name).extend(src_list)
+            # v8 distributional critic: per-row placement labels. An old-format
+            # worker payload (no field) pads with -1 so lengths stay aligned;
+            # those rows are simply masked out of the CE.
+            pl = getattr(buf, "placement_label", None)
+            if pl is not None and len(pl) == len(buf.obs):
+                out.placement_label.extend(pl)
+            else:
+                out.placement_label.extend([-1] * len(buf.obs))
         return out
     out = RolloutBuffer()
     for buf in buffers:
@@ -435,7 +443,7 @@ def _load_dist_agent(
     mg: dict,
 ) -> Any:
     patch_build = mg.get("patch_build")
-    if mg.get("dvd_network_type") == "bglike_structured_v7":
+    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9"):
         from src.agents.ppo_dvd_agent import PPODvDAgent
 
         return PPODvDAgent.load(
@@ -620,7 +628,10 @@ def _collect_until_steps_flat(
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
-            learner_agent=agent if mg.get("dvd_network_type") == "bglike_structured_v7" else None,
+            learner_agent=agent
+            if mg.get("dvd_network_type")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9")
+            else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
     else:
@@ -753,7 +764,10 @@ def _collect_until_steps_structured(
             gid=gid,
             current_sd=current_sd,
             ppo_opponent=ppo_opponent,
-            learner_agent=agent if mg.get("dvd_network_type") == "bglike_structured_v7" else None,
+            learner_agent=agent
+            if mg.get("dvd_network_type")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9")
+            else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
     else:

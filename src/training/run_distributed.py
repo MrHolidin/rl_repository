@@ -18,6 +18,8 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V5,
     PPO_NETWORK_BGLIKE_STRUCTURED_V6,
     PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V8,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V9,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import reject_flat_bg_network
@@ -129,11 +131,17 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V5,
         PPO_NETWORK_BGLIKE_STRUCTURED_V6,
         PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V8,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V9,
     )
     game_params["use_structured"] = use_structured
     # DvD/v7: thread the population knobs through to workers (mg) so each worker
     # builds a PPODvDAgent with the right identity count / repulsion strength.
-    is_dvd_v7 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
+    is_dvd_v7 = network_type in (
+        PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V8,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V9,
+    )
     if is_dvd_v7:
         game_params["dvd_network_type"] = network_type
         game_params["dvd_num_identities"] = int(agent_params.get("num_identities", 8))
@@ -158,6 +166,8 @@ def run_distributed(
             PPO_NETWORK_BGLIKE_STRUCTURED_V5,
             PPO_NETWORK_BGLIKE_STRUCTURED_V6,
             PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V8,
+            PPO_NETWORK_BGLIKE_STRUCTURED_V9,
         )
         and game_id == "bglike"
     ):

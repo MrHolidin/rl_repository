@@ -126,3 +126,39 @@ def test_bglike_struct_action_accepts_large_hand_slot():
 
     with pytest.raises(ValueError, match="hand_slot out of range"):
         validate_struct_action(action, hand_size=5, board_size=BOARD_SIZE)
+
+
+def test_merge_buffers_preserves_placement_labels():
+    """v8 distributional critic: worker placement labels must survive the
+    host-side merge (the ppo_new_002 crash: merged buffer had an empty
+    placement_label while obs had N rows)."""
+    mg = {"game_id": "bglike", "use_structured": True}
+
+    def _one_row_buf(label: int) -> StructuredMiniBGRolloutBuffer:
+        b = StructuredMiniBGRolloutBuffer()
+        b.add(
+            obs=np.zeros(OBS_DIM, dtype=np.float32),
+            legal_list=[],
+            action_index=0,
+            complete_turn=False,
+            occupied_mask=np.zeros(7, dtype=bool),
+            order_pick_row=np.full(7, -1, dtype=np.int64),
+            reward=0.0,
+            done=False,
+            value=0.0,
+            log_prob=-1.0,
+            next_obs=np.zeros(OBS_DIM, dtype=np.float32),
+            next_legal_list=[],
+        )
+        b.placement_label[-1] = label
+        return b
+
+    b1 = _one_row_buf(3)
+    b2 = _one_row_buf(7)
+    # old-format payload: a buffer missing the field entirely (e.g. stale worker)
+    b3 = _one_row_buf(5)
+    del b3.placement_label
+
+    merged = _merge_buffers([b1, b2, b3], mg)
+    assert len(merged) == 3
+    assert merged.placement_label == [3, 7, -1]

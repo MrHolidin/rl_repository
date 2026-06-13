@@ -14,6 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import torch
+
+torch.set_num_threads(1)  # batch=1 forwards are faster single-threaded
+
 import src.envs  # noqa: F401
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.placement import placement_for_seat
@@ -54,6 +58,8 @@ def run_head_to_head(
     num_games: int,
     seed: int,
     device: str,
+    patch_dir: str | None = None,
+    obs_kind: str = "bglike",
 ) -> List[dict]:
     agent_a = load_training_agent_checkpoint(ck_a, device=device, seed=seed)
     agent_b = load_training_agent_checkpoint(ck_b, device=device, seed=seed + 1)
@@ -72,11 +78,20 @@ def run_head_to_head(
         learned_seats=learned,
         training_seats=learned,
         seed=seed,
+        patch_dir=patch_dir,
+        obs_kind=obs_kind,
     )
     games: List[dict] = []
+    import time as _time
+
     for g in range(num_games):
+        _t0 = _time.perf_counter()
         env.reset(seed=seed + g)
         env.drain_until_lobby_done(deterministic=True)
+        print(
+            f"  game {g + 1}/{num_games}: {_time.perf_counter() - _t0:.1f}s",
+            flush=True,
+        )
         st = env.state
         placements = {s: placement_for_seat(st, s) for s in range(8)}
         games.append(
@@ -124,6 +139,14 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=77)
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument("--out-json", type=Path, default=None)
+    ap.add_argument(
+        "--patch-dir", type=str, default=None,
+        help="patch package dir (required for patch-pinned checkpoints)",
+    )
+    ap.add_argument(
+        "--obs-kind", type=str, default="bglike",
+        help="bglike (v3 obs) or bglike_v5 (v5/v6/v7/v8 nets)",
+    )
     args = ap.parse_args()
 
     seats_a = tuple(int(x.strip()) for x in args.seats_a.split(",") if x.strip())
@@ -144,6 +167,8 @@ def main() -> None:
         num_games=args.num_games,
         seed=args.seed,
         device=args.device,
+        patch_dir=args.patch_dir,
+        obs_kind=args.obs_kind,
     )
     all_a = [float(p) for g in games for p in g["team_a_placements"]]
     all_b = [float(p) for g in games for p in g["team_b_placements"]]

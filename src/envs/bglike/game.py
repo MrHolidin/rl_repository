@@ -130,7 +130,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         )
         alive = tuple(range(n))
         order = sample_shop_turn_order(self._rng, len(alive))
-        return BGLikeState(
+        state = BGLikeState(
             players=players,
             alive=alive,
             round_number=round_number,
@@ -148,6 +148,9 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             shared_pool=shared_pool,
             patch_build=self._patch.build,
         )
+        # Round-1 pairings are observable during the first shop phase.
+        bg_lobby_eight.draw_combat_pairings(state, rng=self._rng)
+        return state
 
     def current_player(self, state: BGLikeState) -> int:
         return state.current_player_index

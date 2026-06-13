@@ -326,14 +326,21 @@ class PPOAgent(BaseAgent):
 
         return {}  # все метрики отдаём из update()
 
-    def close_segment(self, seat: int, terminal_reward: float) -> bool:
+    def close_segment(
+        self, seat: int, terminal_reward: float, placement: Optional[int] = None
+    ) -> bool:
         """Mark the last rollout step for ``seat`` as segment-terminal with ``terminal_reward``.
 
         Returns True if a matching rollout step was found and updated.
+        ``placement`` is accepted for interface parity with the structured
+        agent (distributional critic labels); the flat buffer has no
+        ``placement_label`` field so it is a no-op here.
         """
         if not self.training:
             return False
-        return close_rollout_segment(self.rollout_buffer, seat, terminal_reward)
+        return close_rollout_segment(
+            self.rollout_buffer, seat, terminal_reward, placement=placement
+        )
 
     def update(self) -> Dict[str, float]:
         """

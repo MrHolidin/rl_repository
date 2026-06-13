@@ -165,7 +165,8 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         for item in closures:
             seat = int(item["seat"])
             rew = float(item["placement_reward"])
-            if not close(seat, rew):
+            place = item.get("placement")
+            if not close(seat, rew, placement=place):
                 raise AssertionError(
                     "segment_closures: seat "
                     f"{seat} has no prior rollout step to close "

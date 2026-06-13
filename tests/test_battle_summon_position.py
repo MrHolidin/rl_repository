@@ -123,6 +123,32 @@ def test_self_damaged_summon_spawns_right_of_source():
     assert _alive_names(side) == ["Imp Gang Boss", "Imp", "Vulgar Homunculus"]
 
 
+def test_direct_damage_triggers_self_damaged_summon():
+    """Juggler / Red Whelp / deathrattle damage (non-strike path) must fire
+    ON_SELF_DAMAGED — Imp Gang Boss summons an Imp right of itself."""
+    rt = _runtime(
+        [_mk("Imp Gang Boss"), _mk("Vulgar Homunculus")],
+        [_mk("Murloc Tidehunter")],
+    )
+    side = rt.side(0)
+    boss = side.minions[0]
+    _deal_damage_to_battle_minion(rt, 0, boss, 1)
+    _drain(rt)
+    assert _alive_names(side) == ["Imp Gang Boss", "Imp", "Vulgar Homunculus"]
+
+
+def test_direct_lethal_damage_does_not_trigger_self_damaged():
+    rt = _runtime(
+        [_mk("Imp Gang Boss"), _mk("Vulgar Homunculus")],
+        [_mk("Murloc Tidehunter")],
+    )
+    side = rt.side(0)
+    boss = side.minions[0]
+    _deal_damage_to_battle_minion(rt, 0, boss, 99)
+    _drain(rt)
+    assert _alive_names(side) == ["Vulgar Homunculus"]
+
+
 def test_insert_before_cursor_shifts_cursor_no_skip_no_repeat():
     rt = _runtime(
         [_mk("Murloc Tidehunter"), _mk("Vulgar Homunculus"), _mk("Dragonspawn Lieutenant")],

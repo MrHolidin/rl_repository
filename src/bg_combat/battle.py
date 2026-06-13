@@ -834,6 +834,10 @@ def _deal_damage_to_battle_minion(
         rt.queue.append(MinionDied(side_idx, bm.instance_id))
     elif amount > 0:
         rt.swing_damage_survivors.append((side_idx, bm.instance_id))
+        # ON_SELF_DAMAGED fires on ANY damage taken while surviving (juggler /
+        # Red Whelp / deathrattle damage included), matching real-BG triggers —
+        # not just strike damage (which fires via the DamageDealt event).
+        _fire_self_damaged(rt, side_idx, bm)
 
 
 def _deal_excess_to_adjacent(

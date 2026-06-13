@@ -10,7 +10,7 @@ from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import EliminatedSnapshot
-from src.bg_lobby.pairing import peek_next_opponent
+from src.bg_lobby.pairing import opponent_from_pairings, peek_next_opponent
 from src.bg_lobby.player import BATTLE_HISTORY_LEN, PlayerPhase, PlayerState
 from src.envs.minibg import obs as minibg_obs
 from src.envs.minibg.obs import (
@@ -325,13 +325,19 @@ def _encode_battle_history(history: Sequence[float]) -> tuple:
 
 def _battle_history_block(state: BGLikeState, seat: int) -> np.ndarray:
     self_vals, self_mask = _encode_battle_history(state.players[seat].battle_history)
-    next_opp = peek_next_opponent(
-        state.alive,
-        state.recent_opponents,
-        n_seats=len(state.players),
-        full_lobby_cycle_round=state.full_lobby_cycle_round,
-        seat=seat,
-    )
+    # Pairings (incl. the ghost pick) are pre-drawn at round start, so the next
+    # opponent is always known during the shop phase. A ghost match resolves to
+    # the dead seat (its battle_history is frozen at elimination). The peek
+    # fallback covers manually built states without draw_combat_pairings.
+    next_opp = opponent_from_pairings(state.pairings, seat)
+    if next_opp is None and not state.pairings:
+        next_opp = peek_next_opponent(
+            state.alive,
+            state.recent_opponents,
+            n_seats=len(state.players),
+            full_lobby_cycle_round=state.full_lobby_cycle_round,
+            seat=seat,
+        )
     if next_opp is not None and 0 <= next_opp < len(state.players):
         opp_vals, opp_mask = _encode_battle_history(state.players[next_opp].battle_history)
         known = 1.0

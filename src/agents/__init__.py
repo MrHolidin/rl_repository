@@ -22,6 +22,8 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V5,
     PPO_NETWORK_BGLIKE_STRUCTURED_V6,
     PPO_NETWORK_BGLIKE_STRUCTURED_V7,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V8,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V9,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -247,7 +249,16 @@ if "ppo" not in list_agents():
         is_bglike_structured_v4 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V4
         is_bglike_structured_v5 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V5
         is_bglike_structured_v6 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V6
-        is_bglike_structured_v7 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
+        # v8 = v7 + distributional placement critic; v9 = v8 + economy-coloured
+        # action queries. Identical kwarg surface and agent (PPODvDAgent), so
+        # both ride the v7 branch with a class switch.
+        is_bglike_structured_v8 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V8
+        is_bglike_structured_v9 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V9
+        is_bglike_structured_v7 = (
+            network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
+            or is_bglike_structured_v8
+            or is_bglike_structured_v9
+        )
         # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
         # appends the identity tail before feeding the net).
         is_bglike_v5_or_v6 = (
@@ -456,6 +467,8 @@ if "ppo" not in list_agents():
                         )
                     elif is_bglike_structured_v7:
                         from ..models.bglike_structured_v7 import BGLikeStructuredV7
+                        from ..models.bglike_structured_v8 import BGLikeStructuredV8
+                        from ..models.bglike_structured_v9 import BGLikeStructuredV9
 
                         ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
                         # Agent-level DvD knobs (not net constructor args except
@@ -467,7 +480,13 @@ if "ppo" not in list_agents():
                         dvd_identity_tribes = kwargs.pop("identity_tribes", None)
                         dvd_identity_init_std = float(kwargs.pop("identity_init_std", 0.0))
                         dvd_reward_mode = str(kwargs.pop("diversity_reward_mode", "final"))
-                        net = BGLikeStructuredV7(
+                        if is_bglike_structured_v9:
+                            net_cls = BGLikeStructuredV9
+                        elif is_bglike_structured_v8:
+                            net_cls = BGLikeStructuredV8
+                        else:
+                            net_cls = BGLikeStructuredV7
+                        net = net_cls(
                             ability_emb_dim=ability_emb_dim,
                             num_identities=dvd_num_identities,
                             **v3_v4_kwargs,
