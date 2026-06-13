@@ -435,6 +435,66 @@ def _load_state_dict_bytes(agent: Any, payload: bytes) -> None:
     agent.policy_net.load_state_dict(sd)
 
 
+def _maybe_compile_encode_state(agent: Any) -> Any:
+    """Opt-in torch.compile of the policy net forward on the collect path, to
+    kill batch=1 dispatch overhead. torch.compile guards on shape/dtype and
+    reads param *values* at runtime, so it stays correct across the per-round
+    ``load_state_dict`` weight updates (unlike jit.freeze, which bakes weights).
+
+    env RL_COMPILE_ENCODE (default "fwd"):
+      "0"/"off"/"none" -> disabled (eager)
+      "1"              -> compile encode_state only (static shapes, ~+30% collect)
+      "fwd" (default)  -> compile the whole tensor forward incl. action head +
+                          value (dynamic=True for variable Lmax; ~+48% collect)
+    """
+    import os
+
+    mode = os.environ.get("RL_COMPILE_ENCODE", "fwd").lower()
+    if mode in ("0", "off", "none", ""):
+        return agent
+    net = getattr(agent, "policy_net", None)
+    if net is None or getattr(net, "_encode_compiled", False):
+        return agent
+    import torch
+
+    if mode == "fwd" and hasattr(net, "policy_logits_value_from_tokens"):
+        net.policy_logits_value_from_tokens = torch.compile(
+            net.policy_logits_value_from_tokens, dynamic=True
+        )
+    elif hasattr(net, "encode_state"):
+        net.encode_state = torch.compile(net.encode_state, dynamic=False)
+    else:
+        return agent
+    net._encode_compiled = True
+    return agent
+
+
+def _maybe_compile_host_update(agent: Any) -> Any:
+    """torch.compile the HOST policy forward (+backward) used by the PPO update.
+    The update builds action tokens once per round with a global Lmax, so
+    minibatch forward shapes are (minibatch, Lmax) and stable within a round
+    (Lmax varies round-to-round -> dynamic=True). On GPU this is large-batch/
+    GEMM-bound, so the win is smaller than the batch=1 collect path (measured
+    host_s -25%). Default ON; set env RL_COMPILE_HOST=0/off to disable. One-time
+    fwd+bwd compile cost is large (~round-0 only)."""
+    import os
+
+    if os.environ.get("RL_COMPILE_HOST", "fwd").lower() in ("0", "off", "none", ""):
+        return agent
+    net = getattr(agent, "policy_net", None)
+    if net is None or getattr(net, "_host_compiled", False):
+        return agent
+    if not hasattr(net, "policy_logits_value_from_tokens"):
+        return agent
+    import torch
+
+    net.policy_logits_value_from_tokens = torch.compile(
+        net.policy_logits_value_from_tokens, dynamic=True
+    )
+    net._host_compiled = True
+    return agent
+
+
 def _load_dist_agent(
     ck_path: str,
     *,
@@ -443,10 +503,10 @@ def _load_dist_agent(
     mg: dict,
 ) -> Any:
     patch_build = mg.get("patch_build")
-    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9"):
+    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11"):
         from src.agents.ppo_dvd_agent import PPODvDAgent
 
-        return PPODvDAgent.load(
+        return _maybe_compile_encode_state(PPODvDAgent.load(
             ck_path,
             device=device,
             seed=seed,
@@ -455,15 +515,15 @@ def _load_dist_agent(
             diversity_ema=float(mg.get("dvd_diversity_ema", 0.1)),
             identity_tribes=mg.get("dvd_identity_tribes"),
             diversity_reward_mode=str(mg.get("dvd_reward_mode", "final")),
-        )
+        ))
     if _use_structured_collect(mg):
-        return MiniBGPPOStructuredAgent.load(
+        return _maybe_compile_encode_state(MiniBGPPOStructuredAgent.load(
             ck_path,
             device=device,
             seed=seed,
             patch_build=patch_build,
-        )
-    return PPOAgent.load(ck_path, device=device, seed=seed)
+        ))
+    return _maybe_compile_encode_state(PPOAgent.load(ck_path, device=device, seed=seed))
 
 
 def _create_scripted_opponent(key: str, *, seed: int, game_id: str) -> Any:
@@ -630,7 +690,7 @@ def _collect_until_steps_flat(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -766,7 +826,7 @@ def _collect_until_steps_structured(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -1157,6 +1217,7 @@ class DistributedTrainer(BaseTrainer):
             opponent_sampler=_DistributedOpponentSamplerAdapter(self._league),
         )
         self.agent = agent
+        _maybe_compile_host_update(agent)
         self._worker_ckpt_path = Path(worker_ckpt_path)
         self._workers = workers
         self._rollout_steps = rollout_steps
