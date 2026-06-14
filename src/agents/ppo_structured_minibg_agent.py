@@ -786,6 +786,15 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_placement_batches = 0
         grad_norm: torch.Tensor | float = 0.0
 
+        # GPU-side scalar accumulators: sum per-minibatch metrics on-device and
+        # sync ONCE after the loop, instead of one .item() per minibatch (each a
+        # GPU->CPU stall). These metrics are logging-only — they never feed back
+        # into training — so on-device summation is equivalent. Also a
+        # prerequisite for CUDA-graph capture (no mid-loop host syncs).
+        _zeros = lambda: torch.zeros((), device=device)
+        acc_policy, acc_value, acc_entropy = _zeros(), _zeros(), _zeros()
+        acc_kl, acc_clip, acc_place = _zeros(), _zeros(), _zeros()
+
         indices = np.arange(N, dtype=np.int64)
         for _ in range(self.ppo_epochs):
             np.random.shuffle(indices)
@@ -879,7 +888,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                                 pl_logits[place_valid].argmax(dim=-1) + 1
                                 == place_mb[place_valid]
                             ).float().mean()
-                        total_placement_acc += float(acc_t.item())
+                        acc_place += acc_t.detach()
                         total_placement_batches += 1
                     else:
                         value_loss = pl_logits.sum() * 0.0
@@ -963,12 +972,12 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
-                total_policy_loss += policy_loss.item()
-                total_value_loss += value_loss.item()
-                total_entropy += entropy_mb.item()
-                total_approx_kl += approx_kl.item()
+                acc_policy += policy_loss.detach()
+                acc_value += value_loss.detach()
+                acc_entropy += entropy_mb.detach()
+                acc_kl += approx_kl.detach()
+                acc_clip += clip_frac_t.detach()
                 total_batches += 1
-                total_clip_frac += float(clip_frac_t.item())
                 if battle_loss_item is not None:
                     total_battle_loss += battle_loss_item
                     total_battle_mae += battle_mae_item
@@ -981,6 +990,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
         if total_batches == 0:
             return {}
+
+        # Single GPU->CPU sync for all per-minibatch metrics (see accumulators above).
+        total_policy_loss = float(acc_policy.item())
+        total_value_loss = float(acc_value.item())
+        total_entropy = float(acc_entropy.item())
+        total_approx_kl = float(acc_kl.item())
+        total_clip_frac = float(acc_clip.item())
+        total_placement_acc = float(acc_place.item())
 
         gn = float(grad_norm.item()) if isinstance(grad_norm, torch.Tensor) else float(grad_norm)
         out_metrics = {
