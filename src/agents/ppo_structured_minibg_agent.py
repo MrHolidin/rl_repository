@@ -1167,6 +1167,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         if Lmax not in self._cap_graphs:
             idx0 = torch.from_numpy(indices[:mb].copy()).to(device)
             self._cap_graphs[Lmax] = self._capture_bucket(Lmax, src, idx0, device)
+            print(f"[PHASE2] CUDA-graph capture engaged: Lmax={Lmax} "
+                  f"buckets_cached={len(self._cap_graphs)} mb={mb}", flush=True)
         for v in self._cap_acc.values():
             v.zero_()
         entry = self._cap_graphs[Lmax]
