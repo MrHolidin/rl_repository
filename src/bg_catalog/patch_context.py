@@ -107,7 +107,7 @@ class PatchContext:
         catalog = load_patch_catalog(catalog_path)
         meta = _load_meta(meta_path)
         bindings = _load_bindings_module(bindings_path)
-        heroes, hero_pool_ids = _load_heroes(root)
+        heroes, hero_pool_ids, hero_token_ids = _load_heroes(root)
         effects: Dict[str, Tuple[Ability, ...]] = dict(bindings.EFFECTS)
         golden_reward_ids: FrozenSet[str] = frozenset(bindings.GOLDEN_REWARD_IDS)
         token_ids: FrozenSet[str] = frozenset(bindings.TOKEN_IDS)
@@ -121,7 +121,9 @@ class PatchContext:
             golden_reward_ids=golden_reward_ids,
             token_ids=token_ids,
         )
-        card_index_ids, card_id_to_dense = _build_card_index(templates)
+        card_index_ids, card_id_to_dense = _build_card_index(
+            templates, append_last=hero_token_ids
+        )
         return cls(
             patch_dir=root,
             build=int(catalog["build"]),
@@ -165,15 +167,18 @@ def _load_bindings_module(path: Path) -> ModuleType:
     return mod
 
 
-def _load_heroes(patch_dir: Path) -> Tuple[Dict[str, Hero], FrozenSet[str]]:
-    """Load the optional per-patch ``heroes.py`` (Hero catalog + assignable pool).
+def _load_heroes(
+    patch_dir: Path,
+) -> Tuple[Dict[str, Hero], FrozenSet[str], FrozenSet[str]]:
+    """Load the optional per-patch ``heroes.py`` (Hero catalog + assignable pool
+    + hero-only token ids that must be appended last in the card index).
 
     Returns empty collections for patch packages that don't ship heroes, so
     ``with_heroes`` is simply a no-op there.
     """
     path = patch_dir / "heroes.py"
     if not path.is_file():
-        return {}, frozenset()
+        return {}, frozenset(), frozenset()
     name = f"bg_patch_heroes_{patch_dir.name}"
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
@@ -183,7 +188,8 @@ def _load_heroes(patch_dir: Path) -> Tuple[Dict[str, Hero], FrozenSet[str]]:
     spec.loader.exec_module(mod)
     heroes: Dict[str, Hero] = dict(getattr(mod, "HEROES", {}))
     pool = frozenset(getattr(mod, "HERO_POOL_IDS", frozenset(heroes.keys())))
-    return heroes, pool
+    hero_token_ids = frozenset(getattr(mod, "HERO_TOKEN_IDS", frozenset()))
+    return heroes, pool, hero_token_ids
 
 
 def _merge_template(
@@ -336,8 +342,18 @@ def _build_templates_and_descriptions(
 
 def _build_card_index(
     templates: Mapping[str, Minion],
+    append_last: FrozenSet[str] = frozenset(),
 ) -> Tuple[Tuple[str, ...], Dict[str, int]]:
-    ids = tuple(sorted(templates.keys()))
+    """Dense card index (card_id → idx) used to embed minions in the obs.
+
+    ``append_last`` ids (hero-only tokens, e.g. Curator's Amalgam) are placed
+    AFTER the sorted base catalog so adding them never shifts the dense index of
+    the pre-existing cards — pre-hero checkpoints keep their ``card_emb``
+    alignment, and a non-hero game never emits the appended (≥base) indices.
+    """
+    base = sorted(k for k in templates.keys() if k not in append_last)
+    extra = sorted(k for k in templates.keys() if k in append_last)
+    ids = tuple(base + extra)
     table = {cid: i + 1 for i, cid in enumerate(ids)}
     return ids, table
 

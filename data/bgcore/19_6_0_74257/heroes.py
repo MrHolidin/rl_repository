@@ -127,3 +127,8 @@ HEROES: Dict[str, Hero] = {
 
 
 HERO_POOL_IDS: FrozenSet[str] = frozenset(HEROES.keys())
+
+# Hero-only tokens (not part of the base tavern catalog). Appended LAST in the
+# dense card index so registering them never shifts the indices of the base
+# cards — pre-hero checkpoints keep their card-embedding alignment.
+HERO_TOKEN_IDS: FrozenSet[str] = frozenset({AMALGAM_TOKEN_ID})
