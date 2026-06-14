@@ -24,7 +24,7 @@ game:
     shop_excluded_count: 1
     obs_kind: bglike_v5_heroes
     with_heroes: true
-    percent_high_game: 0.2
+    percent_high_game: 0.0
 
 agent:
   id: ppo
