@@ -151,5 +151,5 @@ eval:
   deterministic: true
 
 distributed:
-  workers: 10
+  workers: 40
   worker_device: cpu
