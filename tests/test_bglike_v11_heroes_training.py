@@ -278,12 +278,16 @@ def _collect_rollout(agent, env, rollout_steps):
         env.notify_episode_end(last_info)
 
 
-def test_rnd_real_collect_and_update(patch):
+def test_rnd_real_collect_and_update(patch, monkeypatch):
     """The RND branch of the PPO update runs on a REAL collected rollout: the
     intrinsic stream is built, combined, and its losses reach the new heads."""
     from src.training.bglike_perspective import make_bglike_agent_perspective_env
     from src.training.opponent_sampler import RandomOpponentSampler
 
+    # grad-norm decomposition is opt-in (incompatible with the compiled host
+    # update); this test is single-process / no compile, so enable it to exercise
+    # the rnd/gradnorm_* path.
+    monkeypatch.setenv("RL_RND_GRADNORM", "1")
     torch.manual_seed(0)
     rollout_steps = 64
     agent = make_agent(

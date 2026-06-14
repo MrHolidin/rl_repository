@@ -318,6 +318,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # Entirely host-side: workers collect obs unchanged, the host computes
         # the intrinsic stream in the PPO update. Off unless ``rnd.enabled``.
         self._rnd_enabled: bool = False
+        self._rnd_grad_decomp: bool = False
         self.rnd: Optional[RNDModel] = None
         self._rnd_config: Dict[str, Any] = dict(rnd or {})
         if self._rnd_config.get("enabled", False):
@@ -358,18 +359,21 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             self._rnd_warmup_rounds = int(cfg.get("warmup_rounds", 1))
             self._rnd_updates_done = 0
             self._rnd_enabled = True
-            # torch.compile (RL_COMPILE_HOST, on by default in the distributed
-            # host update) donates backward buffers, which is incompatible with
-            # the retain_graph=True passes in the grad-norm decomposition
-            # (RuntimeError: "compiled with non-empty donated buffers ... requires
-            # retain_graph=False"). Disable donated buffers — set before the first
-            # update so the host forward compiles without them.
-            try:
-                import torch._functorch.config as _ff_cfg
+            # The grad-norm decomposition runs several retain_graph backward
+            # passes over the policy forward — fundamentally incompatible with the
+            # torch.compile'd host update (donated buffers / inplace-version
+            # errors). It is a diagnostic: opt in via RL_RND_GRADNORM=1 and run
+            # WITHOUT host compile (e.g. the single-process probe). OFF by default
+            # so the compiled distributed run is unaffected. The loss/* weighted
+            # members and all other rnd/* metrics do not depend on it.
+            self._rnd_grad_decomp = os.environ.get("RL_RND_GRADNORM", "0") == "1"
+            if self._rnd_grad_decomp:
+                try:
+                    import torch._functorch.config as _ff_cfg
 
-                _ff_cfg.donated_buffer = False
-            except Exception:
-                pass
+                    _ff_cfg.donated_buffer = False
+                except Exception:
+                    pass
 
         if seed is not None:
             random.seed(seed)
@@ -1159,7 +1163,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 # Real per-term gradient pull on the shared net (once per update,
                 # on the first node-bearing minibatch) — the honest way to balance
                 # value_coef_int, since loss *value* != gradient (cf. v8 CE×37).
-                if self._rnd_enabled and not grad_diag and rnd_value_loss_term is not None:
+                if self._rnd_grad_decomp and not grad_diag and rnd_value_loss_term is not None:
                     grad_diag = self._rnd_grad_decomposition(
                         policy_loss,
                         self.value_coef * value_loss,
