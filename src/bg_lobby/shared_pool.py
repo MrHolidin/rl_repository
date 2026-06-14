@@ -19,13 +19,25 @@ __all__ = [
 ]
 
 
+# The eligible-id list for a (tier, excluded_race) is constant for the whole
+# game: it depends only on the patch's immutable ``templates`` (a single shared
+# object, passed by reference through every ``SharedCardPool.copy()``). Memoise
+# it so the hot roll path stops re-filtering all ~127 templates (and re-calling
+# ``shop_minion_allowed_with_exclusion`` ~millions of times) on every roll.
+_ELIGIBLE_CACHE: Dict[tuple, List[str]] = {}
+
+
 def eligible_card_ids_for_tier(
     tavern_tier: int,
     shop_excluded_race: Optional[Race],
     *,
     templates: Mapping[str, Minion],
 ) -> List[str]:
-    return [
+    key = (id(templates), int(tavern_tier), shop_excluded_race)
+    cached = _ELIGIBLE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    out = [
         cid
         for cid, t in templates.items()
         if not t.is_token
@@ -34,6 +46,8 @@ def eligible_card_ids_for_tier(
         and t.tier <= tavern_tier
         and shop_minion_allowed_with_exclusion(t, shop_excluded_race)
     ]
+    _ELIGIBLE_CACHE[key] = out
+    return out
 
 
 def build_initial_shared_pool(
