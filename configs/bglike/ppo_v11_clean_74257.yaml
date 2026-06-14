@@ -1,0 +1,134 @@
+# v11 = flat CLEAN consolidation of v2→v10 (bglike), trained from scratch. ~442k params.
+#
+# Architecture (one self-contained class, src/models/bglike_structured_v11.py):
+#   SETS → attention: minions / opponents / 3 discover-options + k=2 learned
+#     summary queries (PMA/Perceiver pool). 2 entity-attention layers.
+#   SCALARS → own MLP, late-fused into the trunk (AlphaStar-style):
+#     economy_encoder (core+rot 25 → 32), combat (battle-hist+lb+phase 15 → 16),
+#     pending_ctx (full pending 31 → 16). Economy embedding also feeds the
+#     economy-conditioned action queries (single source of truth).
+#   trunk = [summary(128) | econ(32) | combat(16) | pctx(16)] = 192
+#         → 1 ReZero "thinking" block (H=256) → state_proj / distributional critic.
+#   Actor: action token = type+role+entity + econ-term, cross-attn to entities,
+#     score MLP (no g_full). Board-order GRU pointer. Distributional placement critic.
+#
+# v11-specific knobs (summary_queries / thinking_* / economy_out / combat_out /
+# pending_ctx_out) ARE YAML-controllable below — the agent factory pops them and
+# they ride get_constructor_kwargs into the checkpoint, so every distributed
+# worker / frozen / resume rebuilds the identical net (no learner/worker
+# mismatch; architecture is carried by the checkpoint, not re-read from YAML).
+#
+# entity_attention_layers MUST be 2 (the v11 4→2 cut). region_conv2_kernel is
+# accepted-and-ignored (v11 uses a single Linear slot encoder). diversity_coef
+# stays 0 (distributional critic assumes terminal reward == placement_reward).
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v11
+    observation_type: vector
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    slot_hidden_channels: 64
+    region_conv2_kernel: 1          # accepted-and-ignored by v11 (conv -> Linear)
+    card_emb_dim: 16
+    entity_attention_layers: 2      # v11 cut: halved from 4
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    # --- v11-specific (threaded through the agent factory) ---
+    summary_queries: 2          # k learned PMA summary queries
+    thinking_blocks: 1          # ReZero thinking-core depth (2→1 param cut)
+    thinking_hidden: 256
+    thinking_init_alpha: 0.1
+    economy_hidden: 64
+    economy_out: 32             # economy embedding width (trunk + action econ-term)
+    combat_out: 16              # combat-history embedding width
+    pending_ctx_out: 16         # pending-context embedding width
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 10000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v11_clean
+    - type: metrics_file
+      params:
+        interval: 1
+        preset: ppo_dvd
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 10
+  worker_device: cpu

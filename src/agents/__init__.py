@@ -24,6 +24,8 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V7,
     PPO_NETWORK_BGLIKE_STRUCTURED_V8,
     PPO_NETWORK_BGLIKE_STRUCTURED_V9,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V10,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V11,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -254,10 +256,14 @@ if "ppo" not in list_agents():
         # both ride the v7 branch with a class switch.
         is_bglike_structured_v8 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V8
         is_bglike_structured_v9 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V9
+        is_bglike_structured_v10 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V10
+        is_bglike_structured_v11 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V11
         is_bglike_structured_v7 = (
             network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
             or is_bglike_structured_v8
             or is_bglike_structured_v9
+            or is_bglike_structured_v10
+            or is_bglike_structured_v11
         )
         # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
         # appends the identity tail before feeding the net).
@@ -469,6 +475,8 @@ if "ppo" not in list_agents():
                         from ..models.bglike_structured_v7 import BGLikeStructuredV7
                         from ..models.bglike_structured_v8 import BGLikeStructuredV8
                         from ..models.bglike_structured_v9 import BGLikeStructuredV9
+                        from ..models.bglike_structured_v10 import BGLikeStructuredV10
+                        from ..models.bglike_structured_v11 import BGLikeStructuredV11
 
                         ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
                         # Agent-level DvD knobs (not net constructor args except
@@ -480,7 +488,27 @@ if "ppo" not in list_agents():
                         dvd_identity_tribes = kwargs.pop("identity_tribes", None)
                         dvd_identity_init_std = float(kwargs.pop("identity_init_std", 0.0))
                         dvd_reward_mode = str(kwargs.pop("diversity_reward_mode", "final"))
-                        if is_bglike_structured_v9:
+                        # v11-specific net knobs are YAML-controllable (other
+                        # versions don't accept them, so only pop+pass for v11).
+                        # They ride get_constructor_kwargs into the checkpoint,
+                        # so workers/frozen/resume rebuild identically — no need
+                        # to propagate them through game_params.
+                        extra_net_kwargs: Dict[str, Any] = {}
+                        if is_bglike_structured_v11:
+                            net_cls = BGLikeStructuredV11
+                            extra_net_kwargs = dict(
+                                summary_queries=int(kwargs.pop("summary_queries", 2)),
+                                thinking_blocks=int(kwargs.pop("thinking_blocks", 1)),
+                                thinking_hidden=int(kwargs.pop("thinking_hidden", 256)),
+                                thinking_init_alpha=float(kwargs.pop("thinking_init_alpha", 0.1)),
+                                economy_hidden=int(kwargs.pop("economy_hidden", 64)),
+                                economy_out=int(kwargs.pop("economy_out", 32)),
+                                combat_out=int(kwargs.pop("combat_out", 16)),
+                                pending_ctx_out=int(kwargs.pop("pending_ctx_out", 16)),
+                            )
+                        elif is_bglike_structured_v10:
+                            net_cls = BGLikeStructuredV10
+                        elif is_bglike_structured_v9:
                             net_cls = BGLikeStructuredV9
                         elif is_bglike_structured_v8:
                             net_cls = BGLikeStructuredV8
@@ -489,6 +517,7 @@ if "ppo" not in list_agents():
                         net = net_cls(
                             ability_emb_dim=ability_emb_dim,
                             num_identities=dvd_num_identities,
+                            **extra_net_kwargs,
                             **v3_v4_kwargs,
                         )
                     else:

@@ -1,0 +1,121 @@
+# v10 = v9 + OPPONENT TOKENS + POST-ATTENTION THINKING CORE.
+#
+# Two additions over v9 (configs/bglike/ppo_v9_econ_74257.yaml):
+#   (A) the 77-dim lobby panel (7 opponents x [hp, alive, tribe-9]) is reshaped
+#       into 7 per-opponent attention TOKENS that join the entity self-attention,
+#       and removed from the flat globals path — opponents are pooled learnedly
+#       through CLS instead of fed as 77 raw floats to score_fc / state summary.
+#   (B) a ReZero residual-MLP "thinking" core (thinking_hidden=256, 2 blocks,
+#       alpha=0.1) refines the post-LN trunk before BOTH heads.
+#
+# Trains FROM SCRATCH (no `checkpoint:`). ReZero alpha is non-zero (0.1) on
+# purpose: from-scratch training has no warm-start to preserve, and a zero-init
+# additive branch can sit at a lazy minimum and never wake up. thinking_* use
+# the net's class defaults (256 / 2 / 0.1) — not threaded through the config.
+#
+# Same obs (OBS_DIM_V5), patch, league and hparams as v9. diversity_coef stays 0
+# (distributional critic assumes terminal reward == placement_reward).
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v10
+    observation_type: vector
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- architecture identical to v9 / 004 (+ opponent tokens + thinking core) ---
+    slot_hidden_channels: 64
+    region_conv2_kernel: 1
+    card_emb_dim: 16
+    entity_attention_layers: 4
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 10000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v10_think
+    - type: metrics_file
+      params:
+        interval: 1
+        preset: ppo_dvd
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 10
+  worker_device: cpu
