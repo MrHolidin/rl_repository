@@ -22,9 +22,13 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V9,
     PPO_NETWORK_BGLIKE_STRUCTURED_V10,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
-from src.training.bg_network_policy import reject_flat_bg_network
+from src.training.bg_network_policy import (
+    reject_flat_bg_network,
+    validate_heroes_consistency,
+)
 from src.registry import make_agent, make_game
 from src.training.callbacks import MetricsFileCallback, StatusFileCallback
 from src.training.distributed_trainer import (
@@ -137,6 +141,7 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V9,
         PPO_NETWORK_BGLIKE_STRUCTURED_V10,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     )
     game_params["use_structured"] = use_structured
     # DvD/v7: thread the population knobs through to workers (mg) so each worker
@@ -147,6 +152,7 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V9,
         PPO_NETWORK_BGLIKE_STRUCTURED_V10,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     )
     if is_dvd_v7:
         game_params["dvd_network_type"] = network_type
@@ -188,6 +194,24 @@ def run_distributed(
                 f"got {existing!r}"
             )
         game_params["obs_kind"] = OBS_KIND_BGLIKE_V5
+
+    # v11_heroes reads the hero-augmented obs (obs_v5 + hero block).
+    if network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES and game_id == "bglike":
+        from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V5_HEROES
+
+        existing = game_params.get("obs_kind")
+        if existing is not None and existing != OBS_KIND_BGLIKE_V5_HEROES:
+            raise ValueError(
+                f"network_type={network_type!r} requires obs_kind={OBS_KIND_BGLIKE_V5_HEROES!r}, "
+                f"got {existing!r}"
+            )
+        game_params["obs_kind"] = OBS_KIND_BGLIKE_V5_HEROES
+        # The hero net is meaningless without heroes assigned; default it on
+        # (an explicit game.params.with_heroes still wins).
+        game_params.setdefault("with_heroes", True)
+
+    # Reject a heroes/network mismatch (e.g. with_heroes=true on a non-hero net).
+    validate_heroes_consistency(game_id, network_type, game_params)
 
     if game_id in ("minibg", "bglike"):
         from src.training.patch_config import apply_patch_to_agent_params

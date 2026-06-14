@@ -95,6 +95,11 @@ class BattleMinion:
 class BattleSide:
     minions: List[BattleMinion] = field(default_factory=list)
     cursor: int = 0
+    # Flat Attack added to every minion on this side (Deathwing's global +Attack
+    # aura; set equal on both sides since it buffs all minions in the combat).
+    attack_aura_all: int = 0
+    # Keywords granted to this side's left-most minion at Start of Combat (Al'Akir).
+    start_combat_keywords: frozenset = field(default_factory=frozenset)
 
     def alive_minions(self) -> List[BattleMinion]:
         return [m for m in self.minions if m.alive]
@@ -325,7 +330,7 @@ def attack_value(
     for other in side.minions:
         a, _ = _iter_stat_aura_contributions(minion, other, side)
         bonus += a
-    return minion.raw_attack + bonus + _self_aura_attack_bonus(
+    return minion.raw_attack + bonus + side.attack_aura_all + _self_aura_attack_bonus(
         minion, battle_field, side
     )
 
@@ -1450,6 +1455,17 @@ def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:
 
 
 def _fire_start_of_combat(rt: _CombatRuntime) -> None:
+    # Hero Start-of-Combat keyword grants to the left-most minion (Al'Akir:
+    # Windfury + Divine Shield + Taunt) — applied before minion start-of-combat.
+    for side_idx in (0, 1):
+        side = rt.side(side_idx)
+        if not side.start_combat_keywords:
+            continue
+        for bm in side.minions:
+            if bm.alive:
+                for kw in side.start_combat_keywords:
+                    _grant_keyword(rt, side_idx, bm, kw)
+                break
     for side_idx in (0, 1):
         side = rt.side(side_idx)
         enemy_idx = 1 - side_idx
@@ -1795,6 +1811,10 @@ def simulate_battle(
     patch: PatchContext,
     combat_gold_out: Optional[List[int]] = None,
     combat_hand_adds_out: Optional[List[List[str]]] = None,
+    p0_attack_aura_all: int = 0,
+    p1_attack_aura_all: int = 0,
+    p0_start_combat_keywords: frozenset = frozenset(),
+    p1_start_combat_keywords: frozenset = frozenset(),
 ) -> "BattleResult":
     # Snapshot the input boards (deep-ish copy by tuple) BEFORE any combat
     # mutation. This is the initial (step=0) snapshot fed to the battle
@@ -1824,6 +1844,13 @@ def simulate_battle(
 
     rt.sides = (_build_side(p0_board, rt), _build_side(p1_board, rt))
     side0, side1 = rt.sides
+    # Deathwing's +Attack aura buffs ALL minions in the combat → same flat bonus
+    # on both sides (sum so two Deathwings stack correctly).
+    combined_attack_aura = int(p0_attack_aura_all) + int(p1_attack_aura_all)
+    side0.attack_aura_all = combined_attack_aura
+    side1.attack_aura_all = combined_attack_aura
+    side0.start_combat_keywords = frozenset(p0_start_combat_keywords)
+    side1.start_combat_keywords = frozenset(p1_start_combat_keywords)
     _sync_health_all(rt)
 
     def _make_result(damage_p0: int, damage_p1: int, attack_first_side: int = 0) -> "BattleResult":

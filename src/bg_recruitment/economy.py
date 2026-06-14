@@ -33,13 +33,34 @@ def effective_sell_reward(minion: Minion) -> int:
 
 
 def effective_roll_cost(player: PlayerState) -> int:
+    # Nozdormu: first refresh each turn is free (takes precedence).
+    if player.hero_free_roll_pending:
+        return 0
     if player.next_roll_cost_override is not None:
         return max(0, int(player.next_roll_cost_override))
+    # Millhouse: every refresh costs a flat amount.
+    if player.hero is not None:
+        flat = player.hero.flat_refresh_cost()
+        if flat is not None:
+            return max(0, flat)
     return ROLL_COST
 
 
+def effective_buy_cost(player: PlayerState) -> int:
+    # Millhouse: minions cost a flat amount.
+    if player.hero is not None:
+        flat = player.hero.flat_buy_cost()
+        if flat is not None:
+            return max(0, flat)
+    return BUY_COST
+
+
 def effective_level_up_cost(player: PlayerState) -> int:
-    return max(0, player.next_tier_up_cost + player.upgrade_cost_delta)
+    base = player.next_tier_up_cost + player.upgrade_cost_delta
+    if player.hero is not None:
+        base += player.hero.upgrade_cost_surcharge()  # Millhouse: +1
+        base -= player.hero_upgrade_discount  # Chenvaala: accumulated discount
+    return max(0, base)
 
 
 def sell_from_board(
@@ -70,7 +91,7 @@ def buy_from_shop(
 ) -> None:
     minion = player.shop[slot]
     assert minion is not None
-    player.gold -= BUY_COST
+    player.gold -= effective_buy_cost(player)
     clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
     h = first_free_hand_slot(player)
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
@@ -91,6 +112,9 @@ def roll_shop(
 ) -> None:
     cost = effective_roll_cost(player)
     player.gold -= cost
+    # Nozdormu: consume the free first refresh for this turn.
+    if player.hero_free_roll_pending:
+        player.hero_free_roll_pending = False
     if player.free_roll_charges > 0:
         player.free_roll_charges -= 1
         if player.free_roll_charges > 0:
@@ -120,12 +144,14 @@ def level_up_tavern(
     cost = effective_level_up_cost(player)
     player.gold -= cost
     player.upgrade_cost_delta = 0
+    player.hero_upgrade_discount = 0  # Chenvaala: discount consumed by the upgrade
     old_tier = player.tavern_tier
     player.tavern_tier += 1
     if player.tavern_tier < MAX_TIER:
         player.next_tier_up_cost = LEVEL_UP_COSTS[player.tavern_tier]
-    old_n = shop_offers_count(old_tier)
-    new_n = shop_offers_count(player.tavern_tier)
+    extra = player.hero.extra_shop_slots() if player.hero is not None else 0
+    old_n = min(MAX_SHOP_SLOTS, shop_offers_count(old_tier) + extra)
+    new_n = min(MAX_SHOP_SLOTS, shop_offers_count(player.tavern_tier) + extra)
     while len(player.shop) < MAX_SHOP_SLOTS:
         player.shop.append(None)
     for i in range(old_n, new_n):

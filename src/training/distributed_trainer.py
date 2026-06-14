@@ -503,7 +503,7 @@ def _load_dist_agent(
     mg: dict,
 ) -> Any:
     patch_build = mg.get("patch_build")
-    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11"):
+    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes"):
         from src.agents.ppo_dvd_agent import PPODvDAgent
 
         return _maybe_compile_encode_state(PPODvDAgent.load(
@@ -690,7 +690,7 @@ def _collect_until_steps_flat(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -826,7 +826,7 @@ def _collect_until_steps_structured(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )

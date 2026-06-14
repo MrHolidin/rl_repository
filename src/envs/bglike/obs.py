@@ -237,14 +237,13 @@ def _tribe_lock_one_hot(tribe_counts: Mapping[Race, int]) -> np.ndarray:
     return out
 
 
-def _opponent_panel(
-    state: BGLikeState, seat: int
-) -> np.ndarray:
-    """``MAX_OPPS`` rows of (HP-sorted desc, alive flag, tribe-lock one-hot).
+def sorted_opponent_rows(state: BGLikeState, seat: int) -> List[tuple]:
+    """Opponent rows ``(opp_seat, hp, is_alive, tribe_counts)`` HP-sorted desc.
 
-    Eliminated players keep their last snapshot (``EliminatedSnapshot.last_board``
-    drives tribe-lock; HP is 0 with alive_mask=0). Remaining slots (lobby smaller
-    than ``NUM_PLAYERS``) are zero-padded.
+    Single source of truth for opponent ordering — the panel and any tail block
+    (e.g. opponent-hero one-hots) iterate this so their rows line up. Players who
+    never lived (lobby smaller than ``NUM_PLAYERS``) are omitted; remaining panel
+    slots are zero-padded by the caller.
     """
     elim_by_seat: Dict[int, EliminatedSnapshot] = {
         snap.seat: snap for snap in state.eliminated
@@ -265,15 +264,28 @@ def _opponent_panel(
             else:
                 # Player never lived (lobby smaller than NUM_PLAYERS); skip.
                 continue
-        rows.append((hp, is_alive, tribe_counts))
+        rows.append((i, hp, is_alive, tribe_counts))
 
     # Sort by HP descending; dead players (hp=0) fall to the tail naturally.
-    rows.sort(key=lambda r: (-r[0], 0 if r[1] else 1))
+    rows.sort(key=lambda r: (-r[1], 0 if r[2] else 1))
+    return rows
+
+
+def _opponent_panel(
+    state: BGLikeState, seat: int
+) -> np.ndarray:
+    """``MAX_OPPS`` rows of (HP-sorted desc, alive flag, tribe-lock one-hot).
+
+    Eliminated players keep their last snapshot (``EliminatedSnapshot.last_board``
+    drives tribe-lock; HP is 0 with alive_mask=0). Remaining slots (lobby smaller
+    than ``NUM_PLAYERS``) are zero-padded.
+    """
+    rows = sorted_opponent_rows(state, seat)
 
     hp_block = np.zeros(MAX_OPPS, dtype=np.float32)
     alive_block = np.zeros(MAX_OPPS, dtype=np.float32)
     tribe_block = np.zeros((MAX_OPPS, RACE_ONEHOT_DIM), dtype=np.float32)
-    for j, (hp, is_alive, tribe_counts) in enumerate(rows[:MAX_OPPS]):
+    for j, (_opp_seat, hp, is_alive, tribe_counts) in enumerate(rows[:MAX_OPPS]):
         hp_block[j] = float(hp) / float(STARTING_HEALTH)
         alive_block[j] = 1.0 if is_alive else 0.0
         tribe_block[j] = _tribe_lock_one_hot(tribe_counts)

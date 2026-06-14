@@ -12,6 +12,7 @@ from src.bg_player_turn import PlayerTurnContext, PlayerTurnEngine
 from src.games.turn_based_game import Action as ActionType
 from src.games.turn_based_game import TurnBasedGame
 
+from src.bg_recruitment import hero_passives
 from src.bg_recruitment import place as recruitment_place
 from src.bg_recruitment import shop as recruitment_shop
 from src.bg_recruitment import triples as recruitment_triples
@@ -58,11 +59,15 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         high_mode: bool = False,
+        with_heroes: bool = False,
         patch: Optional[PatchContext] = None,
         patch_dir: Optional[str] = None,
     ) -> None:
         self._rng = np.random.default_rng(seed)
         self._shop_full_tribes = shop_full_tribes
+        # When set, each seat is assigned a random hero (passive power) at game
+        # start. Off ⇒ classic no-hero seats (obs/actions unchanged).
+        self._with_heroes = bool(with_heroes)
         # Deterministic flag: when set, ``initial_state`` builds a "high mode"
         # start (all players at tier 5 / 10 gold / round 8 with a random tier-5
         # + tier-6 board). The *decision* of which games are high mode belongs
@@ -329,7 +334,19 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             placed_minion_board_index=None,
             placed_minion_pending_after=None,
         )
+        if self._with_heroes:
+            # Assign before the opening shop fill so Millificent/Ysera shape it.
+            hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
         self._refresh_shop(player, shop_excluded_race, shared_pool=shared_pool)
+        if self._with_heroes:
+            hero_passives.apply_hero_on_game_start(
+                player,
+                round_number,
+                patch=self._patch,
+                rng=self._rng,
+                shared_pool=shared_pool,
+                shop_excluded_race=shop_excluded_race,
+            )
         return player
 
     def _random_minion_of_tier(
@@ -394,11 +411,22 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             placed_minion_board_index=None,
             placed_minion_pending_after=None,
         )
+        if self._with_heroes:
+            hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
         for seed_tier in (5, 6):
             m = self._random_minion_of_tier(seed_tier, shop_excluded_race, shared_pool)
             if m is not None:
                 player.board.append(m)
         self._refresh_shop(player, shop_excluded_race, shared_pool=shared_pool)
+        if self._with_heroes:
+            hero_passives.apply_hero_on_game_start(
+                player,
+                round_number,
+                patch=self._patch,
+                rng=self._rng,
+                shared_pool=shared_pool,
+                shop_excluded_race=shop_excluded_race,
+            )
         return player
 
     def _copy_state(self, state: BGLikeState) -> BGLikeState:
@@ -471,6 +499,14 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             triple_reward_discover_pending=p.triple_reward_discover_pending,
             triple_reward_spell_tier=p.triple_reward_spell_tier,
             pogo_hoppers_played=p.pogo_hoppers_played,
+            # Hero is immutable for the game; its counters/levers must survive
+            # the per-action copy (the transient economy fields above do not).
+            hero=p.hero,
+            hero_buy_count=p.hero_buy_count,
+            hero_rotating_tribe=p.hero_rotating_tribe,
+            hero_elementals_progress=p.hero_elementals_progress,
+            hero_free_roll_pending=p.hero_free_roll_pending,
+            hero_upgrade_discount=p.hero_upgrade_discount,
         )
 
 

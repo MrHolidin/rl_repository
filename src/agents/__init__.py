@@ -26,6 +26,7 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V9,
     PPO_NETWORK_BGLIKE_STRUCTURED_V10,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -258,12 +259,16 @@ if "ppo" not in list_agents():
         is_bglike_structured_v9 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V9
         is_bglike_structured_v10 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V10
         is_bglike_structured_v11 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V11
+        is_bglike_structured_v11_heroes = (
+            network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES
+        )
         is_bglike_structured_v7 = (
             network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
             or is_bglike_structured_v8
             or is_bglike_structured_v9
             or is_bglike_structured_v10
             or is_bglike_structured_v11
+            or is_bglike_structured_v11_heroes
         )
         # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
         # appends the identity tail before feeding the net).
@@ -336,7 +341,14 @@ if "ppo" not in list_agents():
                     f"PPO network_type {network_type!r} requires num_actions and "
                     "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
-            if is_bglike_v5_or_v6:
+            if is_bglike_structured_v11_heroes:
+                from src.envs.bglike.obs_v5_heroes import OBS_DIM_V5_HEROES as _expected_obs
+
+                if tuple(obs_shape) != (_expected_obs,):
+                    raise ValueError(
+                        f"PPO network_type {network_type!r} requires observation_shape [{_expected_obs}]"
+                    )
+            elif is_bglike_v5_or_v6:
                 from src.envs.bglike.obs_v5 import OBS_DIM_V5 as _expected_obs
 
                 if tuple(obs_shape) != (_expected_obs,):
@@ -477,6 +489,9 @@ if "ppo" not in list_agents():
                         from ..models.bglike_structured_v9 import BGLikeStructuredV9
                         from ..models.bglike_structured_v10 import BGLikeStructuredV10
                         from ..models.bglike_structured_v11 import BGLikeStructuredV11
+                        from ..models.bglike_structured_v11_heroes import (
+                            BGLikeStructuredV11Heroes,
+                        )
 
                         ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
                         # Agent-level DvD knobs (not net constructor args except
@@ -494,8 +509,7 @@ if "ppo" not in list_agents():
                         # so workers/frozen/resume rebuild identically — no need
                         # to propagate them through game_params.
                         extra_net_kwargs: Dict[str, Any] = {}
-                        if is_bglike_structured_v11:
-                            net_cls = BGLikeStructuredV11
+                        if is_bglike_structured_v11 or is_bglike_structured_v11_heroes:
                             extra_net_kwargs = dict(
                                 summary_queries=int(kwargs.pop("summary_queries", 2)),
                                 thinking_blocks=int(kwargs.pop("thinking_blocks", 1)),
@@ -506,6 +520,12 @@ if "ppo" not in list_agents():
                                 combat_out=int(kwargs.pop("combat_out", 16)),
                                 pending_ctx_out=int(kwargs.pop("pending_ctx_out", 16)),
                             )
+                            if is_bglike_structured_v11_heroes:
+                                net_cls = BGLikeStructuredV11Heroes
+                                extra_net_kwargs["hero_hidden"] = int(kwargs.pop("hero_hidden", 48))
+                                extra_net_kwargs["hero_out"] = int(kwargs.pop("hero_out", 24))
+                            else:
+                                net_cls = BGLikeStructuredV11
                         elif is_bglike_structured_v10:
                             net_cls = BGLikeStructuredV10
                         elif is_bglike_structured_v9:

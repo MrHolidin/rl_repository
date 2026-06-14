@@ -23,7 +23,9 @@ def apply_bg_observation_defaults(
         return
     if gid == "bglike":
         kind = (obs_kind or "bglike").strip().lower()
-        if kind == "bglike_v5":
+        if kind == "bglike_v5_heroes":
+            from src.envs.bglike.obs_v5_heroes import OBS_DIM_V5_HEROES as OBS_DIM
+        elif kind == "bglike_v5":
             from src.envs.bglike.obs_v5 import OBS_DIM_V5 as OBS_DIM
         else:
             from src.envs.bglike.obs import OBS_DIM

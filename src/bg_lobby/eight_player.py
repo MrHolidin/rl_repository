@@ -13,6 +13,7 @@ from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot, GHOST_OPPO
 from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
 from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
+from src.bg_recruitment import hero_passives
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
 from src.envs.bglike.actions import gold_for_round
@@ -228,6 +229,9 @@ def resolve_combat_round(
                 p0_tavern_tier=live.tavern_tier,
                 p1_tavern_tier=match.ghost.tavern_tier,
                 patch=patch,
+                # Ghost boards carry no hero; only the live seat's hero applies.
+                p0_attack_aura_all=hero_passives.hero_combat_attack_aura(live),
+                p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(live),
             )
             dmg_live = battle_result.damage_p0
             _apply_hero_damage(state, match.a, dmg_live)
@@ -277,6 +281,10 @@ def resolve_combat_round(
             patch=patch,
             combat_gold_out=combat_gold,
             combat_hand_adds_out=combat_hand_adds,
+            p0_attack_aura_all=hero_passives.hero_combat_attack_aura(pa),
+            p1_attack_aura_all=hero_passives.hero_combat_attack_aura(pb),
+            p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(pa),
+            p1_start_combat_keywords=hero_passives.hero_start_combat_keywords(pb),
         )
         dmg_a, dmg_b = battle_result.damage_p0, battle_result.damage_p1
         # Battle-prediction-head snapshots for both seats. Orientation is
@@ -366,6 +374,15 @@ def resolve_combat_round(
         p.placed_minion_board_index = None
         p.placed_minion_pending_after = None
         fire_on_turn_start(p)
+        # Hero per-turn levers (Nozdormu free roll, Rat King tribe rotation,
+        # A.F. Kay gold-0 rounds). No-op when the seat has no hero.
+        hero_passives.apply_hero_on_turn_start(
+            p,
+            state.round_number,
+            patch=patch,
+            rng=rng,
+            shop_excluded_race=state.shop_excluded_race,
+        )
         if p.shop_freeze_next_round:
             refresh_shop_fill_empty_slots(p, state.shop_excluded_race)
             p.shop_freeze_next_round = False

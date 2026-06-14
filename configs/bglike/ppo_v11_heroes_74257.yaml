@@ -1,17 +1,17 @@
-# v8 = v7-plain + DISTRIBUTIONAL placement critic. Identical net trunk /
-# hparams / league to ppo_v7_plain_74257; the only change is the critic: an
-# 8-way softmax over final placement trained with cross-entropy on the actual
-# placement of each seat segment (labels backfilled at segment close).
-# V for GAE = expectation of the placement-reward vector under that softmax,
-# so PPO itself is untouched. value_loss in metrics.csv becomes the CE
-# (uniform baseline ln 8 ≈ 2.08); watch placement_acc (uniform = 0.125).
+# v11_heroes = v11 (flat clean structured AC) + HERO-power awareness.
 #
-# Keep diversity_coef / shaping at 0: any non-placement reward term is
-# invisible to the placement distribution and would bias V.
+# Trains with heroes assigned to every seat (patch-19.6 pool) and the policy
+# OBSERVES its hero via the bglike_v5_heroes obs (OBS_DIM_V5_HEROES = 2683):
+#   * self-hero scalar block (identity + effective costs + dynamic counters +
+#     combat indicators) late-fused by a dedicated hero_encoder;
+#   * each opponent's hero one-hot fused into its opponent token.
+# obs_v5 (2536) is a strict prefix, so the only new params vs v11 are the
+# hero_encoder, the widened opp_proj, and the resized trunk.
 #
-# Trains on post-2026-06-10 rules + obs (OBS_DIM_V5 = 2536); v7-plain
-# checkpoints from the same rules warm-start with strict=False (only
-# critic_dist.* is new), pre-rule-change checkpoints do not.
+# network_type=bglike_structured_v11_heroes auto-pins obs_kind=bglike_v5_heroes
+# and defaults with_heroes=true; both are set explicitly below for clarity. A
+# heroes net + with_heroes=false (or a non-hero net + with_heroes=true) is a
+# hard error (see validate_heroes_consistency).
 seed: 13
 
 game:
@@ -22,28 +22,24 @@ game:
     num_current_seats: 4
     patch_dir: data/bgcore/19_6_0_74257
     shop_excluded_count: 1
-    obs_kind: bglike_v5
+    obs_kind: bglike_v5_heroes
+    with_heroes: true
     percent_high_game: 0.2
-    # Assign each seat a random passive hero (patch-19.6 pool). Off keeps the
-    # classic no-hero game; obs/action dims are unchanged either way so old
-    # checkpoints run regardless. The policy does not yet observe its hero.
-    with_heroes: false
 
 agent:
   id: ppo
   params:
-    network_type: bglike_structured_v8
+    network_type: bglike_structured_v11_heroes
     observation_type: vector
     # --- DvD knobs neutralized: identities exist but carry no reward ---
     num_identities: 4
     diversity_coef: 0.0
     diversity_ema: 0.1
     identity_seed: 103
-    # --- v6-equivalent architecture (identical to 083 / v7-plain) ---
+    # --- v11 architecture (2 entity-attn layers; flat clean trunk) ---
     slot_hidden_channels: 64
-    region_conv2_kernel: 1
     card_emb_dim: 16
-    entity_attention_layers: 4
+    entity_attention_layers: 2
     entity_attention_heads: 4
     entity_attention_ff_mult: 4
     entity_attention_init_scale: 0.1
@@ -55,11 +51,20 @@ agent:
     action_dim: 64
     order_hidden: 64
     order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    # --- hero scalar encoder (new in v11_heroes) ---
+    hero_hidden: 48
+    hero_out: 24
     learning_rate: 0.0001
     discount_factor: 1.0
     gae_lambda: 0.99
     ppo_clip_eps: 0.2
-    # value clipping is a regression concept; the CE path ignores it.
     clip_value_loss: false
     value_clip_eps: null
     entropy_coef: 0.01
@@ -107,7 +112,7 @@ train:
     - type: checkpoint
       params:
         interval: 200000
-        prefix: dist_bglike_ppo_v8_dist
+        prefix: dist_bglike_ppo_v11_heroes
     - type: metrics_file
       params:
         interval: 1
