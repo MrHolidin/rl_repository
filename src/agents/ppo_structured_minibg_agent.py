@@ -879,19 +879,26 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                     place_mb = placement_tensor[mb_idx_t]
                     place_valid = place_mb >= 1
                     pl_logits = self.policy_net.placement_logits(cache["trunk"])
-                    if bool(place_valid.any()):
-                        value_loss = F.cross_entropy(
-                            pl_logits[place_valid], place_mb[place_valid] - 1
-                        )
-                        with torch.no_grad():
-                            acc_t = (
-                                pl_logits[place_valid].argmax(dim=-1) + 1
-                                == place_mb[place_valid]
-                            ).float().mean()
-                        acc_place += acc_t.detach()
-                        total_placement_batches += 1
-                    else:
-                        value_loss = pl_logits.sum() * 0.0
+                    # Unconditional masked CE (no data-dependent branch / no
+                    # bool().any() host sync — both block CUDA-graph capture).
+                    # Invalid rows get a dummy class (clamped) and are zeroed by
+                    # the validity weight, so loss and gradients are equivalent to
+                    # cross_entropy over the valid rows only (verified: grad exact,
+                    # loss within fp). All-invalid minibatch -> 0 loss/0 grad (the
+                    # old else-branch), via n_valid.clamp(min=1).
+                    valid_f = place_valid.to(pl_logits.dtype)
+                    n_valid = valid_f.sum().clamp(min=1.0)
+                    ce_all = F.cross_entropy(
+                        pl_logits, (place_mb - 1).clamp(min=0), reduction="none"
+                    )
+                    value_loss = (ce_all * valid_f).sum() / n_valid
+                    with torch.no_grad():
+                        correct = (
+                            (pl_logits.argmax(dim=-1) + 1 == place_mb).to(pl_logits.dtype)
+                            * valid_f
+                        ).sum() / n_valid
+                    acc_place += correct
+                    total_placement_batches += 1
                 elif self.clip_value_loss:
                     eps_v = (
                         float(self.value_clip_eps)
