@@ -13,10 +13,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from .base_agent import BaseAgent
+from .rnd import RNDModel, discounted_forward
 from .rollout_segments import (
     acting_seat_from_info,
     close_rollout_segment,
     compute_gae_advantages,
+    compute_turn_intrinsic_advantages,
     seat_ids_array,
 )
 from ..envs.base import StepResult
@@ -206,6 +208,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         model_config: Optional[Dict] = None,
         compute_detailed_metrics: bool = True,
         patch_build: Optional[int] = None,
+        rnd: Optional[Dict[str, Any]] = None,
     ) -> None:
         if not isinstance(network, StructuredActorCriticProtocol):
             raise TypeError(
@@ -310,6 +313,51 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self._battle_pred_aux_coef: float = float(bp_cfg.get("aux_coef", 0.01))
         self._battle_pred_detach: bool = bool(bp_cfg.get("detach_features", False))
         self._battle_pred_huber_delta: float = float(bp_cfg.get("huber_delta", 5.0))
+
+        # --- RND intrinsic-motivation exploration (optional) -----------
+        # Entirely host-side: workers collect obs unchanged, the host computes
+        # the intrinsic stream in the PPO update. Off unless ``rnd.enabled``.
+        self._rnd_enabled: bool = False
+        self.rnd: Optional[RNDModel] = None
+        self._rnd_config: Dict[str, Any] = dict(rnd or {})
+        if self._rnd_config.get("enabled", False):
+            if self._is_recurrent:
+                raise ValueError("RND is not wired into the recurrent (BPTT) update path")
+            if not (
+                getattr(self.policy_net, "with_value_int", False)
+                and hasattr(self.policy_net, "value_int_from_trunk")
+            ):
+                raise ValueError(
+                    "RND requires a network built with with_value_int=True "
+                    "(scalar intrinsic-value head) — set it in ppo_network kwargs"
+                )
+            cfg = self._rnd_config
+            num_pool = int(getattr(self.policy_net, "num_pool_indices"))
+            self.rnd = RNDModel(
+                num_pool,
+                embed_dim=int(cfg.get("embed_dim", 128)),
+                target_hidden=int(cfg.get("target_hidden", 256)),
+                predictor_hidden=int(cfg.get("predictor_hidden", 256)),
+                predictor_layers=int(cfg.get("predictor_layers", 2)),
+                obs_clip=float(cfg.get("obs_clip", 5.0)),
+            ).to(self.device)
+            # Predictor trains with the policy; target stays frozen (not added).
+            self.optimizer.add_param_group(
+                {
+                    "params": list(self.rnd.predictor.parameters()),
+                    "lr": float(cfg.get("predictor_lr", learning_rate)),
+                }
+            )
+            self._rnd_ext_coef = float(cfg.get("ext_coef", 1.0))
+            self._rnd_int_coef = float(cfg.get("int_coef", 1.0))
+            self._rnd_int_gamma = float(cfg.get("int_gamma", 0.99))   # per TURN
+            self._rnd_int_lambda = float(cfg.get("int_lambda", 0.95))  # per TURN
+            self._rnd_value_coef_int = float(cfg.get("value_coef_int", 0.5))
+            self._rnd_predictor_coef = float(cfg.get("predictor_coef", 1.0))
+            self._rnd_update_proportion = float(cfg.get("update_proportion", 0.25))
+            self._rnd_warmup_rounds = int(cfg.get("warmup_rounds", 1))
+            self._rnd_updates_done = 0
+            self._rnd_enabled = True
 
         if seed is not None:
             random.seed(seed)
@@ -624,6 +672,116 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             return self.policy_net.value_from_trunk(enc_cache["trunk"]).reshape(-1)
         return self.policy_net.critic(enc_cache["trunk"]).reshape(-1)
 
+    # ------------------------------------------------------------------
+    # RND intrinsic stream (host-side, turn-level, non-episodic)
+    # ------------------------------------------------------------------
+    def _value_int_batched(self, obs_tensor: torch.Tensor, rows: np.ndarray) -> np.ndarray:
+        """Pre-update ``V_int`` (no grad) at ``rows``, in minibatch-sized chunks."""
+        out = np.zeros(len(rows), dtype=np.float32)
+        if len(rows) == 0:
+            return out
+        rows_t = torch.as_tensor(rows, device=self.device)
+        with torch.no_grad():
+            for s in range(0, len(rows), self.minibatch_size):
+                idx = rows_t[s : s + self.minibatch_size]
+                _, cache = self.policy_net.encode_state(obs_tensor[idx])
+                out[s : s + int(idx.shape[0])] = (
+                    self.policy_net.value_int_from_trunk(cache["trunk"])
+                    .reshape(-1)
+                    .float()
+                    .cpu()
+                    .numpy()
+                )
+        return out
+
+    def _rnd_stream(
+        self,
+        obs_tensor: torch.Tensor,
+        complete_arr: np.ndarray,
+        seat_ids_arr: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, float]]:
+        """Compute the turn-level intrinsic advantages/returns for this rollout.
+
+        Novelty is scored once per turn on the settled end-of-turn board
+        (``complete_turn`` rows). Updates obs-rms / intrinsic-return-rms in place.
+        During warmup rounds the stats are seeded but the bonus stays zero.
+        """
+        rnd = self.rnd
+        assert rnd is not None
+        N = int(obs_tensor.shape[0])
+        node_idx = np.nonzero(complete_arr)[0]
+        is_node = np.zeros(N, dtype=np.bool_)
+        is_node[node_idx] = True
+        values_int = np.zeros(N, dtype=np.float32)
+        int_reward = np.zeros(N, dtype=np.float32)
+        diag: Dict[str, float] = {"rnd/num_nodes": float(node_idx.size)}
+
+        if node_idx.size > 0:
+            node_obs = obs_tensor[torch.as_tensor(node_idx, device=self.device)]
+            with torch.no_grad():
+                feats = rnd.featurize(node_obs)
+            rnd.update_obs_rms(feats)
+            values_int[node_idx] = self._value_int_batched(obs_tensor, node_idx)
+
+            if self._rnd_updates_done >= self._rnd_warmup_rounds:
+                with torch.no_grad():
+                    nov = rnd.novelty(feats).float().cpu().numpy()
+                diag["rnd/novelty_mean"] = float(nov.mean())
+                # intrinsic-return normalization (CleanRL RewardForwardFilter):
+                # forward-discount node rewards per seat, fit the return-rms, divide.
+                nov_by_row = {int(r): float(v) for r, v in zip(node_idx.tolist(), nov.tolist())}
+                seat_nodes: Dict[int, List[int]] = {}
+                for r in node_idx.tolist():
+                    seat_nodes.setdefault(int(seat_ids_arr[r]), []).append(r)
+                ret_chunks = [
+                    discounted_forward([nov_by_row[r] for r in rows], self._rnd_int_gamma)
+                    for rows in seat_nodes.values()
+                ]
+                rnd.update_ret_rms(np.concatenate(ret_chunks))
+                std = rnd.ret_std()
+                int_reward[node_idx] = nov / max(std, 1e-8)
+                diag["rnd/ret_std"] = float(std)
+                diag["rnd/int_reward_mean"] = float(int_reward[node_idx].mean())
+
+        int_adv, int_ret, _ = compute_turn_intrinsic_advantages(
+            int_reward,
+            values_int,
+            complete_arr,
+            seat_ids_arr,
+            discount_factor=self._rnd_int_gamma,
+            gae_lambda=self._rnd_int_lambda,
+        )
+        return int_adv, int_ret, is_node, diag
+
+    def _rnd_grad_decomposition(
+        self,
+        policy_term: torch.Tensor,
+        value_term: torch.Tensor,
+        value_int_term: torch.Tensor,
+    ) -> Dict[str, float]:
+        """Grad-norm each additive loss term contributes to the policy net's
+        parameters. ``value_int`` shares the trunk with the actor and the
+        placement critic, so these norms — not the loss *values* — are the real
+        balance to tune ``value_coef_int`` by (a large loss can carry a small
+        gradient and vice versa; cf. the v8 CE-vs-MSE ×37 lesson). Runs once per
+        update on one minibatch: three extra partial backwards over a live graph
+        (``retain_graph`` keeps it for the subsequent ``loss.backward()``)."""
+        params = [p for p in self.policy_net.parameters() if p.requires_grad]
+
+        def gnorm(term: torch.Tensor) -> float:
+            grads = torch.autograd.grad(term, params, retain_graph=True, allow_unused=True)
+            sq = torch.zeros((), device=self.device)
+            for g in grads:
+                if g is not None:
+                    sq = sq + g.detach().pow(2).sum()
+            return float(torch.sqrt(sq).item())
+
+        return {
+            "rnd/gradnorm_policy": gnorm(policy_term),
+            "rnd/gradnorm_value": gnorm(value_term),
+            "rnd/gradnorm_value_int": gnorm(value_int_term),
+        }
+
     def _ppo_struct_update(self) -> Dict[str, float]:
         if self._is_recurrent:
             return self._ppo_struct_update_recurrent()
@@ -686,7 +844,23 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             last_next_value=last_bootstrap,
         )
 
-        advantages = torch.from_numpy(adv_np).to(device)
+        # RND: add the turn-level intrinsic advantage stream, combined with the
+        # extrinsic one BEFORE the single normalization (CleanRL convention).
+        rnd_diag: Dict[str, float] = {}
+        int_returns_t: Optional[torch.Tensor] = None
+        rnd_node_t: Optional[torch.Tensor] = None
+        if self._rnd_enabled:
+            int_adv_np, int_ret_np, rnd_is_node, rnd_diag = self._rnd_stream(
+                obs_tensor, complete_arr, seat_ids_arr
+            )
+            combined_np = self._rnd_ext_coef * adv_np + self._rnd_int_coef * int_adv_np
+            rnd_diag["rnd/adv_ext_std"] = float(np.std(self._rnd_ext_coef * adv_np))
+            rnd_diag["rnd/adv_int_std"] = float(np.std(self._rnd_int_coef * int_adv_np))
+            advantages = torch.from_numpy(combined_np).to(device)
+            int_returns_t = torch.from_numpy(int_ret_np).to(device)
+            rnd_node_t = torch.from_numpy(rnd_is_node).to(device)
+        else:
+            advantages = torch.from_numpy(adv_np).to(device)
         returns = torch.from_numpy(ret_np).to(device)
         advantages = (advantages - advantages.mean()) / (advantages.std(unbiased=False) + 1e-8)
 
@@ -769,6 +943,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_battle_corr_batches = 0  # corr undefined for single-sample minibatches
         total_placement_acc = 0.0
         total_placement_batches = 0
+        total_rnd_value_loss = 0.0
+        total_rnd_pred_loss = 0.0
+        total_rnd_batches = 0
+        grad_diag: Dict[str, float] = {}  # per-term grad-norm decomposition (once/update)
         grad_norm: torch.Tensor | float = 0.0
 
         indices = np.arange(N, dtype=np.int64)
@@ -935,6 +1113,25 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                             battle_sign_acc_item = float(sign_correct.float().mean().item())
                         battle_loss_item = float(battle_loss_term.item())
 
+                # ---- RND intrinsic-value head + predictor distillation ----
+                rnd_value_loss_term = None
+                rnd_pred_loss_term = None
+                if self._rnd_enabled and rnd_node_t is not None:
+                    node_mb = rnd_node_t[mb_idx_t]
+                    if bool(node_mb.any()):
+                        v_int = self.policy_net.value_int_from_trunk(cache["trunk"])
+                        int_ret_mb = int_returns_t[mb_idx_t]
+                        rnd_value_loss_term = (
+                            v_int[node_mb] - int_ret_mb[node_mb]
+                        ).pow(2).mean()
+                        # Distill the random target on visited boards, on a random
+                        # ``update_proportion`` of node rows (predictor must not
+                        # outrun the actor, or novelty collapses too fast).
+                        feat_mb = self.rnd.featurize(obs_mb[node_mb])
+                        per_row = self.rnd.predictor_loss(feat_mb)
+                        keep = torch.rand_like(per_row) < self._rnd_update_proportion
+                        rnd_pred_loss_term = (per_row * keep).sum() / keep.sum().clamp(min=1.0)
+
                 loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy_mb
                 if battle_loss_term is not None:
                     # ``aux_coef`` controls how strongly the head pulls on the
@@ -942,6 +1139,20 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                     # own MLP gets gradient; if ``detach_features=True`` the
                     # gradient stops at the head and the backbone is untouched.
                     loss = loss + self._battle_pred_aux_coef * battle_loss_term
+                if rnd_value_loss_term is not None:
+                    loss = loss + self._rnd_value_coef_int * rnd_value_loss_term
+                if rnd_pred_loss_term is not None:
+                    loss = loss + self._rnd_predictor_coef * rnd_pred_loss_term
+
+                # Real per-term gradient pull on the shared net (once per update,
+                # on the first node-bearing minibatch) — the honest way to balance
+                # value_coef_int, since loss *value* != gradient (cf. v8 CE×37).
+                if self._rnd_enabled and not grad_diag and rnd_value_loss_term is not None:
+                    grad_diag = self._rnd_grad_decomposition(
+                        policy_loss,
+                        self.value_coef * value_loss,
+                        self._rnd_value_coef_int * rnd_value_loss_term,
+                    )
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -954,6 +1165,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 total_approx_kl += approx_kl.item()
                 total_batches += 1
                 total_clip_frac += float(clip_frac_t.item())
+                if rnd_value_loss_term is not None:
+                    total_rnd_value_loss += float(rnd_value_loss_term.item())
+                    total_rnd_pred_loss += float(rnd_pred_loss_term.item())
+                    total_rnd_batches += 1
                 if battle_loss_item is not None:
                     total_battle_loss += battle_loss_item
                     total_battle_mae += battle_mae_item
@@ -968,9 +1183,25 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             return {}
 
         gn = float(grad_norm.item()) if isinstance(grad_norm, torch.Tensor) else float(grad_norm)
+        # Weighted additive terms of the total loss (per-batch mean, so they sum
+        # to ``loss``). Terms that fire on a subset of batches (battle aux, RND)
+        # are still divided by ``total_batches`` → their true mean contribution.
+        denom = float(total_batches)
+        loss_policy = total_policy_loss / denom
+        loss_value = self.value_coef * total_value_loss / denom
+        loss_entropy = self.entropy_coef * total_entropy / denom
+        loss_total = loss_policy + loss_value - loss_entropy
+        loss_total += self._battle_pred_aux_coef * total_battle_loss / denom
+        if self._rnd_enabled:
+            loss_total += (
+                self._rnd_value_coef_int * total_rnd_value_loss
+                + self._rnd_predictor_coef * total_rnd_pred_loss
+            ) / denom
         out_metrics = {
-            "loss": (total_policy_loss + self.value_coef * total_value_loss - self.entropy_coef * total_entropy)
-            / total_batches,
+            "loss": loss_total,
+            "loss/policy": loss_policy,
+            "loss/value": loss_value,
+            "loss/entropy": loss_entropy,
             "policy_loss": total_policy_loss / total_batches,
             "value_loss": total_value_loss / total_batches,
             "entropy": total_entropy / total_batches,
@@ -995,6 +1226,16 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             # value_loss above is the placement CE; acc is its readable companion
             # (uniform baseline = 0.125).
             out_metrics["placement_acc"] = total_placement_acc / total_placement_batches
+        if self._rnd_enabled:
+            out_metrics.update(rnd_diag)
+            out_metrics.update(grad_diag)  # rnd/gradnorm_{policy,value,value_int}
+            if total_rnd_batches > 0:
+                out_metrics["rnd/value_loss"] = total_rnd_value_loss / total_rnd_batches
+                out_metrics["rnd/predictor_loss"] = total_rnd_pred_loss / total_rnd_batches
+                # Weighted additive members of the total loss (comparable to loss/*).
+                out_metrics["loss/value_int"] = self._rnd_value_coef_int * total_rnd_value_loss / denom
+                out_metrics["loss/predictor"] = self._rnd_predictor_coef * total_rnd_pred_loss / denom
+            self._rnd_updates_done += 1
         return out_metrics
 
     # ------------------------------------------------------------------
@@ -1383,6 +1624,12 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         }
         if self.patch_build is not None:
             checkpoint["patch_build"] = int(self.patch_build)
+        if self._rnd_enabled and self.rnd is not None:
+            # Nets + running stats live in the module state_dict; the frozen
+            # target is saved too so a resumed run scores novelty identically.
+            checkpoint["rnd_config"] = dict(self._rnd_config)
+            checkpoint["rnd_state_dict"] = self.rnd.state_dict()
+            checkpoint["rnd_updates_done"] = int(self._rnd_updates_done)
         if save_epsilon:
             checkpoint["epsilon"] = self.epsilon
         torch.save(checkpoint, path)
@@ -1441,6 +1688,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "device": eff_device,
             "model_config": checkpoint.get("model_config"),
             "patch_build": checkpoint.get("patch_build", expected_build),
+            "rnd": checkpoint.get("rnd_config"),
         }
         allowed_ov = frozenset(
             {
@@ -1470,6 +1718,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         agent.step_count = checkpoint.get("step_count", 0)
         agent.epsilon = checkpoint.get("epsilon", 0.0)
+        if agent.rnd is not None and checkpoint.get("rnd_state_dict") is not None:
+            agent.rnd.load_state_dict(checkpoint["rnd_state_dict"])
+            agent._rnd_updates_done = int(checkpoint.get("rnd_updates_done", 0))
         return agent
 
 

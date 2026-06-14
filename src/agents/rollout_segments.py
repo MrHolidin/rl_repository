@@ -139,10 +139,83 @@ def compute_gae_advantages(
     return advantages, returns
 
 
+def compute_turn_intrinsic_advantages(
+    intrinsic_rewards: np.ndarray,
+    values_int: np.ndarray,
+    complete_turn: np.ndarray,
+    seat_ids: np.ndarray,
+    *,
+    discount_factor: float,
+    gae_lambda: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Turn-level, non-episodic GAE for the RND intrinsic stream.
+
+    The intrinsic reward is a property of a whole turn's settled board (credited
+    on ``complete_turn`` rows), so the intrinsic MDP runs one node PER TURN —
+    ``discount_factor`` / ``gae_lambda`` are therefore per-turn, not per-micro-step.
+    Each seat's turn nodes form an independent trajectory (buffer order).
+
+    Returns ``(advantages, returns, is_node)`` all shaped ``(N,)``:
+      * ``advantages`` — the turn's intrinsic advantage BROADCAST to every row of
+        that turn (every buy/play that built the board shares the credit). Rows
+        after a seat's last completed turn (a buffer-edge partial turn) stay 0.
+      * ``returns`` — intrinsic value target, meaningful only on node rows.
+      * ``is_node`` — True on ``complete_turn`` rows; the intrinsic value head is
+        trained (MSE) only there.
+
+    Non-episodic: a seat's final turn bootstraps from its OWN ``V_int`` (a
+    continuing-task stand-in for the unobserved next game) instead of 0, so a
+    novel board reached just before elimination is not treated as worthless.
+    """
+    n = int(len(intrinsic_rewards))
+    advantages = np.zeros(n, dtype=np.float32)
+    returns = np.zeros(n, dtype=np.float32)
+    is_node = np.zeros(n, dtype=np.bool_)
+    if n == 0:
+        return advantages, returns, is_node
+
+    seat_to_idxs: Dict[int, List[int]] = {}
+    for t in range(n):
+        seat_to_idxs.setdefault(int(seat_ids[t]), []).append(t)
+
+    for _seat, idxs in seat_to_idxs.items():
+        # Segment this seat's rows into turns: a turn is the run of rows ending
+        # at a ``complete_turn`` node. ``members`` are broadcast targets.
+        turns: List[Tuple[int, List[int]]] = []
+        members: List[int] = []
+        for t in idxs:
+            members.append(t)
+            if bool(complete_turn[t]):
+                turns.append((t, members))
+                members = []
+        # Trailing ``members`` (a turn cut by the buffer edge) have no node → 0.
+
+        gae = 0.0
+        for k in reversed(range(len(turns))):
+            node, member_rows = turns[k]
+            if k < len(turns) - 1:
+                next_value = float(values_int[turns[k + 1][0]])
+            else:
+                next_value = float(values_int[node])  # non-episodic self-bootstrap
+            delta = (
+                float(intrinsic_rewards[node])
+                + discount_factor * next_value
+                - float(values_int[node])
+            )
+            gae = delta + discount_factor * gae_lambda * gae
+            for r in member_rows:
+                advantages[r] = gae
+            returns[node] = gae + float(values_int[node])
+            is_node[node] = True
+
+    return advantages, returns, is_node
+
+
 __all__ = [
     "SegmentRolloutBuffer",
     "acting_seat_from_info",
     "close_rollout_segment",
     "compute_gae_advantages",
+    "compute_turn_intrinsic_advantages",
     "seat_ids_array",
 ]

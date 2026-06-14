@@ -229,3 +229,139 @@ def test_real_collect_and_update_grad_reaches_heroes(patch):
     # And the widened opponent projection (opponent-hero one-hot path) has a grad.
     assert net.opp_proj.weight.grad is not None
     assert torch.isfinite(net.opp_proj.weight.grad).all()
+
+
+def _collect_rollout(agent, env, rollout_steps):
+    """Real collection loop (mirrors distributed_trainer._collect_until_steps_structured)."""
+    from src.agents.ppo_structured_minibg_agent import (
+        INFO_STRUCT_LEGAL,
+        INFO_STRUCT_NEXT_LEGAL,
+    )
+    from src.training.bglike_perspective import (
+        apply_bglike_segment_closures_after_observe,
+    )
+    from src.training.trainer import Transition
+
+    safety = 0
+    while len(agent.rollout_buffer) < rollout_steps and safety < 50:
+        safety += 1
+        obs = env.reset()
+        last_info: dict = {}
+        while not env.done:
+            legal = env.legal_structured_actions()
+            if not legal:
+                break
+            struct_act, board_perm, idx = agent.act_structured(
+                obs, legal, env, deterministic=False
+            )
+            step = env.step_structured(struct_act, board_perm=board_perm)
+            info = step.info if isinstance(step.info, dict) else {}
+            next_sl = [] if env.done else list(env.legal_structured_actions())
+            agent.observe(
+                Transition(
+                    obs=obs,
+                    action=idx,
+                    reward=float(step.reward),
+                    next_obs=step.obs,
+                    terminated=step.terminated,
+                    truncated=step.truncated,
+                    info={**info, INFO_STRUCT_LEGAL: legal, INFO_STRUCT_NEXT_LEGAL: next_sl},
+                    legal_mask=None,
+                    next_legal_mask=None,
+                )
+            )
+            apply_bglike_segment_closures_after_observe(env, info)
+            obs = step.obs
+            if env.done:
+                last_info = info
+                break
+        env.notify_episode_end(last_info)
+
+
+def test_rnd_real_collect_and_update(patch):
+    """The RND branch of the PPO update runs on a REAL collected rollout: the
+    intrinsic stream is built, combined, and its losses reach the new heads."""
+    from src.training.bglike_perspective import make_bglike_agent_perspective_env
+    from src.training.opponent_sampler import RandomOpponentSampler
+
+    torch.manual_seed(0)
+    rollout_steps = 64
+    agent = make_agent(
+        "ppo",
+        network_type="bglike_structured_v11_heroes",
+        observation_shape=(OBS_DIM_V5_HEROES,),
+        observation_type="vector",
+        num_actions=int(NUM_ENV_ACTIONS),
+        num_pool_indices=patch.num_pool_indices,
+        num_identities=4,
+        slot_hidden_channels=32,
+        card_emb_dim=16,
+        entity_attention_layers=2,
+        rollout_steps=rollout_steps,
+        ppo_epochs=1,
+        minibatch_size=32,
+        learning_rate=1e-3,
+        value_coef=0.05,
+        device="cpu",
+        rnd={
+            "enabled": True,
+            "warmup_rounds": 0,  # exercise the bonus on the very first update
+            "int_coef": 1.0,
+            "value_coef_int": 0.5,
+            "embed_dim": 32,
+            "target_hidden": 32,
+            "predictor_hidden": 32,
+            "predictor_layers": 1,
+        },
+    )
+    agent.train()
+    assert agent._rnd_enabled and agent.policy_net.with_value_int is True
+
+    env = make_bglike_agent_perspective_env(
+        RandomOpponentSampler(seed=1),
+        current_seats=(0,),
+        seed=1,
+        patch_dir=PATCH_DIR,
+        obs_kind="bglike_v5_heroes",
+        with_heroes=True,
+    )
+    if hasattr(env, "set_learner_agent"):
+        env.set_learner_agent(agent)
+
+    _collect_rollout(agent, env, rollout_steps)
+    assert len(agent.rollout_buffer) >= rollout_steps, "failed to collect a rollout"
+
+    before_vi = agent.policy_net.value_int[0].weight.detach().clone()
+    metrics = agent.update()
+
+    assert metrics, "update returned no metrics"
+    for k, v in metrics.items():
+        if isinstance(v, float):
+            assert np.isfinite(v), f"non-finite metric {k}={v}"
+    # A real rollout closes at least one turn → the intrinsic stream had nodes.
+    assert metrics.get("rnd/num_nodes", 0) >= 1
+    assert "rnd/value_loss" in metrics and "rnd/adv_int_std" in metrics
+    # Intrinsic value head actually trained (gradient reached it).
+    after_vi = agent.policy_net.value_int[0].weight.detach()
+    assert not torch.allclose(before_vi, after_vi), "value_int head did not update"
+    # The obs/return normalization stats advanced this update.
+    assert float(agent.rnd.obs_count.item()) > 1.0
+
+    # Loss-decomposition + grad-balance metrics are present...
+    for key in (
+        "loss/policy", "loss/value", "loss/entropy", "loss/value_int", "loss/predictor",
+        "rnd/gradnorm_policy", "rnd/gradnorm_value", "rnd/gradnorm_value_int",
+    ):
+        assert key in metrics, f"missing metric {key}"
+    # ...and the weighted additive members reconstruct the reported total loss
+    # (no battle head here, so those are the only terms).
+    recon = (
+        metrics["loss/policy"]
+        + metrics["loss/value"]
+        - metrics["loss/entropy"]
+        + metrics["loss/value_int"]
+        + metrics["loss/predictor"]
+    )
+    assert np.isclose(metrics["loss"], recon, atol=1e-4), (metrics["loss"], recon)
+    # value_int actually pulls on the shared trunk (non-zero grad contribution).
+    assert metrics["rnd/gradnorm_value_int"] > 0.0

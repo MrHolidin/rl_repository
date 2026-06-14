@@ -61,6 +61,7 @@ _PPO_AGENT_KWARGS = frozenset(
         "action_space",
         "compute_detailed_metrics",
         "patch_build",
+        "rnd",
     }
 )
 
@@ -519,6 +520,14 @@ if "ppo" not in list_agents():
                                 economy_out=int(kwargs.pop("economy_out", 32)),
                                 combat_out=int(kwargs.pop("combat_out", 16)),
                                 pending_ctx_out=int(kwargs.pop("pending_ctx_out", 16)),
+                            )
+                            # RND needs the scalar intrinsic-value head baked into
+                            # the net (rides get_constructor_kwargs into the ckpt,
+                            # so workers/frozen/resume rebuild identically). ``rnd``
+                            # stays in kwargs → passed to the agent via the filter.
+                            _rnd_cfg = kwargs.get("rnd") or {}
+                            extra_net_kwargs["with_value_int"] = bool(
+                                _rnd_cfg.get("enabled", False)
                             )
                             if is_bglike_structured_v11_heroes:
                                 net_cls = BGLikeStructuredV11Heroes

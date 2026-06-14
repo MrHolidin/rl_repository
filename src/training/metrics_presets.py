@@ -79,6 +79,30 @@ METRICS_PRESET_PPO_DVD: Tuple[str, ...] = (
     + tuple(f"dvd_assigned_frac_{i}" for i in range(_DVD_MAX_IDENTITIES_LOGGED))
 )
 
+# RND intrinsic-motivation scalars (blank unless ``rnd.enabled``). Superset of
+# the DvD preset so a probe run keeps the usual PPO/placement diagnostics too.
+METRICS_PRESET_PPO_RND: Tuple[str, ...] = (
+    METRICS_PRESET_PPO_DVD
+    + (
+        "rnd/num_nodes",
+        "rnd/novelty_mean",
+        "rnd/ret_std",
+        "rnd/int_reward_mean",
+        "rnd/adv_ext_std",          # std(ext_coef·A_ext) before the combined norm
+        "rnd/adv_int_std",          # std(int_coef·A_int)  — novelty's pull on policy
+        "rnd/value_loss",
+        "rnd/predictor_loss",
+        "rnd/gradnorm_policy",      # grad-norm balance on the shared net (tune
+        "rnd/gradnorm_value",       # value_coef_int against these, not loss values)
+        "rnd/gradnorm_value_int",
+        "loss/policy",              # weighted additive members of the total loss
+        "loss/value",
+        "loss/entropy",
+        "loss/value_int",
+        "loss/predictor",
+    )
+)
+
 # Unknown agents: small generic set (both DQN and PPO often expose loss / grad_norm).
 METRICS_PRESET_MINIMAL: Tuple[str, ...] = ("loss", "grad_norm")
 
@@ -129,6 +153,8 @@ def resolve_metrics_csv_fieldnames(
         suffix = METRICS_PRESET_PPO
     elif p in ("ppo_dvd", "dvd"):
         suffix = METRICS_PRESET_PPO_DVD
+    elif p in ("ppo_rnd", "rnd"):
+        suffix = METRICS_PRESET_PPO_RND
     elif p == "minimal":
         suffix = METRICS_PRESET_MINIMAL
     else:
@@ -151,6 +177,7 @@ __all__ = [
     "METRICS_PRESET_DQN",
     "METRICS_PRESET_PPO",
     "METRICS_PRESET_PPO_DVD",
+    "METRICS_PRESET_PPO_RND",
     "METRICS_PRESET_MINIMAL",
     "LEGACY_DQN_METRICS_FIELDS",
     "resolve_metrics_csv_fieldnames",

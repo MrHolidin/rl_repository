@@ -182,6 +182,7 @@ class BGLikeStructuredV11(nn.Module):
         pending_ctx_out: int = 16,
         num_identities: int = 4,
         num_pool_indices: Optional[int] = None,
+        with_value_int: bool = False,
         # --- accepted-and-ignored (obsolete in v11; kept so the shared agent /
         #     existing configs can pass them without erroring) ---
         region_conv2_kernel: Any = None,
@@ -220,6 +221,9 @@ class BGLikeStructuredV11(nn.Module):
         self.pending_ctx_out = int(pending_ctx_out)
         self.num_identities = int(num_identities)
         self.num_pool_indices = int(num_pool_indices)
+        # Optional scalar intrinsic-value head (RND): kept off by default so
+        # existing checkpoints (no ``value_int.*`` keys) still load strict.
+        self.with_value_int = bool(with_value_int)
         self.k_abil = int(K_ABIL)
         self.abil_feat_dim = int(ABIL_FEAT_DIM)
 
@@ -361,6 +365,12 @@ class BGLikeStructuredV11(nn.Module):
         nn.init.zeros_(self.critic_dist[-1].bias)
         self.register_buffer("placement_reward_vec", _placement_reward_vec())
 
+        # ---- Optional scalar intrinsic-value head (RND) -------------------
+        # Subclasses that resize the trunk (v11_heroes) rebuild this alongside
+        # ``critic_dist`` via ``_build_value_int`` against the grown summary dim.
+        if self.with_value_int:
+            self._build_value_int()
+
         # ---- Action embedding + economy term + cross-attn ----------------
         self.type_emb = nn.Embedding(_NUM_STRUCT_TYPES, self.action_dim)
         self.role_emb = nn.Embedding(_NUM_ROLES, self.action_dim)
@@ -434,6 +444,7 @@ class BGLikeStructuredV11(nn.Module):
             "pending_ctx_out": self.pending_ctx_out,
             "num_identities": self.num_identities,
             "num_pool_indices": self.num_pool_indices,
+            "with_value_int": self.with_value_int,
         }
 
     # ------------------------------------------------------------------
@@ -611,6 +622,21 @@ class BGLikeStructuredV11(nn.Module):
     def value_from_trunk(self, trunk: torch.Tensor) -> torch.Tensor:
         probs = torch.softmax(self.placement_logits(trunk), dim=-1)
         return (probs * self.placement_reward_vec).sum(dim=-1)
+
+    # ------------------------------------------------------------------
+    # Optional scalar intrinsic-value head (RND, non-distributional MSE)
+    # ------------------------------------------------------------------
+    def _build_value_int(self) -> None:
+        self.value_int = nn.Sequential(
+            nn.Linear(self._state_summary_dim, self.critic_hidden),
+            nn.ReLU(),
+            nn.Linear(self.critic_hidden, 1),
+        )
+        nn.init.zeros_(self.value_int[-1].weight)
+        nn.init.zeros_(self.value_int[-1].bias)
+
+    def value_int_from_trunk(self, trunk: torch.Tensor) -> torch.Tensor:
+        return self.value_int(trunk).squeeze(-1)
 
     # ------------------------------------------------------------------
     # Action encoding (base + economy + cross-attn)

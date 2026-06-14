@@ -96,6 +96,9 @@ class BGLikeStructuredV11Heroes(BGLikeStructuredV11):
         )
         nn.init.zeros_(self.critic_dist[-1].weight)
         nn.init.zeros_(self.critic_dist[-1].bias)
+        # Intrinsic-value head (if enabled) must also absorb the grown trunk.
+        if self.with_value_int:
+            self._build_value_int()
 
     def get_constructor_kwargs(self) -> Dict[str, Any]:
         kw = super().get_constructor_kwargs()
