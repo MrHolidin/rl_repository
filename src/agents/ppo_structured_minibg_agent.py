@@ -44,6 +44,12 @@ from ..models.ppo_policy_factory import (
 INFO_STRUCT_LEGAL = "minibg_struct_legal"
 INFO_STRUCT_NEXT_LEGAL = "minibg_struct_next_legal"
 
+# Phase 2: action-dim (Lmax) bucket granularity for the PPO update. Bucketing
+# the per-round action tensor width to a fixed grid keeps the compiled update at
+# a handful of static shapes (foundation for CUDA-graph capture). Padded slots
+# are masked, so it is bit-identical to the exact Lmax.
+_LMAX_BUCKET = 16
+
 
 def _stack_and_release(arrs: List[np.ndarray]) -> np.ndarray:
     """Stack equal-shape arrays into one contiguous array, releasing each
@@ -710,6 +716,15 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             raise ValueError(
                 "structured PPO update: empty legal_lists in rollout buffer (should be unreachable)"
             )
+        # Phase 2 (static-shape foundation): bucket the action dim up to a fixed
+        # grid so the compiled update sees only a handful of Lmax shapes (the
+        # prerequisite for CUDA-graph capture). The extra slots are NULL and get
+        # masked to -inf in the action head — the SAME padding the model already
+        # applies to rows shorter than Lmax_global — so logits/loss/grads are
+        # bit-identical to using the exact Lmax_global.
+        Lmax_padded = (
+            (Lmax_global + _LMAX_BUCKET - 1) // _LMAX_BUCKET
+        ) * _LMAX_BUCKET
         (
             t_np,
             r_np,
@@ -718,7 +733,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             tgt_k_np,
             tgt_s_np,
             m_np,
-        ) = _build_action_tokens(buf.legal_lists, Lmax_global)
+        ) = _build_action_tokens(buf.legal_lists, Lmax_padded)
         type_ids_all = torch.from_numpy(t_np).to(device, non_blocking=True)
         role_ids_all = torch.from_numpy(r_np).to(device, non_blocking=True)
         src_region_kinds_all = torch.from_numpy(src_k_np).to(device, non_blocking=True)
