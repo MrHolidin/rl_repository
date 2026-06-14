@@ -358,6 +358,18 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             self._rnd_warmup_rounds = int(cfg.get("warmup_rounds", 1))
             self._rnd_updates_done = 0
             self._rnd_enabled = True
+            # torch.compile (RL_COMPILE_HOST, on by default in the distributed
+            # host update) donates backward buffers, which is incompatible with
+            # the retain_graph=True passes in the grad-norm decomposition
+            # (RuntimeError: "compiled with non-empty donated buffers ... requires
+            # retain_graph=False"). Disable donated buffers — set before the first
+            # update so the host forward compiles without them.
+            try:
+                import torch._functorch.config as _ff_cfg
+
+                _ff_cfg.donated_buffer = False
+            except Exception:
+                pass
 
         if seed is not None:
             random.seed(seed)
