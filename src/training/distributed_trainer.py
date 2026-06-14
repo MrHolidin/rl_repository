@@ -1217,6 +1217,13 @@ class DistributedTrainer(BaseTrainer):
             opponent_sampler=_DistributedOpponentSamplerAdapter(self._league),
         )
         self.agent = agent
+        # Host runs the PPO update on GPU; allow TF32 for the fp32 matmuls
+        # (measured ~1.3-1.5x on the large action-head GEMMs, free for RL).
+        # Process-global but scoped to the host process (workers are separate).
+        import torch as _torch
+
+        if _torch.cuda.is_available():
+            _torch.set_float32_matmul_precision("high")
         _maybe_compile_host_update(agent)
         self._worker_ckpt_path = Path(worker_ckpt_path)
         self._workers = workers

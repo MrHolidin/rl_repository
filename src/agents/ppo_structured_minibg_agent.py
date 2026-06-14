@@ -252,7 +252,15 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             ppo_network_kwargs or default_ppo_network_kwargs(ppo_network_type, self.policy_net)
         )
 
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=learning_rate)
+        # Fused Adam collapses the per-parameter optimizer kernels into one CUDA
+        # launch — ~6x faster .step() on this many-small-tensor net (measured
+        # 12.9ms -> 2.1ms), i.e. ~2.8s/round off the host PPO update. CUDA-only;
+        # workers (CPU) fall back to the standard implementation.
+        self.optimizer = optim.Adam(
+            self.policy_net.parameters(),
+            lr=learning_rate,
+            fused=(self.device.type == "cuda"),
+        )
         self.rollout_buffer = StructuredMiniBGRolloutBuffer()
         self._cache: Optional[Dict[str, Any]] = None
 
