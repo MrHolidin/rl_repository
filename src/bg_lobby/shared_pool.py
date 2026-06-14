@@ -180,9 +180,14 @@ class SharedCardPool:
                 weights.append(float(w))
         if not ids:
             return None
+        # Inverse-CDF sample: bit-identical to ``rng.choice(len(ids), p=w_arr)``
+        # (verified to match index-for-index, same single ``rng.random()`` draw)
+        # but skips choice's argument validation / broadcasting overhead.
         w_arr = np.array(weights, dtype=np.float64)
         w_arr /= w_arr.sum()
-        idx = int(rng.choice(len(ids), p=w_arr))
+        cdf = np.cumsum(w_arr)
+        cdf /= cdf[-1]
+        idx = int(cdf.searchsorted(rng.random(), side="right"))
         return ids[idx]
 
     def copy(self) -> SharedCardPool:

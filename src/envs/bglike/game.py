@@ -426,7 +426,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
 
     @staticmethod
     def _copy_player(p: PlayerState) -> PlayerState:
-        new_board = [copy(m) for m in p.board]
+        new_board = [m.__copy__() for m in p.board]
         remapped_pending: Optional[Minion] = None
         pend = p.placed_minion_pending_after
         if pend is not None:
@@ -450,8 +450,8 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             tavern_tier=p.tavern_tier,
             next_tier_up_cost=p.next_tier_up_cost,
             board=new_board,
-            shop=[copy(m) if m is not None else None for m in p.shop],
-            hand=[copy(m) if m is not None else None for m in p.hand],
+            shop=[m.__copy__() if m is not None else None for m in p.shop],
+            hand=[m.__copy__() if m is not None else None for m in p.hand],
             phase=p.phase,
             shop_actions_used=p.shop_actions_used,
             shop_freeze_next_round=p.shop_freeze_next_round,

@@ -62,6 +62,11 @@ Action = _build_action_enum()
 NUM_ACTIONS = int(max(a.value for a in Action)) + 1
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE
+# Precomputed magnet Action members: index = hand * BOARD_SIZE + board_pos.
+# magnet_game_action is called ~hundreds of thousands of times in legal-action
+# generation; indexing this tuple avoids constructing the IntEnum each call
+# (Enum.__call__/__new__/__hash__ churn).
+_MAGNET_ACTIONS = tuple(Action(MAGNET_ACTION_BASE + i) for i in range(NUM_MAGNET_ACTIONS))
 MAX_SHOP_ACTIONS = 30
 
 NUM_PLAYERS = 8
@@ -109,7 +114,7 @@ def magnet_hand_board_from_game_action(action_int: int) -> tuple[int, int]:
 
 
 def magnet_game_action(hand: int, board_pos: int) -> Action:
-    return Action(MAGNET_ACTION_BASE + hand * BOARD_SIZE + board_pos)
+    return _MAGNET_ACTIONS[hand * BOARD_SIZE + board_pos]
 
 
 def is_discover_pick_game_action(action_int: int) -> bool:

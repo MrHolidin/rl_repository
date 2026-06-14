@@ -43,6 +43,15 @@ class Minion:
     dbf_id: Optional[int] = None
     sell_value: Optional[int] = None
 
+    def __copy__(self) -> "Minion":
+        # Fast shallow clone: identical to copy.copy(self) but skips the generic
+        # __reduce_ex__/_reconstruct machinery. All fields are immutable
+        # (ints/str/None) or already-immutable containers (frozenset/tuple), so
+        # sharing them in a shallow copy is safe — matches prior copy.copy use.
+        new = object.__new__(Minion)
+        new.__dict__ = self.__dict__.copy()
+        return new
+
     @property
     def all_keywords(self) -> frozenset[Keyword]:
         return self.keywords | self.granted_keywords
