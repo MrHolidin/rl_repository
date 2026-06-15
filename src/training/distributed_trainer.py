@@ -119,6 +119,16 @@ class _DistributedOpponentSamplerAdapter:
 # Worker-side helpers (module-level for multiprocessing pickling)
 # ---------------------------------------------------------------------------
 
+# Per-worker cache of fully-built, torch.compile'd frozen opponent agents, keyed
+# by league slot_id. Slot ids are a monotonic counter (slot_registry never
+# reuses an id), so a slot's weights are immutable → a compiled agent for it
+# stays valid for the worker's lifetime. This lets frozen opponents enjoy the
+# same compiled forward as the learner: each snapshot is compiled ONCE and
+# reused across games, instead of deepcopy-per-game (which can't be compiled,
+# because copy.deepcopy doesn't rebind a torch.compile graph to the copy's
+# params). Pruned to the live frozen pool to bound memory.
+_FROZEN_AGENT_CACHE: Dict[int, Any] = {}
+
 
 class _MutableOpponentSampler(OpponentSampler):
     """Opponent sampler where the active opponent object can be swapped before each game."""
@@ -219,8 +229,18 @@ def _sample_distributed_opponent(
         opp = copy.deepcopy(ppo_opponent)
         _load_state_dict_bytes(opp, current_sd)
     elif slot_id in frozen_pool:
-        opp = copy.deepcopy(ppo_opponent)
-        _load_state_dict_bytes(opp, frozen_pool[slot_id])
+        opp = _FROZEN_AGENT_CACHE.get(slot_id)
+        if opp is None:
+            # Build once per slot: deepcopy the UNcompiled template, load this
+            # slot's immutable weights, then compile THIS agent (binds the graph
+            # to its own params) and cache it for reuse across games.
+            opp = copy.deepcopy(ppo_opponent)
+            _load_state_dict_bytes(opp, frozen_pool[slot_id])
+            opp = _maybe_compile_encode_state(opp)
+            # Evict agents whose slot left the pool (ids are never reused).
+            for sid in [k for k in _FROZEN_AGENT_CACHE if k not in frozen_pool]:
+                _FROZEN_AGENT_CACHE.pop(sid, None)
+            _FROZEN_AGENT_CACHE[slot_id] = opp
         # A frozen DvD snapshot carries all identities; pin one explicitly so it
         # doesn't replay the random identity from its constructor.
         if dvd_num_identities > 0 and hasattr(opp, "set_episode_identity"):
@@ -501,12 +521,24 @@ def _load_dist_agent(
     device: str,
     seed: int,
     mg: dict,
+    compile_net: bool = True,
 ) -> Any:
+    """Load a collect-side agent. ``compile_net`` torch.compiles the policy
+    forward (fast batch=1 collect).
+
+    Set ``compile_net=False`` for the OPPONENT TEMPLATE: opponents are produced
+    by ``copy.deepcopy(ppo_opponent)`` + ``load_state_dict`` (per frozen slot),
+    and ``copy.deepcopy`` of a ``torch.compile``'d module does NOT rebind the
+    compiled graph to the copy's parameters — so a compiled template makes every
+    deepcopied frozen opponent silently run the *template's* weights instead of
+    its loaded checkpoint. The learner net (in-place ``load_state_dict``, no
+    deepcopy) stays compiled and correct.
+    """
     patch_build = mg.get("patch_build")
-    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11"):
+    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes"):
         from src.agents.ppo_dvd_agent import PPODvDAgent
 
-        return _maybe_compile_encode_state(PPODvDAgent.load(
+        agent = PPODvDAgent.load(
             ck_path,
             device=device,
             seed=seed,
@@ -515,15 +547,17 @@ def _load_dist_agent(
             diversity_ema=float(mg.get("dvd_diversity_ema", 0.1)),
             identity_tribes=mg.get("dvd_identity_tribes"),
             diversity_reward_mode=str(mg.get("dvd_reward_mode", "final")),
-        ))
-    if _use_structured_collect(mg):
-        return _maybe_compile_encode_state(MiniBGPPOStructuredAgent.load(
+        )
+    elif _use_structured_collect(mg):
+        agent = MiniBGPPOStructuredAgent.load(
             ck_path,
             device=device,
             seed=seed,
             patch_build=patch_build,
-        ))
-    return _maybe_compile_encode_state(PPOAgent.load(ck_path, device=device, seed=seed))
+        )
+    else:
+        agent = PPOAgent.load(ck_path, device=device, seed=seed)
+    return _maybe_compile_encode_state(agent) if compile_net else agent
 
 
 def _create_scripted_opponent(key: str, *, seed: int, game_id: str) -> Any:
@@ -690,7 +724,7 @@ def _collect_until_steps_flat(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -826,7 +860,7 @@ def _collect_until_steps_structured(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -1005,8 +1039,13 @@ def _worker_main(
     agent = _load_dist_agent(
         ck_path, device=device, seed=seed + worker_id, mg=mg
     )
+    # Opponent TEMPLATE stays uncompiled: per-slot frozen opponents are built by
+    # deepcopy(template)+load_state_dict, and copy.deepcopy can't rebind a
+    # torch.compile graph to the copy's params. Each frozen slot is compiled
+    # individually and cached (see _sample_distributed_opponent).
     ppo_opponent = _load_dist_agent(
-        ck_path, device=device, seed=seed + worker_id + 913_123, mg=mg
+        ck_path, device=device, seed=seed + worker_id + 913_123, mg=mg,
+        compile_net=False,
     )
     _apply_ppo_hparams(
         agent,

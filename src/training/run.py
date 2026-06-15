@@ -483,6 +483,26 @@ def run(
                 )
             game_params["obs_kind"] = OBS_KIND_BGLIKE_V5
 
+        from src.models.ppo_policy_factory import (
+            PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
+        )
+
+        if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES:
+            from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V5_HEROES
+
+            existing = game_params.get("obs_kind")
+            if existing is not None and existing != OBS_KIND_BGLIKE_V5_HEROES:
+                raise ValueError(
+                    f"network_type={nt!r} requires obs_kind={OBS_KIND_BGLIKE_V5_HEROES!r}, "
+                    f"got {existing!r}"
+                )
+            game_params["obs_kind"] = OBS_KIND_BGLIKE_V5_HEROES
+            game_params.setdefault("with_heroes", True)
+
+        from src.training.bg_network_policy import validate_heroes_consistency
+
+        validate_heroes_consistency(game_id, nt, game_params)
+
         num_actions = int(NUM_ENV_ACTIONS)
         agent_params.setdefault("num_actions", num_actions)
         agent_params.setdefault("action_space", DiscreteActionSpace(num_actions))

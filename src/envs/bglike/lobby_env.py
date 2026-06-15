@@ -54,13 +54,19 @@ from .rl_placement import (
 )
 from .obs import OBS_DIM, build_observation
 from .obs_v5 import OBS_DIM_V5, build_observation_v5
+from .obs_v5_heroes import OBS_DIM_V5_HEROES, build_observation_v5_heroes
 
 OBS_KIND_BGLIKE = "bglike"
 OBS_KIND_BGLIKE_V5 = "bglike_v5"
-_VALID_OBS_KINDS = frozenset({OBS_KIND_BGLIKE, OBS_KIND_BGLIKE_V5})
+OBS_KIND_BGLIKE_V5_HEROES = "bglike_v5_heroes"
+_VALID_OBS_KINDS = frozenset(
+    {OBS_KIND_BGLIKE, OBS_KIND_BGLIKE_V5, OBS_KIND_BGLIKE_V5_HEROES}
+)
 
 
 def _obs_dim_for_kind(obs_kind: str) -> int:
+    if obs_kind == OBS_KIND_BGLIKE_V5_HEROES:
+        return int(OBS_DIM_V5_HEROES)
     if obs_kind == OBS_KIND_BGLIKE_V5:
         return int(OBS_DIM_V5)
     if obs_kind == OBS_KIND_BGLIKE:
@@ -275,6 +281,7 @@ class BGLobbyEnv:
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         high_mode: bool = False,
+        with_heroes: bool = False,
         replay: Optional[Any] = None,
         patch_dir: Optional[str] = None,
         obs_kind: str = OBS_KIND_BGLIKE,
@@ -300,12 +307,14 @@ class BGLobbyEnv:
             raise ValueError("training_seats must be subset of learned_seats")
         self._patch_dir = patch_dir
         self._high_mode = bool(high_mode)
+        self._with_heroes = bool(with_heroes)
         self._game = BGLikeGame(
             seed=seed,
             shop_excluded_race=shop_excluded_race,
             shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
             high_mode=self._high_mode,
+            with_heroes=self._with_heroes,
             patch_dir=patch_dir,
         )
         self._state: Optional[BGLikeState] = None
@@ -351,6 +360,7 @@ class BGLobbyEnv:
                 shop_excluded_count=self._game._shop_excluded_count,
                 shop_full_tribes=self._game._shop_full_tribes,
                 high_mode=self._high_mode,
+                with_heroes=self._with_heroes,
                 patch_dir=self._patch_dir,
             )
         # Honor the current flag every reset (covers the no-seed reuse path too).
@@ -452,11 +462,12 @@ class BGLobbyEnv:
         return self._rl_pending.get(seat)
 
     def obs_for_seat(self, seat: int) -> np.ndarray:
-        builder = (
-            build_observation_v5
-            if self._obs_kind == OBS_KIND_BGLIKE_V5
-            else build_observation
-        )
+        if self._obs_kind == OBS_KIND_BGLIKE_V5_HEROES:
+            builder = build_observation_v5_heroes
+        elif self._obs_kind == OBS_KIND_BGLIKE_V5:
+            builder = build_observation_v5
+        else:
+            builder = build_observation
         return builder(
             self.state,
             seat,
@@ -1060,6 +1071,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
         high_mode: bool = False,
+        with_heroes: bool = False,
         minions_shaping: Optional[Any] = None,
         tribes_shaping: Optional[Any] = None,
         patch_dir: Optional[str] = None,
@@ -1086,6 +1098,7 @@ class BGLobbySingleAgentEnv(SingleAgentEnv):
             shop_excluded_count=shop_excluded_count,
             shop_full_tribes=shop_full_tribes,
             high_mode=high_mode,
+            with_heroes=with_heroes,
             patch_dir=patch_dir,
             obs_kind=obs_kind,
         )
@@ -1237,6 +1250,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         shop_excluded_race=None,
         shop_excluded_count: Optional[int] = None,
         shop_full_tribes: bool = False,
+        with_heroes: bool = False,
         minions_shaping: Optional[Any] = None,
         tribes_shaping: Optional[Any] = None,
         patch_dir: Optional[str] = None,
@@ -1259,6 +1273,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
         self._shop_excluded_race = shop_excluded_race
         self._shop_excluded_count = shop_excluded_count
         self._shop_full_tribes = shop_full_tribes
+        self._with_heroes = bool(with_heroes)
         self._board_shaping = BoardShapingConfig.from_params(
             minions_shaping=minions_shaping,
             tribes_shaping=tribes_shaping,
@@ -1376,6 +1391,7 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             shop_excluded_count=self._shop_excluded_count,
             shop_full_tribes=self._shop_full_tribes,
             high_mode=self._high_mode,
+            with_heroes=self._with_heroes,
             patch_dir=self._patch_dir,
             obs_kind=self._obs_kind,
         )

@@ -8,10 +8,11 @@ from typing import List, Optional, Sequence
 from src.bg_core.minion import Race
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment import economy as recruitment_economy
+from src.bg_recruitment import hero_passives
 from src.bg_recruitment import place as recruitment_place
 from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.hand_slots import hand_has_free_slot, hand_size
-from src.bg_recruitment.shop import toggle_shop_slot_frozen
+from src.bg_recruitment.shop import effective_shop_offers_count, toggle_shop_slot_frozen
 from src.bg_recruitment.shop_triggers import ShopTriggers
 from src.bg_lobby.player import PlayerPhase, PlayerState, PendingChoiceKind
 
@@ -62,11 +63,12 @@ class PlayerTurnEngine:
 
         if can_act:
             if not hand_full:
-                n_offers = a.shop_offers_count(player.tavern_tier)
+                n_offers = effective_shop_offers_count(player)
+                buy_cost = recruitment_economy.effective_buy_cost(player)
                 for slot in range(min(n_offers, len(player.shop))):
                     if (
                         player.shop[slot] is not None
-                        and player.gold >= a.BUY_COST
+                        and player.gold >= buy_cost
                     ):
                         actions.append(int(a.Action.BUY_SLOT_0) + slot)
 
@@ -109,7 +111,7 @@ class PlayerTurnEngine:
             ):
                 actions.append(int(a.Action.LEVEL_UP))
 
-            n_offers = a.shop_offers_count(player.tavern_tier)
+            n_offers = effective_shop_offers_count(player)
             for slot in range(min(n_offers, a.MAX_SHOP_SLOTS)):
                 if player.shop[slot] is not None and hasattr(a.Action, "FREEZE_SHOP_SLOT_0"):
                     actions.append(int(a.Action.FREEZE_SHOP_SLOT_0) + slot)
@@ -182,10 +184,14 @@ class PlayerTurnEngine:
             )
 
         if int(a.Action.BUY_SLOT_0) <= action_int < int(a.Action.BUY_SLOT_0) + a.MAX_SHOP_SLOTS:
+            def _on_bought(m, p):
+                ctx.triggers.fire_on_buy(m, p)
+                hero_passives.apply_hero_on_bought(m, p)  # Kael'thas / Rat King
+
             recruitment_economy.buy_from_shop(
                 player,
                 action_int - int(a.Action.BUY_SLOT_0),
-                on_bought=ctx.triggers.fire_on_buy,
+                on_bought=_on_bought,
                 on_friendly_bought=ctx.triggers.fire_on_friendly_bought,
                 on_triples=lambda p: recruitment_triples.resolve_triples_loop(
                     p, shared_pool=ctx.shared_pool, patch=ctx.patch
@@ -195,10 +201,21 @@ class PlayerTurnEngine:
             return True
 
         if int(a.Action.SELL_BOARD_0) <= action_int < int(a.Action.SELL_BOARD_0) + a.BOARD_SIZE:
+            def _on_sell(m, p):
+                ctx.triggers.fire_on_sell(m, p)
+                hero_passives.apply_hero_on_sell(  # Dancin' Deryl / Flurgl
+                    m,
+                    p,
+                    rng=ctx.rng,
+                    patch=ctx.patch,
+                    shared_pool=ctx.shared_pool,
+                    shop_excluded_race=race,
+                )
+
             recruitment_economy.sell_from_board(
                 player,
                 action_int - int(a.Action.SELL_BOARD_0),
-                on_sell=ctx.triggers.fire_on_sell,
+                on_sell=_on_sell,
                 on_triples=lambda p: recruitment_triples.resolve_triples_loop(
                     p, shared_pool=ctx.shared_pool, patch=ctx.patch
                 ),
@@ -216,6 +233,7 @@ class PlayerTurnEngine:
             recruitment_economy.level_up_tavern(
                 player, race, rng=ctx.rng, shared_pool=ctx.shared_pool, patch=ctx.patch
             )
+            hero_passives.apply_hero_on_level_up(player)  # Forest Warden Omu
             return True
 
         if hasattr(a.Action, "FREEZE_SHOP_SLOT_0"):

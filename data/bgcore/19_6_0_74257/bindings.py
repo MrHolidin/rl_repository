@@ -105,6 +105,7 @@ GOLDEN_REWARD_IDS: FrozenSet[str] = frozenset(
 
 TOKEN_IDS: FrozenSet[str] = frozenset(
     {
+        "TB_BaconShop_HP_033t",  # Amalgam (1/2, all tribes) — The Curator hero token
         "CS2_065",
         "BGS_115t",
         "BGS_046t",

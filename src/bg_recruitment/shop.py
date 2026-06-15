@@ -17,6 +17,36 @@ from src.envs.minibg.actions import MAX_SHOP_SLOTS, shop_offers_count
 from src.bg_lobby.player import PlayerState
 
 
+def effective_shop_offers_count(player: PlayerState) -> int:
+    """Offer count for a player's tavern tier, including any hero extra slots
+    (Ysera: +1 Dragon), capped at the max visible shop size."""
+    n = shop_offers_count(player.tavern_tier)
+    if player.hero is not None:
+        n += player.hero.extra_shop_slots()
+    return min(MAX_SHOP_SLOTS, n)
+
+
+def _hero_forced_slot_tribe(player: PlayerState, slot: int) -> Optional[Race]:
+    """Ysera's extra slot(s) (beyond the tier's base count) are always Dragons."""
+    h = player.hero
+    if h is None or h.extra_shop_slots() <= 0:
+        return None
+    if slot >= shop_offers_count(player.tavern_tier):
+        return Race.DRAGON
+    return None
+
+
+def _apply_hero_shop_tribe_buff(player: PlayerState, minion: Optional[Minion]) -> None:
+    """Millificent: minions of a tribe get +atk/+hp while in the Tavern."""
+    h = player.hero
+    if h is None or minion is None:
+        return
+    buff = h.shop_tribe_buff()
+    if buff is not None and minion_matches_tribe(minion, buff.race):
+        minion.bonus_attack += buff.attack
+        minion.bonus_health += buff.health
+
+
 def shop_tribe_bonus_for(player: PlayerState, race: Optional[Race]) -> int:
     if race == Race.ELEMENTAL:
         return player.shop_elemental_bonus
@@ -74,7 +104,7 @@ def add_random_minion_to_shop(
     freeze_slot: bool = False,
 ) -> None:
     """Fill the first empty active offer slot with a random ``tribe`` minion."""
-    n = shop_offers_count(player.tavern_tier)
+    n = effective_shop_offers_count(player)
     slot: Optional[int] = None
     for i in range(min(n, MAX_SHOP_SLOTS)):
         if player.shop[i] is None:
@@ -94,6 +124,7 @@ def add_random_minion_to_shop(
         return
     player.shop[slot] = make_minion(card_id, patch=patch)
     apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
+    _apply_hero_shop_tribe_buff(player, player.shop[slot])
     if freeze_slot:
         frozen = list(player.shop_frozen)
         while len(frozen) < MAX_SHOP_SLOTS:
@@ -165,6 +196,12 @@ def fill_shop_slot(
     patch: PatchContext,
 ) -> None:
     """Roll one offer into ``slot``; shared pool reserves on display."""
+    # Ysera: the extra slot(s) beyond the tier's base count are always Dragons.
+    forced_tribe = _hero_forced_slot_tribe(player, slot)
+    if forced_tribe is not None and _fill_forced_tribe_slot(
+        player, slot, forced_tribe, shop_excluded_race, rng=rng, shared_pool=shared_pool, patch=patch
+    ):
+        return
     if shared_pool is not None:
         cid = shared_pool.roll_and_reserve_offer(
             player.tavern_tier, shop_excluded_race, rng
@@ -174,11 +211,41 @@ def fill_shop_slot(
         )
         if player.shop[slot] is not None:
             apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
+            _apply_hero_shop_tribe_buff(player, player.shop[slot])
         return
     pool = tavern_card_pool(player.tavern_tier, shop_excluded_race, patch=patch)
     card_id = pool[int(rng.integers(0, len(pool)))]
     player.shop[slot] = make_minion(card_id, patch=patch)
     apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
+    _apply_hero_shop_tribe_buff(player, player.shop[slot])
+
+
+def _fill_forced_tribe_slot(
+    player: PlayerState,
+    slot: int,
+    tribe: Race,
+    shop_excluded_race: Optional[Race],
+    *,
+    rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool],
+    patch: PatchContext,
+) -> bool:
+    """Fill ``slot`` with a random minion of ``tribe`` (Ysera's extra Dragon).
+    Returns False if no such minion is available so the caller rolls normally."""
+    pool = [
+        cid
+        for cid in tavern_card_pool(player.tavern_tier, shop_excluded_race, patch=patch)
+        if minion_matches_tribe(patch.templates[cid], tribe)
+    ]
+    if not pool:
+        return False
+    card_id = pool[int(rng.integers(0, len(pool)))]
+    if shared_pool is not None and not shared_pool.try_reserve_offer(card_id):
+        return False
+    player.shop[slot] = make_minion(card_id, patch=patch)
+    apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
+    _apply_hero_shop_tribe_buff(player, player.shop[slot])
+    return True
 
 
 def refresh_shop(
@@ -191,7 +258,7 @@ def refresh_shop(
     patch: PatchContext,
 ) -> None:
     """Full reroll of active offer slots (frozen slots kept)."""
-    n = shop_offers_count(player.tavern_tier)
+    n = effective_shop_offers_count(player)
     while len(player.shop) < MAX_SHOP_SLOTS:
         player.shop.append(None)
     frozen = frozen_slots or (False,) * MAX_SHOP_SLOTS
@@ -225,7 +292,7 @@ def refresh_shop_fill_empty_slots(
     patch: PatchContext,
 ) -> None:
     """Keep existing offers; fill only empty active slots; clear inactive tiers."""
-    n = shop_offers_count(player.tavern_tier)
+    n = effective_shop_offers_count(player)
     frozen = frozen_slots or (False,) * MAX_SHOP_SLOTS
     while len(player.shop) < MAX_SHOP_SLOTS:
         player.shop.append(None)

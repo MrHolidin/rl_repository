@@ -563,6 +563,9 @@ class ShopTriggers:
                 )
         if placed.race == Race.ELEMENTAL:
             player.elementals_played += 1
+            from src.bg_recruitment import hero_passives
+
+            hero_passives.apply_hero_on_elemental_played(player)  # Chenvaala
 
     def fire_after_friendly_minion_placed(
         self, player: PlayerState, placed: Minion

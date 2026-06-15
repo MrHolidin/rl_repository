@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Dict, List, Optional, Tuple
 
+from src.bg_core.hero import Hero
 from src.bg_core.minion import Minion, Race
 from src.envs.minibg.actions import MAX_SHOP_SLOTS
 
@@ -102,6 +103,18 @@ class PlayerState:
     pirates_bought_this_turn: int = 0
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
+    # Hero (passive power). ``None`` ⇒ classic no-hero seat (default; identical
+    # to pre-hero behavior). Set at game start only when ``with_heroes=True``.
+    hero: Optional[Hero] = None
+    # Hero-passive counters/state (unused while ``hero is None``). These are
+    # carried explicitly by ``BGLikeGame._copy_player`` (unlike the transient
+    # ``upgrade_cost_delta`` / ``next_roll_cost_override``, which that copy
+    # intentionally resets) so hero levers survive across shop actions.
+    hero_buy_count: int = 0  # Kael'thas: every 3rd buy
+    hero_rotating_tribe: Optional[Race] = None  # The Rat King: current tribe
+    hero_elementals_progress: int = 0  # Chenvaala: Elementals toward next discount
+    hero_free_roll_pending: bool = False  # Nozdormu: first refresh this turn is free
+    hero_upgrade_discount: int = 0  # Chenvaala: accumulated next-upgrade discount
     pending_choice: Optional["PendingChoice"] = None
     placed_minion_board_index: Optional[int] = None
     placed_minion_pending_after: Optional["Minion"] = None
