@@ -341,6 +341,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 target_hidden=int(cfg.get("target_hidden", 256)),
                 predictor_hidden=int(cfg.get("predictor_hidden", 256)),
                 predictor_layers=int(cfg.get("predictor_layers", 2)),
+                target_layers=int(cfg.get("target_layers", 1)),
+                init_gain=float(cfg.get("init_gain", 0.0)),
                 obs_clip=float(cfg.get("obs_clip", 5.0)),
             ).to(self.device)
             # Predictor trains with the policy; target stays frozen (not added).

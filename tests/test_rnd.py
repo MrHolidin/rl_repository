@@ -168,6 +168,39 @@ def test_rnd_ret_rms_persists_through_state_dict():
     assert torch.allclose(rnd2.obs_mean, rnd.obs_mean)
 
 
+def test_deep_gain_target_is_more_combo_nonlinear():
+    """A deeper target with a high init gain has stronger interaction terms:
+    f(A+B) deviates more from f(A)+f(B), so a novel combination reads more novel
+    (no explicit pairwise features needed)."""
+    torch.manual_seed(0)
+    P = 40
+
+    def feat(cards):  # (n_normal, n_golden) count vector
+        v = torch.zeros(1, 2 * P)
+        for c in cards:
+            v[0, c] += 1.0
+        return v
+
+    seed = torch.zeros(300, 2 * P)
+    for i in range(300):
+        for c in torch.randint(0, P, (3,)):
+            seed[i, int(c)] += 1.0
+
+    def combo_nonlin(rnd):
+        rnd.update_obs_rms(seed)
+        with torch.no_grad():
+            t = lambda b: rnd.target(rnd._normalize_obs(b))  # noqa: E731
+            e0 = t(feat([]))
+            eA = t(feat([3])) - e0
+            eB = t(feat([7])) - e0
+            eAB = t(feat([3, 7])) - e0
+            return float((eAB - (eA + eB)).norm() / (eA + eB).norm().clamp(min=1e-6))
+
+    shallow = combo_nonlin(RNDModel(P, target_layers=1, init_gain=0.0))
+    deep = combo_nonlin(RNDModel(P, target_layers=3, init_gain=2.5))
+    assert deep > shallow, (shallow, deep)
+
+
 def test_v11_value_int_head_zero_init():
     from src.models.bglike_structured_v11 import BGLikeStructuredV11
 

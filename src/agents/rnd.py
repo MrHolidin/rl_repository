@@ -20,7 +20,7 @@ which is exactly what surfaces novel *combos*.
 
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import numpy as np
 import torch
@@ -77,10 +77,22 @@ def discounted_forward(rewards: Sequence[float], gamma: float) -> np.ndarray:
     return out
 
 
-def _mlp(sizes: Sequence[int]) -> nn.Sequential:
+def _mlp(sizes: Sequence[int], *, gain: Optional[float] = None) -> nn.Sequential:
     layers: List[nn.Module] = []
     for i in range(len(sizes) - 1):
-        layers.append(nn.Linear(sizes[i], sizes[i + 1]))
+        lin = nn.Linear(sizes[i], sizes[i + 1])
+        if gain is not None:
+            # Orthogonal init with a HIGH gain pushes GELU into its nonlinear
+            # regime, so the random target's higher-order (combo / triple)
+            # interaction terms are strong. A novel combination of familiar cards
+            # then reads far more novel than a near-linear shallow MLP leaves it
+            # (probe: held-out combo went from ~2% of a brand-new card to ~15-26%,
+            # triples too) — without explicit pairwise features. Too high a gain,
+            # though, stops the predictor from fitting visited boards (novelty
+            # everywhere = noise); ~2.5-3.0 is the sweet spot.
+            nn.init.orthogonal_(lin.weight, gain=gain)
+            nn.init.zeros_(lin.bias)
+        layers.append(lin)
         if i < len(sizes) - 2:  # nonlinearity on every layer but the last
             layers.append(nn.GELU())
     return nn.Sequential(*layers)
@@ -100,6 +112,8 @@ class RNDModel(nn.Module):
         target_hidden: int = 256,
         predictor_hidden: int = 256,
         predictor_layers: int = 2,
+        target_layers: int = 1,
+        init_gain: float = 0.0,
         obs_clip: float = 5.0,
         epsilon: float = 1e-4,
     ) -> None:
@@ -109,12 +123,15 @@ class RNDModel(nn.Module):
         self.obs_clip = float(obs_clip)
         self._eps = float(epsilon)
 
-        # Target: one nonlinear hidden layer (combo-sensitivity), frozen forever.
-        self.target = _mlp([self.in_dim, target_hidden, embed_dim])
-        # Predictor: deeper, so it has the capacity to fit the target on visited
-        # boards while leaving error on the unvisited ones.
+        gain = float(init_gain) if init_gain and init_gain > 0 else None
+        # Target: ``target_layers`` nonlinear hidden layers; depth + a high init
+        # gain make the combo/triple interaction terms strong. Frozen forever.
+        tgt_sizes = [self.in_dim] + [target_hidden] * max(1, int(target_layers)) + [embed_dim]
+        self.target = _mlp(tgt_sizes, gain=gain)
+        # Predictor: deeper, so it can fit the target on visited boards while
+        # leaving error on the unvisited combinations.
         pred_sizes = [self.in_dim] + [predictor_hidden] * int(predictor_layers) + [embed_dim]
-        self.predictor = _mlp(pred_sizes)
+        self.predictor = _mlp(pred_sizes, gain=gain)
         for p in self.target.parameters():
             p.requires_grad_(False)
 
