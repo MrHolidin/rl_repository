@@ -1,0 +1,142 @@
+# v11_heroes + RND with a COMBO target + stronger int_coef(1.5)+entropy(0.025), 50 workers, 10M steps.
+#
+# Same tuned RND as ppo_v11_heroes_rnd_w40 (int_coef 0.7, value_coef_int 0.04,
+# fast predictor) but the random target is DEEPER with a HIGH init gain
+# (target_layers: 3, init_gain: 2.5). A shallow near-linear target left a novel
+# combination of familiar cards reading only ~2% as novel as a brand-new card
+# (combo discovery barely rewarded). Depth + high orthogonal gain push GELU into
+# its nonlinear regime, strengthening higher-order (pair AND triple) interaction
+# terms emergently — the held-out combo rises to ~15% of a new card (triples too)
+# while the predictor still fits visited boards. No explicit pairwise features.
+# Watch: build diversity / tier-up / specific enabler-combo frequency vs the
+# plain-RND baseline run, not just novelty magnitude.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5_heroes
+    with_heroes: true
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v11_heroes
+    observation_type: vector
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    slot_hidden_channels: 64
+    card_emb_dim: 16
+    entity_attention_layers: 2
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    hero_hidden: 48
+    hero_out: 24
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.025
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+    rnd:
+      enabled: true
+      ext_coef: 1.0
+      int_coef: 1.5
+      int_gamma: 0.99
+      int_lambda: 0.95
+      value_coef_int: 0.04
+      predictor_coef: 1.0
+      update_proportion: 0.25
+      predictor_lr: 0.0001
+      warmup_rounds: 1
+      # --- combo-emphasizing target (deeper + high init gain) ---
+      target_layers: 3
+      init_gain: 2.5
+      embed_dim: 128
+      target_hidden: 256
+      predictor_hidden: 256
+      predictor_layers: 2
+      obs_clip: 5.0
+
+train:
+  max_episodes: 10000000
+  total_steps: 10000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v11_heroes_rnd_combo_strong
+    - type: metrics_file
+      params:
+        interval: 1
+        preset: ppo_rnd
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 50
+  worker_device: cpu
