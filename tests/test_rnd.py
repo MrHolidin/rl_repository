@@ -134,6 +134,30 @@ def test_rnd_novelty_drops_after_distillation():
     assert all(not p.requires_grad for p in rnd.target.parameters())
 
 
+def test_rnd_predictor_reset_reinjects_novelty():
+    torch.manual_seed(0)
+    rnd = RNDModel(10, embed_dim=8, target_hidden=16, predictor_hidden=16, predictor_layers=1)
+    feat = torch.randn(8, rnd.in_dim).abs()
+    rnd.update_obs_rms(feat)
+    opt = torch.optim.Adam(rnd.predictor.parameters(), lr=1e-2)
+    for _ in range(150):
+        opt.zero_grad()
+        rnd.predictor_loss(feat).mean().backward()
+        opt.step()
+    nov_learned = rnd.novelty(feat).mean().item()
+
+    rnd.update_ret_rms(np.array([3.0, 9.0, 5.0], dtype=np.float64))
+    rnd.reset_predictor()
+    nov_reset = rnd.novelty(feat).mean().item()
+
+    # the reset re-injects novelty (error jumps back up on the now-familiar feats)
+    assert nov_reset > 3.0 * nov_learned
+    # ret-rms is reset to ~1 so the reward re-normalizes to the new error scale
+    assert abs(rnd.ret_std() - 1.0) < 1e-3
+    # the frozen target is untouched (reference must not move)
+    assert all(not p.requires_grad for p in rnd.target.parameters())
+
+
 def test_rnd_ret_rms_persists_through_state_dict():
     rnd = RNDModel(5)
     rnd.update_ret_rms(np.array([3.0, 9.0, 5.0, 7.0], dtype=np.float64))

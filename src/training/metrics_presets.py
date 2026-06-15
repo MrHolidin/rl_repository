@@ -92,6 +92,7 @@ METRICS_PRESET_PPO_RND: Tuple[str, ...] = (
         "rnd/adv_int_std",          # std(int_coef·A_int)  — novelty's pull on policy
         "rnd/value_loss",
         "rnd/predictor_loss",
+        "rnd/predictor_resets",     # count of periodic predictor re-randomizations
         "rnd/gradnorm_policy",      # grad-norm balance on the shared net (tune
         "rnd/gradnorm_value",       # value_coef_int against these, not loss values)
         "rnd/gradnorm_value_int",

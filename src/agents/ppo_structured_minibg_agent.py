@@ -319,6 +319,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # the intrinsic stream in the PPO update. Off unless ``rnd.enabled``.
         self._rnd_enabled: bool = False
         self._rnd_grad_decomp: bool = False
+        self._rnd_reset_interval: int = 0
         self.rnd: Optional[RNDModel] = None
         self._rnd_config: Dict[str, Any] = dict(rnd or {})
         if self._rnd_config.get("enabled", False):
@@ -357,6 +358,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             self._rnd_predictor_coef = float(cfg.get("predictor_coef", 1.0))
             self._rnd_update_proportion = float(cfg.get("update_proportion", 0.25))
             self._rnd_warmup_rounds = int(cfg.get("warmup_rounds", 1))
+            # Periodic predictor reset (re-injects novelty discrimination instead
+            # of letting it decay to a permanent floor). 0 = off. Converted from
+            # steps to update-rounds via rollout_steps.
+            reset_steps = int(cfg.get("predictor_reset_steps", 0))
+            self._rnd_reset_interval = (
+                max(1, round(reset_steps / max(1, int(rollout_steps)))) if reset_steps > 0 else 0
+            )
+            self._rnd_predictor_resets = 0
             self._rnd_updates_done = 0
             self._rnd_enabled = True
             # The grad-norm decomposition runs several retain_graph backward
@@ -1252,6 +1261,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 out_metrics["loss/value_int"] = self._rnd_value_coef_int * total_rnd_value_loss / denom
                 out_metrics["loss/predictor"] = self._rnd_predictor_coef * total_rnd_pred_loss / denom
             self._rnd_updates_done += 1
+            # Periodic predictor reset: re-randomize + drop its stale optimizer
+            # (Adam) moments so the fresh weights are not dragged by old momentum.
+            if self._rnd_reset_interval and self._rnd_updates_done % self._rnd_reset_interval == 0:
+                self.rnd.reset_predictor()
+                for p in self.rnd.predictor.parameters():
+                    self.optimizer.state.pop(p, None)
+                self._rnd_predictor_resets += 1
+            out_metrics["rnd/predictor_resets"] = float(self._rnd_predictor_resets)
         return out_metrics
 
     # ------------------------------------------------------------------

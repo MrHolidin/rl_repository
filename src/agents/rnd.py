@@ -107,6 +107,7 @@ class RNDModel(nn.Module):
         self.num_pool_indices = int(num_pool_indices)
         self.in_dim = self.num_pool_indices * 2
         self.obs_clip = float(obs_clip)
+        self._eps = float(epsilon)
 
         # Target: one nonlinear hidden layer (combo-sensitivity), frozen forever.
         self.target = _mlp([self.in_dim, target_hidden, embed_dim])
@@ -167,6 +168,26 @@ class RNDModel(nn.Module):
 
     def ret_std(self) -> float:
         return float(torch.sqrt(self.ret_var + 1e-8).item())
+
+    @torch.no_grad()
+    def reset_predictor(self) -> None:
+        """Re-randomize the predictor and reset the intrinsic-return scale.
+
+        A single predictor converges to a low novelty floor on the visited
+        manifold and stays there — its decay IS its learning, so it cannot be
+        slowed enough to keep discriminating into late training without becoming
+        uninformative. Periodically re-randomizing it re-injects a fresh wave:
+        right after a reset it errs everywhere, then re-learns the (current)
+        common boards first, so discrimination over *currently rare* boards comes
+        back — including boards the policy only started visiting recently. The
+        target stays frozen (the reference must not move). ret-rms is reset so the
+        reward re-normalizes to the post-reset error scale (obs-rms is kept)."""
+        for m in self.predictor.modules():
+            if hasattr(m, "reset_parameters"):
+                m.reset_parameters()
+        self.ret_mean.zero_()
+        self.ret_var.fill_(1.0)
+        self.ret_count.fill_(self._eps)
 
     # -- novelty + predictor loss ---------------------------------------------
     @torch.no_grad()
