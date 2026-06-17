@@ -1,0 +1,37 @@
+"""Side construction from shop boards."""
+from __future__ import annotations
+
+from copy import copy
+from typing import List
+
+import numpy as np
+
+from src.bg_catalog.patch_context import PatchContext, require_patch
+from src.bg_core.minion import Minion, Race
+
+from .state import BattleMinion, BattleSide, _CombatRuntime
+
+
+def _is_mech_template(m: Minion) -> bool:
+    return m.race in (Race.MECHANICAL, Race.ALL)
+
+
+def _build_side(board: List[Minion], rt: _CombatRuntime) -> BattleSide:
+    out: List[BattleMinion] = []
+    for m in board:
+        bid = rt.alloc_id()
+        out.append(BattleMinion.from_minion(copy(m), bid))
+    return BattleSide(minions=out)
+
+
+def build_battle_side(board: List[Minion], *, patch: PatchContext) -> BattleSide:
+    """Build a battle line with fresh instance IDs (tests, tooling)."""
+    ctx = require_patch(patch, where="battle.build_battle_side")
+    rt = _CombatRuntime(
+        sides=(BattleSide(), BattleSide()),
+        rng=np.random.default_rng(0),
+        combat_board_max=10**9,
+        damage_cap=10**9,
+        patch=ctx,
+    )
+    return _build_side(board, rt)

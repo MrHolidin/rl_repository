@@ -425,7 +425,7 @@ def test_nonlethal_damage_skips_health_aura_resync_when_side_not_dirty(monkeypat
         calls += 1
         return orig(side, death_resolution)
 
-    monkeypatch.setattr(battle, "_sync_health_aura_side", wrapped)
+    monkeypatch.setattr(battle.auras, "_sync_health_aura_side", wrapped)
     battle._deal_damage_to_battle_minion(rt, 0, imp, 1)
 
     assert imp.current_health == 2
@@ -455,7 +455,7 @@ def test_lethal_damage_marks_health_aura_side_dirty_and_resyncs(monkeypatch):
         calls += 1
         return orig(side, death_resolution)
 
-    monkeypatch.setattr(battle, "_sync_health_aura_side", wrapped)
+    monkeypatch.setattr(battle.auras, "_sync_health_aura_side", wrapped)
     battle._deal_damage_to_battle_minion(rt, 0, mal, mal.current_health)
 
     assert calls > 0
