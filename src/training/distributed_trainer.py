@@ -495,11 +495,12 @@ def _maybe_compile_host_update(agent: Any) -> Any:
     minibatch forward shapes are (minibatch, Lmax) and stable within a round
     (Lmax varies round-to-round -> dynamic=True). On GPU this is large-batch/
     GEMM-bound, so the win is smaller than the batch=1 collect path (measured
-    host_s -25%). Default ON; set env RL_COMPILE_HOST=0/off to disable. One-time
-    fwd+bwd compile cost is large (~round-0 only)."""
-    import os
+    host_s -25%). One-time fwd+bwd compile cost is large (~round-0 only).
 
-    if os.environ.get("RL_COMPILE_HOST", "fwd").lower() in ("0", "off", "none", ""):
+    Applies only in update_opt_mode="compile" (the default). "eager" and
+    "capture" skip host-compile — "capture" replaces it with CUDA-graph replay,
+    and you cannot capture a torch.compiled function inside a CUDA graph."""
+    if getattr(agent, "_update_opt_mode", "compile") != "compile":
         return agent
     net = getattr(agent, "policy_net", None)
     if net is None or getattr(net, "_host_compiled", False):

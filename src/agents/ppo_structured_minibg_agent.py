@@ -212,6 +212,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         model_config: Optional[Dict] = None,
         compute_detailed_metrics: bool = True,
         patch_build: Optional[int] = None,
+        update_opt_mode: str = "compile",
     ) -> None:
         if not isinstance(network, StructuredActorCriticProtocol):
             raise TypeError(
@@ -262,12 +263,19 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # launch — ~6x faster .step() on this many-small-tensor net (measured
         # 12.9ms -> 2.1ms), i.e. ~2.8s/round off the host PPO update. CUDA-only;
         # workers (CPU) fall back to the standard implementation.
-        # Phase 2: opt-in CUDA-graph capture of the PPO update step (env
-        # RL_UPDATE_CAPTURE=1, CUDA-only). Proven 2.16x/step on a 4090. Off by
-        # default — the eager minibatch loop is the unchanged fallback.
-        self._update_capture = (
-            os.environ.get("RL_UPDATE_CAPTURE") == "1" and self.device.type == "cuda"
-        )
+        # Host-update acceleration ladder (Phase 2) — one knob, mutually exclusive:
+        #   "eager"   — plain fwd+bwd+opt
+        #   "compile" — torch.compile the host forward (default; current prod)
+        #   "capture" — CUDA-graph capture of the whole update step (fastest, CUDA-only)
+        # Source: agent.params.update_opt_mode; env RL_UPDATE_OPT_MODE overrides.
+        _mode = os.environ.get("RL_UPDATE_OPT_MODE", update_opt_mode)
+        if _mode not in ("eager", "compile", "capture"):
+            raise ValueError(
+                f"update_opt_mode must be 'eager'|'compile'|'capture', got {_mode!r}"
+            )
+        self._update_opt_mode = _mode
+        # capture is CUDA-only; inert on non-CUDA (e.g. CPU collect workers).
+        self._update_capture = (_mode == "capture") and self.device.type == "cuda"
         # capturable=True keeps Adam's step-count on-device so the optimizer step
         # is replayable inside a CUDA graph. Small extra per-step overhead, so it
         # is only enabled when capture is actually on.
@@ -1654,6 +1662,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "seed",
                 "compute_detailed_metrics",
                 "patch_build",
+                "update_opt_mode",
             }
         )
         for k, v in overrides.items():

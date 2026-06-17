@@ -284,6 +284,7 @@ def run_distributed(
                 device=device,
                 seed=seed,
                 patch_build=agent_params.get("patch_build"),
+                update_opt_mode=agent_params.get("update_opt_mode", "compile"),
             )
         else:
             from src.agents.ppo_agent import PPOAgent

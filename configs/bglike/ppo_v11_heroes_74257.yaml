@@ -31,6 +31,10 @@ agent:
   params:
     network_type: bglike_structured_v11_heroes
     observation_type: vector
+    # Host-update acceleration: eager | compile (default) | capture.
+    # "capture" = Phase-2 CUDA-graph capture (CUDA-only, ~1.66x update vs compile);
+    # it auto-disables host torch.compile. env RL_UPDATE_OPT_MODE overrides.
+    update_opt_mode: compile
     # --- DvD knobs neutralized: identities exist but carry no reward ---
     num_identities: 4
     diversity_coef: 0.0

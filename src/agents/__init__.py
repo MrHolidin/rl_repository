@@ -61,6 +61,7 @@ _PPO_AGENT_KWARGS = frozenset(
         "action_space",
         "compute_detailed_metrics",
         "patch_build",
+        "update_opt_mode",
     }
 )
 
