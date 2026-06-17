@@ -1,7 +1,9 @@
-"""Step-3 DvD metrics: preset columns + agent metric emission.
+"""Step-3 DvD metrics: group routing + agent metric emission.
 
-The CSV logger drops any key absent from the resolved fieldnames, so the
-``ppo_dvd`` preset must carry every ``dvd_*`` key the agent emits.
+The grouped CSV logger routes every emitted key to a file; ``dvd_*`` keys must
+land in the ``dvd`` aggregate group or the ``dvd_identities`` long file (never in
+the catch-all ``misc``), otherwise a diagnostic would be filed under the wrong
+table.
 """
 
 from __future__ import annotations
@@ -17,10 +19,7 @@ from src.envs.bglike.actions import NUM_ACTIONS
 from src.envs.bglike.board_descriptor import board_descriptor
 from src.envs.bglike.obs_v5 import OBS_DIM_V5
 from src.registry import make_agent
-from src.training.metrics_presets import (
-    METRICS_PRESET_PPO,
-    resolve_metrics_csv_fieldnames,
-)
+from src.training.metric_groups import DVD_IDENTITIES_GROUP, MISC_GROUP, route
 
 _PATCH = "data/bgcore/15_6_2_36393"
 _N_ID = 4
@@ -49,11 +48,8 @@ def _make_agent(diversity_coef=0.3):
     )
 
 
-def test_preset_superset_of_ppo_and_has_dvd_columns():
-    cols = resolve_metrics_csv_fieldnames("ppo", preset="ppo_dvd")
-    # Strict superset of the plain PPO preset (no regression for existing tools).
-    assert set(METRICS_PRESET_PPO).issubset(set(cols))
-    for key in (
+def test_dvd_keys_route_to_dvd_groups():
+    aggregate = (
         "dvd_pop_diversity",
         "dvd_identity_coverage",
         "dvd_distinct_tribes",
@@ -61,16 +57,16 @@ def test_preset_superset_of_ppo_and_has_dvd_columns():
         "dvd_mean_bonus",
         "dvd_bonus_place_ratio",
         "dvd_identity_contrib_norm",
-        "dvd_place_0",
-        "dvd_tribe_0",
-    ):
-        assert key in cols
+    )
+    for key in aggregate:
+        assert route(key) == "dvd"
+    for key in ("dvd_place_0", "dvd_tribe_0", "dvd_assigned_frac_3"):
+        assert route(key) == DVD_IDENTITIES_GROUP
 
 
-def test_emitted_metric_keys_are_all_in_preset():
-    """Every key the agent emits must be loggable (else silently dropped)."""
+def test_emitted_metric_keys_are_all_routed():
+    """No emitted key falls through to the catch-all misc file."""
     agent = _make_agent(diversity_coef=0.3)
-    cols = set(resolve_metrics_csv_fieldnames("ppo", preset="ppo_dvd"))
 
     # Populate two identities with distinct builds + placements.
     agent._active_identity = 0
@@ -82,8 +78,8 @@ def test_emitted_metric_keys_are_all_in_preset():
 
     metrics = agent._dvd_metrics()
     assert metrics  # non-empty
-    unknown = set(metrics) - cols
-    assert not unknown, f"emitted keys not in preset: {unknown}"
+    unrouted = {k for k in metrics if route(k) == MISC_GROUP}
+    assert not unrouted, f"emitted keys not registered to a group: {unrouted}"
 
 
 def test_metrics_values_and_accumulator_reset():

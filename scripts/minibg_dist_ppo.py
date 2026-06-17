@@ -35,7 +35,6 @@ from src.training.distributed_trainer import (
     DistributedCheckpointCallback,
     DistributedTrainer,
 )
-from src.training.metrics_presets import resolve_metrics_csv_fieldnames
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -144,12 +143,10 @@ def main() -> None:
     ckpt_dir = run_dir / "checkpoints"
     ckpt_dir.mkdir(exist_ok=True)
 
-    fieldnames = resolve_metrics_csv_fieldnames("ppo")
-
     callbacks = [
         StatusFileCallback(run_dir, interval=1, total_steps=total_steps),
         DistributedCheckpointCallback(ckpt_dir, interval=ckpt_interval, prefix="dist_minibg_ppo"),
-        MetricsFileCallback(run_dir, interval=1, fieldnames=fieldnames),
+        MetricsFileCallback(run_dir, interval=1),
     ]
 
     trainer = DistributedTrainer(

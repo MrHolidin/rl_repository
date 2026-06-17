@@ -120,7 +120,6 @@ train:
     - type: metrics_file
       params:
         interval: 1
-        preset: ppo_dvd
 
 eval:
   enabled: false

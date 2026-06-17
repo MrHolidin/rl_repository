@@ -150,34 +150,19 @@ def _build_epsilon_decay_callback(cb: CallbackConfig) -> Optional[TrainerCallbac
 def _build_metrics_file_callback(
     run_dir: Path,
     cb: CallbackConfig,
-    *,
-    agent_id: str,
 ) -> Optional[TrainerCallback]:
     if not cb.enabled or cb.type.lower() != "metrics_file":
         return None
     p = cb.params
     interval = int(p.get("interval", 100))
-    filename = str(p.get("filename", "metrics.csv"))
-    preset = str(p.get("preset", "auto")).strip().lower()
-    raw_columns = p.get("columns")
-
-    columns: Optional[list[str]] = None
-    if raw_columns is not None:
-        if not isinstance(raw_columns, (list, tuple)):
-            raise TypeError(
-                "metrics_file callback 'columns' must be a list of column names "
-                f"(got {type(raw_columns).__name__})"
-            )
-        columns = [str(x).strip() for x in raw_columns if str(x).strip()]
-
-    from src.training.metrics_presets import resolve_metrics_csv_fieldnames
-
-    fieldnames = resolve_metrics_csv_fieldnames(agent_id, preset=preset, columns=columns)
+    prefix = str(p.get("prefix", "metrics")).strip() or "metrics"
+    # Columns are now routed into per-group files automatically (see
+    # src.training.metric_groups); legacy 'preset'/'columns'/'filename' params,
+    # if present in old configs, are ignored.
     return MetricsFileCallback(
         run_dir=run_dir,
         interval=interval,
-        filename=filename,
-        fieldnames=fieldnames,
+        prefix=prefix,
     )
 
 
@@ -554,7 +539,7 @@ def run(
         _build_checkpoint_callback(run_dir, app_cfg.train.callbacks),
     ]
     for cb_cfg in app_cfg.train.callbacks:
-        built = _build_metrics_file_callback(run_dir, cb_cfg, agent_id=app_cfg.agent.id)
+        built = _build_metrics_file_callback(run_dir, cb_cfg)
         if built is not None:
             callbacks.append(built)
             continue

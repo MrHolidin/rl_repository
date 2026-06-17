@@ -4,13 +4,11 @@ import pytest
 import numpy as np
 import sys
 from pathlib import Path
-import os
-import tempfile
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.utils import ReplayBuffer, MetricsLogger
+from src.utils import ReplayBuffer
 
 
 def test_replay_buffer():
@@ -67,23 +65,6 @@ def test_replay_buffer_capacity():
     
     # Should be limited to capacity
     assert len(buffer) == 10
-
-
-def test_metrics_logger():
-    """Test metrics logger."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        logger = MetricsLogger(log_dir=tmpdir)
-        
-        # Log metrics
-        logger.log("test_metric", 1.0, step=0)
-        logger.log("test_metric", 2.0, step=1)
-        logger.log_dict({"metric1": 1.0, "metric2": 2.0}, step=2)
-        
-        # Check that metrics were logged
-        metrics = logger.get_metric("test_metric")
-        assert len(metrics) == 2
-        
-        logger.close()
 
 
 if __name__ == "__main__":

@@ -337,7 +337,7 @@ def run_distributed(
         None,
     )
     metrics_cb = (
-        _build_metrics_file_callback(run_dir, metrics_cb_cfg, agent_id=app_cfg.agent.id)
+        _build_metrics_file_callback(run_dir, metrics_cb_cfg)
         if metrics_cb_cfg is not None
         else MetricsFileCallback(run_dir, interval=1)
     )
