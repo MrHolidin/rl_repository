@@ -646,259 +646,362 @@ def _handle_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
         rt.swing_damage_survivors.append((e.victim_side_idx, e.victim_instance_id))
 
 
-def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
+# --- Deathrattle (ON_DEATH) effect handlers ------------------------------
+# One handler per effect type; the Baron-style _deathrattle_multiplier and
+# Khadgar-style _summon_multiplier loops live inside each handler (they differ
+# per effect). _fire_deathrattle iterates the dead minion's ON_DEATH abilities
+# and dispatches by effect type via _DEATHRATTLE_HANDLERS. To add a card
+# effect: write a _dr_* handler and register it below.
+
+
+def _dr_summon(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: SummonEffect
+) -> None:
     side = rt.side(side_idx)
+    rt.in_death_resolution = False
+    if effect.count_from_source_attack:
+        bf = (rt.side(0), rt.side(1))
+        base = max(
+            0,
+            attack_value(
+                dead,
+                side,
+                death_resolution=False,
+                battle_field=bf,
+            ),
+        )
+    else:
+        base = max(0, effect.count)
+    rt.in_death_resolution = True
+    target_side = _summon_target_side(side_idx, effect.for_opponent)
+    anchor = dead if target_side == side_idx else None
+    wave_cap = max(1, getattr(effect, "dr_wave_count", 1))
+    rep = 0
+    while rep < _deathrattle_multiplier(rt.side(side_idx)):
+        rep += 1
+        n_sum = _summon_multiplier(rt.side(side_idx))
+        for _ in range(n_sum):
+            for _wave in range(wave_cap):
+                for __ in range(base):
+                    tok = make_minion(effect.token_id, patch=rt.patch)
+                    bm = _summon_insert(
+                        rt,
+                        target_side,
+                        tok,
+                        _insert_idx_after(rt.side(target_side), anchor),
+                    )
+                    if bm is not None and anchor is not None:
+                        anchor = bm
+                    if effect.attack_immediately:
+                        _summon_attack_immediately_if_requested(
+                            rt, bm, target_side
+                        )
+                    if bm is None:
+                        break
+
+
+def _dr_summon_random(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: SummonRandomMinionEffect
+) -> None:
+    side = rt.side(side_idx)
+    race_hs = hs_race_string(effect.race_filter)
+    pool = summon_pool_for(
+        effect.exact_tier,
+        effect.legendary_only,
+        effect.require_deathrattle,
+        race_hs,
+        dead.template.card_id if effect.exclude_source else None,
+        patch=rt.patch,
+    )
+    if not pool:
+        return
+    target_side = _summon_target_side(side_idx, effect.for_opponent)
+    anchor = dead if target_side == side_idx else None
+    rep = 0
+    while rep < _deathrattle_multiplier(rt.side(side_idx)):
+        rep += 1
+        n_sum = _summon_multiplier(rt.side(side_idx))
+        for _ in range(n_sum):
+            for __ in range(effect.count):
+                cid = pool[int(rt.rng.integers(0, len(pool)))]
+                tok = make_minion(cid, patch=rt.patch)
+                bm = _summon_insert(
+                    rt,
+                    target_side,
+                    tok,
+                    _insert_idx_after(rt.side(target_side), anchor),
+                )
+                if bm is None:
+                    break
+                if anchor is not None:
+                    anchor = bm
+
+
+def _dr_damage_random(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: DealDamageRandomEnemyMinion
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        _deal_random_enemy_minion_damage(rt, side_idx, effect.amount)
+
+
+def _dr_damage_leftmost(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: DealDamageLeftmostEnemyMinion
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        _deal_leftmost_enemy_minion_damage(rt, side_idx, effect.amount)
+
+
+def _dr_damage_all(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: DealDamageAllMinions
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        _deal_damage_all_minions(rt, effect.amount)
+
+
+def _dr_transfer_attack(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: TransferAttackToRandomFriendlyEffect
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        bf = (rt.side(0), rt.side(1))
+        atk = attack_value(
+            dead,
+            side,
+            death_resolution=False,
+            battle_field=bf,
+        )
+        if atk <= 0:
+            continue
+        pool = [
+            m
+            for m in side.minions
+            if m.alive and (not effect.exclude_self or m is not dead)
+        ]
+        if not pool:
+            continue
+        tgt = pool[int(rt.rng.integers(0, len(pool)))]
+        tgt.template.bonus_attack += atk
+    _sync_health_all(rt)
+
+
+def _dr_summon_copy_hand(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: SummonRandomAndCopyToHandEffect
+) -> None:
+    side = rt.side(side_idx)
+    race_hs = hs_race_string(effect.race_filter)
+    pool = summon_pool_for(
+        None,
+        False,
+        False,
+        race_hs,
+        dead.template.card_id if effect.exclude_source else None,
+        patch=rt.patch,
+    )
+    if not pool:
+        return
+    target_side = side_idx
+    anchor = dead
+    rep = 0
+    while rep < _deathrattle_multiplier(side):
+        rep += 1
+        n_sum = _summon_multiplier(side)
+        for _ in range(n_sum):
+            for __ in range(effect.count):
+                cid = pool[int(rt.rng.integers(0, len(pool)))]
+                tok = make_minion(cid, patch=rt.patch)
+                bm = _summon_insert(
+                    rt,
+                    target_side,
+                    tok,
+                    _insert_idx_after(rt.side(target_side), anchor),
+                )
+                if bm is None:
+                    break
+                anchor = bm
+                _queue_combat_hand_add_card(rt, side_idx, cid)
+
+
+def _dr_buff_all_friendly(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllFriendlyMinions
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        for m in side.minions:
+            if (not m.alive) or m is dead:
+                continue
+            m.template.bonus_attack += effect.attack
+            m.template.bonus_health += effect.health
+            m.current_health += effect.health
+    _sync_health_all(rt)
+
+
+def _dr_buff_all_of_tribe(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllFriendlyOfTribe
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        for m in side.minions:
+            if (not m.alive) or m is dead:
+                continue
+            if not _matches_tribe_for_aura(m.template, effect.tribe):
+                continue
+            m.template.bonus_attack += effect.attack
+            m.template.bonus_health += effect.health
+            m.current_health += effect.health
+    _sync_health_all(rt)
+
+
+def _dr_buff_all_with_keyword(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllWithKeyword
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        for m in side.minions:
+            if (not m.alive) or m is dead:
+                continue
+            if effect.keyword not in m.template.all_keywords:
+                continue
+            m.template.bonus_attack += effect.attack
+            m.template.bonus_health += effect.health
+            m.current_health += effect.health
+    _sync_health_all(rt)
+
+
+def _dr_buff_random_other(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomOtherFriendlyCombat
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        pool = [m for m in side.minions if m.alive and m is not dead]
+        if not pool:
+            continue
+        t = pool[int(rt.rng.integers(0, len(pool)))]
+        t.template.bonus_attack += effect.attack
+        t.template.bonus_health += effect.health
+        t.current_health += effect.health
+    _sync_health_all(rt)
+
+
+def _dr_summon_dead_mechs(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: SummonFirstDeadFriendlyMechsThisCombat
+) -> None:
+    side = rt.side(side_idx)
+    anchor = dead
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        templates = _dead_friendly_mech_templates_ordered(side, dead)
+        take = templates[: max(0, effect.count)]
+        n_sum = _summon_multiplier(side)
+        for _k in range(n_sum):
+            for tpl in take:
+                bm = _summon_insert(
+                    rt,
+                    side_idx,
+                    copy(tpl),
+                    _insert_idx_after(side, anchor),
+                )
+                if bm is None:
+                    break
+                anchor = bm
+
+
+def _dr_grant_kw_random(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: GrantKeywordRandomFriendly
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        for _kw in range(max(1, effect.repeats)):
+            pool = []
+            for m in side.minions:
+                if not m.alive or m is dead:
+                    continue
+                if effect.filter_race is not None and not _matches_tribe_for_aura(
+                    m.template, effect.filter_race
+                ):
+                    continue
+                pool.append(m)
+            if not pool:
+                continue
+            t = pool[int(rt.rng.integers(0, len(pool)))]
+            _grant_keyword(rt, side_idx, t, effect.keyword)
+
+
+def _dr_grant_kw_all_of_tribe(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: GrantKeywordAllFriendlyOfTribe
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        for m in side.minions:
+            if (not m.alive) or m is dead:
+                continue
+            if not _matches_tribe_for_aura(m.template, effect.tribe):
+                continue
+            _grant_keyword(rt, side_idx, m, effect.keyword)
+
+
+def _dr_gain_gold(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: GainGoldOnDeathEffect
+) -> None:
+    side = rt.side(side_idx)
+    rep_dr = 0
+    while rep_dr < _deathrattle_multiplier(side):
+        rep_dr += 1
+        rt.combat_gold[side_idx] += effect.amount
+
+
+_DEATHRATTLE_HANDLERS = {
+    SummonEffect: _dr_summon,
+    SummonRandomMinionEffect: _dr_summon_random,
+    DealDamageRandomEnemyMinion: _dr_damage_random,
+    DealDamageLeftmostEnemyMinion: _dr_damage_leftmost,
+    DealDamageAllMinions: _dr_damage_all,
+    TransferAttackToRandomFriendlyEffect: _dr_transfer_attack,
+    SummonRandomAndCopyToHandEffect: _dr_summon_copy_hand,
+    BuffAllFriendlyMinions: _dr_buff_all_friendly,
+    BuffAllFriendlyOfTribe: _dr_buff_all_of_tribe,
+    BuffAllWithKeyword: _dr_buff_all_with_keyword,
+    BuffRandomOtherFriendlyCombat: _dr_buff_random_other,
+    SummonFirstDeadFriendlyMechsThisCombat: _dr_summon_dead_mechs,
+    GrantKeywordRandomFriendly: _dr_grant_kw_random,
+    GrantKeywordAllFriendlyOfTribe: _dr_grant_kw_all_of_tribe,
+    GainGoldOnDeathEffect: _dr_gain_gold,
+}
+
+
+def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
     prev = rt.in_death_resolution
     rt.in_death_resolution = True
     try:
         for ab in dead.template.abilities:
             if ab.trigger != Trigger.ON_DEATH:
                 continue
-            effect = ab.effect
-            if isinstance(effect, SummonEffect):
-                rt.in_death_resolution = False
-                if effect.count_from_source_attack:
-                    bf = (rt.side(0), rt.side(1))
-                    base = max(
-                        0,
-                        attack_value(
-                            dead,
-                            side,
-                            death_resolution=False,
-                            battle_field=bf,
-                        ),
-                    )
-                else:
-                    base = max(0, effect.count)
-                rt.in_death_resolution = True
-                target_side = _summon_target_side(side_idx, effect.for_opponent)
-                anchor = dead if target_side == side_idx else None
-                wave_cap = max(1, getattr(effect, "dr_wave_count", 1))
-                rep = 0
-                while rep < _deathrattle_multiplier(rt.side(side_idx)):
-                    rep += 1
-                    n_sum = _summon_multiplier(rt.side(side_idx))
-                    for _ in range(n_sum):
-                        for _wave in range(wave_cap):
-                            for __ in range(base):
-                                tok = make_minion(effect.token_id, patch=rt.patch)
-                                bm = _summon_insert(
-                                    rt,
-                                    target_side,
-                                    tok,
-                                    _insert_idx_after(rt.side(target_side), anchor),
-                                )
-                                if bm is not None and anchor is not None:
-                                    anchor = bm
-                                if effect.attack_immediately:
-                                    _summon_attack_immediately_if_requested(
-                                        rt, bm, target_side
-                                    )
-                                if bm is None:
-                                    break
-            elif isinstance(effect, SummonRandomMinionEffect):
-                race_hs = hs_race_string(effect.race_filter)
-                pool = summon_pool_for(
-                    effect.exact_tier,
-                    effect.legendary_only,
-                    effect.require_deathrattle,
-                    race_hs,
-                    dead.template.card_id if effect.exclude_source else None,
-                    patch=rt.patch,
-                )
-                if not pool:
-                    continue
-                target_side = _summon_target_side(side_idx, effect.for_opponent)
-                anchor = dead if target_side == side_idx else None
-                rep = 0
-                while rep < _deathrattle_multiplier(rt.side(side_idx)):
-                    rep += 1
-                    n_sum = _summon_multiplier(rt.side(side_idx))
-                    for _ in range(n_sum):
-                        for __ in range(effect.count):
-                            cid = pool[int(rt.rng.integers(0, len(pool)))]
-                            tok = make_minion(cid, patch=rt.patch)
-                            bm = _summon_insert(
-                                rt,
-                                target_side,
-                                tok,
-                                _insert_idx_after(rt.side(target_side), anchor),
-                            )
-                            if bm is None:
-                                break
-                            if anchor is not None:
-                                anchor = bm
-            elif isinstance(effect, DealDamageRandomEnemyMinion):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    _deal_random_enemy_minion_damage(rt, side_idx, effect.amount)
-            elif isinstance(effect, DealDamageLeftmostEnemyMinion):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    _deal_leftmost_enemy_minion_damage(rt, side_idx, effect.amount)
-            elif isinstance(effect, DealDamageAllMinions):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    _deal_damage_all_minions(rt, effect.amount)
-            elif isinstance(effect, TransferAttackToRandomFriendlyEffect):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    bf = (rt.side(0), rt.side(1))
-                    atk = attack_value(
-                        dead,
-                        side,
-                        death_resolution=False,
-                        battle_field=bf,
-                    )
-                    if atk <= 0:
-                        continue
-                    pool = [
-                        m
-                        for m in side.minions
-                        if m.alive and (not effect.exclude_self or m is not dead)
-                    ]
-                    if not pool:
-                        continue
-                    tgt = pool[int(rt.rng.integers(0, len(pool)))]
-                    tgt.template.bonus_attack += atk
-                _sync_health_all(rt)
-            elif isinstance(effect, SummonRandomAndCopyToHandEffect):
-                race_hs = hs_race_string(effect.race_filter)
-                pool = summon_pool_for(
-                    None,
-                    False,
-                    False,
-                    race_hs,
-                    dead.template.card_id if effect.exclude_source else None,
-                    patch=rt.patch,
-                )
-                if not pool:
-                    continue
-                target_side = side_idx
-                anchor = dead
-                rep = 0
-                while rep < _deathrattle_multiplier(side):
-                    rep += 1
-                    n_sum = _summon_multiplier(side)
-                    for _ in range(n_sum):
-                        for __ in range(effect.count):
-                            cid = pool[int(rt.rng.integers(0, len(pool)))]
-                            tok = make_minion(cid, patch=rt.patch)
-                            bm = _summon_insert(
-                                rt,
-                                target_side,
-                                tok,
-                                _insert_idx_after(rt.side(target_side), anchor),
-                            )
-                            if bm is None:
-                                break
-                            anchor = bm
-                            _queue_combat_hand_add_card(rt, side_idx, cid)
-            elif isinstance(effect, BuffAllFriendlyMinions):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    for m in side.minions:
-                        if (not m.alive) or m is dead:
-                            continue
-                        m.template.bonus_attack += effect.attack
-                        m.template.bonus_health += effect.health
-                        m.current_health += effect.health
-                _sync_health_all(rt)
-            elif isinstance(effect, BuffAllFriendlyOfTribe):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    for m in side.minions:
-                        if (not m.alive) or m is dead:
-                            continue
-                        if not _matches_tribe_for_aura(m.template, effect.tribe):
-                            continue
-                        m.template.bonus_attack += effect.attack
-                        m.template.bonus_health += effect.health
-                        m.current_health += effect.health
-                _sync_health_all(rt)
-            elif isinstance(effect, BuffAllWithKeyword):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    for m in side.minions:
-                        if (not m.alive) or m is dead:
-                            continue
-                        if effect.keyword not in m.template.all_keywords:
-                            continue
-                        m.template.bonus_attack += effect.attack
-                        m.template.bonus_health += effect.health
-                        m.current_health += effect.health
-                _sync_health_all(rt)
-            elif isinstance(effect, BuffRandomOtherFriendlyCombat):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    pool = [m for m in side.minions if m.alive and m is not dead]
-                    if not pool:
-                        continue
-                    t = pool[int(rt.rng.integers(0, len(pool)))]
-                    t.template.bonus_attack += effect.attack
-                    t.template.bonus_health += effect.health
-                    t.current_health += effect.health
-                _sync_health_all(rt)
-            elif isinstance(effect, SummonFirstDeadFriendlyMechsThisCombat):
-                anchor = dead
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    templates = _dead_friendly_mech_templates_ordered(side, dead)
-                    take = templates[: max(0, effect.count)]
-                    n_sum = _summon_multiplier(side)
-                    for _k in range(n_sum):
-                        for tpl in take:
-                            bm = _summon_insert(
-                                rt,
-                                side_idx,
-                                copy(tpl),
-                                _insert_idx_after(side, anchor),
-                            )
-                            if bm is None:
-                                break
-                            anchor = bm
-            elif isinstance(effect, GrantKeywordRandomFriendly):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    for _kw in range(max(1, effect.repeats)):
-                        pool = []
-                        for m in side.minions:
-                            if not m.alive or m is dead:
-                                continue
-                            if effect.filter_race is not None and not _matches_tribe_for_aura(
-                                m.template, effect.filter_race
-                            ):
-                                continue
-                            pool.append(m)
-                        if not pool:
-                            continue
-                        t = pool[int(rt.rng.integers(0, len(pool)))]
-                        _grant_keyword(rt, side_idx, t, effect.keyword)
-            elif isinstance(effect, GrantKeywordAllFriendlyOfTribe):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    for m in side.minions:
-                        if (not m.alive) or m is dead:
-                            continue
-                        if not _matches_tribe_for_aura(m.template, effect.tribe):
-                            continue
-                        _grant_keyword(rt, side_idx, m, effect.keyword)
-            elif isinstance(effect, GainGoldOnDeathEffect):
-                rep_dr = 0
-                while rep_dr < _deathrattle_multiplier(side):
-                    rep_dr += 1
-                    rt.combat_gold[side_idx] += effect.amount
+            handler = _DEATHRATTLE_HANDLERS.get(type(ab.effect))
+            if handler is not None:
+                handler(rt, dead, side_idx, ab.effect)
     finally:
         rt.in_death_resolution = prev
 
