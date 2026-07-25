@@ -96,6 +96,17 @@ logs/
 *.temp
 .cache/
 
+# Claude Code harness (worktrees, local settings) — never commit, ~100MB
+.claude/
+
+# Throwaway benches / prototypes / profiler output kept at the repo root.
+# Committed tools live in scripts/ ; these are one-off investigations.
+/_bench_*.py
+/_profile_*.py
+/_proto_*.py
+/_meas_*.py
+*.prof
+
 # Model files (large)
 *.h5
 *.hdf5
