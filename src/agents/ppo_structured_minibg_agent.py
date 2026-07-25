@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import random
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -202,6 +203,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         clip_value_loss: bool = True,
         value_clip_eps: Optional[float] = None,
         entropy_coef: float = 0.01,
+        entropy_target: float = 0.0,
+        entropy_coef_max: float = 0.2,
+        entropy_adapt_rate: float = 0.05,
         value_coef: float = 0.5,
         max_grad_norm: float = 1.0,
         rollout_steps: int = 1024,
@@ -238,6 +242,22 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self.clip_value_loss = clip_value_loss
         self.value_clip_eps = value_clip_eps
         self.entropy_coef = entropy_coef
+        # One-sided adaptive entropy pressure. `entropy_coef` stays the floor, so
+        # with entropy_target unset (or while measured entropy sits above it) this
+        # is bit-exact the fixed-coefficient behaviour. Only a policy that has
+        # collapsed BELOW the target gets extra pressure -- the early, naturally
+        # high-entropy phase is never damped.
+        #
+        # Target is in nats and must be read against the LEGAL action count, not
+        # the 64-wide head: measured over 2539 real decisions the mean legal count
+        # is 10.9 (median 10), so the achievable ceiling is ln(10.9)=2.39. The
+        # fixed-0.01 runs settle at 0.61 nats = e^0.61 = 1.8 effective actions out
+        # of ~11 -- and they do so identically across control/DvD/tier-shaping,
+        # which is what makes a controller reliable here.
+        self.entropy_target = float(entropy_target) if entropy_target else 0.0
+        self.entropy_coef_max = float(entropy_coef_max)
+        self.entropy_adapt_rate = float(entropy_adapt_rate)
+        self._entropy_coef_base = float(entropy_coef)
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_steps = rollout_steps
@@ -636,6 +656,23 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         return close_rollout_segment(
             self.rollout_buffer, seat, terminal_reward, placement=placement
         )
+
+    def _adapt_entropy_coef(self, mean_entropy: float) -> None:
+        """One-sided controller pulling measured entropy up to ``entropy_target``.
+
+        Multiplicative so it is scale-free in the coefficient, and floored at the
+        configured ``entropy_coef`` so this can only ever add exploration pressure
+        relative to the fixed-coefficient baseline, never remove it. Disabled
+        (bit-exact no-op) when ``entropy_target`` is 0.
+        """
+        if self.entropy_target <= 0.0:
+            return
+        err = self.entropy_target - float(mean_entropy)
+        scaled = self.entropy_coef * math.exp(self.entropy_adapt_rate * err)
+        if err > 0.0:
+            self.entropy_coef = min(scaled, self.entropy_coef_max)
+        else:
+            self.entropy_coef = max(scaled, self._entropy_coef_base)
 
     def update(self) -> Dict[str, float]:
         if not self.training:
@@ -1052,7 +1089,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_placement_acc = float(acc_place.item())
 
         gn = float(grad_norm.item()) if isinstance(grad_norm, torch.Tensor) else float(grad_norm)
+        mean_entropy = total_entropy / total_batches
+        self._adapt_entropy_coef(mean_entropy)
         out_metrics = {
+            "entropy_coef": float(self.entropy_coef),
             "loss": (total_policy_loss + self.value_coef * total_value_loss - self.entropy_coef * total_entropy)
             / total_batches,
             "policy_loss": total_policy_loss / total_batches,
@@ -1574,7 +1614,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "ppo_clip_eps": self.ppo_clip_eps,
             "clip_value_loss": self.clip_value_loss,
             "value_clip_eps": self.value_clip_eps,
-            "entropy_coef": self.entropy_coef,
+            # Base, not the live value: the adaptive controller mutates
+            # self.entropy_coef, and persisting that would silently promote an
+            # adapted value to the floor on resume. Identical when the
+            # controller is off (base == live).
+            "entropy_coef": self._entropy_coef_base,
+            "entropy_target": self.entropy_target,
+            "entropy_coef_max": self.entropy_coef_max,
+            "entropy_adapt_rate": self.entropy_adapt_rate,
             "value_coef": self.value_coef,
             "max_grad_norm": self.max_grad_norm,
             "rollout_steps": self.rollout_steps,
@@ -1635,6 +1682,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "clip_value_loss": checkpoint.get("clip_value_loss", True),
             "value_clip_eps": checkpoint.get("value_clip_eps"),
             "entropy_coef": checkpoint.get("entropy_coef", 0.01),
+            "entropy_target": checkpoint.get("entropy_target", 0.0),
+            "entropy_coef_max": checkpoint.get("entropy_coef_max", 0.2),
+            "entropy_adapt_rate": checkpoint.get("entropy_adapt_rate", 0.05),
             "value_coef": checkpoint.get("value_coef", 0.5),
             "max_grad_norm": checkpoint.get("max_grad_norm", 1.0),
             "rollout_steps": checkpoint.get("rollout_steps", 1024),
@@ -1653,6 +1703,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "clip_value_loss",
                 "value_clip_eps",
                 "entropy_coef",
+                "entropy_target",
+                "entropy_coef_max",
+                "entropy_adapt_rate",
                 "value_coef",
                 "max_grad_norm",
                 "rollout_steps",
