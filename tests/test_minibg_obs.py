@@ -26,7 +26,6 @@ from src.envs.minibg.obs import (
     TRIPLE_DISCOVER_TIER_OFFSET,
     TRIPLE_REWARD_SPELL_OFFSET,
     CARD_IDX_OFFSET,
-    EFFECT_OFFSET,
     GLOBAL_CORE_DIM,
     GLOBAL_DIM,
     HAND_LEN,
@@ -45,7 +44,6 @@ from src.envs.minibg.obs import (
     SLOT_DIM,
     STATS_OFFSET,
     TIER_OFFSET,
-    TRIGGER_OFFSET,
     i_have_round_initiative,
 )
 from src.envs.minibg.state import PlayerPhase, Race
@@ -56,7 +54,8 @@ _S0 = STATS_OFFSET
 _R0 = RACE_OFFSET
 _K0 = KEYWORD_OFFSET
 _SH = SHIELD_OFFSET
-_TG0 = TRIGGER_OFFSET
+# Trigger/effect one-hot channels left this layout in the v5 obs redesign
+# (64bff34) — they are ability-token ids now. See test_bglike_obs_v5_abilities.
 
 
 def test_obs_dim_matches_layout():
@@ -71,7 +70,10 @@ def test_obs_dim_matches_layout():
         + PENDING_CHOICE_DIM
     )
     assert OBS_DIM == expected
-    assert SLOT_DIM == 95
+    # Hard pin: changing the slot width changes obs dim and invalidates every
+    # checkpoint. Was 95 before the v5 redesign (64bff34) dropped the 21 trigger
+    # + 38 effect one-hot channels; update deliberately, with a retrain.
+    assert SLOT_DIM == 36
     assert GLOBAL_DIM == 19
     assert LAST_BATTLE_DIM == 1
     assert HAND_LEN == HAND_SIZE
@@ -164,9 +166,6 @@ def test_encode_minion_mecharoo_layout():
     assert v[_R0 + 3] == 1.0
     assert v[_K0 : _SH].sum() == 0.0
     assert v[_SH] == 0.0
-    assert v[_TG0 + 1] == 1.0
-    assert v[_TG0] == 0.0
-    assert v[_TG0 + 2 : _TG0 + 8].sum() == 0.0
     assert v[HAND_SAME_CARD_COUNT_OFFSET] == 0.0
     assert v[BOARD_SAME_CARD_COUNT_OFFSET] == 0.0
 def test_build_observation_same_non_golden_copy_counts_own_board_and_hand():
@@ -210,28 +209,10 @@ def test_encode_minion_guard_taunt():
     assert v[_K0 + 1] == 0.0
 
 
-def test_encode_minion_ability_flags():
-    buf = encode_minion(make_minion("buffer"))
-    assert buf[_TG0 + 4] == 1.0
-    assert buf[_TG0] == 0.0
-    assert buf[_TG0 : _TG0 + 4].sum() == 0.0
-    assert buf[_TG0 + 5] == 0.0
-    assert buf[_TG0 + 6] == 0.0
-
-    pr = encode_minion(make_minion("pack_rat"))
-    assert pr[_TG0 + 1] == 1.0
-
-    cmd = encode_minion(make_minion("commander"))
-    assert cmd[_TG0 + 2] == 1.0
-
-    mn = encode_minion(make_minion("mentor"))
-    assert mn[_TG0 + 3] == 1.0
-
-    ww = encode_minion(make_minion("wrath_weaver"))
-    assert ww[_TG0 + 5] == 1.0
-
-    kg = encode_minion(make_minion("kangors_apprentice"))
-    assert kg[_TG0 + 1] == 1.0
+# test_encode_minion_ability_flags removed with the v5 obs redesign (64bff34):
+# it asserted only on the per-slot trigger one-hot block, which no longer exists.
+# Equivalent coverage over the replacement encoding lives in
+# tests/test_bglike_obs_v5_abilities.py::test_trigger_id_per_card.
 
 
 def test_encode_minion_bonus_stats():

@@ -15,11 +15,11 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_core.minion import Race
+from src.envs.bglike.obs_v5 import ABIL_OFF_TRIGGER, encode_ability_token
 from src.envs.minibg.obs import (
     KEYWORD_OFFSET,
     RACE_OFFSET,
     TRIGGER_INDEX,
-    TRIGGER_OFFSET,
     _RACE_ORDER,
     encode_minion,
 )
@@ -160,8 +160,11 @@ def test_obs_encodes_reborn_and_start_of_combat_triggers():
     )
     v = encode_minion(m, card_id_to_dense=PATCH_CTX.card_id_to_dense)
     assert v[KEYWORD_OFFSET + 6] == 1.0
+    # Triggers left the per-slot obs in the v5 redesign (64bff34); they are now
+    # a +1-shifted id on the ability token, so assert there instead.
     ti = TRIGGER_INDEX[Trigger.ON_START_OF_COMBAT]
-    assert v[TRIGGER_OFFSET + ti] == 1.0
+    tok = encode_ability_token(m.abilities[0], PATCH_CTX)
+    assert tok[ABIL_OFF_TRIGGER] == ti + 1
 
 
 def test_effective_sell_reward_override():
