@@ -147,10 +147,14 @@ def test_notify_episode_end_skips_league_record():
     from unittest.mock import MagicMock
 
     sampler = MagicMock()
+    # __new__ skips __init__, so every attribute notify_episode_end touches has
+    # to be set by hand here — including ones added later (_learner arrived with
+    # the DvD episode-boundary hook in 8a576c3). __init__ defaults it to None.
     env = BGLikeAgentPerspectiveEnv.__new__(BGLikeAgentPerspectiveEnv)
     env.opponent_sampler = sampler
     env._episode_index = 0
     env._agent_token = 1
+    env._learner = None
     env.notify_episode_end({"placements_current": {0: 2, 1: 6}})
     assert sampler.on_episode_end.call_count == 1
     _, info = sampler.on_episode_end.call_args[0]

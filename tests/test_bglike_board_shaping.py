@@ -105,8 +105,18 @@ def test_parse_tribes_shaping_rejects_unknown_race():
         parse_tribes_shaping({"NOT_A_TRIBE": 1.0})
 
 
-def test_v6_config_shaping_matches_catalog_and_reward_math():
-    """Regression: ppo_structured_v6_74257 minion names must match patch catalog."""
+def test_v6_config_shaping_matches_catalog_and_wiring():
+    """Regression: ppo_structured_v6_74257 minion names must match patch catalog.
+
+    A typo'd name here is silent — it just makes that shaping term a no-op — so
+    the catalog check is the point of this test. The second half only proves the
+    config actually reaches ``env._board_shaping``.
+
+    Deliberately asserts no magnitudes: those are experiment-tuning knobs (they
+    moved 0.1 -> 0.3 in 8a576c3 and stranded this test for weeks). The reward
+    math itself is covered on synthetic configs by
+    ``test_terminal_reward_adds_configured_bonuses``.
+    """
     from src.bg_catalog.cards import make_minion
     from src.bg_catalog.patch_context import load_patch_context
     from src.config import load_config
@@ -151,8 +161,10 @@ def test_v6_config_shaping_matches_catalog_and_reward_math():
 
     place = 4
     bd = terminal_reward_breakdown(state, 0, place, cfg)
-    assert bd["minions_shaping"] == pytest.approx(0.1 - 0.1 - 0.1)
-    assert bd["tribes_shaping"] == pytest.approx(2 * -0.03)
+    # Non-zero, not a magnitude: the board holds three shaped minions and two
+    # MECHANICAL ones, so a zero here means the config never reached the env.
+    assert bd["minions_shaping"] != 0.0
+    assert bd["tribes_shaping"] != 0.0
     assert bd["placement_reward"] == pytest.approx(
         placement_reward(place) + bd["board_shaping_total"]
     )
