@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Run N BGLike self-play lobbies from a checkpoint; report end-board tier/stats/races."""
+"""Run N BGLike self-play lobbies from a checkpoint; report end-board tier/stats/races.
+
+All 8 seats are driven by the same checkpoint (deterministic eval), so mean
+placement is 4.5 by construction — it is printed only as a sanity check that the
+lobby actually ran. The stat-sum-by-placement breakdown is the informative part:
+it shows how much board the checkpoint needs to reach a given finish.
+
+Pass ``--obs-kind``/``--with-heroes`` to match the net: heroes checkpoints
+(v11_heroes) need ``--obs-kind bglike_v5_heroes --with-heroes`` and will fail to
+load under the default v3 obs.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +28,7 @@ if str(REPO_ROOT) not in sys.path:
 import src.envs  # noqa: F401
 from src.bg_core.minion import Minion, Race
 from src.envs.bglike.lobby_env import BGLobbyEnv
+from src.envs.bglike.placement import placement_for_seat
 from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.envs.bglike.state import BGLikeState
 from src.evaluation.eval_checkpoints import find_checkpoints, load_training_agent_checkpoint
@@ -57,6 +68,9 @@ def run_games(
     num_games: int,
     seed: int,
     device: str,
+    patch_dir: str | None = None,
+    obs_kind: str = "bglike",
+    with_heroes: bool = False,
 ) -> List[dict]:
     agent = load_training_agent_checkpoint(checkpoint, device=device, seed=seed)
     if hasattr(agent, "eval"):
@@ -68,6 +82,9 @@ def run_games(
         learned_seats=tuple(range(8)),
         training_seats=(0,),
         seed=seed,
+        patch_dir=patch_dir,
+        obs_kind=obs_kind,
+        with_heroes=with_heroes,
     )
     games: List[dict] = []
     for g in range(num_games):
@@ -82,6 +99,7 @@ def run_games(
             per_seat.append(
                 {
                     "seat": seat,
+                    "placement": int(placement_for_seat(st, seat)),
                     "tier": tier,
                     "board_size": len(board),
                     "stat_sum": _board_stat_sum(board),
@@ -104,12 +122,18 @@ def run_games(
 def summarize(games: List[dict]) -> dict:
     tiers: List[float] = []
     stat_sums: List[float] = []
+    placements: List[float] = []
+    stat_by_place: Dict[int, List[float]] = {}
     race_counts: Counter[str] = Counter()
     n_minions = 0
+    rounds: List[float] = [float(g["round"]) for g in games]
     for game in games:
         for seat in game["seats"]:
             tiers.append(float(seat["tier"]))
             stat_sums.append(float(seat["stat_sum"]))
+            place = int(seat["placement"])
+            placements.append(float(place))
+            stat_by_place.setdefault(place, []).append(float(seat["stat_sum"]))
             for race, c in seat["races"].items():
                 race_counts[race] += int(c)
                 n_minions += int(c)
@@ -132,8 +156,13 @@ def summarize(games: List[dict]) -> dict:
     return {
         "num_games": len(games),
         "player_samples": len(tiers),
+        "mean_game_rounds": mean_ci(rounds),
+        "mean_placement": mean_ci(placements),
         "mean_tavern_tier": tier_s,
         "mean_board_stat_sum": stat_s,
+        "board_stat_sum_by_placement": {
+            str(p): mean_ci(stat_by_place[p]) for p in sorted(stat_by_place)
+        },
         "race_minion_counts": dict(sorted(race_counts.items())),
         "race_minion_pct": race_pct,
         "total_minions_on_final_boards": n_minions,
@@ -153,11 +182,18 @@ def _print_report(checkpoint: Path, summary: dict) -> None:
         f"mean board stat sum (atk+hp): {ms['mean']:.1f} "
         f"(95% CI ±{ms['ci95_half']:.1f}, n={ms['n']})"
     )
+    mr = summary["mean_game_rounds"]
+    mp = summary["mean_placement"]
+    print(f"mean game length: {mr['mean']:.1f} rounds")
+    print(f"mean placement (self-play, uniform=4.5): {mp['mean']:.3f}")
     print(f"minions on final boards: {summary['total_minions_on_final_boards']}")
     print("race distribution (minions on final boards):")
     for race, pct in summary["race_minion_pct"].items():
         cnt = summary["race_minion_counts"][race]
         print(f"  {race:12s}  {cnt:4d}  ({pct:5.1f}%)")
+    print("board stat sum by final placement:")
+    for place, st in sorted(summary["board_stat_sum_by_placement"].items(), key=lambda kv: int(kv[0])):
+        print(f"  place {place}:  {st['mean']:7.1f}  (95% CI ±{st['ci95_half']:.1f}, n={st['n']})")
 
 
 def main() -> None:
@@ -172,6 +208,15 @@ def main() -> None:
     ap.add_argument("--num-games", type=int, default=20)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--device", type=str, default="cpu")
+    ap.add_argument("--patch-dir", type=str, default=None)
+    ap.add_argument(
+        "--obs-kind", type=str, default="bglike",
+        help="bglike (v3 obs) / bglike_v5 (v5..v11 nets) / bglike_v5_heroes",
+    )
+    ap.add_argument(
+        "--with-heroes", action="store_true",
+        help="assign a random hero per seat (required for heroes nets)",
+    )
     ap.add_argument(
         "--out-json",
         type=Path,
@@ -193,6 +238,9 @@ def main() -> None:
         num_games=args.num_games,
         seed=args.seed,
         device=args.device,
+        patch_dir=args.patch_dir,
+        obs_kind=args.obs_kind,
+        with_heroes=args.with_heroes,
     )
     summary = summarize(games)
     payload = {

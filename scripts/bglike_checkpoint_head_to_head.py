@@ -60,6 +60,7 @@ def run_head_to_head(
     device: str,
     patch_dir: str | None = None,
     obs_kind: str = "bglike",
+    with_heroes: bool = False,
 ) -> List[dict]:
     agent_a = load_training_agent_checkpoint(ck_a, device=device, seed=seed)
     agent_b = load_training_agent_checkpoint(ck_b, device=device, seed=seed + 1)
@@ -80,6 +81,7 @@ def run_head_to_head(
         seed=seed,
         patch_dir=patch_dir,
         obs_kind=obs_kind,
+        with_heroes=with_heroes,
     )
     games: List[dict] = []
     import time as _time
@@ -145,7 +147,11 @@ def main() -> None:
     )
     ap.add_argument(
         "--obs-kind", type=str, default="bglike",
-        help="bglike (v3 obs) or bglike_v5 (v5/v6/v7/v8 nets)",
+        help="bglike (v3 obs) / bglike_v5 (v5..v11 nets) / bglike_v5_heroes",
+    )
+    ap.add_argument(
+        "--with-heroes", action="store_true",
+        help="assign a random hero per seat (required for heroes nets)",
     )
     args = ap.parse_args()
 
@@ -169,6 +175,7 @@ def main() -> None:
         device=args.device,
         patch_dir=args.patch_dir,
         obs_kind=args.obs_kind,
+        with_heroes=args.with_heroes,
     )
     all_a = [float(p) for g in games for p in g["team_a_placements"]]
     all_b = [float(p) for g in games for p in g["team_b_placements"]]
