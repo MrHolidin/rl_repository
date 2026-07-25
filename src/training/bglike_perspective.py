@@ -61,6 +61,30 @@ def submit_game_records_to_sampler(
             pool.submit(record)  # type: ignore[operator]
 
 
+def parse_tier_milestones(raw: Any) -> Dict[int, Tuple[float, int]]:
+    """YAML ``{5: {base: 0.2, target_round: 8}, ...}`` -> ``{5: (0.2, 8)}``.
+
+    Fails loudly on an unusable spec: a silently-dropped milestone would look
+    exactly like "the shaping did nothing", which is the hypothesis under test.
+    """
+    if not raw:
+        return {}
+    out: Dict[int, Tuple[float, int]] = {}
+    for tier_raw, spec in dict(raw).items():
+        tier = int(tier_raw)
+        if not 2 <= tier <= 6:
+            raise ValueError(f"tier_milestones: tier must be 2..6, got {tier}")
+        if isinstance(spec, dict):
+            base = float(spec["base"])
+            target = int(spec["target_round"])
+        else:
+            base, target = float(spec[0]), int(spec[1])
+        if target < 1:
+            raise ValueError(f"tier_milestones[{tier}]: target_round must be >= 1")
+        out[tier] = (base, target)
+    return out
+
+
 class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
     """Reuses ``AgentPerspectiveEnv`` drain/placement; per-seat trajectory segments."""
 
@@ -74,6 +98,8 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         shaping_fn: Optional[ShapingFn] = None,
         reward_config: Optional[RewardConfig] = None,
         percent_high_game: float = 0.0,
+        tier_milestones: Optional[Dict[int, Tuple[float, int]]] = None,
+        tier_milestone_decay: float = 0.8,
     ) -> None:
         super().__init__(
             base_env,
@@ -91,6 +117,15 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         # Curriculum: fraction of games started in high mode. The decision lives
         # here in the training harness (with this env's RNG), not in the game.
         self._percent_high_game = max(0.0, min(1.0, float(percent_high_game)))
+        # Tier-milestone shaping: {tier: (base, target_round)}. Paid ONCE per seat
+        # per lobby, the first time that seat is observed at >= tier, scaled by
+        # ``decay ** rounds_late``. Deliberately NOT potential-based — there is no
+        # terminal correction, so it does bias the optimum toward a faster curve.
+        # That is the point (training wheels); validate by zeroing it afterwards
+        # and re-measuring the curve.
+        self._tier_milestones: Dict[int, Tuple[float, int]] = dict(tier_milestones or {})
+        self._tier_milestone_decay = float(tier_milestone_decay)
+        self._tier_paid: Dict[int, set] = {}
 
     @property
     def supports_seat_segments(self) -> bool:
@@ -288,11 +323,47 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             self.shaping_fn({"battle_signed_seat": signed}, self._agent_token)
         )
 
+    def _tier_milestone_reward(self, info: Dict[str, Any]) -> float:
+        """One-off, time-decayed bonus the first time the acting seat holds a tier.
+
+        Attribution follows the same rule as the battle shaping: the reward lands
+        on ``info['acting_seat']``, whose segment is the one being stepped. Paying
+        on ``tier >= T`` rather than on the LEVEL_UP action itself keeps it robust
+        to a seat reaching the tier by any route.
+        """
+        # getattr: an env built without __init__ (test fixtures) or predating this
+        # feature must read as "shaping disabled", not raise.
+        milestones = getattr(self, "_tier_milestones", None)
+        if not milestones:
+            return 0.0
+        seat = info.get("acting_seat")
+        if seat is None:
+            return 0.0
+        seat = int(seat)
+        state = getattr(self._bg_base, "state", None)
+        if state is None:
+            return 0.0
+        try:
+            tier = int(state.players[seat].tavern_tier)
+        except (IndexError, AttributeError):
+            return 0.0
+        rnd = int(getattr(state, "round_number", 0))
+        paid = self._tier_paid.setdefault(seat, set())
+        total = 0.0
+        for milestone_tier, (base, target_round) in milestones.items():
+            if milestone_tier in paid or tier < milestone_tier:
+                continue
+            paid.add(milestone_tier)
+            late = max(0, rnd - int(target_round))
+            total += float(base) * (getattr(self, "_tier_milestone_decay", 0.8) ** late)
+        return total
+
     def _reward_in_agent_perspective(self, step, agent_acted: bool) -> float:
         info = step.info if isinstance(step.info, dict) else {}
-        if not info.get("combat_advanced"):
-            return 0.0
-        return self._battle_shaping_for_acting_seat(info)
+        reward = self._tier_milestone_reward(info)
+        if info.get("combat_advanced"):
+            reward += self._battle_shaping_for_acting_seat(info)
+        return reward
 
     def notify_episode_end(self, info: Dict[str, Any]) -> None:
         # Reliable per-lobby boundary for the learner: in bglike the learner
@@ -300,6 +371,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         # via segment closures / lobby end), so any per-episode agent state must
         # be reset here, not on a transition flag. DvD uses this to hand out a
         # fresh, collision-free seat→identity assignment each lobby.
+        self._tier_paid = {}
         learner = self._learner
         if learner is not None:
             hook = getattr(learner, "on_episode_boundary", None)
@@ -333,10 +405,13 @@ def make_bglike_agent_perspective_env(
     reward_config: Optional[RewardConfig] = None,
     rng: Optional[random.Random] = None,
     percent_high_game: float = 0.0,
+    tier_milestones: Optional[Dict[Any, Any]] = None,
+    tier_milestone_decay: float = 0.8,
     **lobby_kwargs: Any,
 ) -> BGLikeAgentPerspectiveEnv:
-    # ``percent_high_game`` is consumed by the perspective wrapper (trainer-side
-    # curriculum), never forwarded to the inner lobby/game constructors.
+    # ``percent_high_game`` and the tier-milestone knobs are consumed by the
+    # perspective wrapper (trainer-side shaping/curriculum), never forwarded to
+    # the inner lobby/game constructors.
     base = make_bglike_training_env(
         current_seats=current_seats or (0,),
         seed=seed,
@@ -351,6 +426,8 @@ def make_bglike_agent_perspective_env(
         shaping_fn=shaping_fn,
         reward_config=reward_config,
         percent_high_game=percent_high_game,
+        tier_milestones=parse_tier_milestones(tier_milestones),
+        tier_milestone_decay=tier_milestone_decay,
     )
 
 
