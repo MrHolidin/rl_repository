@@ -37,6 +37,11 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "policy_loss",
         "value_loss",
         "entropy",
+        # Ordering-head entropy, logged apart from the action-head `entropy` it
+        # is added to: the two have very different ceilings (ln(10.9)=2.39 vs
+        # ln(7!)=8.53), so a single summed column would hide which head is
+        # actually collapsing.
+        "entropy_order",
         "entropy_coef",
         "approx_kl",
         "clip_frac",
