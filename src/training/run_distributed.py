@@ -285,6 +285,10 @@ def run_distributed(
                 seed=seed,
                 patch_build=agent_params.get("patch_build"),
                 update_opt_mode=agent_params.get("update_opt_mode", "compile"),
+                entropy_target=agent_params.get("entropy_target", 0.0),
+                entropy_coef_max=agent_params.get("entropy_coef_max", 0.2),
+                entropy_adapt_rate=agent_params.get("entropy_adapt_rate", 0.05),
+                entropy_target_until_step=agent_params.get("entropy_target_until_step", 0),
             )
         else:
             from src.agents.ppo_agent import PPOAgent

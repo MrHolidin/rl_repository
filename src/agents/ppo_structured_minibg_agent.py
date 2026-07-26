@@ -206,6 +206,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         entropy_target: float = 0.0,
         entropy_coef_max: float = 0.2,
         entropy_adapt_rate: float = 0.05,
+        entropy_target_until_step: int = 0,
         value_coef: float = 0.5,
         max_grad_norm: float = 1.0,
         rollout_steps: int = 1024,
@@ -258,6 +259,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self.entropy_coef_max = float(entropy_coef_max)
         self.entropy_adapt_rate = float(entropy_adapt_rate)
         self._entropy_coef_base = float(entropy_coef)
+        # Optional hard cutoff: past this many trained env-steps the controller is
+        # switched off and the coefficient snapped back to the configured floor, so
+        # the last stretch of training converges on a sharpened policy instead of
+        # ending at target entropy. Steps are self-counted from rollout sizes (the
+        # host agent sees every update, and one rollout == one global round), which
+        # avoids threading a step counter through the distributed trainer.
+        self.entropy_target_until_step = int(entropy_target_until_step or 0)
+        self._trained_steps = 0
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_steps = rollout_steps
@@ -666,6 +675,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         (bit-exact no-op) when ``entropy_target`` is 0.
         """
         if self.entropy_target <= 0.0:
+            return
+        if (
+            self.entropy_target_until_step > 0
+            and self._trained_steps > self.entropy_target_until_step
+        ):
+            # Past the cutoff: stop adapting and snap back to the floor.
+            self.entropy_coef = self._entropy_coef_base
             return
         err = self.entropy_target - float(mean_entropy)
         scaled = self.entropy_coef * math.exp(self.entropy_adapt_rate * err)
@@ -1090,6 +1106,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
 
         gn = float(grad_norm.item()) if isinstance(grad_norm, torch.Tensor) else float(grad_norm)
         mean_entropy = total_entropy / total_batches
+        self._trained_steps += int(N)
         self._adapt_entropy_coef(mean_entropy)
         out_metrics = {
             "entropy_coef": float(self.entropy_coef),

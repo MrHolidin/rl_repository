@@ -1,0 +1,153 @@
+# COMBINED: tier-milestone shaping + adaptive entropy, 15M steps.
+#
+# Each intervention has now been measured alone against attn3 (150-lobby h2h at
+# matched steps, paired per lobby):
+#   tier shaping  -> curve moved hard (t5 52->90%, t6 27->69%, endgame cards that
+#                    were absent appeared: Amalgadon 0->6%, Nadina 0->9%), but it
+#                    was SIGNIFICANTLY WEAKER mid-run (-0.98 place, t=-4.01 at
+#                    4.2M) and only clawed back to parity by 10M (t=-0.65).
+#   entropy ctrl  -> held 1.25 nats vs 0.64 (3.5 vs 1.9 effective actions of ~11
+#                    legal), parity in strength (t=-1.08 at 10M) -- and the curve
+#                    got WORSE, not better (t6 12.1% -> 1.2%). Wider per-step
+#                    spread does not buy a multi-round commitment; it just wanders
+#                    off the line more often.
+#
+# The two therefore push on different things and are worth combining: shaping
+# supplies the commitment, the controller keeps enough spread to find how to USE
+# the tier instead of collapsing onto the first line that works up there.
+#
+# Entropy cutoff at 10M is the reason this is 15M and not 10M: the entropy run
+# ended AT target (1.247), i.e. its final policy was still deliberately noisy,
+# which costs placement in evaluation. Past 10M the controller switches off and
+# the coefficient snaps back to the 0.01 floor, so the last 5M converge on a
+# sharpened policy. Explore wide, then commit.
+#
+# Read the result on two axes, not one: the curve probe (did the tier hold) and
+# a paired h2h vs attn3 (did it become stronger). Four interventions so far have
+# moved behaviour without moving strength -- treat a curve-only win as a null.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5_heroes
+    with_heroes: true
+    # {tier: {base, target_round}} -- paid once per seat per lobby.
+    tier_milestones:
+      5: {base: 0.20, target_round: 8}
+      6: {base: 0.15, target_round: 11}
+    tier_milestone_decay: 0.8
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v11_heroes
+    observation_type: vector
+    # Host-update acceleration: eager | compile (default) | capture.
+    # "capture" = Phase-2 CUDA-graph capture (CUDA-only, ~1.66x update vs compile);
+    # it auto-disables host torch.compile. env RL_UPDATE_OPT_MODE overrides.
+    update_opt_mode: compile
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- v11 architecture (2 entity-attn layers; flat clean trunk) ---
+    slot_hidden_channels: 64
+    card_emb_dim: 16
+    entity_attention_layers: 2
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    # --- hero scalar encoder (new in v11_heroes) ---
+    hero_hidden: 48
+    hero_out: 24
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01            # floor; the controller only ever adds to this
+    entropy_target: 1.2           # nats; ~3.3 effective actions of ~10.9 legal
+    entropy_coef_max: 0.2
+    entropy_adapt_rate: 0.05      # reached target by ~9M last run; keep for comparability
+    entropy_target_until_step: 10000000   # then snap back to the 0.01 floor
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 15000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v11_heroes_combo
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 40
+  worker_device: cpu
