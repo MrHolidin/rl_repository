@@ -1,0 +1,144 @@
+# BASE v11_heroes + ordering-head entropy. 5M steps, nothing else changed.
+#
+# Found while auditing the entropy controller: the bonus was computed from the
+# ACTION head only --
+#     ent_row = -(p_safe * log_sm_safe).sum(dim=-1); entropy_mb = ent_row.mean()
+# -- while the autoregressive board-ordering head entered the loss purely through
+# the PPO ratio (log_probs = lp_main + lp_ord). The joint policy is
+# p(action)*p(order|action), so the joint entropy is H_main + H_order; leaving
+# H_order out meant nothing opposed the ordering head collapsing to a single
+# fixed permutation, and it would not show up in the logged `entropy` either.
+#
+# That also bounds the earlier entropy run: holding 1.25 nats there constrained
+# the action head only -- the ordering was free to sharpen the whole time. So
+# "the policy explores 3.5 actions instead of 1.9" was never a statement about
+# positioning, which is a real skill in this game (attack order is left-to-right,
+# taunts and deathrattles depend on placement).
+#
+# order_entropy_coef=1.0 is the mathematically correct joint entropy. Scales
+# differ a lot -- the action head tops out near ln(10.9)=2.39, a 7-slot ordering
+# at ln(7!)=8.53 -- so it is a separate knob rather than folded in silently, and
+# `entropy_order` is now logged on its own so the two can be read apart.
+#
+# 5M rather than 10M: this is a mechanism check, not a strength run. Read it on
+# entropy_order (does the ordering stay open) and on the ordering behaviour in
+# the probe. Defaults elsewhere are untouched -- coef 0.0 reproduces every
+# previous run bit-exactly.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5_heroes
+    with_heroes: true
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v11_heroes
+    observation_type: vector
+    # Host-update acceleration: eager | compile (default) | capture.
+    # "capture" = Phase-2 CUDA-graph capture (CUDA-only, ~1.66x update vs compile);
+    # it auto-disables host torch.compile. env RL_UPDATE_OPT_MODE overrides.
+    update_opt_mode: compile
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- v11 architecture (2 entity-attn layers; flat clean trunk) ---
+    slot_hidden_channels: 64
+    card_emb_dim: 16
+    entity_attention_layers: 2
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    # --- hero scalar encoder (new in v11_heroes) ---
+    hero_hidden: 48
+    hero_out: 24
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01
+    order_entropy_coef: 1.0   # joint entropy: H_action + H_order
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 5000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v11_heroes_ordent
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 40
+  worker_device: cpu

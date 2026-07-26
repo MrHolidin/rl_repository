@@ -774,12 +774,34 @@ class BGLikeStructuredV11(nn.Module):
     def order_logprob_given_sequence(
         self, state_emb, E_own, g_full, occupied_mask, picked_slots,
     ):
+        lp, _ = self.order_logprob_entropy_given_sequence(
+            state_emb, E_own, g_full, occupied_mask, picked_slots
+        )
+        return lp
+
+    def order_logprob_entropy_given_sequence(
+        self, state_emb, E_own, g_full, occupied_mask, picked_slots,
+    ):
+        """Log-prob AND entropy of the autoregressive board ordering.
+
+        The joint policy is ``p(action) * p(order | action)``, so the joint
+        entropy is the sum of the two heads' entropies -- by the chain rule the
+        order term is the sum of the per-step conditional entropies along the
+        sequence. Returned separately so the caller can add it to the entropy
+        bonus, which historically covered only the action head and therefore left
+        the ordering free to collapse to a single deterministic permutation
+        without that ever showing up in the logged `entropy`.
+
+        Both are computed in the same pass; the log-prob-only entry point above
+        delegates here so there is one implementation of the loop.
+        """
         B, K, _ = E_own.shape
         device = E_own.device
         remaining = occupied_mask.clone()
         hidden = self._order_init_hidden(state_emb)
         slot_in = self.order_start.unsqueeze(0).expand(B, -1)
         logprob_sum = torch.zeros(B, device=device, dtype=E_own.dtype)
+        entropy_sum = torch.zeros(B, device=device, dtype=E_own.dtype)
         batch_arange = torch.arange(B, device=device)
         max_steps = int(picked_slots.size(1))
         pos_table = self.order_pos_emb(torch.arange(max(max_steps, 1), device=device))
@@ -798,13 +820,17 @@ class BGLikeStructuredV11(nn.Module):
             dist = Categorical(logits=logits)
             idx_eval = idx.clamp(min=0)
             lp = dist.log_prob(idx_eval)
-            logprob_sum = logprob_sum + valid_pick.to(logprob_sum.dtype) * lp
+            w = valid_pick.to(logprob_sum.dtype)
+            logprob_sum = logprob_sum + w * lp
+            # Rows without a real pick were filled with all-zero logits above, so
+            # their `dist` is uniform over K; the weight is what keeps them out.
+            entropy_sum = entropy_sum + w * dist.entropy()
             sel_emb = E_own[batch_arange, idx_eval]
             slot_in = torch.where(valid_pick.unsqueeze(-1), sel_emb, slot_in)
             mask_pick = F.one_hot(idx_eval, num_classes=K).bool() & valid_pick.unsqueeze(-1)
             remaining = remaining & ~mask_pick
 
-        return logprob_sum
+        return logprob_sum, entropy_sum
 
 
 __all__ = ["BGLikeStructuredV11", "NUM_PLACEMENTS"]

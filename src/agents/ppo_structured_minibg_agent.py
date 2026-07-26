@@ -207,6 +207,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         entropy_coef_max: float = 0.2,
         entropy_adapt_rate: float = 0.05,
         entropy_target_until_step: int = 0,
+        order_entropy_coef: float = 0.0,
         value_coef: float = 0.5,
         max_grad_norm: float = 1.0,
         rollout_steps: int = 1024,
@@ -267,6 +268,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # avoids threading a step counter through the distributed trainer.
         self.entropy_target_until_step = int(entropy_target_until_step or 0)
         self._trained_steps = 0
+        # Weight on the ordering head's entropy inside the bonus. 1.0 = the
+        # mathematically correct joint entropy; 0.0 (default) reproduces the
+        # historical action-head-only behaviour bit-exactly. Scales differ --
+        # the action head tops out near ln(10.9)=2.39 while a 7-slot ordering
+        # tops out at ln(7!)=8.53 -- so this is exposed as its own knob rather
+        # than folded in silently.
+        self.order_entropy_coef = float(order_entropy_coef)
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_steps = rollout_steps
@@ -873,6 +881,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         _zeros = lambda: torch.zeros((), device=device)
         acc_policy, acc_value, acc_entropy = _zeros(), _zeros(), _zeros()
         acc_kl, acc_clip, acc_place = _zeros(), _zeros(), _zeros()
+        acc_ent_order = _zeros()
 
         indices = np.arange(N, dtype=np.int64)
         _epochs = range(self.ppo_epochs)
@@ -950,14 +959,35 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 # Mix in autoregressive order-head log-prob without a `.any().item()` sync.
                 # `order_logprob_given_sequence` already masks rows that don't have a real pick,
                 # so calling it on the whole minibatch + masking with `complete_mb` is safe.
-                lp_ord_all = self.policy_net.order_logprob_given_sequence(
-                    cache["state_emb"],
-                    cache["E_own"],
-                    cache["g_full"],
-                    occupied_mb,
-                    picks_mb,
+                # Joint policy is p(action)*p(order|action), so the joint entropy
+                # is H_main + H_order. The bonus historically covered only the
+                # action head, leaving the ordering free to collapse to one fixed
+                # permutation invisibly. Nets without the paired entry point fall
+                # back to the log-prob-only method and contribute no order term.
+                _ord_fn = getattr(
+                    self.policy_net, "order_logprob_entropy_given_sequence", None
                 )
+                if _ord_fn is not None:
+                    lp_ord_all, ent_ord_all = _ord_fn(
+                        cache["state_emb"],
+                        cache["E_own"],
+                        cache["g_full"],
+                        occupied_mb,
+                        picks_mb,
+                    )
+                else:
+                    lp_ord_all = self.policy_net.order_logprob_given_sequence(
+                        cache["state_emb"],
+                        cache["E_own"],
+                        cache["g_full"],
+                        occupied_mb,
+                        picks_mb,
+                    )
+                    ent_ord_all = torch.zeros_like(lp_ord_all)
                 log_probs_mb = lp_main + complete_mb.to(lp_main.dtype) * lp_ord_all
+                ent_order_mb = (complete_mb.to(lp_main.dtype) * ent_ord_all).mean()
+                if self.order_entropy_coef > 0.0:
+                    entropy_mb = entropy_mb + self.order_entropy_coef * ent_order_mb
 
                 ratio = torch.exp(log_probs_mb - log_probs_old_mb)
                 with torch.no_grad():
@@ -1080,6 +1110,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 acc_policy += policy_loss.detach()
                 acc_value += value_loss.detach()
                 acc_entropy += entropy_mb.detach()
+                acc_ent_order += ent_order_mb.detach()
                 acc_kl += approx_kl.detach()
                 acc_clip += clip_frac_t.detach()
                 total_batches += 1
@@ -1100,6 +1131,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_policy_loss = float(acc_policy.item())
         total_value_loss = float(acc_value.item())
         total_entropy = float(acc_entropy.item())
+        total_ent_order = float(acc_ent_order.item())
         total_approx_kl = float(acc_kl.item())
         total_clip_frac = float(acc_clip.item())
         total_placement_acc = float(acc_place.item())
@@ -1115,6 +1147,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "policy_loss": total_policy_loss / total_batches,
             "value_loss": total_value_loss / total_batches,
             "entropy": total_entropy / total_batches,
+            "entropy_order": total_ent_order / total_batches,
             "approx_kl": total_approx_kl / total_batches,
             "clip_frac": total_clip_frac / total_batches,
             "grad_norm": gn,
