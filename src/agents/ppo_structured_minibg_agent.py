@@ -208,6 +208,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         entropy_adapt_rate: float = 0.05,
         entropy_target_until_step: int = 0,
         order_entropy_coef: float = 0.0,
+        order_entropy_target: float = 0.0,
         value_coef: float = 0.5,
         max_grad_norm: float = 1.0,
         rollout_steps: int = 1024,
@@ -275,6 +276,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # tops out at ln(7!)=8.53 -- so this is exposed as its own knob rather
         # than folded in silently.
         self.order_entropy_coef = float(order_entropy_coef)
+        self._order_entropy_coef_base = float(order_entropy_coef)
+        # Target as a FRACTION of ln(n!), not a coefficient. 0 disables.
+        self.order_entropy_target = float(order_entropy_target or 0.0)
         self.value_coef = value_coef
         self.max_grad_norm = max_grad_norm
         self.rollout_steps = rollout_steps
@@ -698,6 +702,32 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         else:
             self.entropy_coef = max(scaled, self._entropy_coef_base)
 
+    def _adapt_order_entropy_coef(self, frac_of_ceiling: float) -> None:
+        """One-sided controller for the ordering head, in fraction-of-ceiling.
+
+        Same shape as ``_adapt_entropy_coef``: ``order_entropy_coef`` is a floor
+        and pressure is only added while the ordering sits BELOW the target, so
+        this can never make positioning noisier than the configured baseline.
+        Targeting a fraction rather than a coefficient is what makes it portable
+        -- the first attempt used a raw coefficient of 1.0 and drove the ordering
+        to 91% of ceiling, i.e. very nearly random placement, which is a real
+        skill loss in this game (attack order is left-to-right).
+        """
+        if self.order_entropy_target <= 0.0:
+            return
+        if (
+            self.entropy_target_until_step > 0
+            and self._trained_steps > self.entropy_target_until_step
+        ):
+            self.order_entropy_coef = self._order_entropy_coef_base
+            return
+        err = self.order_entropy_target - float(frac_of_ceiling)
+        scaled = self.order_entropy_coef * math.exp(self.entropy_adapt_rate * err)
+        if err > 0.0:
+            self.order_entropy_coef = min(scaled, self.entropy_coef_max)
+        else:
+            self.order_entropy_coef = max(scaled, self._order_entropy_coef_base)
+
     def update(self) -> Dict[str, float]:
         if not self.training:
             return {}
@@ -985,7 +1015,27 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                     )
                     ent_ord_all = torch.zeros_like(lp_ord_all)
                 log_probs_mb = lp_main + complete_mb.to(lp_main.dtype) * lp_ord_all
-                ent_order_mb = (complete_mb.to(lp_main.dtype) * ent_ord_all).mean()
+                # Normalised order entropy: mean over the rows that actually HAVE
+                # an ordering decision (only ~17% of decisions are COMPLETE_TURN,
+                # so averaging over the whole minibatch diluted it ~6x), each
+                # divided by its own achievable ceiling ln(n!) for that board size
+                # (an empty or 1-minion board has zero ordering freedom, a 7-slot
+                # board has ln(7!)=8.53). The result is a fraction of ceiling in
+                # [0, 1], comparable across board sizes and batch compositions --
+                # so the knob means "how open should the ordering be", not "some
+                # coefficient whose effect depends on how often COMPLETE_TURN
+                # happened to appear".
+                w_ord = complete_mb.to(lp_main.dtype)
+                n_occ = occupied_mb.sum(dim=1).to(lp_main.dtype)
+                ceil_ord = torch.lgamma(n_occ + 1.0)  # ln(n!)
+                has_freedom = ceil_ord > 1e-6
+                frac_ord = torch.where(
+                    has_freedom,
+                    ent_ord_all / ceil_ord.clamp(min=1e-6),
+                    torch.zeros_like(ent_ord_all),
+                )
+                w_ord = w_ord * has_freedom.to(w_ord.dtype)
+                ent_order_mb = (w_ord * frac_ord).sum() / w_ord.sum().clamp(min=1.0)
                 if self.order_entropy_coef > 0.0:
                     entropy_mb = entropy_mb + self.order_entropy_coef * ent_order_mb
 
@@ -1140,6 +1190,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         mean_entropy = total_entropy / total_batches
         self._trained_steps += int(N)
         self._adapt_entropy_coef(mean_entropy)
+        self._adapt_order_entropy_coef(total_ent_order / total_batches)
         out_metrics = {
             "entropy_coef": float(self.entropy_coef),
             "loss": (total_policy_loss + self.value_coef * total_value_loss - self.entropy_coef * total_entropy)
@@ -1148,6 +1199,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "value_loss": total_value_loss / total_batches,
             "entropy": total_entropy / total_batches,
             "entropy_order": total_ent_order / total_batches,
+            "order_entropy_coef": float(self.order_entropy_coef),
             "approx_kl": total_approx_kl / total_batches,
             "clip_frac": total_clip_frac / total_batches,
             "grad_norm": gn,

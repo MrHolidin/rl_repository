@@ -94,3 +94,63 @@ def test_agent_default_leaves_the_bonus_untouched():
     a = Ag.__new__(Ag)
     a.order_entropy_coef = 0.0
     assert a.order_entropy_coef == 0.0
+
+
+# --- normalisation + controller ---------------------------------------------
+# The first attempt averaged the ordering entropy over the WHOLE minibatch and
+# used a raw coefficient. Only ~17% of decisions are COMPLETE_TURN, so the logged
+# value was diluted ~6x, and coef=1.0 drove the ordering to 91% of ln(n!) -- very
+# nearly random placement. The knob is now a fraction of the achievable ceiling.
+
+
+def _agent(target=0.35, coef=0.01, rate=0.05, cap=0.2, until=0):
+    from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent as Ag
+
+    a = Ag.__new__(Ag)
+    a.order_entropy_coef = coef
+    a._order_entropy_coef_base = coef
+    a.order_entropy_target = target
+    a.entropy_adapt_rate = rate
+    a.entropy_coef_max = cap
+    a.entropy_target_until_step = until
+    a._trained_steps = 0
+    return a
+
+
+def test_order_controller_disabled_by_default():
+    a = _agent(target=0.0)
+    a._adapt_order_entropy_coef(0.01)
+    assert a.order_entropy_coef == pytest.approx(0.01)
+
+
+def test_order_controller_raises_pressure_below_target():
+    a = _agent()
+    a._adapt_order_entropy_coef(0.05)
+    assert a.order_entropy_coef > 0.01
+
+
+def test_order_controller_never_goes_below_the_floor():
+    a = _agent()
+    for _ in range(200):
+        a._adapt_order_entropy_coef(0.95)  # near-random ordering
+    assert a.order_entropy_coef == pytest.approx(0.01)
+
+
+def test_order_controller_respects_the_step_cutoff():
+    a = _agent(until=1_000)
+    a._trained_steps = 500
+    a._adapt_order_entropy_coef(0.05)
+    assert a.order_entropy_coef > 0.01
+    a._trained_steps = 1_001
+    a._adapt_order_entropy_coef(0.05)
+    assert a.order_entropy_coef == pytest.approx(0.01)
+
+
+def test_fraction_of_ceiling_is_board_size_invariant():
+    """A uniform ordering must read as 1.0 whatever the board size."""
+    net = _net()
+    for n in (3, 4, 5, 6):
+        with torch.no_grad():
+            _, ent = net.order_logprob_entropy_given_sequence(*_batch(net, occupied=n))
+        frac = float(ent.mean()) / math.log(math.factorial(n))
+        assert 0.9 < frac <= 1.0 + 1e-6, (n, frac)

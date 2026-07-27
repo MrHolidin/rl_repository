@@ -43,6 +43,7 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         # actually collapsing.
         "entropy_order",
         "entropy_coef",
+        "order_entropy_coef",
         "approx_kl",
         "clip_frac",
         "grad_norm",

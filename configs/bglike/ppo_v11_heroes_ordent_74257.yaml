@@ -15,10 +15,19 @@
 # positioning, which is a real skill in this game (attack order is left-to-right,
 # taunts and deathrattles depend on placement).
 #
-# order_entropy_coef=1.0 is the mathematically correct joint entropy. Scales
-# differ a lot -- the action head tops out near ln(10.9)=2.39, a 7-slot ordering
-# at ln(7!)=8.53 -- so it is a separate knob rather than folded in silently, and
-# `entropy_order` is now logged on its own so the two can be read apart.
+# The term is normalised twice before it enters the bonus: averaged over the rows
+# that HAVE an ordering decision (only ~17% of decisions are COMPLETE_TURN, so a
+# whole-minibatch mean diluted it ~6x), and divided by that board's own ceiling
+# ln(n!) -- 0 minions and 1 minion have no ordering freedom at all, 7 slots have
+# ln(7!)=8.53. What is left is a fraction of ceiling in [0,1], so the knob is a
+# target for how open the ordering should be rather than a coefficient whose
+# effect depends on batch composition.
+#
+# First attempt used a raw coefficient of 1.0 and drove the ordering to 91% of
+# ceiling -- effectively random placement, which is a real skill loss here since
+# attack order is left-to-right. 0.35 keeps it committed but not collapsed, held
+# by the same one-sided controller used for the action head (floor 0.01, pressure
+# only while below target).
 #
 # 5M rather than 10M: this is a mechanism check, not a strength run. Read it on
 # entropy_order (does the ordering stay open) and on the ordering behaviour in
@@ -84,7 +93,8 @@ agent:
     clip_value_loss: false
     value_clip_eps: null
     entropy_coef: 0.01
-    order_entropy_coef: 1.0   # joint entropy: H_action + H_order
+    order_entropy_coef: 0.01     # floor; controller only ever adds to this
+    order_entropy_target: 0.35   # FRACTION of ln(n!), not a raw coefficient
     value_coef: 0.05
     max_grad_norm: 1.0
     rollout_steps: 32768

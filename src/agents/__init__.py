@@ -55,6 +55,7 @@ _PPO_AGENT_KWARGS = frozenset(
         "entropy_adapt_rate",
         "entropy_target_until_step",
         "order_entropy_coef",
+        "order_entropy_target",
         "value_coef",
         "max_grad_norm",
         "rollout_steps",
