@@ -91,7 +91,7 @@ def _race_index(race) -> int:
         return 0
 
 
-def _self_hero_features(state: BGLikeState, me: PlayerState, patch: PatchContext) -> np.ndarray:
+def self_hero_features(state: BGLikeState, me: PlayerState, patch: PatchContext) -> np.ndarray:
     out = np.zeros(HERO_SELF_DIM, dtype=np.float32)
     h = me.hero
 
@@ -133,7 +133,7 @@ def _self_hero_features(state: BGLikeState, me: PlayerState, patch: PatchContext
     return out
 
 
-def _opp_hero_features(state: BGLikeState, seat: int, patch: PatchContext) -> np.ndarray:
+def opp_hero_features(state: BGLikeState, seat: int, patch: PatchContext) -> np.ndarray:
     out = np.zeros((MAX_OPPS, NUM_HERO_OBS_IDS), dtype=np.float32)
     rows = sorted_opponent_rows(state, seat)
     for j, row in enumerate(rows[:MAX_OPPS]):
@@ -166,8 +166,8 @@ def build_observation_v5_heroes(
     return np.concatenate(
         [
             base,
-            _self_hero_features(state, me, patch),
-            _opp_hero_features(state, seat, patch),
+            self_hero_features(state, me, patch),
+            opp_hero_features(state, seat, patch),
         ]
     )
 
@@ -182,5 +182,7 @@ __all__ = [
     "HERO_SELF_OFFSET",
     "HERO_OPP_OFFSET",
     "hero_obs_index",
+    "self_hero_features",
+    "opp_hero_features",
     "build_observation_v5_heroes",
 ]

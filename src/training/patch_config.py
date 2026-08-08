@@ -43,10 +43,14 @@ def apply_patch_to_agent_params(
     game_params: Dict[str, Any],
     agent_params: Dict[str, Any],
 ) -> PatchContext:
-    """Set ``num_pool_indices`` and ``patch_build`` on agent params from game patch_dir."""
+    """Set ``num_pool_indices`` / ``patch_build`` / ``card_patch_dir`` from game patch_dir."""
     ctx = resolve_patch_context(game_params)
     _set_agent_param_from_patch(agent_params, "num_pool_indices", ctx.num_pool_indices)
     _set_agent_param_from_patch(agent_params, "patch_build", ctx.build)
+    # Nets that read the patch package directly (v12's frozen card table) need
+    # the path, not just the sizes. Kept as a plain string so it round-trips
+    # through the checkpoint's constructor kwargs.
+    agent_params.setdefault("card_patch_dir", str(ctx.patch_dir))
     return ctx
 
 

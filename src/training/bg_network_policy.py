@@ -26,7 +26,9 @@ def reject_flat_bg_network(
     )
 
 
-_HERO_NETWORK_TYPES = frozenset({"bglike_structured_v11_heroes"})
+_HERO_NETWORK_TYPES = frozenset(
+    {"bglike_structured_v11_heroes", "bglike_structured_v12"}
+)
 
 
 def validate_heroes_consistency(game_id: str, network_type: str, game_params: dict) -> None:
@@ -46,7 +48,7 @@ def validate_heroes_consistency(game_id: str, network_type: str, game_params: di
     if with_heroes and not is_hero_net:
         raise ValueError(
             f"game.params.with_heroes=true but network_type={nt!r} cannot observe "
-            f"heroes; use network_type=bglike_structured_v11_heroes (or set with_heroes=false)."
+            f"heroes; use one of {sorted(_HERO_NETWORK_TYPES)} (or set with_heroes=false)."
         )
     if is_hero_net and not with_heroes:
         raise ValueError(
@@ -56,3 +58,46 @@ def validate_heroes_consistency(game_id: str, network_type: str, game_params: di
 
 
 __all__ = ["reject_flat_bg_network", "validate_heroes_consistency"]
+
+
+# --------------------------------------------------------------------------- #
+# Which observation each network reads
+# --------------------------------------------------------------------------- #
+
+# Single source of truth. The training entrypoints auto-pin game.params.obs_kind
+# from this (a config that disagrees is rejected rather than silently reshaped),
+# and evaluation uses it to work out what each checkpoint expects -- which is
+# what lets one lobby host checkpoints of different versions.
+#
+# Networks absent from this table read the base ``bglike`` obs.
+NETWORK_OBS_KIND: dict[str, str] = {
+    "bglike_structured_v5": "bglike_v5",
+    "bglike_structured_v6": "bglike_v5",
+    "bglike_structured_v7": "bglike_v5",
+    "bglike_structured_v8": "bglike_v5",
+    "bglike_structured_v9": "bglike_v5",
+    "bglike_structured_v10": "bglike_v5",
+    "bglike_structured_v11": "bglike_v5",
+    "bglike_structured_v11_heroes": "bglike_v5_heroes",
+    "bglike_structured_v12": "bglike_v6_heroes",
+}
+
+# Networks that additionally require heroes to be dealt.
+NETWORK_REQUIRES_HEROES = frozenset(_HERO_NETWORK_TYPES)
+
+
+def obs_kind_for_network(network_type: str, *, default: str = "bglike") -> str:
+    """The obs layout ``network_type`` reads. Unknown networks get ``default``."""
+    return NETWORK_OBS_KIND.get((network_type or "").strip().lower(), default)
+
+
+def obs_kind_for_checkpoint(path) -> str:
+    """Read a checkpoint's ``ppo_network_type`` and map it to its obs layout.
+
+    Lets an evaluation script mix checkpoints without being told which
+    observation each one wants.
+    """
+    import torch
+
+    ck = torch.load(str(path), map_location="cpu", weights_only=False)
+    return obs_kind_for_network(str(ck.get("ppo_network_type", "")))

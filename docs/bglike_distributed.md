@@ -84,8 +84,22 @@ Host device задаётся в `agent.params.device` (обычно `cuda`).
 | `configs/minibg/ppo_structured_dist.yaml` | 2p sandbox, `minibg_structured` |
 | `configs/bglike/ppo_structured_dist.yaml` | 8p, v1 model, `num_current_seats: 1` |
 | `configs/bglike/ppo_structured_v2.yaml` | 8p, v2 model, можно `num_current_seats: 4` |
+| `configs/bglike/ppo_v11_heroes_74257.yaml` | 8p, v11_heroes, obs `bglike_v5_heroes` (2683) |
+| `configs/bglike/ppo_v12_text_74257.yaml` | 8p, v12, obs `bglike_v6_heroes` (1123) + frozen card table |
+| `configs/bglike/ppo_v12_random_74257.yaml` | тот же v12 с рандомной таблицей — контроль для text-прогона |
 
 Single-process (без workers): `python -m src.cli.train --config …` — см. [pipeline.md](pipeline.md).
+
+### obs_kind
+
+| `obs_kind` | Dim | Что добавляет |
+|------------|-----|---------------|
+| `bglike` | 976 | база |
+| `bglike_v5` | 2536 | + блок способностей (26 слотов × K=4 токена) |
+| `bglike_v5_heroes` | 2683 | + блок героев |
+| `bglike_v6_heroes` | 1123 | база + герои, **без** блока способностей |
+
+`bglike_v6_heroes` короче, потому что факты карты (текст правил + величины из DSL) — статика по шаблону и лежат не в наблюдении, а в замороженной таблице внутри сети (`src/envs/bglike/card_static.py`), которая индексируется по `card_idx` и флагу golden. Текстовую половину таблицы собирает `scripts/build_card_text_table.py` один раз на патч.
 
 ---
 

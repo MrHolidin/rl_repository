@@ -7,6 +7,7 @@ import argparse
 import json
 import math
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import List, Sequence, Tuple
 
@@ -23,6 +24,7 @@ from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.placement import placement_for_seat
 from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.evaluation.eval_checkpoints import find_checkpoints, load_training_agent_checkpoint
+from src.training.bg_network_policy import obs_kind_for_checkpoint
 
 _T975 = {2: 4.302653, 5: 2.570582, 10: 2.228139, 20: 2.0860, 40: 2.0211, 80: 1.9944}
 
@@ -59,9 +61,25 @@ def run_head_to_head(
     seed: int,
     device: str,
     patch_dir: str | None = None,
-    obs_kind: str = "bglike",
-    with_heroes: bool = False,
+    obs_kind: str | None = None,
+    with_heroes: bool | None = None,
 ) -> List[dict]:
+    # Each checkpoint declares the observation it reads, so the two teams need
+    # not share one: the lobby builds a per-seat layout. The observation is a
+    # pure function of (state, seat), so seats reading different layouts of the
+    # same state is well-defined. This is what lets a v12 checkpoint
+    # (bglike_v6_heroes, 1123 floats) be scored against a v11_heroes one
+    # (bglike_v5_heroes, 2683) in the same game.
+    kind_a = obs_kind_for_checkpoint(ck_a)
+    kind_b = obs_kind_for_checkpoint(ck_b)
+    obs_kind_by_seat = {s: kind_a for s in seats_a}
+    obs_kind_by_seat.update({s: kind_b for s in seats_b})
+    lobby_kind = obs_kind or kind_a  # only covers seats no checkpoint claims
+    if with_heroes is None:
+        with_heroes = kind_a.endswith("_heroes") or kind_b.endswith("_heroes")
+    if kind_a != kind_b:
+        print(f"mixed observations: A reads {kind_a}, B reads {kind_b}", flush=True)
+
     agent_a = load_training_agent_checkpoint(ck_a, device=device, seed=seed)
     agent_b = load_training_agent_checkpoint(ck_b, device=device, seed=seed + 1)
     for ag in (agent_a, agent_b):
@@ -80,7 +98,8 @@ def run_head_to_head(
         training_seats=learned,
         seed=seed,
         patch_dir=patch_dir,
-        obs_kind=obs_kind,
+        obs_kind=lobby_kind,
+        obs_kind_by_seat=obs_kind_by_seat,
         with_heroes=with_heroes,
     )
     games: List[dict] = []
@@ -104,9 +123,65 @@ def run_head_to_head(
                 "placements": placements,
                 "team_a_placements": [placements[s] for s in seats_a],
                 "team_b_placements": [placements[s] for s in seats_b],
+                "boards": {s: board_snapshot(st, s) for s in range(8)},
+                "tier_round": {s: env.tier_first_round(s) for s in range(8)},
             }
         )
     return games
+
+
+def board_snapshot(state, seat: int) -> dict:
+    """Final tavern tier and board composition for one seat.
+
+    Placement alone cannot separate "plays the same game slightly better" from
+    "plays a different game": the battle-shaping arm was within noise on lobby
+    wins while reaching tier 6 in 0.5% of games against the baseline's 20.7%.
+    """
+    elim = {snap.seat: snap.tavern_tier for snap in state.eliminated}
+    player = state.players[seat]
+    tribes: Counter = Counter()
+    tiers: Counter = Counter()
+    keywords: Counter = Counter()
+    golden = attack = health = 0
+    for m in player.board:
+        if m is None:
+            continue
+        tribes[getattr(getattr(m, "race", None), "name", "NONE")] += 1
+        tiers[int(m.tier)] += 1
+        golden += int(bool(m.is_golden))
+        attack += int(m.raw_attack)
+        health += int(m.max_health)
+        for kw in m.all_keywords:
+            keywords[kw.name] += 1
+    return {
+        "tier": int(elim.get(seat, player.tavern_tier)),
+        "size": int(sum(tiers.values())),
+        "golden": golden,
+        "attack": attack,
+        "health": health,
+        "tribes": dict(tribes),
+        "tiers": {str(k): v for k, v in tiers.items()},
+        "keywords": dict(keywords),
+    }
+
+
+def summarize_paired(games: List[dict], seats_a, seats_b) -> dict:
+    """Per-lobby paired difference of team mean placement.
+
+    Placements in a lobby sum to 36, so the two team means always sum to 9.0
+    and are perfectly anti-correlated. Independent per-team CIs therefore
+    overstate the uncertainty; the paired difference is the honest statistic.
+    """
+    diffs = [
+        sum(g["team_a_placements"]) / len(seats_a) - sum(g["team_b_placements"]) / len(seats_b)
+        for g in games
+    ]
+    n = len(diffs)
+    mean = sum(diffs) / n if n else float("nan")
+    if n < 2:
+        return {"n": n, "mean": mean, "ci95_half": float("nan"), "diffs": diffs}
+    var = sum((d - mean) ** 2 for d in diffs) / (n - 1)
+    return {"n": n, "mean": mean, "ci95_half": t_crit_975(n) * math.sqrt(var / n), "diffs": diffs}
 
 
 def summarize_placements(values: List[float]) -> dict:
@@ -146,12 +221,13 @@ def main() -> None:
         help="patch package dir (required for patch-pinned checkpoints)",
     )
     ap.add_argument(
-        "--obs-kind", type=str, default="bglike",
-        help="bglike (v3 obs) / bglike_v5 (v5..v11 nets) / bglike_v5_heroes",
+        "--obs-kind", type=str, default=None,
+        help="override the lobby default; each checkpoint's own layout is "
+             "detected from its network type and applied per seat",
     )
     ap.add_argument(
-        "--with-heroes", action="store_true",
-        help="assign a random hero per seat (required for heroes nets)",
+        "--with-heroes", dest="with_heroes", action="store_true", default=None,
+        help="force heroes on (auto-enabled when either net reads a hero obs)",
     )
     args = ap.parse_args()
 
@@ -197,6 +273,45 @@ def main() -> None:
         f"(95% CI ±{sum_b['ci95_half']:.3f}, n={sum_b['n']})"
     )
     print(f"lobby wins: {args.label_a} {wins_a}/{args.num_games}, {args.label_b} {wins_b}/{args.num_games}")
+
+    paired = summarize_paired(games, seats_a, seats_b)
+    verdict = (
+        f"{args.label_a} better" if paired["mean"] + paired["ci95_half"] < 0
+        else f"{args.label_b} better" if paired["mean"] - paired["ci95_half"] > 0
+        else "not separated"
+    )
+    print(
+        f"\npaired per-lobby delta ({args.label_a} - {args.label_b}): "
+        f"{paired['mean']:+.3f} +/- {paired['ci95_half']:.3f}  "
+        f"(95% CI, n={paired['n']} lobbies)  -> {verdict}"
+    )
+
+    def team_boards(seats):
+        return [g["boards"][s] for g in games for s in seats]
+
+    ba, bb = team_boards(seats_a), team_boards(seats_b)
+    print(f"\n{'':<24}{args.label_a:>12}{args.label_b:>12}")
+    for name, key in (("mean final tier", "tier"), ("minions", "size"),
+                      ("golden", "golden"), ("attack", "attack"), ("health", "health")):
+        print(f"{name:<24}"
+              + "".join(f"{sum(x[key] for x in b) / max(len(b), 1):>12.2f}" for b in (ba, bb)))
+    def team_rounds(seats, tier):
+        vals = [g["tier_round"][s][tier] for g in games for s in seats
+                if tier in g["tier_round"][s]]
+        return sum(vals) / len(vals) if vals else float("nan")
+
+    for tier in (4, 5, 6):
+        print(f"{'reached t' + str(tier) + ' (%)':<24}"
+              + "".join(f"{100 * sum(x['tier'] >= tier for x in b) / max(len(b), 1):>12.1f}"
+                        for b in (ba, bb)))
+        print(f"{'  first at round':<24}"
+              + "".join(f"{team_rounds(seats, tier):>12.1f}" for seats in (seats_a, seats_b)))
+    tribes = sorted({t for b in (ba, bb) for x in b for t in x["tribes"]})
+    print(f"\n{'tribe share (%)':<24}{args.label_a:>12}{args.label_b:>12}")
+    for t in tribes:
+        print(f"{t:<24}" + "".join(
+            f"{100 * sum(x['tribes'].get(t, 0) for x in b) / max(sum(sum(x['tribes'].values()) for x in b), 1):>12.1f}"
+            for b in (ba, bb)))
 
     payload = {
         "team_a": {"label": args.label_a, "checkpoint": ck_a.name, "step": step_a, "seats": seats_a},

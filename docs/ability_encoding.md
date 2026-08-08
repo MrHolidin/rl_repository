@@ -1,4 +1,31 @@
-# Ability encoding: plan
+# Ability encoding
+
+> **Superseded.** The two-stage plan below (semantic effect axes, then abilities
+> as attention tokens) was **not** implemented. It was replaced by a frozen
+> per-card table built from the card's rules text — see
+> `src/envs/bglike/card_static.py` and `src/models/bglike_structured_v12.py`.
+>
+> Why the change: the plan's own premise was that the effect id is an alias for
+> card identity (73% of effect classes in this patch sit on exactly one card),
+> and that grouping by mechanic is what buys transfer. A sentence encoder does
+> that grouping directly, without hand-authoring a taxonomy — and measurement
+> showed the hand-authored axes would have *collapsed* cards the text keeps
+> apart. The three multiplier auras (Brann / Baron / Khadgar) map to one point
+> under `kind`/`scope`/`scaling`/`persistence`; in text space they separate at
+> cos 0.44–0.65, while Foe Reaper and Cave Hydra — different cards, one
+> mechanic — sit at 0.97.
+>
+> Stage 2 (abilities as their own attention tokens) remains undone and is still
+> the open question: v12 folds abilities into a static per-card vector, so
+> cross-minion ability interaction has to be inferred through two attention
+> layers over slot vectors.
+>
+> Kept for the measurements in it, which are still valid, and so the taxonomy
+> is not re-proposed from scratch.
+
+---
+
+# Original plan (not implemented)
 
 Two stages, no intermediate. **Stage 1** replaces the effect id with a semantic
 decomposition. **Stage 2** lifts abilities out of the per-slot summary and into

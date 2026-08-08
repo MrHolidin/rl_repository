@@ -5,7 +5,7 @@ from __future__ import annotations
 import signal
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, NamedTuple, Optional, Union
 
 from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
 from src.config import load_config
@@ -23,6 +23,7 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V10,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V12,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import (
@@ -76,56 +77,24 @@ def _restore_signal_handlers() -> None:
         pass
 
 
-def run_distributed(
-    config_path: Union[str, Path],
-    run_dir: Union[str, Path],
-    *,
-    command: Optional[str] = None,
-) -> None:
-    """Run distributed PPO training from a YAML config.
+class BgNetworkPlan(NamedTuple):
+    """What the network type implies for the env, the workers and the agent."""
 
-    The config uses the same schema as single-process training plus a
-    ``distributed:`` block that specifies workers, worker_device, and an
-    optional starting checkpoint path.
+    network_type: str
+    use_structured: bool
+    is_dvd_v7: bool
+
+
+def prepare_bg_network_params(
+    game_id: str, game_params: Dict[str, Any], agent_params: Dict[str, Any]
+) -> BgNetworkPlan:
+    """Resolve the network type into env/worker settings, mutating both dicts.
+
+    Every structured BG net must appear in the ``use_structured`` tuple below:
+    a missing entry silently drops collection onto the flat action path, which
+    dies later on ``legal_mask``. Adding a new ``bglike_structured_vN`` means
+    touching this function, not just the model and the factory.
     """
-    global _current_trainer
-
-    config_path = Path(config_path)
-    run_dir = Path(run_dir)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_dir = run_dir / "checkpoints"
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-
-    _write_pid(run_dir)
-
-    stop_path = run_dir / "stop"
-    if stop_path.exists():
-        try:
-            stop_path.unlink()
-        except OSError:
-            pass
-
-    (run_dir / "config.yaml").write_text(config_path.read_text())
-
-    app_cfg = load_config(config_path)
-    dist_cfg = app_cfg.distributed
-    if dist_cfg is None:
-        raise SystemExit(
-            "Config has no 'distributed:' section. "
-            "Use src.cli.train for single-process training."
-        )
-
-    if app_cfg.seed is not None:
-        _set_seed(app_cfg.seed)
-    seed: int = app_cfg.seed if app_cfg.seed is not None else 42
-
-    # --- Agent / env sizing (mirrors run.py; workers read game_id from game_params) ---
-    game_id = (app_cfg.game.id or "").strip().lower()
-    game_params = dict(app_cfg.game.params or {})
-    game_params.pop("control_driver", None)
-    game_params["game_id"] = game_id
-
-    agent_params = dict(app_cfg.agent.params)
     network_type = str(agent_params.get("network_type", "")).strip().lower()
     reject_flat_bg_network(game_id, network_type)
     use_structured = network_type in (
@@ -142,6 +111,7 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V10,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V12,
     )
     game_params["use_structured"] = use_structured
     # DvD/v7: thread the population knobs through to workers (mg) so each worker
@@ -153,6 +123,7 @@ def run_distributed(
         PPO_NETWORK_BGLIKE_STRUCTURED_V10,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V12,
     )
     if is_dvd_v7:
         game_params["dvd_network_type"] = network_type
@@ -210,8 +181,83 @@ def run_distributed(
         # (an explicit game.params.with_heroes still wins).
         game_params.setdefault("with_heroes", True)
 
+    # v12 reads the v6 obs: base + hero block, with the ability tail dropped
+    # (card facts come from the net's frozen static table instead).
+    if network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V12 and game_id == "bglike":
+        from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V6_HEROES
+
+        existing = game_params.get("obs_kind")
+        if existing is not None and existing != OBS_KIND_BGLIKE_V6_HEROES:
+            raise ValueError(
+                f"network_type={network_type!r} requires obs_kind={OBS_KIND_BGLIKE_V6_HEROES!r}, "
+                f"got {existing!r}"
+            )
+        game_params["obs_kind"] = OBS_KIND_BGLIKE_V6_HEROES
+        game_params.setdefault("with_heroes", True)
+
     # Reject a heroes/network mismatch (e.g. with_heroes=true on a non-hero net).
     validate_heroes_consistency(game_id, network_type, game_params)
+    return BgNetworkPlan(
+        network_type=network_type,
+        use_structured=use_structured,
+        is_dvd_v7=is_dvd_v7,
+    )
+
+
+def run_distributed(
+    config_path: Union[str, Path],
+    run_dir: Union[str, Path],
+    *,
+    command: Optional[str] = None,
+) -> None:
+    """Run distributed PPO training from a YAML config.
+
+    The config uses the same schema as single-process training plus a
+    ``distributed:`` block that specifies workers, worker_device, and an
+    optional starting checkpoint path.
+    """
+    global _current_trainer
+
+    config_path = Path(config_path)
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_dir = run_dir / "checkpoints"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    _write_pid(run_dir)
+
+    stop_path = run_dir / "stop"
+    if stop_path.exists():
+        try:
+            stop_path.unlink()
+        except OSError:
+            pass
+
+    (run_dir / "config.yaml").write_text(config_path.read_text())
+
+    app_cfg = load_config(config_path)
+    dist_cfg = app_cfg.distributed
+    if dist_cfg is None:
+        raise SystemExit(
+            "Config has no 'distributed:' section. "
+            "Use src.cli.train for single-process training."
+        )
+
+    if app_cfg.seed is not None:
+        _set_seed(app_cfg.seed)
+    seed: int = app_cfg.seed if app_cfg.seed is not None else 42
+
+    # --- Agent / env sizing (mirrors run.py; workers read game_id from game_params) ---
+    game_id = (app_cfg.game.id or "").strip().lower()
+    game_params = dict(app_cfg.game.params or {})
+    game_params.pop("control_driver", None)
+    game_params["game_id"] = game_id
+
+    agent_params = dict(app_cfg.agent.params)
+    agent_params = dict(app_cfg.agent.params)
+    network_type, use_structured, is_dvd_v7 = prepare_bg_network_params(
+        game_id, game_params, agent_params
+    )
 
     if game_id in ("minibg", "bglike"):
         from src.training.patch_config import apply_patch_to_agent_params

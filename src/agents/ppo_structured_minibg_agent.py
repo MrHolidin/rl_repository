@@ -383,6 +383,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self._battle_pred_aux_coef: float = float(bp_cfg.get("aux_coef", 0.01))
         self._battle_pred_detach: bool = bool(bp_cfg.get("detach_features", False))
         self._battle_pred_huber_delta: float = float(bp_cfg.get("huber_delta", 5.0))
+        # Label squashing, read off the model so the two cannot disagree.
+        # 0 (the default, and what pre-v12 heads carry) means "raw damage
+        # target", i.e. exactly the old behaviour. A positive value means the
+        # head predicts tanh(damage / norm) and the label is squashed to match.
+        self._battle_pred_damage_norm: float = float(bp_cfg.get("damage_norm", 0.0))
 
         if seed is not None:
             random.seed(seed)
@@ -1112,6 +1117,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                         opp_v = bp_opp_tensor[mb_idx_t][idx_valid]
                         af_v = bp_attack_first_tensor[mb_idx_t][idx_valid]
                         tgt_v = bp_target_tensor[mb_idx_t][idx_valid]
+                        if self._battle_pred_damage_norm > 0.0:
+                            # Same transform predict_battle applies to its own
+                            # output, so the loss compares like with like and
+                            # stays bounded however large the head's weights get.
+                            tgt_v = torch.tanh(tgt_v / self._battle_pred_damage_norm)
                         pred = self.policy_net.predict_battle(
                             own_v,
                             opp_v,

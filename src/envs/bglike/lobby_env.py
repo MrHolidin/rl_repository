@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
@@ -55,16 +55,25 @@ from .rl_placement import (
 from .obs import OBS_DIM, build_observation
 from .obs_v5 import OBS_DIM_V5, build_observation_v5
 from .obs_v5_heroes import OBS_DIM_V5_HEROES, build_observation_v5_heroes
+from .obs_v6_heroes import OBS_DIM_V6_HEROES, build_observation_v6_heroes
 
 OBS_KIND_BGLIKE = "bglike"
 OBS_KIND_BGLIKE_V5 = "bglike_v5"
 OBS_KIND_BGLIKE_V5_HEROES = "bglike_v5_heroes"
+OBS_KIND_BGLIKE_V6_HEROES = "bglike_v6_heroes"
 _VALID_OBS_KINDS = frozenset(
-    {OBS_KIND_BGLIKE, OBS_KIND_BGLIKE_V5, OBS_KIND_BGLIKE_V5_HEROES}
+    {
+        OBS_KIND_BGLIKE,
+        OBS_KIND_BGLIKE_V5,
+        OBS_KIND_BGLIKE_V5_HEROES,
+        OBS_KIND_BGLIKE_V6_HEROES,
+    }
 )
 
 
 def _obs_dim_for_kind(obs_kind: str) -> int:
+    if obs_kind == OBS_KIND_BGLIKE_V6_HEROES:
+        return int(OBS_DIM_V6_HEROES)
     if obs_kind == OBS_KIND_BGLIKE_V5_HEROES:
         return int(OBS_DIM_V5_HEROES)
     if obs_kind == OBS_KIND_BGLIKE_V5:
@@ -285,6 +294,7 @@ class BGLobbyEnv:
         replay: Optional[Any] = None,
         patch_dir: Optional[str] = None,
         obs_kind: str = OBS_KIND_BGLIKE,
+        obs_kind_by_seat: Optional[Mapping[int, str]] = None,
     ) -> None:
         if len(seat_configs) != NUM_PLAYERS:
             raise ValueError(f"expected {NUM_PLAYERS} seat configs, got {len(seat_configs)}")
@@ -293,6 +303,18 @@ class BGLobbyEnv:
                 f"obs_kind={obs_kind!r} not in {sorted(_VALID_OBS_KINDS)}"
             )
         self._obs_kind = obs_kind
+        # Per-seat override. Every seat defaults to the lobby's obs_kind, which
+        # is what training uses (one policy version, one layout). Evaluation
+        # sets this to host checkpoints of different versions in one lobby --
+        # the observation is a pure function of (state, seat), so nothing stops
+        # two seats from reading different layouts of the same state.
+        self._obs_kind_by_seat: Dict[int, str] = {}
+        for seat, kind in dict(obs_kind_by_seat or {}).items():
+            if kind not in _VALID_OBS_KINDS:
+                raise ValueError(
+                    f"obs_kind_by_seat[{seat}]={kind!r} not in {sorted(_VALID_OBS_KINDS)}"
+                )
+            self._obs_kind_by_seat[int(seat)] = kind
         self._seat_configs: List[SeatConfig] = list(seat_configs)
         self._learned_seats: Set[int] = frozenset(learned_seats)
         if not self._learned_seats:
@@ -371,6 +393,7 @@ class BGLobbyEnv:
         self._rl_pending = {}
         self._rl_place_budget_pending = set()
         self._heuristic_control_seat = None
+        self._tier_first_round = {i: {} for i in range(NUM_PLAYERS)}
         if self._replay is not None:
             self._replay.on_reset()
         return self._state
@@ -461,10 +484,19 @@ class BGLobbyEnv:
     def rl_pending_for_seat(self, seat: int) -> Optional[RlPlacePlan]:
         return self._rl_pending.get(seat)
 
+    def obs_kind_for_seat(self, seat: int) -> str:
+        return self._obs_kind_by_seat.get(int(seat), self._obs_kind)
+
+    def obs_dim_for_seat(self, seat: int) -> int:
+        return _obs_dim_for_kind(self.obs_kind_for_seat(seat))
+
     def obs_for_seat(self, seat: int) -> np.ndarray:
-        if self._obs_kind == OBS_KIND_BGLIKE_V5_HEROES:
+        kind = self.obs_kind_for_seat(seat)
+        if kind == OBS_KIND_BGLIKE_V6_HEROES:
+            builder = build_observation_v6_heroes
+        elif kind == OBS_KIND_BGLIKE_V5_HEROES:
             builder = build_observation_v5_heroes
-        elif self._obs_kind == OBS_KIND_BGLIKE_V5:
+        elif kind == OBS_KIND_BGLIKE_V5:
             builder = build_observation_v5
         else:
             builder = build_observation
@@ -712,6 +744,27 @@ class BGLobbyEnv:
             auto=True,
         )
 
+    def _note_tier_progress(self) -> None:
+        """Record the round in which each seat first reached each tavern tier.
+
+        "Reached tier 5 in 30% of games" is readable off the final state, but
+        "got there at round 15.2 instead of 13.0" is not, and the two say
+        different things -- one arm can reach the same tier consistently later.
+        Tracking it here rather than by intercepting LEVEL_UP in a caller's own
+        loop means every evaluation path gets it, including
+        ``drain_until_lobby_done``, and hero-granted upgrades are covered too.
+        """
+        rnd = int(self.state.round_number)
+        for seat in range(NUM_PLAYERS):
+            seen = self._tier_first_round[seat]
+            tier = int(self.state.players[seat].tavern_tier)
+            for t in range(2, tier + 1):
+                seen.setdefault(t, rnd)
+
+    def tier_first_round(self, seat: int) -> Dict[int, int]:
+        """``{tavern_tier: round first reached}`` for ``seat`` this episode."""
+        return dict(self._tier_first_round.get(int(seat), {}))
+
     def _update_battle_signed(self, prev_hp: Tuple[int, ...], prev_combat_round: int) -> None:
         if self.state.combat_round > prev_combat_round:
             for i in range(NUM_PLAYERS):
@@ -752,6 +805,7 @@ class BGLobbyEnv:
         illegal: bool = False,
     ) -> LobbyStepInfo:
         self._update_battle_signed(prev_hp, prev_combat_round)
+        self._note_tier_progress()
         info = self._lobby_step_info(seat, eliminated_before)
         if self._replay is not None:
             self._replay.maybe_record(

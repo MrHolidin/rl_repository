@@ -27,6 +27,7 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V10,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V12,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -269,6 +270,9 @@ if "ppo" not in list_agents():
         is_bglike_structured_v11_heroes = (
             network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES
         )
+        # v12 = v11_heroes on the v6 obs: the ability tail is gone and card
+        # facts come from a frozen text+numbers table instead.
+        is_bglike_structured_v12 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V12
         is_bglike_structured_v7 = (
             network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
             or is_bglike_structured_v8
@@ -276,6 +280,7 @@ if "ppo" not in list_agents():
             or is_bglike_structured_v10
             or is_bglike_structured_v11
             or is_bglike_structured_v11_heroes
+            or is_bglike_structured_v12
         )
         # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
         # appends the identity tail before feeding the net).
@@ -306,6 +311,7 @@ if "ppo" not in list_agents():
         obs_type = kwargs.get("observation_type")
         num_pool_indices = kwargs.pop("num_pool_indices", None)
         patch_build = kwargs.pop("patch_build", None)
+        card_patch_dir = kwargs.pop("card_patch_dir", None)
 
         if obs_shape is None:
             if is_bglike_v5_or_v6:
@@ -348,7 +354,14 @@ if "ppo" not in list_agents():
                     f"PPO network_type {network_type!r} requires num_actions and "
                     "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
-            if is_bglike_structured_v11_heroes:
+            if is_bglike_structured_v12:
+                from src.envs.bglike.obs_v6_heroes import OBS_DIM_V6_HEROES as _expected_obs
+
+                if tuple(obs_shape) != (_expected_obs,):
+                    raise ValueError(
+                        f"PPO network_type {network_type!r} requires observation_shape [{_expected_obs}]"
+                    )
+            elif is_bglike_structured_v11_heroes:
                 from src.envs.bglike.obs_v5_heroes import OBS_DIM_V5_HEROES as _expected_obs
 
                 if tuple(obs_shape) != (_expected_obs,):
@@ -499,6 +512,7 @@ if "ppo" not in list_agents():
                         from ..models.bglike_structured_v11_heroes import (
                             BGLikeStructuredV11Heroes,
                         )
+                        from ..models.bglike_structured_v12 import BGLikeStructuredV12
 
                         ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
                         # Agent-level DvD knobs (not net constructor args except
@@ -516,7 +530,11 @@ if "ppo" not in list_agents():
                         # so workers/frozen/resume rebuild identically — no need
                         # to propagate them through game_params.
                         extra_net_kwargs: Dict[str, Any] = {}
-                        if is_bglike_structured_v11 or is_bglike_structured_v11_heroes:
+                        if (
+                            is_bglike_structured_v11
+                            or is_bglike_structured_v11_heroes
+                            or is_bglike_structured_v12
+                        ):
                             extra_net_kwargs = dict(
                                 summary_queries=int(kwargs.pop("summary_queries", 2)),
                                 thinking_blocks=int(kwargs.pop("thinking_blocks", 1)),
@@ -532,10 +550,26 @@ if "ppo" not in list_agents():
                                 # path and is NOT consulted when building fresh.
                                 use_card_emb=bool(kwargs.pop("use_card_emb", True)),
                             )
-                            if is_bglike_structured_v11_heroes:
-                                net_cls = BGLikeStructuredV11Heroes
+                            if is_bglike_structured_v11_heroes or is_bglike_structured_v12:
                                 extra_net_kwargs["hero_hidden"] = int(kwargs.pop("hero_hidden", 48))
                                 extra_net_kwargs["hero_out"] = int(kwargs.pop("hero_out", 24))
+                            if is_bglike_structured_v12:
+                                net_cls = BGLikeStructuredV12
+                                # The frozen card table is built from the patch
+                                # package; card_patch_dir is set on agent params
+                                # by apply_patch_to_agent_params.
+                                extra_net_kwargs["card_text_mode"] = str(
+                                    kwargs.pop("card_text_mode", "text")
+                                )
+                                extra_net_kwargs["card_text_dim"] = int(
+                                    kwargs.pop("card_text_dim", 32)
+                                )
+                                extra_net_kwargs["card_static_seed"] = int(
+                                    kwargs.pop("card_static_seed", 0)
+                                )
+                                extra_net_kwargs["card_patch_dir"] = card_patch_dir
+                            elif is_bglike_structured_v11_heroes:
+                                net_cls = BGLikeStructuredV11Heroes
                             else:
                                 net_cls = BGLikeStructuredV11
                         elif is_bglike_structured_v10:
