@@ -100,7 +100,23 @@ def load_training_agent_checkpoint(
     if ckpt.get("agent_kind") == "ppo_minibg_structured":
         from src.agents.ppo_structured_minibg_agent import MiniBGPPOStructuredAgent
 
-        agent = MiniBGPPOStructuredAgent.load(path_str, device=device, seed=seed)
+        # PPODvDAgent saves under the same agent_kind as its parent, but it
+        # APPENDS an identity one-hot to every observation, and the net's
+        # identity_slot_gate scales each entity token by (1 + gate(...)) in
+        # response. Restoring the parent class instead silently drops the tail:
+        # the net accepts both widths, so nothing raises, and the gate is simply
+        # skipped -- measured at 10.2% of decisions changing, i.e. the checkpoint
+        # would be scored in a mode it was never trained in.
+        #
+        # The checkpoint carries no DvD marker, so detect it structurally: the
+        # identity_* parameters exist only when num_identities > 0.
+        state = ckpt.get("policy_state_dict") or {}
+        if any(str(k).startswith("identity_") for k in state):
+            from src.agents.ppo_dvd_agent import PPODvDAgent
+
+            agent = PPODvDAgent.load(path_str, device=device, seed=seed)
+        else:
+            agent = MiniBGPPOStructuredAgent.load(path_str, device=device, seed=seed)
         freeze_agent(agent)
         return agent
     if "policy_state_dict" in ckpt:

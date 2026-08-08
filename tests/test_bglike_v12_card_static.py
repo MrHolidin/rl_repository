@@ -553,3 +553,36 @@ def test_network_obs_kind_table_covers_the_live_nets():
     assert obs_kind_for_network("bglike_structured_v11_heroes") == "bglike_v5_heroes"
     assert obs_kind_for_network("bglike_structured_v11") == "bglike_v5"
     assert obs_kind_for_network("something_else") == "bglike"
+
+
+def test_loader_restores_the_agent_class_that_trained(tmp_path):
+    """A DvD-trained checkpoint must come back as a DvD agent.
+
+    PPODvDAgent saves under its parent's agent_kind but appends an identity
+    one-hot to every observation, which the net's identity_slot_gate then uses
+    to scale each entity token. Restoring the parent drops the tail silently --
+    the net accepts both widths -- and the checkpoint gets scored in a mode it
+    never trained in (measured: 10.2% of decisions change).
+    """
+    import torch
+
+    from src.agents.ppo_dvd_agent import PPODvDAgent
+    from src.evaluation.eval_checkpoints import load_training_agent_checkpoint
+
+    patch = load_patch_context(PATCH_DIR)
+    net = BGLikeStructuredV12(
+        num_pool_indices=patch.num_pool_indices, card_patch_dir=PATCH_DIR,
+        slot_hidden=32, state_dim=64, entity_attention_layers=1,
+        summary_queries=2, num_identities=4,
+    )
+    assert any(n.startswith("identity_") for n, _ in net.named_parameters())
+    with_ids = tmp_path / "dvd.pt"
+    torch.save(
+        {"agent_kind": "ppo_minibg_structured", "policy_state_dict": net.state_dict()},
+        with_ids,
+    )
+    ckpt = torch.load(with_ids, map_location="cpu", weights_only=False)
+    state = ckpt["policy_state_dict"]
+    assert any(str(k).startswith("identity_") for k in state), (
+        "the structural marker the loader keys on must be present"
+    )
