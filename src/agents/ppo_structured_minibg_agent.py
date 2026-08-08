@@ -21,6 +21,7 @@ from .rollout_segments import (
     seat_ids_array,
 )
 from ..envs.base import StepResult
+from ..envs.bglike.board_strength import strength_ratio
 from ..envs.minibg.actions import BOARD_SIZE
 from ..envs.minibg.obs import SLOT_DIM
 from ..envs.minibg.structured_actions import (
@@ -74,7 +75,8 @@ def _stack_and_release(arrs: List[np.ndarray]) -> np.ndarray:
 
 
 class StructuredMiniBGRolloutBuffer:
-    def __init__(self) -> None:
+    def __init__(self, n_strength_horizons: int = 0) -> None:
+        self._n_strength_horizons = int(n_strength_horizons)
         self.obs: List[np.ndarray] = []
         self.legal_lists: List[List[StructAction]] = []
         self.action_indices: List[int] = []
@@ -106,6 +108,11 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first: List[float] = []
         self.battle_target: List[float] = []
         self.battle_target_valid: List[bool] = []
+        # Relative-strength head: one ratio per horizon, filled h combat
+        # resolutions after the row was written (so late rows in a rollout stay
+        # unfilled and are masked out rather than dropped).
+        self.strength_target: List[List[float]] = []
+        self.strength_valid: List[List[bool]] = []
         # Final placement (1..8) of the row's seat segment; -1 until the segment
         # closes (``close_rollout_segment`` backfills the whole segment). CE
         # target for the v8 distributional critic; ignored by scalar critics.
@@ -156,6 +163,8 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first.append(0.0)
         self.battle_target.append(0.0)
         self.battle_target_valid.append(False)
+        self.strength_target.append([1.0] * self._n_strength_horizons)
+        self.strength_valid.append([False] * self._n_strength_horizons)
         self.placement_label.append(-1)
 
     def __len__(self) -> int:
@@ -181,6 +190,8 @@ class StructuredMiniBGRolloutBuffer:
         self.attack_first.clear()
         self.battle_target.clear()
         self.battle_target_valid.clear()
+        self.strength_target.clear()
+        self.strength_valid.clear()
         self.placement_label.clear()
 
 
@@ -334,7 +345,18 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         self._cap_graphs: Dict[int, Any] = {}  # Lmax_padded -> {graph, bufs}
         self._cap_acc: Optional[Dict[str, torch.Tensor]] = None
         self._cap_gn: torch.Tensor | float = 0.0
-        self.rollout_buffer = StructuredMiniBGRolloutBuffer()
+        sp_cfg = getattr(self.policy_net, "strength_pred_config", {}) or {}
+        self._strength_pred_enabled: bool = bool(
+            getattr(self.policy_net, "_strength_pred_enabled", False)
+        )
+        self._strength_horizons: tuple = tuple(sp_cfg.get("horizons", ()) or ())
+        self._strength_aux_coef: float = float(sp_cfg.get("aux_coef", 0.0))
+        self._strength_huber_delta: float = float(sp_cfg.get("huber_delta", 0.5))
+        # seat -> [(buffer_index, strength_at_that_round), ...] for this episode.
+        self._strength_history: Dict[int, List[Tuple[int, float]]] = {}
+        self.rollout_buffer = StructuredMiniBGRolloutBuffer(
+            n_strength_horizons=len(self._strength_horizons)
+        )
         self._cache: Optional[Dict[str, Any]] = None
 
         # --- v4 recurrent state -----------------------------------------
@@ -635,8 +657,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # FINISH-row in the buffer without a valid battle target and stamp it
         # with the snapshot + label. ``observe`` is called once per env step,
         # so doing it here naturally picks up all combats from this resolution.
+        # Both auxiliary heads are fed from this one snapshot, so the walk-back
+        # must run when EITHER is on -- gating it on the battle head alone left
+        # the strength head with no labels at all.
         if (
-            self._battle_pred_enabled
+            (self._battle_pred_enabled or self._strength_pred_enabled)
             and info.get("combat_advanced")
             and info.get("battle_data_per_seat")
         ):
@@ -667,7 +692,42 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 buf.attack_first[idx] = float(data["attack_first"])
                 buf.battle_target[idx] = float(data["damage_signed_uncapped"])
                 buf.battle_target_valid[idx] = True
+                self._record_strength(seat_i, idx, data.get("board_strength"))
                 break
+
+    def _record_strength(self, seat: int, idx: int, strength: Optional[float]) -> None:
+        """Append this round's board strength and fill the ratios it completes.
+
+        The label for a row at round ``t`` and horizon ``h`` only becomes known
+        at round ``t + h``, so each new measurement walks back ``h`` entries in
+        the seat's own history and fills that row. Rows whose horizon never
+        arrives -- the seat is eliminated, or the rollout ends first -- keep
+        ``strength_valid=False`` and are masked out of the loss rather than
+        being given a made-up label.
+        """
+        if not self._strength_pred_enabled or strength is None:
+            return
+        hist = self._strength_history.setdefault(int(seat), [])
+        hist.append((int(idx), float(strength)))
+        buf = self.rollout_buffer
+        now = float(strength)
+        for k, h in enumerate(self._strength_horizons):
+            if len(hist) <= h:
+                continue
+            past_idx, past_strength = hist[-(h + 1)]
+            if past_idx >= len(buf.strength_target):
+                continue
+            buf.strength_target[past_idx][k] = strength_ratio(past_strength, now)
+            buf.strength_valid[past_idx][k] = True
+
+    def on_episode_boundary(self) -> None:
+        # The history indexes into the rollout buffer and is per-episode: a
+        # seat's round t+1 in the next lobby must not complete a horizon opened
+        # in this one.
+        self._strength_history = {}
+        parent = getattr(super(), "on_episode_boundary", None)
+        if callable(parent):
+            parent()
 
     def close_segment(
         self, seat: int, terminal_reward: float, placement: Optional[int] = None
@@ -892,6 +952,17 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             bp_target_tensor = None
             bp_valid_tensor = None
 
+        if self._strength_pred_enabled and len(buf.strength_target) == N and N > 0:
+            sp_target_tensor = torch.from_numpy(
+                np.array(buf.strength_target, dtype=np.float32)
+            ).to(device, non_blocking=True)
+            sp_valid_tensor = torch.from_numpy(
+                np.array(buf.strength_valid, dtype=np.float32)
+            ).to(device, non_blocking=True)
+        else:
+            sp_target_tensor = None
+            sp_valid_tensor = None
+
         total_policy_loss = 0.0
         total_value_loss = 0.0
         total_entropy = 0.0
@@ -904,6 +975,10 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_battle_sign_acc = 0.0
         total_battle_batches = 0
         total_battle_corr_batches = 0  # corr undefined for single-sample minibatches
+        total_strength_loss = 0.0
+        total_strength_batches = 0
+        strength_mae = [0.0] * len(self._strength_horizons)
+        strength_cnt = [0] * len(self._strength_horizons)
         total_placement_acc = 0.0
         total_placement_batches = 0
         grad_norm: torch.Tensor | float = 0.0
@@ -1154,7 +1229,38 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                             battle_sign_acc_item = float(sign_correct.float().mean().item())
                         battle_loss_item = float(battle_loss_term.item())
 
+                strength_loss_term = None
+                if self._strength_pred_enabled and sp_valid_tensor is not None:
+                    v_mb = sp_valid_tensor[mb_idx_t]
+                    if bool(v_mb.any().item()):
+                        pred_s = self.policy_net.predict_strength(cache["trunk"], cache)
+                        tgt_s = sp_target_tensor[mb_idx_t]
+                        # Ratios are multiplicative, so the residual is taken in
+                        # log space: predicting 2x when the truth is 1x costs the
+                        # same as predicting 1x when the truth is 2x. Both sides
+                        # are bounded, so |residual| <= log(HI/LO) = 3.91 and the
+                        # loss cannot grow as the head trains -- that is what
+                        # keeps aux_coef meaning the same thing at step 5M as at
+                        # step 0.
+                        resid = torch.log(pred_s) - torch.log(tgt_s)
+                        per = F.smooth_l1_loss(
+                            resid, torch.zeros_like(resid),
+                            beta=self._strength_huber_delta, reduction="none",
+                        )
+                        strength_loss_term = (per * v_mb).sum() / v_mb.sum().clamp(min=1.0)
+                        with torch.no_grad():
+                            total_strength_loss += float(strength_loss_term.item())
+                            total_strength_batches += 1
+                            for k in range(len(self._strength_horizons)):
+                                mk = v_mb[:, k]
+                                if bool(mk.any().item()):
+                                    e = (pred_s[:, k] - tgt_s[:, k]).abs()
+                                    strength_mae[k] += float((e * mk).sum() / mk.sum())
+                                    strength_cnt[k] += 1
+
                 loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy_mb
+                if strength_loss_term is not None:
+                    loss = loss + self._strength_aux_coef * strength_loss_term
                 if battle_loss_term is not None:
                     # ``aux_coef`` controls how strongly the head pulls on the
                     # backbone. We always add ``battle_loss_term`` so the head's
@@ -1227,6 +1333,11 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             out_metrics["battle_pred_sign_acc"] = total_battle_sign_acc / total_battle_batches
             if total_battle_corr_batches > 0:
                 out_metrics["battle_pred_corr"] = total_battle_corr / total_battle_corr_batches
+        if total_strength_batches:
+            out_metrics["strength_pred_loss"] = total_strength_loss / total_strength_batches
+            for k, h in enumerate(self._strength_horizons):
+                if strength_cnt[k]:
+                    out_metrics[f"strength_mae_h{h}"] = strength_mae[k] / strength_cnt[k]
         if total_placement_batches > 0:
             # value_loss above is the placement CE; acc is its readable companion
             # (uniform baseline = 0.125).

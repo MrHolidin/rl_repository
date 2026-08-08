@@ -367,7 +367,11 @@ def _payload_to_buffer(data: bytes, mg: dict) -> Any:
 
 def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
     if _use_structured_collect(mg):
-        out = StructuredMiniBGRolloutBuffer()
+        # Horizon count travels with the payload: worker buffers were built by
+        # the worker's own agent, and the merged buffer must keep the same
+        # per-row width or the update's mask/target reshape breaks.
+        n_h = max((getattr(b, "_n_strength_horizons", 0) for b in buffers), default=0)
+        out = StructuredMiniBGRolloutBuffer(n_strength_horizons=n_h)
         # Per-worker episode_ids start from 0; offset by the running max so
         # merged sequences for BPTT (grouped by (episode_id, seat_id)) don't
         # collide across workers.
@@ -377,6 +381,8 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
             out.legal_lists.extend(buf.legal_lists)
             out.action_indices.extend(buf.action_indices)
             out.complete_turn.extend(buf.complete_turn)
+            out.strength_target.extend(buf.strength_target)
+            out.strength_valid.extend(buf.strength_valid)
             out.occupied_masks.extend(buf.occupied_masks)
             out.order_picks.extend(buf.order_picks)
             out.rewards.extend(buf.rewards)
@@ -956,7 +962,9 @@ def _collect_until_steps_structured(
 
     buf = agent.rollout_buffer
     n_steps = len(buf)
-    agent.rollout_buffer = StructuredMiniBGRolloutBuffer()
+    agent.rollout_buffer = StructuredMiniBGRolloutBuffer(
+        n_strength_horizons=getattr(buf, "_n_strength_horizons", 0)
+    )
     return n_games, n_steps, buf, game_outcomes
 
 

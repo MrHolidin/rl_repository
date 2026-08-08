@@ -47,6 +47,8 @@ tail). ``obs_kind="bglike_v6_heroes"``; ``ppo_network_type="bglike_structured_v1
 
 from __future__ import annotations
 
+import math
+
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -55,6 +57,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.envs.bglike.board_strength import (
+    DEFAULT_STRENGTH_HORIZONS,
+    STRENGTH_RATIO_HI,
+    STRENGTH_RATIO_LO,
+    horizons_from_config,
+)
 from src.envs.bglike.card_static import (
     NUM_DIM as _CARD_NUM_DIM,
     TEXT_MODE_RANDOM,
@@ -75,7 +83,7 @@ from src.envs.minibg.obs import (
 
 from .bglike_structured_v11 import _SLOT_CONT_DIM
 from .bglike_structured_v11_heroes import BGLikeStructuredV11Heroes
-from .structured_common import BattlePredictionHead
+from .structured_common import BattlePredictionHead, CrossAttentionBlock, CrossAttentionBlock
 
 DEFAULT_CARD_TEXT_DIM = 32
 
@@ -98,6 +106,8 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         card_text_mode: str = TEXT_MODE_TEXT,
         card_text_dim: int = DEFAULT_CARD_TEXT_DIM,
         card_static_seed: int = 0,
+        strength_pred_config: Optional[Dict[str, Any]] = None,
+        critic_queries: int = 0,
         card_patch_dir: Optional[str] = None,
         battle_pred_config: Optional[Dict[str, Any]] = None,
         **v11_heroes_kwargs: Any,
@@ -144,6 +154,71 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         # pending_to_slot separate. The frozen table is the shared part here.
         self.slot_proj = nn.Linear(_SLOT_CONT_DIM + self.card_row_dim, self.slot_hidden)
         self.pending_to_slot = nn.Linear(self.card_row_dim, self.slot_hidden)
+
+        # ---- Auxiliary relative-strength head (off by default) ------------
+        self.strength_pred_config = dict(strength_pred_config or {})
+        self._strength_pred_enabled = bool(self.strength_pred_config.get("enabled", False))
+        self.strength_horizons = horizons_from_config(
+            self.strength_pred_config.get("horizons", DEFAULT_STRENGTH_HORIZONS)
+        )
+        self.n_strength_horizons = len(self.strength_horizons)
+        # Published so the agent, which reads this config off the model, cannot
+        # drift out of step with predict_strength.
+        self.strength_pred_config["horizons"] = list(self.strength_horizons)
+        self.strength_pred_config.setdefault("huber_delta", 0.5)
+        if self._strength_pred_enabled:
+            hidden = int(self.strength_pred_config.get("head_hidden", 128))
+            self.strength_query_emb = nn.Embedding(self.n_strength_horizons, self.slot_hidden)
+            nn.init.normal_(self.strength_query_emb.weight, mean=0.0, std=0.02)
+            self.strength_cross_attn = CrossAttentionBlock(
+                self.slot_hidden,
+                num_heads=self.action_cross_attn_heads,
+                ff_mult=self.action_cross_attn_ff_mult,
+                init_scale=self.action_cross_attn_init_scale,
+            )
+            self.strength_mlp = nn.Sequential(
+                nn.Linear(self.slot_hidden + self._state_summary_dim, hidden),
+                nn.GELU(),
+                nn.Linear(hidden, 1),
+            )
+
+        # ---- Optional: a critic-only second read of the entity set ---------
+        # The actor reaches the entities twice: through the pooled summary and
+        # again through action_cross_attn. The critic has only the first, so
+        # everything it knows about the board arrives through
+        # summary_queries * slot_hidden = 128 floats.
+        #
+        # These queries cross-attend to the entity sequence AFTER the entity
+        # self-attention and are concatenated onto the critic's input only.
+        # They deliberately do NOT join the self-attention pass: extra tokens
+        # there would also be attended to BY every entity, shifting E_own/... and
+        # the actor with them (measured -- an in-sequence variant moved
+        # state_emb). As written, everything the actor consumes is bit-identical
+        # to critic_queries=0.
+        self.critic_queries = int(critic_queries)
+        if self.critic_queries < 0:
+            raise ValueError(f"critic_queries must be >= 0, got {critic_queries}")
+        self._critic_extra_dim = self.critic_queries * self.slot_hidden
+        if self.critic_queries:
+            self.critic_query_emb = nn.Embedding(self.critic_queries, self.slot_hidden)
+            nn.init.normal_(self.critic_query_emb.weight, mean=0.0, std=0.02)
+            self.critic_cross_attn = CrossAttentionBlock(
+                self.slot_hidden,
+                num_heads=self.action_cross_attn_heads,
+                ff_mult=self.action_cross_attn_ff_mult,
+                init_scale=self.action_cross_attn_init_scale,
+            )
+            # The trunk half is LayerNorm'd and passed through thinking_core;
+            # normalise the pooled half too or the two enter the critic's first
+            # Linear at different scales.
+            self.critic_summary_ln = nn.LayerNorm(self._critic_extra_dim)
+            self.critic_dist = nn.Sequential(
+                nn.Linear(self._state_summary_dim + self._critic_extra_dim, self.critic_hidden),
+                nn.ReLU(),
+                nn.Linear(self.critic_hidden, int(self.critic_dist[-1].out_features)),
+            )
+            nn.init.zeros_(self.critic_dist[-1].weight)
+            nn.init.zeros_(self.critic_dist[-1].bias)
 
         # ---- Auxiliary battle-outcome head (v11 dropped it; v12 restores it)
         # It predicts the signed uncapped damage of the resolved combat from
@@ -239,6 +314,52 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         return torch.tanh(self.battle_head(e_own, e_enemy, attack_first))
 
     # ------------------------------------------------------------------
+    # Auxiliary relative-strength head
+    # ------------------------------------------------------------------
+    def predict_strength(self, trunk: torch.Tensor, cache: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """``(B, n_horizons)`` predicted ``strength(t+h) / strength(t)`` ratios.
+
+        Unlike the battle head this one is given the **whole state**, not just
+        the boards: how much a board grows over the next rounds is decided by
+        gold, tavern tier and what is sitting in the shop and hand, none of
+        which a board-only view contains. So each horizon gets its own query
+        token cross-attending to the full entity sequence (board, shop, hand,
+        pending, opponents), and that read is concatenated with the trunk, which
+        carries the encoded economy / combat / hero scalars.
+
+        A consequence worth stating: the gradient therefore reaches the entire
+        encoder, not the slot projection alone as the battle head does. That is
+        intended -- a probe on a trained net recovered the next battle's outcome
+        from the slot encoder at corr 0.73 but from the pooled trunk at only
+        0.22, so the pooling stage is where state information is being lost, and
+        it is out of the battle head's reach.
+
+        Output is bounded to ``[STRENGTH_RATIO_LO, STRENGTH_RATIO_HI]`` by
+        construction: a sigmoid interpolates geometrically between the bounds.
+        Both the bound and the log-space loss keep the head's gradient stable as
+        it trains, which is what makes ``aux_coef`` mean the same thing at step
+        0 and at step 5M.
+        """
+        if not self._strength_pred_enabled:
+            raise RuntimeError(
+                "predict_strength called but the head is disabled. Pass "
+                "strength_pred_config={'enabled': True, ...} at construction."
+            )
+        B = trunk.shape[0]
+        entity_seq = torch.cat(
+            [cache["E_own"], cache["E_shop"], cache["E_hand"], cache["E_pending"], cache["E_opp"]],
+            dim=1,
+        )
+        q = self.strength_query_emb.weight.unsqueeze(0).expand(B, -1, -1)
+        read = self.strength_cross_attn(q, entity_seq)               # (B, H, slot_hidden)
+        h = torch.cat(
+            [read, trunk.unsqueeze(1).expand(-1, self.n_strength_horizons, -1)], dim=-1
+        )
+        z = self.strength_mlp(h).squeeze(-1)                          # (B, H)
+        lo, hi = math.log(STRENGTH_RATIO_LO), math.log(STRENGTH_RATIO_HI)
+        return torch.exp(lo + torch.sigmoid(z) * (hi - lo))
+
+    # ------------------------------------------------------------------
     # Static table
     # ------------------------------------------------------------------
     def _build_static_table(self) -> Tuple[torch.Tensor, Dict[str, Any], bool]:
@@ -299,7 +420,9 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
                 "card_text_dim": self.card_text_dim,
                 "card_static_seed": self.card_static_seed,
                 "card_patch_dir": self.card_patch_dir,
+                "critic_queries": self.critic_queries,
                 "battle_pred_config": dict(self.battle_pred_config),
+                "strength_pred_config": dict(self.strength_pred_config),
             }
         )
         # Meaningless in v12 (no learned card embedding, no ability tokens);
@@ -438,7 +561,15 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         trunk_in = torch.cat([summary, econ_emb, combat_emb, pctx_emb, hero_emb], dim=-1)
         state_summary_n = self.state_summary_ln(trunk_in)
         trunk = self.thinking_core(state_summary_n)
+        # The actor reads the trunk BEFORE the critic's extra view is appended.
         state_emb = self.state_proj(trunk)
+        if self.critic_queries:
+            cq = self.critic_query_emb.weight.unsqueeze(0).expand(B, -1, -1)
+            entity_seq = torch.cat([E_own, E_shop, E_hand, E_pending, E_opp], dim=1)
+            cq = self.critic_cross_attn(cq, entity_seq)
+            trunk = torch.cat(
+                [trunk, self.critic_summary_ln(cq.reshape(B, self._critic_extra_dim))], dim=-1
+            )
 
         cache: Dict[str, torch.Tensor] = {
             "E_own": E_own,

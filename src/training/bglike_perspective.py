@@ -283,6 +283,7 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         ``own_board_obs``, ``opp_board_obs`` (np.ndarray (BOARD_SIZE, SLOT_DIM)),
         ``attack_first`` (float 0/1), ``damage_signed_uncapped`` (float).
         """
+        from src.envs.bglike.board_strength import board_strength
         from src.envs.bglike.obs import encode_board_minions
 
         out: Dict[int, Dict[str, Any]] = {}
@@ -304,6 +305,11 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
                 ),
                 "attack_first": float(player.last_attack_first),
                 "damage_signed_uncapped": float(player.last_battle_raw_signed),
+                # Strength of the board that just fought. The relative-strength
+                # head turns a sequence of these into ratios; taking it from the
+                # same pre-combat snapshot means one consistent measurement
+                # point per round and no extra plumbing through the engine.
+                "board_strength": board_strength(snap.own_board),
             }
         return out
 

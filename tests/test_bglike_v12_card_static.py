@@ -586,3 +586,78 @@ def test_loader_restores_the_agent_class_that_trained(tmp_path):
     assert any(str(k).startswith("identity_") for k in state), (
         "the structural marker the loader keys on must be present"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Auxiliary relative-strength head
+# --------------------------------------------------------------------------- #
+
+
+def test_strength_head_off_by_default(patch):
+    net = _net(patch)
+    assert not net._strength_pred_enabled
+    with pytest.raises(RuntimeError, match="disabled"):
+        _, cache = net.encode_state(torch.zeros(1, OBS_DIM_V6_HEROES))
+        net.predict_strength(cache["trunk"], cache)
+
+
+def test_strength_prediction_is_bounded(patch):
+    """The bound is what makes aux_coef mean the same thing at 0 and at 5M."""
+    from src.envs.bglike.board_strength import STRENGTH_RATIO_HI, STRENGTH_RATIO_LO
+
+    net = _net(patch, strength_pred_config={"enabled": True})
+    _, cache = net.encode_state(torch.randn(16, OBS_DIM_V6_HEROES) * 20.0)
+    pred = net.predict_strength(cache["trunk"], cache)
+    assert pred.shape == (16, len(net.strength_horizons))
+    assert bool((pred > STRENGTH_RATIO_LO).all())
+    assert bool((pred < STRENGTH_RATIO_HI).all())
+
+
+def test_strength_gradient_does_not_grow_with_head_scale(patch):
+    """Blowing up the head's weights must saturate the sigmoid, not the gradient.
+
+    This is the property the first battle-head run lacked: with an unbounded
+    target its gradient into the shared encoder grew 255x as it converged, so a
+    coefficient calibrated at init was wrong by the time the head worked.
+    """
+    torch.manual_seed(0)
+    net = _net(patch, strength_pred_config={"enabled": True})
+    shared = [p for n, p in net.named_parameters() if n.startswith("slot_proj")]
+    x = torch.randn(24, OBS_DIM_V6_HEROES)
+    tgt = torch.empty(24, len(net.strength_horizons)).uniform_(0.5, 2.0)
+
+    def grad_norm():
+        _, cache = net.encode_state(x)
+        pred = net.predict_strength(cache["trunk"], cache)
+        resid = torch.log(pred) - torch.log(tgt)
+        loss = torch.nn.functional.smooth_l1_loss(resid, torch.zeros_like(resid), beta=0.5)
+        g = torch.autograd.grad(loss, shared, allow_unused=True)
+        return float(torch.sqrt(sum((t ** 2).sum() for t in g if t is not None)))
+
+    at_init = grad_norm()
+    with torch.no_grad():
+        for n, p in net.named_parameters():
+            if n.startswith("strength_"):
+                p.mul_(30.0)
+    assert grad_norm() < at_init * 10.0
+
+
+def test_strength_ratio_is_scale_free_and_clamped():
+    from src.envs.bglike.board_strength import (
+        STRENGTH_RATIO_HI, STRENGTH_RATIO_LO, strength_ratio,
+    )
+
+    # Same relative growth early and late must give the same label.
+    assert strength_ratio(40, 60) == pytest.approx(strength_ratio(200, 300))
+    assert strength_ratio(10, 10_000) == STRENGTH_RATIO_HI
+    assert strength_ratio(10_000, 1) == STRENGTH_RATIO_LO
+    assert strength_ratio(0, 50) > 0  # wiped board must not divide by zero
+
+
+def test_horizons_are_rounds_and_configurable():
+    from src.envs.bglike.board_strength import horizons_from_config
+
+    assert horizons_from_config(None) == (1, 2, 4)
+    assert horizons_from_config([4, 1, 2, 2]) == (1, 2, 4)
+    with pytest.raises(ValueError):
+        horizons_from_config([0, -1])

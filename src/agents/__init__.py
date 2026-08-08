@@ -568,6 +568,14 @@ if "ppo" not in list_agents():
                                     kwargs.pop("card_static_seed", 0)
                                 )
                                 extra_net_kwargs["card_patch_dir"] = card_patch_dir
+                                # Auxiliary relative-strength head; absent /
+                                # enabled=false leaves the net unchanged.
+                                extra_net_kwargs["strength_pred_config"] = (
+                                    kwargs.pop("strength_pred", None)
+                                )
+                                extra_net_kwargs["critic_queries"] = int(
+                                    kwargs.pop("critic_queries", 0)
+                                )
                             elif is_bglike_structured_v11_heroes:
                                 net_cls = BGLikeStructuredV11Heroes
                             else:

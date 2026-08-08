@@ -77,6 +77,16 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "battle_pred_corr",
         "battle_pred_sign_acc",
     ),
+    # Auxiliary relative-strength head. One MAE column per configured horizon;
+    # the names are built from the horizons, so list the defaults (1, 2, 4) and
+    # let an unlisted horizon fall through to the catch-all rather than being
+    # dropped silently.
+    "strength_pred": (
+        "strength_pred_loss",
+        "strength_mae_h1",
+        "strength_mae_h2",
+        "strength_mae_h4",
+    ),
     # DvD population-diversity aggregates (per-identity arrays go to dvd_identities).
     "dvd": (
         "dvd_pop_diversity",
