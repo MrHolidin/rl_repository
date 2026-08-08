@@ -526,6 +526,11 @@ if "ppo" not in list_agents():
                                 economy_out=int(kwargs.pop("economy_out", 32)),
                                 combat_out=int(kwargs.pop("combat_out", 16)),
                                 pending_ctx_out=int(kwargs.pop("pending_ctx_out", 16)),
+                                # v11-only: card-identity ablation. Read from
+                                # agent.params like every other net knob here --
+                                # ppo_network_kwargs is the checkpoint-reload
+                                # path and is NOT consulted when building fresh.
+                                use_card_emb=bool(kwargs.pop("use_card_emb", True)),
                             )
                             if is_bglike_structured_v11_heroes:
                                 net_cls = BGLikeStructuredV11Heroes

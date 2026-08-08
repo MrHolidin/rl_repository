@@ -44,8 +44,7 @@ agent:
   id: ppo
   params:
     network_type: bglike_structured_v11_heroes
-    ppo_network_kwargs:
-      use_card_emb: false   # ablation: no card-identity embedding
+    use_card_emb: false   # ablation: no card-identity embedding
     observation_type: vector
     # Host-update acceleration: eager | compile (default) | capture.
     # "capture" = Phase-2 CUDA-graph capture (CUDA-only, ~1.66x update vs compile);
