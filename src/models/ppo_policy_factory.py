@@ -142,6 +142,7 @@ def build_ppo_actor_critic(
     trunk_hidden_size: int = 256,
     region_conv2_kernel: int = 1,
     card_emb_dim: int = 16,
+    use_card_emb: bool = True,
     mlp_hidden_size: int = 256,
     num_pool_indices: Optional[int] = None,
 ) -> nn.Module:
@@ -353,6 +354,7 @@ def build_ppo_actor_critic(
         return BGLikeStructuredV11(
             slot_hidden=int(slot_hidden_channels),
             card_emb_dim=int(card_emb_dim),
+            use_card_emb=bool(use_card_emb),
             num_pool_indices=num_pool_indices,
         )
     if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES:
@@ -366,6 +368,7 @@ def build_ppo_actor_critic(
         return BGLikeStructuredV11Heroes(
             slot_hidden=int(slot_hidden_channels),
             card_emb_dim=int(card_emb_dim),
+            use_card_emb=bool(use_card_emb),
             num_pool_indices=num_pool_indices,
         )
     if nt in (PPO_NETWORK_FLAT_MLP, "minibg_mlp", "mlp"):

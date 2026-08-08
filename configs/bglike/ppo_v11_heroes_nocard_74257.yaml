@@ -1,0 +1,147 @@
+# BASE v11_heroes with the CARD-IDENTITY EMBEDDING ABLATED. 5M steps.
+#
+# Question: does the ability/effect encoding earn its keep, or does the policy
+# recover everything from the card embedding? A card's abilities are a
+# deterministic function of its id, so for cards seen in training the embedding
+# CAN in principle memorise the whole ability block -- which would make 1560 of
+# the 2536 observation floats (62%) redundant.
+#
+# Swap-probe evidence on attn3 (8831 shop decisions, donor of the same tier,
+# measured as |change| in p(buy that slot); tier is 0.0000 by construction since
+# donors share it, which is the probe's own sanity check):
+#     keywords 0.0456 | abilities 0.0338 | race 0.0278 | card_idx 0.0237
+#     stats 0.0105 | tier 0.0000 | whole card 0.1105  (base p = 0.0693)
+# So identity is NOT dominant -- mechanics outweigh it -- but the probe measures
+# sensitivity, not sufficiency. Only training without it answers the question.
+#
+# use_card_emb=False zeroes the identity embedding for per-slot minions and for
+# discover options. It is deliberately left in the ability encoder, which uses
+# card_emb for ABIL_OFF_SUMMON_TOKEN ("this deathrattle summons card X") --
+# that is part of the ability's description, and ablating it would degrade the
+# very channel whose value is being measured.
+#
+# Shapes, module list and parameter count are byte-identical with the flag on or
+# off (441762 params either way), so this run differs from the base in exactly
+# one thing: information content.
+#
+# Read it as a paired h2h against a base run at matched steps, NOT against
+# attn3 -- attn3 has 3 attention layers and a different step count.
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v5_heroes
+    with_heroes: true
+    percent_high_game: 0.0
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v11_heroes
+    ppo_network_kwargs:
+      use_card_emb: false   # ablation: no card-identity embedding
+    observation_type: vector
+    # Host-update acceleration: eager | compile (default) | capture.
+    # "capture" = Phase-2 CUDA-graph capture (CUDA-only, ~1.66x update vs compile);
+    # it auto-disables host torch.compile. env RL_UPDATE_OPT_MODE overrides.
+    update_opt_mode: compile
+    # --- DvD knobs neutralized: identities exist but carry no reward ---
+    num_identities: 4
+    diversity_coef: 0.0
+    diversity_ema: 0.1
+    identity_seed: 103
+    # --- v11 architecture (2 entity-attn layers; flat clean trunk) ---
+    slot_hidden_channels: 64
+    card_emb_dim: 16
+    entity_attention_layers: 2
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    ability_emb_dim: 8
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    # --- hero scalar encoder (new in v11_heroes) ---
+    hero_hidden: 48
+    hero_out: 24
+    learning_rate: 0.0001
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.01
+    value_coef: 0.05
+    max_grad_norm: 1.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    minibatch_size: 1024
+    device: cuda
+
+train:
+  max_episodes: 10000000
+  total_steps: 5000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        interval: 200000
+        prefix: dist_bglike_ppo_v11_heroes_nocard
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 40
+  worker_device: cpu

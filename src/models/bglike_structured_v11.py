@@ -164,6 +164,7 @@ class BGLikeStructuredV11(nn.Module):
         order_score_hidden: int = 64,
         critic_hidden: int = 128,
         card_emb_dim: int = 16,
+        use_card_emb: bool = True,
         ability_emb_dim: int = 8,
         entity_attention_layers: int = 2,
         entity_attention_heads: int = 4,
@@ -202,6 +203,22 @@ class BGLikeStructuredV11(nn.Module):
         self.order_score_hidden = int(order_score_hidden)
         self.critic_hidden = int(critic_hidden)
         self.card_emb_dim = int(card_emb_dim)
+        # Ablation switch for "does the policy just memorise cards by identity?".
+        # When False the card-identity embedding is zeroed wherever a card is
+        # being named as itself -- per-slot minions and discover options -- so the
+        # net must work from mechanical features (stats / tier / race / keywords /
+        # ability tokens) alone.
+        #
+        # Deliberately NOT zeroed in the ability encoder, which uses card_emb for
+        # ABIL_OFF_SUMMON_TOKEN: "this deathrattle summons card X" is part of the
+        # ability's own description, and removing it would degrade the very
+        # channel whose value the ablation is measuring.
+        #
+        # Shapes, module list and parameter count are untouched -- only the
+        # information content changes -- so a paired run differs in exactly one
+        # thing. The embedding table stays reachable through the summon-token
+        # path, so it is not dead weight.
+        self.use_card_emb = bool(use_card_emb)
         self.ability_emb_dim = int(ability_emb_dim)
         self.entity_attention_layers = int(entity_attention_layers)
         self.entity_attention_heads = int(entity_attention_heads)
@@ -416,6 +433,7 @@ class BGLikeStructuredV11(nn.Module):
             "order_score_hidden": self.order_score_hidden,
             "critic_hidden": self.critic_hidden,
             "card_emb_dim": self.card_emb_dim,
+            "use_card_emb": self.use_card_emb,
             "ability_emb_dim": self.ability_emb_dim,
             "entity_attention_layers": self.entity_attention_layers,
             "entity_attention_heads": self.entity_attention_heads,
@@ -500,6 +518,11 @@ class BGLikeStructuredV11(nn.Module):
         self, z_slots: torch.Tensor, ability_summary: torch.Tensor, pos_emb: nn.Embedding
     ) -> torch.Tensor:
         z = _split_card_idx_and_cont(z_slots, self.card_emb, max_card_idx=self.num_pool_indices)
+        if not self.use_card_emb:
+            z = torch.cat(
+                [z[..., : -self.card_emb_dim], torch.zeros_like(z[..., -self.card_emb_dim :])],
+                dim=-1,
+            )
         h = F.relu(self.slot_proj(torch.cat([z, ability_summary], dim=-1)))
         L = h.shape[1]
         return h + pos_emb.weight[:L].unsqueeze(0)
@@ -538,6 +561,8 @@ class BGLikeStructuredV11(nn.Module):
             ..., PENDING_DISCOVER_IDX_OFFSET : PENDING_DISCOVER_IDX_OFFSET + PENDING_DISCOVER_IDX_DIM
         ].long().clamp_(min=0, max=self.num_pool_indices)
         opt = self.card_emb(disc_idx)  # (B, 3, card_emb_dim)
+        if not self.use_card_emb:
+            opt = torch.zeros_like(opt)
         is_apply = pending[..., PENDING_IS_APPLY_OFFSET : PENDING_IS_APPLY_OFFSET + 1] > 0.5
         opt = opt.masked_fill(is_apply.unsqueeze(-1), 0.0)
         abil_pend = self._ability_summary(abil, o_pend, self.pending_len)
