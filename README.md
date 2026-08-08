@@ -1,208 +1,130 @@
-# Connect Four RL Project
+# RL: Hearthstone Battlegrounds bot
 
-Проект для обучения RL-модели игре в крестики-нолики 4 в ряд (Connect Four).
+Обучение RL-агента игре в автобаттлер типа Hearthstone Battlegrounds: 8 игроков,
+магазинная фаза и автобой каждый раунд, награда — занятое место.
 
-## Описание
+Помимо основной задачи в репозитории живут учебные среды (Connect Four, Othello,
+Tic-Tac-Toe) и AlphaZero-эксперименты на них; они разделяют общий пайплайн
+обучения, но к BG отношения не имеют.
 
-Этот проект реализует обучение агента с подкреплением для игры в Connect Four (6×7). Поддерживаются два подхода:
-- **Q-learning** (табличный метод)
-- **DQN** (Deep Q-Network)
+## Среды
 
-## Структура проекта
+| id | что это | игроков | наблюдение | награда |
+|----|---------|---------|------------|---------|
+| `bglike` | целевая постановка: полное 8-местное лобби | 8 | 1123 (`bglike_v6_heroes`) | место в [-1, 1] |
+| `minibg` | быстрая 1v1 песочница на тех же правилах | 2 | 736 | ±1 |
+| `connect4`, `othello`, `tictactoe` | учебные | 2 | — | ±1 |
+
+Правила и карточный пул берутся из «пакета патча» — слепка реального патча игры,
+лежащего в `data/bgcore/<версия>/` (текущий — `19_6_0_74257`, патч 19.6).
+
+## Слои кода
 
 ```
-tic_tac_toe_4inrow_rl/
-├── README.md
-├── requirements.txt
-├── configs/
-│   ├── dqn_default.yaml
-│   └── qlearning_tabular.yaml
-├── data/
-│   ├── checkpoints/
-│   └── logs/
-├── notebooks/
-│   └── exploration.ipynb
-├── src/
-│   ├── __init__.py
-│   ├── envs/
-│   │   ├── __init__.py
-│   │   └── connect4_env.py
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── base_agent.py
-│   │   ├── random_agent.py
-│   │   ├── heuristic_agent.py
-│   │   ├── qlearning_agent.py
-│   │   └── dqn_agent.py
-│   ├── models/
-│   │   └── dqn_network.py
-│   ├── training/
-│   │   ├── train_qlearning.py
-│   │   ├── train_dqn.py
-│   │   └── eval_agent.py
-│   ├── utils/
-│   │   ├── replay_buffer.py
-│   │   ├── metrics.py
-│   │   └── serialization.py
-│   └── cli/
-│       ├── play_human_vs_agent.py
-│       └── play_agent_vs_agent.py
-└── tests/
-    ├── test_env.py
-    ├── test_agents.py
-    └── test_utils.py
+src/bg_core/          Minion, Race, DSL эффектов (Keyword, Trigger, Ability, Condition)
+src/bg_catalog/       карточный пул патча, PatchContext, создание миньонов
+src/bg_recruitment/   магазин: покупка, продажа, роллы, тройки, discover, триггеры
+src/bg_player_turn/   движок хода игрока в магазинной фазе
+src/bg_combat/        симуляция боя (атаки, deathrattle, ауры, магнетизация)
+src/bg_lobby/         8-местное лобби: пары на раунд, общий пул, выбывания, места
+        |
+src/envs/bglike/      RL-обёртка: наблюдение, действия, маски, лобби-env, реплеи
+        |
+src/training/         перспектива агента, self-play лига, distributed-трейнер
+src/agents/           structured PPO (+ варианты: DvD, RND)
+src/models/           actor-critic сети (bglike_structured_v2 … v12)
 ```
 
-## Установка
+Ключевое разделение: `minibg` и `bglike` **не дублируют движок правил** — оба
+опираются на общие `bg_recruitment`, `bg_player_turn`, `bg_lobby`.
 
-1. Клонируйте репозиторий:
+### Действия
+
+Пространство действий структурное, а не плоский индекс: `StructAction` несёт тип
+(ROLL, BUY, SELL, PLACE, MAGNET, LEVEL_UP, DISCOVER_PICK, COMPLETE_TURN, …) и
+аргументы. Порядок миньонов на доске выбирается отдельной авторегрессивной
+головой-указателем и передаётся вместе с `COMPLETE_TURN`.
+
+### Сеть
+
+Актор-критик над множествами сущностей: миньоны доски, шоп, рука, варианты
+discover и оппоненты кодируются как токены и проходят self-attention; экономика,
+история боёв и герой кодируются отдельными MLP и подмешиваются в транк. Критик
+дистрибутивный — предсказывает распределение по 8 местам.
+
+Факты карты (текст правил + числовые параметры способностей из DSL) — статика по
+шаблону, поэтому лежат не в наблюдении, а в **замороженной таблице** внутри сети
+(`src/envs/bglike/card_static.py`), индексируемой по индексу карты и флагу golden.
+
+Опционально включаются вспомогательные головы: предсказание исхода боя по двум
+доскам и предсказание относительного роста силы доски через 1/2/4 раунда. Обе
+дают градиент только в энкодер и не входят в целевую функцию.
+
+## Запуск
+
 ```bash
-git clone <repository-url>
-cd RL
-```
-
-2. Создайте виртуальное окружение (рекомендуется):
-```bash
-# Установите python3-venv если еще не установлен:
-# sudo apt install python3-venv
-
-# Создайте виртуальное окружение:
-python3 -m venv venv
-
-# Активируйте виртуальное окружение:
-source venv/bin/activate
-```
-
-3. Установите зависимости:
-```bash
-pip install --upgrade pip
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Примечание:** Если вы не можете использовать виртуальное окружение, можно установить зависимости глобально с флагом `--break-system-packages` (не рекомендуется):
-```bash
-pip install --break-system-packages -r requirements.txt
-```
-
-## Использование
-
-### Обучение Q-learning агента
+Обучение задаётся YAML-конфигом (`configs/bglike/…`):
 
 ```bash
-python -m src.training.train_qlearning \
-    --num-episodes 10000 \
-    --learning-rate 0.1 \
-    --discount-factor 0.99 \
-    --epsilon 0.1 \
-    --epsilon-decay 0.995 \
-    --epsilon-min 0.01 \
-    --eval-freq 100 \
-    --eval-episodes 100 \
-    --save-freq 1000 \
-    --checkpoint-dir data/checkpoints \
-    --log-dir data/logs \
-    --seed 42
+# distributed: CPU-воркеры собирают роллауты, GPU-хост делает PPO-обновление
+python -m src.cli.train_distributed \
+    --config configs/bglike/ppo_v12_text_74257.yaml \
+    --run_dir runs/bglike/my_run
 ```
-
-### Обучение DQN агента
 
 ```bash
-python -m src.training.train_dqn \
-    --num-episodes 10000 \
-    --learning-rate 0.001 \
-    --discount-factor 0.99 \
-    --epsilon 1.0 \
-    --epsilon-decay 0.995 \
-    --epsilon-min 0.01 \
-    --batch-size 32 \
-    --replay-buffer-size 10000 \
-    --target-update-freq 100 \
-    --eval-freq 100 \
-    --eval-episodes 100 \
-    --save-freq 1000 \
-    --checkpoint-dir data/checkpoints \
-    --log-dir data/logs \
-    --device cuda \
-    --seed 42
+# single-process, для отладки
+python -m src.cli.train --config configs/bglike/ppo_v12_text_74257.yaml
 ```
 
-### Оценка агента
-
-```bash
-python -m src.training.eval_agent \
-    --agent-path data/checkpoints/dqn_final.pt \
-    --agent-type dqn \
-    --opponent-type random \
-    --num-episodes 1000 \
-    --seed 42 \
-    --plot \
-    --plot-path results.png
-```
-
-### Игра против агента
-
-```bash
-python -m src.cli.play_human_vs_agent \
-    --agent-path data/checkpoints/dqn_final.pt \
-    --agent-type dqn \
-    --human-first
-```
-
-### Игра агент против агента
-
-```bash
-python -m src.cli.play_agent_vs_agent \
-    --agent1-path data/checkpoints/dqn_final.pt \
-    --agent1-type dqn \
-    --agent2-type random \
-    --num-games 10
-```
-
-## Компоненты
-
-### Environment (Connect4Env)
-
-Реализует игру Connect Four:
-- Поле 6×7
-- Игроки по очереди роняют фишки в столбец
-- Победа: 4 в ряд (горизонталь, вертикаль, диагональ)
-- Награды: +1 за победу, -1 за проигрыш, 0 за ничью
-
-### Агенты
-
-- **RandomAgent**: Случайный выбор действий
-- **HeuristicAgent**: Эвристический агент (пытается выиграть, блокирует противника)
-- **QLearningAgent**: Табличный Q-learning
-- **DQNAgent**: Deep Q-Network с experience replay
-
-### Training
-
-- Self-play обучение
-- Периодическая оценка против фиксированного оппонента
-- Логирование метрик в CSV
-- Сохранение чекпоинтов
-
-## Метрики
-
-Во время обучения логируются:
-- Win rate против оппонента
-- Draw rate
-- Loss rate
-- Episode length
-- Epsilon (для epsilon-greedy)
-- Replay buffer size (для DQN)
-
-## Документация
-
-- **[Pipeline](docs/pipeline.md)** — запуск обучения из YAML (`python -m src.cli.train --config ...`), структура конфига, `run_dir`, `meta.json`, коллбэки.
-- **[BG distributed stack](docs/bglike_distributed.md)** — MiniBG/BGLike, bg_core, structured PPO, league, distributed training.
-- **[Agents](docs/agents/README.md)** — агенты и инварианты (наблюдения, награды, маски ходов).
-
-## Тестирование
+В `run_dir` пишутся `status.json` (живой прогресс), `metrics_*.csv` по группам,
+`self_play_frozen.json` (состав пула оппонентов и рейтинги) и чекпоинты.
 
 ```bash
 pytest tests/
 ```
+
+## Скрипты
+
+**Оценка силы**
+
+| скрипт | что делает |
+|--------|-----------|
+| `bglike_checkpoint_head_to_head.py` | 4v4 двух чекпоинтов в одном лобби; парная разница мест, тайминги тира, состав финальной доски. Чекпоинты могут быть разных версий с разными наблюдениями |
+| `bglike_lobby_checkpoint_eval.py` | 8p self-play с одного чекпоинта, реплеи и сводная статистика |
+| `bglike_milestone_lobby_eval.py` | лобби из нескольких вех обучения по 2 сиденья на каждую |
+| `bglike_checkpoint_board_stats.py` | статистика финальных досок: тиры, статы, трибы |
+
+**Анализ поведения**
+
+| скрипт | что делает |
+|--------|-----------|
+| `probe_policy_card_prefs.py` | поведенческий отпечаток: склонность покупать каждую карту, когда её предлагают |
+| `bglike_replay.py` | генерация и рендер JSONL-реплеев |
+| `bglike_battle_head_probe.py` | оценка головы предсказания боя на фиксированном наборе боёв (метрика из лога смешана с усложнением досок) |
+| `play_bglike_human.py` | сыграть против чекпоинта из консоли |
+
+**Обслуживание**
+
+| скрипт | что делает |
+|--------|-----------|
+| `build_card_text_table.py` | сборка замороженной таблицы фактов карт; запускается раз на патч |
+| `check_patch_coverage.py` | покрытие карт патча реализованными эффектами |
+| `warm_start_cross_version.py` | перенос общих весов из чекпоинта одной версии сети в другую |
+| `bench_batched_collect.py` | бенчмарк сбора роллаутов с батчевым инференсом между лобби |
+
+## Документация
+
+- **[BG distributed stack](docs/bglike_distributed.md)** — устройство связки env + модель + лига + distributed-трейнер, разбор конфига, инварианты.
+- **[Pipeline](docs/pipeline.md)** — общий пайплайн обучения из YAML, `run_dir`, коллбэки.
+- **[Agents](docs/agents/README.md)** — контракты агентов: наблюдения, награды, маски ходов.
+- **[Patch package](docs/patch_package.md)** — формат пакета патча и как собрать новый.
+- **[MiniBG rules](src/envs/minibg/RULES.md)**, **[architecture](src/envs/minibg/ARCHITECTURE.md)** — правила и action space песочницы.
+- **[Testing](docs/testing.md)** — как устроены тесты.
 
 ## Лицензия
 
