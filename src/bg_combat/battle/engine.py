@@ -2,7 +2,7 @@
 start-of-combat firing, and first-side decision."""
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from src.bg_core.effects import Keyword, StartOfCombatDamagePerFriendlyTribe, Trigger
 
@@ -49,27 +49,56 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
                 for kw in side.start_combat_keywords:
                     _grant_keyword(rt, side_idx, bm, kw)
                 break
+    # Both sides' triggers in board order, left to right.
+    pending: Tuple[List[Tuple[BattleMinion, object]], List[Tuple[BattleMinion, object]]] = ([], [])
     for side_idx in (0, 1):
-        side = rt.side(side_idx)
-        enemy_idx = 1 - side_idx
-        for bm in side.minions:
-            if not bm.alive:
-                continue
+        for bm in rt.side(side_idx).minions:
             for ab in bm.template.abilities:
-                if ab.trigger != Trigger.ON_START_OF_COMBAT:
-                    continue
-                eff = ab.effect
-                if isinstance(eff, StartOfCombatDamagePerFriendlyTribe):
-                    count = _count_friendlies_of_tribe(side, eff.tribe)
-                    if count <= 0:
-                        continue
-                    amount = count * eff.amount_per_match
-                    for _ in range(max(1, eff.repeats)):
-                        _deal_random_enemy_minion_damage(rt, side_idx, amount)
+                if ab.trigger == Trigger.ON_START_OF_COMBAT:
+                    pending[side_idx].append((bm, ab.effect))
+
+    # Real BG draws a dominant player at random, then the sides alternate one
+    # trigger at a time, each taking its left-most untriggered minion, with
+    # deaths (and the deathrattles they set off) resolved between triggers.
+    # Firing side 0's whole board first handed the lower seat every start-of-
+    # combat race — and the lower seat is always side 0, since pairings are
+    # emitted with ``a < b``. The draw is only taken when both sides have
+    # something to fire, so boards without a contest keep their RNG stream.
+    if pending[0] and pending[1]:
+        turn = int(rt.rng.integers(0, 2))
+    else:
+        turn = 0 if pending[0] else 1
+    pos = [0, 0]
+    while pos[0] < len(pending[0]) or pos[1] < len(pending[1]):
+        if pos[turn] >= len(pending[turn]):
+            turn = 1 - turn
+            continue
+        bm, eff = pending[turn][pos[turn]]
+        pos[turn] += 1
+        if bm.alive:
+            _apply_start_of_combat_effect(rt, turn, bm, eff)
+            _sync_health_all(rt)
+            while rt.queue:
+                _dispatch(rt, rt.queue.popleft())
+        turn = 1 - turn
     _sync_health_all(rt)
     while rt.queue:
         ev = rt.queue.popleft()
         _dispatch(rt, ev)
+
+
+def _apply_start_of_combat_effect(
+    rt: _CombatRuntime, side_idx: int, source: BattleMinion, eff: object
+) -> None:
+    """One Start-of-Combat trigger. Counts are read now, not up front, so a
+    minion killed by an earlier trigger no longer feeds this one's tally."""
+    if isinstance(eff, StartOfCombatDamagePerFriendlyTribe):
+        count = _count_friendlies_of_tribe(rt.side(side_idx), eff.tribe)
+        if count <= 0:
+            return
+        amount = count * eff.amount_per_match
+        for _ in range(max(1, eff.repeats)):
+            _deal_random_enemy_minion_damage(rt, side_idx, amount)
 
 
 def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:
