@@ -6857,7 +6857,7 @@
      "seat": 7,
      "action": 99,
      "n_legal": 7,
-     "state": "06ea61dc5a100d6d7106c17dcbc8ec06",
+     "state": "f8d5ab6d02a265bbe747861ee70e863f",
      "obs": {
       "bglike_v6_heroes": "23a2fdfb165cfd16"
      }
@@ -6867,7 +6867,7 @@
      "seat": 3,
      "action": 5,
      "n_legal": 23,
-     "state": "3039e76dfb296491de2d8c402ee627b5",
+     "state": "43a1610554422ff8b785a2b79fac2572",
      "obs": {
       "bglike_v6_heroes": "57bf27e9d9c1a41d"
      }
@@ -6877,7 +6877,7 @@
      "seat": 3,
      "action": 3,
      "n_legal": 22,
-     "state": "320cd461394e285a861c92d8c457ea06",
+     "state": "835ebad1edadefdfb64bdf632f2f5cd4",
      "obs": {
       "bglike_v6_heroes": "eb71a723afb73d33"
      }
@@ -6887,7 +6887,7 @@
      "seat": 3,
      "action": 4,
      "n_legal": 20,
-     "state": "68936ce6014ebf65f180b15b9b2e9e77",
+     "state": "8e9283005940a25e2961ee10ec5daf3c",
      "obs": {
       "bglike_v6_heroes": "a885a81cd66bf260"
      }
@@ -6897,7 +6897,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "a131ab4b5738f2e0b3aef79fb20dd816",
+     "state": "d9bbbd77c92e45a72864908f0a26720c",
      "obs": {
       "bglike_v6_heroes": "baa6029dc8b770b6"
      }
@@ -6907,7 +6907,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "a9ffbcfe3e372205b70ca1f509c264c4",
+     "state": "6ef8d99416a9a6de7f249bbbfbe4f3b0",
      "obs": {
       "bglike_v6_heroes": "db7a3957c43c00b1"
      }
@@ -6917,7 +6917,7 @@
      "seat": 3,
      "action": 6,
      "n_legal": 16,
-     "state": "1dd6488e685238811945e1a429121567",
+     "state": "30aed22fc3d33d8e37baf42ad031705e",
      "obs": {
       "bglike_v6_heroes": "d565fcbdc7f424d6"
      }
@@ -6927,7 +6927,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 20,
-     "state": "236867a9273cadc9847b9b8de2856cc6",
+     "state": "f21f6f1b3332a3733952c9a9d46165d1",
      "obs": {
       "bglike_v6_heroes": "a4953b7a44364745"
      }
@@ -6937,7 +6937,7 @@
      "seat": 3,
      "action": 0,
      "n_legal": 19,
-     "state": "1e6466d7e9e36d62b0b0753d932c9056",
+     "state": "a4b1d6f6b775255eddd3dc94b2fd7a30",
      "obs": {
       "bglike_v6_heroes": "440f258e8c9929ce"
      }
@@ -6947,7 +6947,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 15,
-     "state": "8b5227de5f96605c74b8ed62e3dba1e8",
+     "state": "81d604705bf9e86affd55cebc9c1978c",
      "obs": {
       "bglike_v6_heroes": "8113a281590a30d9"
      }
@@ -6957,7 +6957,7 @@
      "seat": 3,
      "action": 18,
      "n_legal": 17,
-     "state": "63f8fe0065e68c8c0cec659e65a58a1c",
+     "state": "2d041f839e86e171c7b6f5fd3e3edf42",
      "obs": {
       "bglike_v6_heroes": "d037a19cac9df3a0"
      }
@@ -6967,7 +6967,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "12e9f850d6d45508d265e359bd552967",
+     "state": "1587eefba1c51c1c773ce8f9e3ca3c86",
      "obs": {
       "bglike_v6_heroes": "f08ce30db1ab6a20"
      }
@@ -6977,7 +6977,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 16,
-     "state": "81b36694d3287b50f8ea9e09c62f6552",
+     "state": "816f19022a50095551309a9f6e8b7836",
      "obs": {
       "bglike_v6_heroes": "58bfb060d4987e11"
      }
@@ -6987,7 +6987,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "331c8ef44782137bd9388e0335ca1f33",
+     "state": "492cabb1db7c5e072705a2361113e3bc",
      "obs": {
       "bglike_v6_heroes": "6013a0f1153bed4b"
      }
@@ -6997,7 +6997,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "8c5b6006c1aa996fa6723f2ebafbb7e6",
+     "state": "273e5fec6ab1479f673757505e45af0d",
      "obs": {
       "bglike_v6_heroes": "282e72ebb6d765f0"
      }
@@ -7007,7 +7007,7 @@
      "seat": 3,
      "action": 1,
      "n_legal": 18,
-     "state": "ed5e675cb3b78c26c672702c0be5ed1d",
+     "state": "6c57db4cd744ab5dca4f590b97f757f6",
      "obs": {
       "bglike_v6_heroes": "0c6ae1e758c4019f"
      }
@@ -7017,7 +7017,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 15,
-     "state": "4bfeb4970b4c0996e1ea815661d838a4",
+     "state": "54307619d142a186dbf8c434eea05eb4",
      "obs": {
       "bglike_v6_heroes": "460350a4a3b0a0c8"
      }
@@ -7027,7 +7027,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 15,
-     "state": "cda53953b6d333882c75971da7c8c7ae",
+     "state": "50577b3a5b74ec1b6f0ede3ad52dea96",
      "obs": {
       "bglike_v6_heroes": "47cb7524c3105345"
      }
@@ -7037,7 +7037,7 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "7ef5fb53b363b349c697b940464a2b35",
+     "state": "062b62033d85491dcca1645356edd2bb",
      "obs": {
       "bglike_v6_heroes": "94bd31ec556ccbd9"
      }
@@ -7047,9 +7047,9 @@
      "seat": 3,
      "action": 99,
      "n_legal": 15,
-     "state": "d7d5efc69274d1aa1fb9af2723f97d81",
+     "state": "0021080d9c94827aa6311cab1e15580a",
      "obs": {
-      "bglike_v6_heroes": "d286d222ec2d41f0"
+      "bglike_v6_heroes": "81c4958454131b92"
      }
     },
     {
@@ -7057,7 +7057,7 @@
      "seat": 4,
      "action": 0,
      "n_legal": 22,
-     "state": "f54796b7fcf933df97c6493bb37ae519",
+     "state": "731421f43c55ed8280fabe036d46f2cd",
      "obs": {
       "bglike_v6_heroes": "5d7971797fa9241e"
      }
@@ -7067,7 +7067,7 @@
      "seat": 4,
      "action": 1,
      "n_legal": 21,
-     "state": "e812086f7c4d527233680a87a9a55892",
+     "state": "9f2206799579f43637807bae9241e02e",
      "obs": {
       "bglike_v6_heroes": "ad1c3054ebe80758"
      }
@@ -7077,7 +7077,7 @@
      "seat": 4,
      "action": 3,
      "n_legal": 20,
-     "state": "b1bc305fd2ef3ac122210a0fe6e89a65",
+     "state": "d42e6f23d09cf2c1b30527f7638492de",
      "obs": {
       "bglike_v6_heroes": "b0246b72eeedce7e"
      }
@@ -7087,7 +7087,7 @@
      "seat": 4,
      "action": 2,
      "n_legal": 18,
-     "state": "c573ab7de2c8455a2eecbeb2c1eac19f",
+     "state": "1d152ed02cf8abeaaa1b02e66e16bf9a",
      "obs": {
       "bglike_v6_heroes": "9b4ac0cf0aa7fd0a"
      }
@@ -7097,7 +7097,7 @@
      "seat": 4,
      "action": 4,
      "n_legal": 17,
-     "state": "d6c3914482cb0ba4e11cf0df35a6a98a",
+     "state": "647d58456b6963502d66667bfe573173",
      "obs": {
       "bglike_v6_heroes": "82714e0e38996715"
      }
@@ -7107,7 +7107,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "b2b97564219040a58a24eb155e1b8a9e",
+     "state": "181e957fbdd8f3286d8ec50cee163c7f",
      "obs": {
       "bglike_v6_heroes": "374bab82981febf4"
      }
@@ -7117,7 +7117,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 18,
-     "state": "9797391e3bb8d6bd7249e62362119365",
+     "state": "988382cdd5543ec38c7bac06ba62cfed",
      "obs": {
       "bglike_v6_heroes": "5914bd3c9c5bbeda"
      }
@@ -7127,7 +7127,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "08810eb923d766e6bcad97f01643e6f1",
+     "state": "9c747292636cbb4eaca37eaf2078ce85",
      "obs": {
       "bglike_v6_heroes": "7066ebfd8447560e"
      }
@@ -7137,7 +7137,7 @@
      "seat": 4,
      "action": 17,
      "n_legal": 18,
-     "state": "06e81d9c40a73c1afca431e7f15d4613",
+     "state": "f4dcd299c51c7f6041fb0b73a3e814d2",
      "obs": {
       "bglike_v6_heroes": "ef7cbbff28ed5fcc"
      }
@@ -7147,7 +7147,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "6873b6261e3ad4d682be8adbe324f25c",
+     "state": "23719399ceea696a326d5d232b0dd9f7",
      "obs": {
       "bglike_v6_heroes": "58d552e75c4bda9c"
      }
@@ -7157,7 +7157,7 @@
      "seat": 4,
      "action": 18,
      "n_legal": 17,
-     "state": "5ab31553f9a2c9c088dfbc0c30818d8b",
+     "state": "dec24d263840ec34970981ba23a5ad5a",
      "obs": {
       "bglike_v6_heroes": "344c37b5d0aeb219"
      }
@@ -7167,7 +7167,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "ff073cb6793750a7caa30e8153de40ad",
+     "state": "e5479ae56daec7eaf58cf3d943152ca2",
      "obs": {
       "bglike_v6_heroes": "2b8f510f60e10e1b"
      }
@@ -7177,7 +7177,7 @@
      "seat": 4,
      "action": 19,
      "n_legal": 16,
-     "state": "93a0393fe718d248a06bf4073e825b4d",
+     "state": "fb63a29795b16e37bd15bede29276e77",
      "obs": {
       "bglike_v6_heroes": "3a559bf8d19e7a0b"
      }
@@ -7187,7 +7187,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "a66976b1dfce6ebc57287deb6280a741",
+     "state": "304f27e37505b7670d657f7fc0d99842",
      "obs": {
       "bglike_v6_heroes": "aef8a8696ac71188"
      }
@@ -7197,7 +7197,7 @@
      "seat": 4,
      "action": 20,
      "n_legal": 15,
-     "state": "eed6a09926765eb2e8352aab404e8e06",
+     "state": "49f27ee36eef788f5fb43ab85ff5c1e7",
      "obs": {
       "bglike_v6_heroes": "80d9f065bf52fbbc"
      }
@@ -7207,7 +7207,7 @@
      "seat": 4,
      "action": 13,
      "n_legal": 16,
-     "state": "f8eb9869bf68f90c3195e59972e93177",
+     "state": "4eaea43f190871bd665a5daf16e2d6d9",
      "obs": {
       "bglike_v6_heroes": "3d856fa5a5632620"
      }
@@ -7217,7 +7217,7 @@
      "seat": 4,
      "action": 0,
      "n_legal": 21,
-     "state": "28ec580e20d2daa7638eabcf0b3dba71",
+     "state": "baad501eb3ee80c184ca557d9f733746",
      "obs": {
       "bglike_v6_heroes": "39fc9a28c73f000c"
      }
@@ -7227,7 +7227,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "02800ab4e2b7f5b8447492297f3a7729",
+     "state": "fca9738bd204455cd2591d181fc6b561",
      "obs": {
       "bglike_v6_heroes": "010516a6a0faadb0"
      }
@@ -7237,7 +7237,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 19,
-     "state": "e92c67e1cbcd411e8e2d1c28b07befff",
+     "state": "325457eab2fc14fdd5e7163e9149278a",
      "obs": {
       "bglike_v6_heroes": "122541073c7fa95a"
      }
@@ -7247,7 +7247,7 @@
      "seat": 4,
      "action": 2,
      "n_legal": 20,
-     "state": "32dcd700e62cfed7bf57d7e6bbc98a5a",
+     "state": "55c9c8f5c1808f57f12ad38c5782079d",
      "obs": {
       "bglike_v6_heroes": "d5cb2c787b9096fa"
      }
@@ -7257,7 +7257,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "ff0918c5cef4a7e4ec248f8acc24ee2c",
+     "state": "95ed5126591370844eb3baf21c073c0f",
      "obs": {
       "bglike_v6_heroes": "f4dd034646ce7d85"
      }
@@ -7267,7 +7267,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 14,
-     "state": "7a4cc8dc788af3c9773103096d1fda3f",
+     "state": "cc29cd2ec5fa6d43112ac7b9d73aa1d9",
      "obs": {
       "bglike_v6_heroes": "41dc859060d6b82c"
      }
@@ -7277,7 +7277,7 @@
      "seat": 4,
      "action": 99,
      "n_legal": 15,
-     "state": "369e40d1a582f468e5335ceb01179991",
+     "state": "eef31f932822c84076458a2cb6b81c7e",
      "obs": {
       "bglike_v6_heroes": "d5ea54d33a2e1f49"
      }
@@ -7287,9 +7287,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "e5d76827b44d2530439e0e440c55ad57",
+     "state": "9d21b522f3c88a15b154e156eb468382",
      "obs": {
-      "bglike_v6_heroes": "21c8e55c0e38439a"
+      "bglike_v6_heroes": "1cddf70fca02d39c"
      }
     },
     {
@@ -7297,9 +7297,9 @@
      "seat": 7,
      "action": 4,
      "n_legal": 22,
-     "state": "b2708d8bafb3cea7dff71ccc7a3bf363",
+     "state": "45acad4b9f5f6c0f8e35a16b7e97d4f7",
      "obs": {
-      "bglike_v6_heroes": "528a0b001e9a6d2b"
+      "bglike_v6_heroes": "67d0707ab2d4be3a"
      }
     },
     {
@@ -7307,9 +7307,9 @@
      "seat": 7,
      "action": 1,
      "n_legal": 21,
-     "state": "906e82f211cc250fea976e964dc607d8",
+     "state": "8893edcd9b3249734ea519311a83c17e",
      "obs": {
-      "bglike_v6_heroes": "72eaae26a3b305ba"
+      "bglike_v6_heroes": "a78103e11e5b8689"
      }
     },
     {
@@ -7317,9 +7317,9 @@
      "seat": 7,
      "action": 2,
      "n_legal": 19,
-     "state": "2320fc1487621a4801f96c95c10a939a",
+     "state": "65ebef8372f6fc0ec82de231b871fcb6",
      "obs": {
-      "bglike_v6_heroes": "bd725ebfeacecc07"
+      "bglike_v6_heroes": "9ff7d8975da154c6"
      }
     },
     {
@@ -7327,9 +7327,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "edb9cad5d660ca9fc8e3d2c84e0bb1f4",
+     "state": "f0288d7292e1282b04c13b3588000d66",
      "obs": {
-      "bglike_v6_heroes": "554fd4b519c48b6a"
+      "bglike_v6_heroes": "806bfa8c88fd5c9e"
      }
     },
     {
@@ -7337,9 +7337,9 @@
      "seat": 7,
      "action": 21,
      "n_legal": 22,
-     "state": "17d7227348606a799d2423c8ca12af80",
+     "state": "a1648fec883553c5e23c40f5f79e9d5e",
      "obs": {
-      "bglike_v6_heroes": "be1e89a1aec2bc97"
+      "bglike_v6_heroes": "0e1c9fd4226a6e05"
      }
     },
     {
@@ -7347,9 +7347,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "55ffaee8c48e11c153d26a99d7a7b1e5",
+     "state": "4d1635bfc1bc7cbfc1ee624dc961df47",
      "obs": {
-      "bglike_v6_heroes": "364aee6df9704dad"
+      "bglike_v6_heroes": "d05d6cfbdcd2a264"
      }
     },
     {
@@ -7357,9 +7357,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "59b8275e8a9aa6b74030b648699fd5f2",
+     "state": "54a687b3eefba3fe4a3e4c81fbc219cc",
      "obs": {
-      "bglike_v6_heroes": "2dc7f8c044cf452f"
+      "bglike_v6_heroes": "42c89c1f15b94c5f"
      }
     },
     {
@@ -7367,9 +7367,9 @@
      "seat": 7,
      "action": 3,
      "n_legal": 18,
-     "state": "c44cce38394d5d2de039478515f9b076",
+     "state": "7bd065eabea1bce77d88f33a683a80e8",
      "obs": {
-      "bglike_v6_heroes": "9db970b241ca0ae7"
+      "bglike_v6_heroes": "ec30035e1cacde5c"
      }
     },
     {
@@ -7377,9 +7377,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 15,
-     "state": "a4e39bf81d73c37d19c58701ea3774f6",
+     "state": "4f95d0031e457c9e1a358fb38a1578cc",
      "obs": {
-      "bglike_v6_heroes": "6944087f66df5b2e"
+      "bglike_v6_heroes": "aed848b9cc871af9"
      }
     },
     {
@@ -7387,9 +7387,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 22,
-     "state": "0df1e94a80952bab85f07499f5deb07e",
+     "state": "985d396a2fd7902c9648c2c231d3a1f9",
      "obs": {
-      "bglike_v6_heroes": "7a634049842616c2"
+      "bglike_v6_heroes": "a295814ff75dd596"
      }
     },
     {
@@ -7397,9 +7397,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "13640c323f46e61e71af447aeca452f8",
+     "state": "2131c5c0d976702dca344f93707625a8",
      "obs": {
-      "bglike_v6_heroes": "fe9439dd6dab5a67"
+      "bglike_v6_heroes": "9409738c06355c5a"
      }
     },
     {
@@ -7407,9 +7407,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 22,
-     "state": "1577543493910b8a9ddefab348fccf2b",
+     "state": "1eb4859a719170565e1501413649e576",
      "obs": {
-      "bglike_v6_heroes": "d225336e37634b79"
+      "bglike_v6_heroes": "7acbfa359bde765a"
      }
     },
     {
@@ -7417,9 +7417,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "57f5baec73364b54132f57e7cee14c36",
+     "state": "d337c1fa45c86ea76b6e4a4f8efa4b2f",
      "obs": {
-      "bglike_v6_heroes": "9774097e16cfac1a"
+      "bglike_v6_heroes": "9e6078c2e6d8ca8d"
      }
     },
     {
@@ -7427,9 +7427,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "464070c3ef70644c2a896a626477ce1b",
+     "state": "41c45f559fd80034a4b854b48d14686b",
      "obs": {
-      "bglike_v6_heroes": "dcbec49f2df76df9"
+      "bglike_v6_heroes": "979bfb9282684784"
      }
     },
     {
@@ -7437,9 +7437,9 @@
      "seat": 7,
      "action": 0,
      "n_legal": 17,
-     "state": "f67206ebfc1dd24e3292e74e5a68c359",
+     "state": "b0fefc39ca0e013c6548b9cb430bd523",
      "obs": {
-      "bglike_v6_heroes": "057fbbcbacf93047"
+      "bglike_v6_heroes": "8a3d0cfc2c9b2bd8"
      }
     },
     {
@@ -7447,9 +7447,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 15,
-     "state": "a283741acb22d4ed42977f989ddaeeb0",
+     "state": "7b6ad3068a691d39aaa692412c983e86",
      "obs": {
-      "bglike_v6_heroes": "73ad30f278e99e47"
+      "bglike_v6_heroes": "8546febed6acbc59"
      }
     },
     {
@@ -7457,9 +7457,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "1e6f99e2b900d3bb8027cd98b717d55f",
+     "state": "b4a8a53ae9d63b7e281c18592b23f2d0",
      "obs": {
-      "bglike_v6_heroes": "bfe30753a67f2a68"
+      "bglike_v6_heroes": "c3821263ece7117a"
      }
     },
     {
@@ -7467,9 +7467,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "403052b961513616133abfc6b8f33d79",
+     "state": "0ee7788e7a0c316141d203f6cc1f3190",
      "obs": {
-      "bglike_v6_heroes": "3ae5a068e93f7ea4"
+      "bglike_v6_heroes": "caa73eacf08c097c"
      }
     },
     {
@@ -7477,9 +7477,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "9fc3cad87093c706592f5f8a84e91d37",
+     "state": "fb21efeb0c59414ef2c89ba0334f55c1",
      "obs": {
-      "bglike_v6_heroes": "f00e3a5e5dfd52fc"
+      "bglike_v6_heroes": "d861a4e9ced63462"
      }
     },
     {
@@ -7487,9 +7487,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "fcf5ce1b2691534edda327300ed3ed45",
+     "state": "77bc33be433d86f35478268d99d1a08f",
      "obs": {
-      "bglike_v6_heroes": "3daf7d52eec3e480"
+      "bglike_v6_heroes": "21e1d96e41bccc03"
      }
     },
     {
@@ -7497,9 +7497,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "d11ae15041a12bf6f3795ff977c86714",
+     "state": "21556e857e2142780a7db52f852bbd0c",
      "obs": {
-      "bglike_v6_heroes": "6d78556f6612631f"
+      "bglike_v6_heroes": "67cc111c3177ea62"
      }
     },
     {
@@ -7507,9 +7507,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "7cc412dff672cb054252107f50d01190",
+     "state": "9379550ad1ae20d22ff1a0d86fb727d6",
      "obs": {
-      "bglike_v6_heroes": "770efe5da233fce1"
+      "bglike_v6_heroes": "5281c58fcd2a8646"
      }
     },
     {
@@ -7517,9 +7517,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "f9b1e61b393487ced473d881408ecd44",
+     "state": "f106b2793848049b55199a368e3a9a87",
      "obs": {
-      "bglike_v6_heroes": "e867733941fb2c9b"
+      "bglike_v6_heroes": "4ff715c56dadebb5"
      }
     },
     {
@@ -7527,9 +7527,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "cbb0781b97af8559114ebaa35d6231f8",
+     "state": "98e8dc602b656f1ee94380bf4d0a6d18",
      "obs": {
-      "bglike_v6_heroes": "15e2597ee3115f84"
+      "bglike_v6_heroes": "d9e3dde5ffad234d"
      }
     },
     {
@@ -7537,9 +7537,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "86135f63ec9daf1517951d05baf1ccb6",
+     "state": "9977c527e4af7bf5a340756362b3c6b9",
      "obs": {
-      "bglike_v6_heroes": "aa9c023379518efd"
+      "bglike_v6_heroes": "96e78820ed2a5f33"
      }
     },
     {
@@ -7547,9 +7547,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "e8907bbc6e027aea710eaf0cb5c5ed5e",
+     "state": "cc408c37a24bd1e1f0f19fe34f06722e",
      "obs": {
-      "bglike_v6_heroes": "921c25a1aad03afa"
+      "bglike_v6_heroes": "381ee5a7cdd11466"
      }
     },
     {
@@ -7557,9 +7557,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 23,
-     "state": "b178ec64ebdb0c532461e1d8080de85a",
+     "state": "9bc80aad83308c27d82a9ba6142662bf",
      "obs": {
-      "bglike_v6_heroes": "2c5fc5c14534a7f2"
+      "bglike_v6_heroes": "cbb2c7b98a9c6e07"
      }
     },
     {
@@ -7567,9 +7567,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "b57cf6cce1b9b9c4d196e59b387abb4c",
+     "state": "8cca758b439cd618d3f0dfdd1f9864fa",
      "obs": {
-      "bglike_v6_heroes": "981e8052b518292f"
+      "bglike_v6_heroes": "6b3e62bcd9a74ae1"
      }
     },
     {
@@ -7577,9 +7577,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 24,
-     "state": "32016d5fcb3f494730a9d05be54988a1",
+     "state": "a0fe239f1f212beca24618982533ee00",
      "obs": {
-      "bglike_v6_heroes": "760f59c5a4caf5bd"
+      "bglike_v6_heroes": "f3bf28f6dc0efe0e"
      }
     },
     {
@@ -7587,9 +7587,9 @@
      "seat": 7,
      "action": 99,
      "n_legal": 8,
-     "state": "32016d5fcb3f494730a9d05be54988a1",
+     "state": "a0fe239f1f212beca24618982533ee00",
      "obs": {
-      "bglike_v6_heroes": "bf55f7f7e6c6e210"
+      "bglike_v6_heroes": "7996cffb0a2b7fd5"
      }
     },
     {
@@ -7597,7 +7597,7 @@
      "seat": 6,
      "action": 14,
      "n_legal": 22,
-     "state": "174123fa0c83892f17f4829747766ecf",
+     "state": "09c3f7ea92b97912d7921d7f7fd9405a",
      "obs": {
       "bglike_v6_heroes": "93691a27790b044a"
      }
@@ -7607,9 +7607,9 @@
      "seat": 6,
      "action": 99,
      "n_legal": 15,
-     "state": "1ac87f23b83a40b502662e1562b5607a",
+     "state": "d55b42a0af870314352c2b7e2dc24c6b",
      "obs": {
-      "bglike_v6_heroes": "eb4d66afa04bce06"
+      "bglike_v6_heroes": "7e67d2d4ab6b7e25"
      }
     },
     {
@@ -7617,7 +7617,7 @@
      "seat": 4,
      "action": 14,
      "n_legal": 22,
-     "state": "ab9c67c1a8527dcdcaa9107ba2fcb91c",
+     "state": "9e10580f27ca45b16b1b905103773c5a",
      "obs": {
       "bglike_v6_heroes": "52a6a4e78ae5a764"
      }
@@ -7627,7 +7627,7 @@
      "seat": 4,
      "action": 0,
      "n_legal": 21,
-     "state": "299241b64c929d5a7769240beb88268f",
+     "state": "ec96046a7c53905bfc88e5610af4f775",
      "obs": {
       "bglike_v6_heroes": "da17a3897db37bd4"
      }
@@ -7637,7 +7637,7 @@
      "seat": 4,
      "action": 4,
      "n_legal": 20,
-     "state": "6612777113823e89390c1a04d6153e91",
+     "state": "1b95e24776ab9a2c163c85b40249eff4",
      "obs": {
       "bglike_v6_heroes": "effea265140d6821"
      }
@@ -7647,7 +7647,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "73064023666611e608c9678379d8fa36",
+     "state": "b57de6ec5ed46c3ac6201a3b620b1a1d",
      "obs": {
       "bglike_v6_heroes": "2b9d8cfdfa9b5402"
      }
@@ -7657,7 +7657,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 19,
-     "state": "f863ae22bfe65c6d32f64d20e5ca0c74",
+     "state": "da27a880723ba263776c6a0217354a07",
      "obs": {
       "bglike_v6_heroes": "2cfa05f399d8c87a"
      }
@@ -7667,7 +7667,7 @@
      "seat": 4,
      "action": 1,
      "n_legal": 19,
-     "state": "a75eba2d88105e1e744d5a16457f5599",
+     "state": "e573e263657e0e71274a5bfd7029c0e3",
      "obs": {
       "bglike_v6_heroes": "cba129919cae5e92"
      }
@@ -7677,7 +7677,7 @@
      "seat": 4,
      "action": 8,
      "n_legal": 15,
-     "state": "36f59bde62103735d47d95732dc560a2",
+     "state": "7e88bb454737e8001cc99f21b325168a",
      "obs": {
       "bglike_v6_heroes": "c6753d937b2592d5"
      }
@@ -7687,7 +7687,7 @@
      "seat": 4,
      "action": 17,
      "n_legal": 15,
-     "state": "4562361b5ce5c90011e0f4a3712c6aee",
+     "state": "a315ad810006409557d53c180b338695",
      "obs": {
       "bglike_v6_heroes": "cb531c48b3f9bcf1"
      }
@@ -7697,7 +7697,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "c34ab977cc971cb50286d543c8e53468",
+     "state": "59c9636a410569c8192d8ad91e4d76ae",
      "obs": {
       "bglike_v6_heroes": "68abab88b8ccd6e3"
      }
@@ -7707,7 +7707,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 17,
-     "state": "c5a8bdce152bd8d92b11c86a316dee60",
+     "state": "4428d29eff399cc341250993e146d4d5",
      "obs": {
       "bglike_v6_heroes": "9cfd18686c0ca3a6"
      }
@@ -7717,7 +7717,7 @@
      "seat": 4,
      "action": 3,
      "n_legal": 18,
-     "state": "e68f9a7254804bea6752581150a751c4",
+     "state": "b74e630ee64725cff7f470f1ab9b402b",
      "obs": {
       "bglike_v6_heroes": "ba7f26d609344c6b"
      }
@@ -7727,7 +7727,7 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "4782ee5d7409a1e89665134c293c42dd",
+     "state": "2cf7011ba4e8ea5f8f997c3e3e5c3561",
      "obs": {
       "bglike_v6_heroes": "86e8d6f92038d3f1"
      }
@@ -7737,7 +7737,7 @@
      "seat": 4,
      "action": 16,
      "n_legal": 14,
-     "state": "1799a33df19736046117cb1397bda0f3",
+     "state": "bad1e049f41662864cbc534a7cc0c4cc",
      "obs": {
       "bglike_v6_heroes": "644466acac148609"
      }
@@ -7747,7 +7747,7 @@
      "seat": 4,
      "action": 99,
      "n_legal": 15,
-     "state": "7201801190613369c9eb30ba618ec49a",
+     "state": "3a45036b4166d7008b35eaf986f5fbad",
      "obs": {
       "bglike_v6_heroes": "f9a01efc837a5d65"
      }
@@ -7757,9 +7757,9 @@
      "seat": 7,
      "action": 2,
      "n_legal": 22,
-     "state": "a311f13b56682689293bb8ed5f662f6e",
+     "state": "e217fbbe71215b708c8114b6a53d1be9",
      "obs": {
-      "bglike_v6_heroes": "0df70ad403786a5a"
+      "bglike_v6_heroes": "17367e6ec59d37c0"
      }
     },
     {
@@ -7767,9 +7767,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "a311fc3cbcf4b615a6c19fb747ea63f9",
+     "state": "994be86d56f22dc48678e29859854205",
      "obs": {
-      "bglike_v6_heroes": "57840e71036708b6"
+      "bglike_v6_heroes": "86dfcc8f68350c40"
      }
     },
     {
@@ -7777,9 +7777,9 @@
      "seat": 7,
      "action": 25,
      "n_legal": 25,
-     "state": "579a03b6167544c6df4bd49170cfc94a",
+     "state": "a9ec8525ae54eb35a92e84b1f32ea4a9",
      "obs": {
-      "bglike_v6_heroes": "2180583f90cd0247"
+      "bglike_v6_heroes": "073f153d4c109077"
      }
     },
     {
@@ -7787,19 +7787,19 @@
      "seat": 7,
      "action": 1,
      "n_legal": 21,
-     "state": "1309ccb599869cc3d23ee5e0df4e61c4",
+     "state": "a800037977a2b6e6edec9cc2727c9de2",
      "obs": {
-      "bglike_v6_heroes": "b7e58811ae2a9740"
+      "bglike_v6_heroes": "f82589a86bb7bcae"
      }
     },
     {
      "i": 777,
      "seat": 7,
-     "action": 9,
+     "action": 12,
      "n_legal": 16,
-     "state": "762688430feb68a26129428e9efda057",
+     "state": "05b261736fa13f5bb8cbf97e7ae6edf1",
      "obs": {
-      "bglike_v6_heroes": "5760126ec0f4f40e"
+      "bglike_v6_heroes": "8112d712a21bc916"
      }
     },
     {
@@ -7807,9 +7807,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "88c0be5279098895338ae7f6ccf448b1",
+     "state": "9f58b25ef38e423ba24275adf9ab31db",
      "obs": {
-      "bglike_v6_heroes": "81d15b9fac5d58e3"
+      "bglike_v6_heroes": "104a8dab7da66500"
      }
     },
     {
@@ -7817,9 +7817,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "2e02e17552724b8acd07428ab901d268",
+     "state": "5c74edff7a57e37689382f4836239bdb",
      "obs": {
-      "bglike_v6_heroes": "65b2216e9a4ed985"
+      "bglike_v6_heroes": "7c16ad1a19b8f2bd"
      }
     },
     {
@@ -7827,9 +7827,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "af9c651f4a7abab88f4855555869116f",
+     "state": "e7fa37043b1994db46e9604c3f0efffb",
      "obs": {
-      "bglike_v6_heroes": "0c6548ace9525726"
+      "bglike_v6_heroes": "56c4a021cbdebfcd"
      }
     },
     {
@@ -7837,9 +7837,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "4ab96b6ab88b3a7a694d5705778d6e78",
+     "state": "5e9a1449a81f51f8dea19710af928188",
      "obs": {
-      "bglike_v6_heroes": "2858846eadc790e3"
+      "bglike_v6_heroes": "b051f00a98af7cb5"
      }
     },
     {
@@ -7847,9 +7847,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "7afe791c7929a9489afbd000b56e6ae6",
+     "state": "e1274cc44312da35111e1063deac473a",
      "obs": {
-      "bglike_v6_heroes": "b74d6e742bbb40d4"
+      "bglike_v6_heroes": "0f1fd64d6edce062"
      }
     },
     {
@@ -7857,9 +7857,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "fcbbe657787b1c8f956cd5487937d081",
+     "state": "c32d3647a0bf2de8ca12e63c699909e0",
      "obs": {
-      "bglike_v6_heroes": "6ba6ae4f12f605ad"
+      "bglike_v6_heroes": "cdff935a330c5be7"
      }
     },
     {
@@ -7867,9 +7867,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "ba2f6797cea949eb098c0b50c7da4459",
+     "state": "6ccd3957138593890c23c5aec6c47ed2",
      "obs": {
-      "bglike_v6_heroes": "3500bcfa7d3397e1"
+      "bglike_v6_heroes": "cd3e77c23ad83098"
      }
     },
     {
@@ -7877,9 +7877,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "853d0dd3e118ce71f18bf79f4a1be88d",
+     "state": "720a92c161d827697105724da5011303",
      "obs": {
-      "bglike_v6_heroes": "bc6dfb799bda7a01"
+      "bglike_v6_heroes": "ac3cc9fad37fc10c"
      }
     },
     {
@@ -7887,9 +7887,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "d1e6349bbcca87b17480f88377fea2c0",
+     "state": "f17b5e1ac73d844e043df6032494e418",
      "obs": {
-      "bglike_v6_heroes": "bcf1a38e4009bca4"
+      "bglike_v6_heroes": "19eafdb9f0af379a"
      }
     },
     {
@@ -7897,9 +7897,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "a295e473251d4cf5585cd43c6f00f8de",
+     "state": "53ec5955107e664482fe7ab375e189e8",
      "obs": {
-      "bglike_v6_heroes": "d7ad9fcd90b90152"
+      "bglike_v6_heroes": "29df91629447ac62"
      }
     },
     {
@@ -7907,9 +7907,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "676042384c2d8c91ef0bf97b15c0953b",
+     "state": "97a9f2228346598effa90a0e72f4fa8a",
      "obs": {
-      "bglike_v6_heroes": "8f67f47c84c61a21"
+      "bglike_v6_heroes": "0276e7c18eb69931"
      }
     },
     {
@@ -7917,9 +7917,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "2a280f3f2e550635a6ed5e11252dbf70",
+     "state": "b3502258614b6856fa05f4ac0bbf306d",
      "obs": {
-      "bglike_v6_heroes": "ae9ddc797275db95"
+      "bglike_v6_heroes": "0690307257a51399"
      }
     },
     {
@@ -7927,9 +7927,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "35445bdc3f11ad320a04a2a7cf52ab9b",
+     "state": "cefb47d09d9aa6dbb13c55bd5214ed86",
      "obs": {
-      "bglike_v6_heroes": "520a93d0636852f1"
+      "bglike_v6_heroes": "1c788a18c4a3134e"
      }
     },
     {
@@ -7937,9 +7937,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "4c25a5f9f6aa805bfccb1af6dfee9c80",
+     "state": "afa85c108e8456305c3fdc67698c7a7c",
      "obs": {
-      "bglike_v6_heroes": "ff1d55e3b5e6e426"
+      "bglike_v6_heroes": "574dc5c438b5c883"
      }
     },
     {
@@ -7947,9 +7947,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "849180834e8d8a6c0bf1ffb4df3aeec5",
+     "state": "891dcd9df10762d110eba0291e21ea42",
      "obs": {
-      "bglike_v6_heroes": "462ba0b00f0453ba"
+      "bglike_v6_heroes": "570ba0f21a28ab11"
      }
     },
     {
@@ -7957,9 +7957,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "59d1da2c96f6ecd5e44f24e95bcf8849",
+     "state": "0fa37a4265d34630579fd95ee1b20fc8",
      "obs": {
-      "bglike_v6_heroes": "273d42544540e597"
+      "bglike_v6_heroes": "546b55ef806bcdc2"
      }
     },
     {
@@ -7967,9 +7967,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "01e7217d8f85fbafb7b9e993336a142e",
+     "state": "f4ef2c6a9fe364e9e8b82f8f8ce7c0b7",
      "obs": {
-      "bglike_v6_heroes": "1718213b8c5723b7"
+      "bglike_v6_heroes": "48a969b0508eae9b"
      }
     },
     {
@@ -7977,9 +7977,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "7ab2a85026997bf285b2df8d4e8aff39",
+     "state": "9df1b56c0a63568d1b934f42828b76e4",
      "obs": {
-      "bglike_v6_heroes": "efead46190f76901"
+      "bglike_v6_heroes": "26e549d038a85dd1"
      }
     },
     {
@@ -7987,9 +7987,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "08755bcdf411530c27da6e9b1f24e79b",
+     "state": "52b0c03f9d5459e5f3584457b4a72f39",
      "obs": {
-      "bglike_v6_heroes": "586880216703900a"
+      "bglike_v6_heroes": "b5a7d5c0e2e605ee"
      }
     },
     {
@@ -7997,9 +7997,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "26f734e72e585526778c699233b50846",
+     "state": "6e5628f131a9a2b3ad167d895edb9c6d",
      "obs": {
-      "bglike_v6_heroes": "6b14a2e8fc3d8cbd"
+      "bglike_v6_heroes": "69c23cbf28cbe1dd"
      }
     },
     {
@@ -8007,9 +8007,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "c3e63dbb6be830e4533f0b4ddc864ef2",
+     "state": "de30188820287280cd2e7c91854c96dc",
      "obs": {
-      "bglike_v6_heroes": "69b2e04dc86c479f"
+      "bglike_v6_heroes": "af06f4aafa27e736"
      }
     },
     {
@@ -8017,9 +8017,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "0509410c9d9beaebde2f58f32bfc8323",
+     "state": "9b3c77e3fa3f6ca796916de142ece104",
      "obs": {
-      "bglike_v6_heroes": "ef204c3493b67730"
+      "bglike_v6_heroes": "b89140e8e883f57e"
      }
     },
     {
@@ -8027,9 +8027,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "8398670150dae07b7c5fa7c6b9d696ee",
+     "state": "035e5cbd95599b595b8cca815a2504a3",
      "obs": {
-      "bglike_v6_heroes": "3adefb10575dd20e"
+      "bglike_v6_heroes": "8a4ee8d408862e05"
      }
     },
     {
@@ -8037,9 +8037,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "2a9c0a839734cfa3fa8e94928d272e1a",
+     "state": "116173befa1afc50cdc4e13e53b11089",
      "obs": {
-      "bglike_v6_heroes": "a1e569e56c988b9a"
+      "bglike_v6_heroes": "d65dead1367694da"
      }
     },
     {
@@ -8047,9 +8047,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "cb772b3e0ca186a6a0879738bf0fbbcc",
+     "state": "d34b60bd6e90c9977d8d2e111c3cb4ec",
      "obs": {
-      "bglike_v6_heroes": "5876a29c52eefb65"
+      "bglike_v6_heroes": "6cee70581e9ddb78"
      }
     },
     {
@@ -8057,9 +8057,9 @@
      "seat": 7,
      "action": 99,
      "n_legal": 8,
-     "state": "f30ad39c3dd8d3e2bea9b05cd5d6e32f",
+     "state": "fafe7bcb7758d6ccaf4649181c39774e",
      "obs": {
-      "bglike_v6_heroes": "ebd9bac12f9b90a5"
+      "bglike_v6_heroes": "92cb06b5443c0e32"
      }
     },
     {
@@ -8067,9 +8067,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "d6113a790a88ac721b49707c11f6ea42",
+     "state": "5e4e5ff2cdd587877dfaa57b6882d30f",
      "obs": {
-      "bglike_v6_heroes": "80fa49ca89a8503e"
+      "bglike_v6_heroes": "1f3b9a088b1dafb6"
      }
     },
     {
@@ -8077,9 +8077,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "2899ffb0ce9ff0880b3a2744ae94813a",
+     "state": "20f096b216c51d1e83eb81426e35301b",
      "obs": {
-      "bglike_v6_heroes": "b6e3552b142ce6e5"
+      "bglike_v6_heroes": "d3d9f97de1688954"
      }
     },
     {
@@ -8087,9 +8087,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "0ebce131003df16cd2d19d2fab7ab383",
+     "state": "af79bbe2bd1c7f5edcb01aa8a49c5ce7",
      "obs": {
-      "bglike_v6_heroes": "25e8e6b8753b1d35"
+      "bglike_v6_heroes": "ff6015e46ca66a37"
      }
     },
     {
@@ -8097,9 +8097,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "a8fa8e2251167a6edd562eac396a0947",
+     "state": "5baf2fc916694f1d48e05be3724b5b2f",
      "obs": {
-      "bglike_v6_heroes": "cbee633e2fb986c5"
+      "bglike_v6_heroes": "03782c7aba49324a"
      }
     },
     {
@@ -8107,9 +8107,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "773be85a1d7f50bc43f1481e38f83d79",
+     "state": "58259b71362c534f181c8ce913e3a98c",
      "obs": {
-      "bglike_v6_heroes": "92ac8554037fed12"
+      "bglike_v6_heroes": "782025712794ce26"
      }
     },
     {
@@ -8117,9 +8117,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "8b6490c28b8d3f74fedd4d52348bb554",
+     "state": "27af00203cdbdd23771146788a8fc83c",
      "obs": {
-      "bglike_v6_heroes": "a020408f471e9d23"
+      "bglike_v6_heroes": "56e2bda5de776493"
      }
     },
     {
@@ -8127,9 +8127,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "3b2210c9d7952aa4288636b6dd855ad5",
+     "state": "0a3cb96fcd3500d811d00a75e1b7922b",
      "obs": {
-      "bglike_v6_heroes": "5a94be402a5a21ea"
+      "bglike_v6_heroes": "085467a84c5108f1"
      }
     },
     {
@@ -8137,9 +8137,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "39abc01d79a194a7ddb1df40dfed6f37",
+     "state": "0aa0c454611b19098c2f32565007332f",
      "obs": {
-      "bglike_v6_heroes": "f0c5baa6ebbc0106"
+      "bglike_v6_heroes": "38ecd0545ea95cd5"
      }
     },
     {
@@ -8147,9 +8147,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "435a0c422718c0a4e766dabe2e4200c4",
+     "state": "815074feeacee2b4c2d8e174aab0e1cb",
      "obs": {
-      "bglike_v6_heroes": "ff31997c688a1567"
+      "bglike_v6_heroes": "9e14a574aa232cb7"
      }
     },
     {
@@ -8157,9 +8157,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "f507faa14df2c7a81b079b36515d480b",
+     "state": "193ff7ba58715c479ece6638d58d4173",
      "obs": {
-      "bglike_v6_heroes": "0f5db1da04f745e7"
+      "bglike_v6_heroes": "e961aa4fb1b454f2"
      }
     },
     {
@@ -8167,9 +8167,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "01a7961997e7d2aff74c63f1d42e33f8",
+     "state": "a9e675b9f852e57543d02d26805530c5",
      "obs": {
-      "bglike_v6_heroes": "499f62f9ffa39084"
+      "bglike_v6_heroes": "e9fb0c549826734e"
      }
     },
     {
@@ -8177,9 +8177,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "b6ce8d91ad3802ffb6377bde2e2c27f2",
+     "state": "fe2cc1526ba5583fd74832158c996f31",
      "obs": {
-      "bglike_v6_heroes": "c89184c762ee102c"
+      "bglike_v6_heroes": "d54a985848841767"
      }
     },
     {
@@ -8187,9 +8187,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "3326ad2520c122de9d3c7619255b128c",
+     "state": "1f7b1264fb21cb2602ad9fd2c8edf322",
      "obs": {
-      "bglike_v6_heroes": "f47a306382bd7be5"
+      "bglike_v6_heroes": "2fbc4ff6a039ba7e"
      }
     },
     {
@@ -8197,9 +8197,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "e9b66489dfd0e45332a7c54b6dac98fd",
+     "state": "1ac790af4a2fe9574b8f5bee1d1537d1",
      "obs": {
-      "bglike_v6_heroes": "c72c4b5cbb48e6b5"
+      "bglike_v6_heroes": "d0bd5ecaeed72d71"
      }
     },
     {
@@ -8207,9 +8207,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "e38d4fd7dde6558a7ac553d9c1293a5b",
+     "state": "74af7a9d7fbfb1d4a548505f7041fa61",
      "obs": {
-      "bglike_v6_heroes": "9205c1ee710d3d3c"
+      "bglike_v6_heroes": "2a1eed41cf028a8d"
      }
     },
     {
@@ -8217,9 +8217,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "e44522159fa54a8792b4ace4545823bc",
+     "state": "ddc3f5a15545ff42e8fc09906b291870",
      "obs": {
-      "bglike_v6_heroes": "27de3e7167e7a01c"
+      "bglike_v6_heroes": "20bc70d958199ca4"
      }
     },
     {
@@ -8227,9 +8227,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "25877d0f0b71b31f22ba1953349341fa",
+     "state": "a8898f3c97f11f884ee394360f709a58",
      "obs": {
-      "bglike_v6_heroes": "f0148890ecf22588"
+      "bglike_v6_heroes": "ef71fc72f6e9ac24"
      }
     },
     {
@@ -8237,9 +8237,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "e4fe106509077c20ece184a230bf8823",
+     "state": "c68b964644d9ce7f52beac30ffae94d3",
      "obs": {
-      "bglike_v6_heroes": "cb3ea714eadf89a6"
+      "bglike_v6_heroes": "6cee858450fe6c23"
      }
     },
     {
@@ -8247,9 +8247,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "fee327fb25a1303e875164cc0c25d2bf",
+     "state": "93922ab39dcac237ee50ecf71032409e",
      "obs": {
-      "bglike_v6_heroes": "7e827d6a0f43a44a"
+      "bglike_v6_heroes": "d0ce1d0d52e8ea39"
      }
     },
     {
@@ -8257,9 +8257,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "493d3a7b162f47bd9376a3b7608cd3eb",
+     "state": "1eb9f42931a7b0258f505536f0c40193",
      "obs": {
-      "bglike_v6_heroes": "9c870316fc7d6136"
+      "bglike_v6_heroes": "db517b1eae2f3b8f"
      }
     },
     {
@@ -8267,9 +8267,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "41761aabd1aacdd76f5bd1de671d8ea3",
+     "state": "7b5ee319eddda826bf5d7f8d62b09c53",
      "obs": {
-      "bglike_v6_heroes": "46958e008c2cac60"
+      "bglike_v6_heroes": "d7b80406232e4595"
      }
     },
     {
@@ -8277,9 +8277,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "a850a21d676ac6ce6f45b6f7f45334d7",
+     "state": "e5d53cc0bd8536b66dd3bb494c4f086a",
      "obs": {
-      "bglike_v6_heroes": "4044ed106bf34f7f"
+      "bglike_v6_heroes": "7187f37c2bdf6db5"
      }
     },
     {
@@ -8287,9 +8287,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "ebb2682a5f57d8dda0d847b964ee28ff",
+     "state": "e7d6a6d15fe5c7a5058b6fe57c3ebbf0",
      "obs": {
-      "bglike_v6_heroes": "de873601e555e27f"
+      "bglike_v6_heroes": "2946da3e23990138"
      }
     },
     {
@@ -8297,9 +8297,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "93e7184dc8f57776360a5e12eb53ae74",
+     "state": "20b18124ddbb9ee25bab440e7ce07eb4",
      "obs": {
-      "bglike_v6_heroes": "7defc93d0466841b"
+      "bglike_v6_heroes": "47c8048855f8d925"
      }
     },
     {
@@ -8307,9 +8307,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "6adc23c95d4ab4091c3c787b9f735ef2",
+     "state": "dae60be941c43ff43e1b0f012b9b6ba8",
      "obs": {
-      "bglike_v6_heroes": "c987fbe0d826bda9"
+      "bglike_v6_heroes": "03f569a8fb2bbaf1"
      }
     },
     {
@@ -8317,9 +8317,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "4d795c4d76f01b2d985d04e39f4effab",
+     "state": "cf52def78a0c23bd80302150c55e1757",
      "obs": {
-      "bglike_v6_heroes": "63086210ed668186"
+      "bglike_v6_heroes": "861721b308e8fd27"
      }
     },
     {
@@ -8327,9 +8327,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "9823af203bfef1890b45d902e1fc9edd",
+     "state": "7f612a4ca2276133984cbc98db885813",
      "obs": {
-      "bglike_v6_heroes": "82d45b27aa60dc89"
+      "bglike_v6_heroes": "09ccc6a7f789c581"
      }
     },
     {
@@ -8337,9 +8337,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "1d4eb81b98da4370887d3f6f31093309",
+     "state": "2bde7a7a94ec825d15541233d4e9b412",
      "obs": {
-      "bglike_v6_heroes": "adbfe5ed7467ff04"
+      "bglike_v6_heroes": "2ae50ba89ae479bf"
      }
     },
     {
@@ -8347,9 +8347,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "bb41f84c63edecf1935e33cb8abad216",
+     "state": "f4fa1dfe24389154259806f39f2870e9",
      "obs": {
-      "bglike_v6_heroes": "be381b788e93088d"
+      "bglike_v6_heroes": "7dbbe6bee95e095e"
      }
     },
     {
@@ -8357,9 +8357,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "e2d164edf7be305c8b0bb4322a712509",
+     "state": "477d02e7c3b3ea9e684a89db1749505a",
      "obs": {
-      "bglike_v6_heroes": "6fd82c8438ae6415"
+      "bglike_v6_heroes": "7021724b5e114cf0"
      }
     },
     {
@@ -8367,49 +8367,49 @@
      "seat": 7,
      "action": 99,
      "n_legal": 8,
-     "state": "e2d164edf7be305c8b0bb4322a712509",
+     "state": "477d02e7c3b3ea9e684a89db1749505a",
      "obs": {
-      "bglike_v6_heroes": "532ffd95b8787d4e"
+      "bglike_v6_heroes": "365c650abad4548a"
      }
     },
     {
      "i": 835,
      "seat": 4,
-     "action": 1,
+     "action": 4,
      "n_legal": 21,
-     "state": "8fbd5efcd2f5f9b6c88074331c5d93fb",
+     "state": "abf40a239a29525a393423fd37c92bf6",
      "obs": {
-      "bglike_v6_heroes": "2888f89bd6b4b063"
+      "bglike_v6_heroes": "7da089eb50d5c948"
      }
     },
     {
      "i": 836,
      "seat": 4,
-     "action": 4,
+     "action": 3,
      "n_legal": 20,
-     "state": "ac6dcaee5acf3d26951a991175faa44e",
+     "state": "a6b0e93daec4c426ba317ed56dcb5980",
      "obs": {
-      "bglike_v6_heroes": "013d744cea160f7d"
+      "bglike_v6_heroes": "091b33ebdea5eb9b"
      }
     },
     {
      "i": 837,
      "seat": 4,
-     "action": 3,
+     "action": 2,
      "n_legal": 19,
-     "state": "65a939735da7ec98ce294540a0da2dda",
+     "state": "186a4a42d07ba61bb697bc37c4303ad3",
      "obs": {
-      "bglike_v6_heroes": "c7460ab13bb68a27"
+      "bglike_v6_heroes": "ed0191f011c52742"
      }
     },
     {
      "i": 838,
      "seat": 4,
-     "action": 2,
+     "action": 1,
      "n_legal": 18,
-     "state": "93c2b4cdcb2644a7c5707d4772295efe",
+     "state": "26e42c328f148a5a4e0911bab9e0473d",
      "obs": {
-      "bglike_v6_heroes": "fa3f2b63946806e5"
+      "bglike_v6_heroes": "28b6730c8a574ed8"
      }
     },
     {
@@ -8417,9 +8417,9 @@
      "seat": 4,
      "action": 0,
      "n_legal": 17,
-     "state": "808e355f9d11fb7497d92321dfdc5b91",
+     "state": "c1a7e8650683b972f890e6f3d289e2ef",
      "obs": {
-      "bglike_v6_heroes": "efbaca7c6795f818"
+      "bglike_v6_heroes": "f92fc5e817423f29"
      }
     },
     {
@@ -8427,9 +8427,9 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "b6ae5479dd16b63f059887149d6e6829",
+     "state": "785501e13d4338047149084a26f99cbc",
      "obs": {
-      "bglike_v6_heroes": "2a97e01050c1a535"
+      "bglike_v6_heroes": "bff424929d3a5902"
      }
     },
     {
@@ -8437,9 +8437,9 @@
      "seat": 4,
      "action": 16,
      "n_legal": 18,
-     "state": "106d0eb125399d545f8515cae06baf5c",
+     "state": "f57b4ce90d8c2b4d8331f68865a1a610",
      "obs": {
-      "bglike_v6_heroes": "1248bd64f6bbfbf7"
+      "bglike_v6_heroes": "b7ab230daf56c6bc"
      }
     },
     {
@@ -8447,229 +8447,229 @@
      "seat": 4,
      "action": 12,
      "n_legal": 15,
-     "state": "8980167e479db3a6bbef278aa9c6b95c",
+     "state": "2633825065c565b182b71c43267af902",
      "obs": {
-      "bglike_v6_heroes": "9ce47813531e12eb"
+      "bglike_v6_heroes": "2648552abf09df8f"
      }
     },
     {
      "i": 843,
      "seat": 4,
-     "action": 17,
-     "n_legal": 18,
-     "state": "641beb679ad67fbe559d274a3a6f27cf",
+     "action": 16,
+     "n_legal": 19,
+     "state": "4579dd43a53ffb51aa1d5fd12e887109",
      "obs": {
-      "bglike_v6_heroes": "3a46bcb1f029631f"
+      "bglike_v6_heroes": "6f87cdc101075955"
      }
     },
     {
      "i": 844,
      "seat": 4,
-     "action": 0,
-     "n_legal": 17,
-     "state": "700d2ec5c92912dea9758861a4950828",
+     "action": 12,
+     "n_legal": 16,
+     "state": "ca1c3e4e503b93e975b7b6462d5f062d",
      "obs": {
-      "bglike_v6_heroes": "15e832a4f3515393"
+      "bglike_v6_heroes": "9f5f9fa66e1b175b"
      }
     },
     {
      "i": 845,
      "seat": 4,
-     "action": 12,
-     "n_legal": 15,
-     "state": "d8dafddb806c98bbbfa698981ea8e69b",
+     "action": 16,
+     "n_legal": 19,
+     "state": "c1cbe80a5e77d836a1b3263cad37675e",
      "obs": {
-      "bglike_v6_heroes": "cb98b82654d492bc"
+      "bglike_v6_heroes": "387e483f4afcf961"
      }
     },
     {
      "i": 846,
      "seat": 4,
-     "action": 16,
-     "n_legal": 17,
-     "state": "9367fe366adc13d9503f73ba08b01cb2",
+     "action": 12,
+     "n_legal": 16,
+     "state": "cd3d0c79d6ec4a7ea6cfb5ecdfe5f069",
      "obs": {
-      "bglike_v6_heroes": "5b0d104845a186ad"
+      "bglike_v6_heroes": "6c0c03a1c9c0b9a6"
      }
     },
     {
      "i": 847,
      "seat": 4,
-     "action": 12,
-     "n_legal": 15,
-     "state": "fd62eb8dc53336df0567fde7640dfd8b",
+     "action": 16,
+     "n_legal": 19,
+     "state": "809aa79572544d976805ab25df1b493a",
      "obs": {
-      "bglike_v6_heroes": "95641f7b26efe071"
+      "bglike_v6_heroes": "17bf2d311b697f0d"
      }
     },
     {
      "i": 848,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "bf3d1ff245ead6b79cd32743a2816441",
+     "action": 12,
+     "n_legal": 16,
+     "state": "3bdbe714bdadef4556db129519c8c2f2",
      "obs": {
-      "bglike_v6_heroes": "f8318d85a98f4aa3"
+      "bglike_v6_heroes": "da0633e65e3ec2e9"
      }
     },
     {
      "i": 849,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "83c8f14cc11b4a0425d0ce762d5ae3d8",
+     "action": 16,
+     "n_legal": 19,
+     "state": "30519fdc3f858434e989eef1c36f16bc",
      "obs": {
-      "bglike_v6_heroes": "5fdcd33ac54e4383"
+      "bglike_v6_heroes": "a14b9fb19797403a"
      }
     },
     {
      "i": 850,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "30358f4fb14b9026e8b1b00b4e72d229",
+     "action": 12,
+     "n_legal": 16,
+     "state": "aab4f8df2dc71c71833fa33db4f445e3",
      "obs": {
-      "bglike_v6_heroes": "42ded74e7956c92b"
+      "bglike_v6_heroes": "66ed6e95a64838d1"
      }
     },
     {
      "i": 851,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "bf7f3353dd079f7c552a2591033f0b77",
+     "action": 16,
+     "n_legal": 19,
+     "state": "1fa13432c3deb282f9aadf10fa03d20b",
      "obs": {
-      "bglike_v6_heroes": "768ccf46da82a403"
+      "bglike_v6_heroes": "5a6818c9d5b53388"
      }
     },
     {
      "i": 852,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "994400235d9b0f191c5794112c497bbd",
+     "action": 12,
+     "n_legal": 16,
+     "state": "8d58c7cd9baa2b908c593f32937e8bfd",
      "obs": {
-      "bglike_v6_heroes": "8e5577a0174cd3cb"
+      "bglike_v6_heroes": "e0ceeef333365822"
      }
     },
     {
      "i": 853,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "232719672ee00ae1d8481a8c3f64fb72",
+     "action": 16,
+     "n_legal": 19,
+     "state": "740f0be11d54d5a33e64ff9f1716ffc0",
      "obs": {
-      "bglike_v6_heroes": "4b773b8fd2857e7d"
+      "bglike_v6_heroes": "70693eb593723d7a"
      }
     },
     {
      "i": 854,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "d4a92e954679a0cdfa4b767af3957437",
+     "action": 12,
+     "n_legal": 16,
+     "state": "0d73c01f7c44b9b8fe635c0d9958e077",
      "obs": {
-      "bglike_v6_heroes": "82c358e03fd96681"
+      "bglike_v6_heroes": "cb347be5b2c4f2bc"
      }
     },
     {
      "i": 855,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "b1f28630ff5bbb610eb7cf0cc626c2ef",
+     "action": 16,
+     "n_legal": 19,
+     "state": "9738af2add38105eecb559037bdd52a9",
      "obs": {
-      "bglike_v6_heroes": "8effe249d6ed5009"
+      "bglike_v6_heroes": "c3cf665045f343ef"
      }
     },
     {
      "i": 856,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "76102732923e361f4904b98329154b9c",
+     "action": 12,
+     "n_legal": 16,
+     "state": "26fe2431e2954f5b12c70bc4089018ed",
      "obs": {
-      "bglike_v6_heroes": "8461f756163150e2"
+      "bglike_v6_heroes": "81b5f5142837b1a9"
      }
     },
     {
      "i": 857,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "00287f8c53b3afbefc75d2d33c18ab16",
+     "action": 16,
+     "n_legal": 19,
+     "state": "13fec3931b66314142ec7795d55a4f4f",
      "obs": {
-      "bglike_v6_heroes": "669012878ec771af"
+      "bglike_v6_heroes": "33de2260182ea167"
      }
     },
     {
      "i": 858,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "6c65e7d87d280aa56956752c17b54f2c",
+     "action": 12,
+     "n_legal": 16,
+     "state": "88980e040f9732d7e7e0dff693ec1404",
      "obs": {
-      "bglike_v6_heroes": "cbb3050c2a2452b2"
+      "bglike_v6_heroes": "acba201ad7f95bfb"
      }
     },
     {
      "i": 859,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "f7fdb0a1b04be5d81be1d56a7d17686c",
+     "action": 16,
+     "n_legal": 19,
+     "state": "f8d6d6f768485ab114ad01111cd3339f",
      "obs": {
-      "bglike_v6_heroes": "8b06845f96721d32"
+      "bglike_v6_heroes": "23161247e61d01a2"
      }
     },
     {
      "i": 860,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "813c07c700afd721bb2eec642774a0b2",
+     "action": 12,
+     "n_legal": 16,
+     "state": "c90c75f6276223c9d1b4b3bc06c93299",
      "obs": {
-      "bglike_v6_heroes": "e533050d2545278f"
+      "bglike_v6_heroes": "2bd7bb6636e5bc30"
      }
     },
     {
      "i": 861,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "9959f8114fd8f7a6e5e4b258b1d9741d",
+     "action": 16,
+     "n_legal": 20,
+     "state": "0a9b5b965808291fdde5e9cb988eaf0d",
      "obs": {
-      "bglike_v6_heroes": "732fc0daf04db28e"
+      "bglike_v6_heroes": "c87363838e3a761f"
      }
     },
     {
      "i": 862,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "90ff7fd457840e34ebe8e1b8d6101844",
+     "action": 12,
+     "n_legal": 17,
+     "state": "24b8ac4671a6e2447221dcfc50560b79",
      "obs": {
-      "bglike_v6_heroes": "dfa499ee8acea6a6"
+      "bglike_v6_heroes": "1bba83a51cbc9326"
      }
     },
     {
      "i": 863,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "1298af404a97a7eeb404c37d74487d42",
+     "action": 16,
+     "n_legal": 20,
+     "state": "5d738558e4cfcc85a93901a1a9155690",
      "obs": {
-      "bglike_v6_heroes": "eb8b6536e601e4e1"
+      "bglike_v6_heroes": "cd4cddf71d1aa147"
      }
     },
     {
      "i": 864,
      "seat": 4,
-     "action": 16,
-     "n_legal": 18,
-     "state": "836b72f06122c205d4f5906a8b8109bf",
+     "action": 14,
+     "n_legal": 17,
+     "state": "0ed5fb40c8de80ec1bcd8f658f7cd1c3",
      "obs": {
-      "bglike_v6_heroes": "cc0837962ff53e5f"
+      "bglike_v6_heroes": "4edb13a8881f3e13"
      }
     },
     {
@@ -8677,179 +8677,179 @@
      "seat": 4,
      "action": 99,
      "n_legal": 8,
-     "state": "f18dffbbeaa5081b3274733350d06822",
+     "state": "08101448cb8a254181b15b0a61f976d8",
      "obs": {
-      "bglike_v6_heroes": "b3db49f251242124"
+      "bglike_v6_heroes": "6f9821ef8f99e18a"
      }
     },
     {
      "i": 866,
      "seat": 4,
-     "action": 3,
+     "action": 0,
      "n_legal": 22,
-     "state": "3299ede28362b3e0f298499fcea70063",
+     "state": "4c2af6544340d6759f9966b1063c19d4",
      "obs": {
-      "bglike_v6_heroes": "903ae9cefa4274c0"
+      "bglike_v6_heroes": "2806c89f32dd7060"
      }
     },
     {
      "i": 867,
      "seat": 4,
-     "action": 0,
-     "n_legal": 20,
-     "state": "fa070acf3651ca64344acd47a88c873d",
+     "action": 16,
+     "n_legal": 25,
+     "state": "a846f114a463161edbf710512686022a",
      "obs": {
-      "bglike_v6_heroes": "0eaef83b11dd8cc1"
+      "bglike_v6_heroes": "1b96eaad4f164ff1"
      }
     },
     {
      "i": 868,
      "seat": 4,
-     "action": 4,
-     "n_legal": 19,
-     "state": "01efd47efbd456841dd81105267b7990",
+     "action": 21,
+     "n_legal": 22,
+     "state": "1256a1196ec966274de25844b33186f0",
      "obs": {
-      "bglike_v6_heroes": "3c36ae8e20286089"
+      "bglike_v6_heroes": "fd0cc14464dad1d4"
      }
     },
     {
      "i": 869,
      "seat": 4,
-     "action": 2,
-     "n_legal": 18,
-     "state": "59b9fcb72900218cd236abe2b85f6a20",
+     "action": 96,
+     "n_legal": 3,
+     "state": "83c0bad2a5aaf6e591685e16a978de18",
      "obs": {
-      "bglike_v6_heroes": "ca3e0f53cede46a3"
+      "bglike_v6_heroes": "642fb4ab063fd8c0"
      }
     },
     {
      "i": 870,
      "seat": 4,
-     "action": 1,
-     "n_legal": 17,
-     "state": "231f15523cf87b715a3acde84ce30a89",
+     "action": 5,
+     "n_legal": 21,
+     "state": "92e0e60e46e22b1cac262f70146459d3",
      "obs": {
-      "bglike_v6_heroes": "113f4278da13e1c9"
+      "bglike_v6_heroes": "aaf01fb29f017997"
      }
     },
     {
      "i": 871,
      "seat": 4,
-     "action": 12,
-     "n_legal": 15,
-     "state": "2f70624ba8538c41434b256223ad28d4",
+     "action": 3,
+     "n_legal": 20,
+     "state": "f2e55b12fada526cc412894e3d8d5f3a",
      "obs": {
-      "bglike_v6_heroes": "5cd57587c6cddd2e"
+      "bglike_v6_heroes": "41418a3e79a595c3"
      }
     },
     {
      "i": 872,
      "seat": 4,
-     "action": 16,
-     "n_legal": 22,
-     "state": "66c548478dd23ab03d235a5843e80453",
+     "action": 2,
+     "n_legal": 19,
+     "state": "05f09c51becfb583fec67ca332d1a45d",
      "obs": {
-      "bglike_v6_heroes": "66c5abcd1d44a53e"
+      "bglike_v6_heroes": "b9e6a4e089e66550"
      }
     },
     {
      "i": 873,
      "seat": 4,
-     "action": 12,
-     "n_legal": 15,
-     "state": "38dcc9536fe6b0c983a70e3dbb470647",
+     "action": 1,
+     "n_legal": 18,
+     "state": "9147807d43a26bd3dd3781c3b5dc02f6",
      "obs": {
-      "bglike_v6_heroes": "f73063d8bea921be"
+      "bglike_v6_heroes": "7f263cd1931444f9"
      }
     },
     {
      "i": 874,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "37dc18352490f675cd380ffdc58a430d",
+     "action": 11,
+     "n_legal": 15,
+     "state": "ac57c18b9da9a326670817a0873d1844",
      "obs": {
-      "bglike_v6_heroes": "111747661191477a"
+      "bglike_v6_heroes": "fd04783ace13e973"
      }
     },
     {
      "i": 875,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "bbfdeab21cc2a5a45262d420a3099a8e",
+     "action": 21,
+     "n_legal": 23,
+     "state": "754566db97730bf3398c14af51144cbd",
      "obs": {
-      "bglike_v6_heroes": "3b6df05c82c0e403"
+      "bglike_v6_heroes": "6d63e0f4b89df83b"
      }
     },
     {
      "i": 876,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "b8166b173c5cefa8673dd241f4ceba32",
+     "action": 7,
+     "n_legal": 15,
+     "state": "fae120cc49ba6dfb257933ef80914d97",
      "obs": {
-      "bglike_v6_heroes": "0174a2f1fd65f72c"
+      "bglike_v6_heroes": "04c73221d6db673b"
      }
     },
     {
      "i": 877,
      "seat": 4,
-     "action": 12,
-     "n_legal": 16,
-     "state": "74ff31bd26474f2f05626895ddbe6071",
+     "action": 16,
+     "n_legal": 24,
+     "state": "5feeea857e16e9a13d694f06c65189e7",
      "obs": {
-      "bglike_v6_heroes": "6ef870f35c8f2751"
+      "bglike_v6_heroes": "46bb9dbeebbeeae3"
      }
     },
     {
      "i": 878,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "a51c6549d627376a441bc326e8e2f64b",
+     "action": 4,
+     "n_legal": 17,
+     "state": "2f32ea372d7eaf537df2831e513a2ed8",
      "obs": {
-      "bglike_v6_heroes": "72e94d776719bce4"
+      "bglike_v6_heroes": "f5ce12604d7868ad"
      }
     },
     {
      "i": 879,
      "seat": 4,
      "action": 12,
-     "n_legal": 16,
-     "state": "5ba178fafea14e3f51c030d6253b4f32",
+     "n_legal": 15,
+     "state": "d765d37ba497d5b4d958491572daf4e6",
      "obs": {
-      "bglike_v6_heroes": "7ac7c70ec2fd8585"
+      "bglike_v6_heroes": "90c0ccb8da51ce9b"
      }
     },
     {
      "i": 880,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "8cadcd6fd8a627df67368cd7f68a4040",
+     "action": 22,
+     "n_legal": 22,
+     "state": "e77caec3bec70c2666c942f76c9f9e6b",
      "obs": {
-      "bglike_v6_heroes": "2d219085208c7f60"
+      "bglike_v6_heroes": "c33a7bbc149f5066"
      }
     },
     {
      "i": 881,
      "seat": 4,
      "action": 12,
-     "n_legal": 16,
-     "state": "195c179c0cece4bc5cf94b7f4687e69a",
+     "n_legal": 15,
+     "state": "001b8d40db7b4bd36a9b5184acfeead3",
      "obs": {
-      "bglike_v6_heroes": "4b4b0b2d07bfe221"
+      "bglike_v6_heroes": "7bb916b3a36192d7"
      }
     },
     {
      "i": 882,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "f2d17e614fab2338052dbcb306a60f7b",
+     "action": 23,
+     "n_legal": 22,
+     "state": "83f3dd7e13804d8f5f43d81bea57e58e",
      "obs": {
-      "bglike_v6_heroes": "a9bc53b7ef5030f3"
+      "bglike_v6_heroes": "e70cc9ae2e5ca168"
      }
     },
     {
@@ -8857,19 +8857,19 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "a3f2e704b581764063898843d2af09cd",
+     "state": "6d7d617d0bc24241b62457ca6e6f3e2a",
      "obs": {
-      "bglike_v6_heroes": "3b9389c5798d49d9"
+      "bglike_v6_heroes": "7d9e516aae9eb5be"
      }
     },
     {
      "i": 884,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "b7c5dc898553c5a9f80d031265aaecbb",
+     "action": 17,
+     "n_legal": 21,
+     "state": "59319ce65480853b8e24fa99dc6a04dc",
      "obs": {
-      "bglike_v6_heroes": "cc83b954b18169a7"
+      "bglike_v6_heroes": "1f5a75b2d9cabd72"
      }
     },
     {
@@ -8877,19 +8877,19 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "450006c4d3ebc702f9a1dcef2b5923b8",
+     "state": "70b723b456a51aea3e47dbc34f75535f",
      "obs": {
-      "bglike_v6_heroes": "c20bf85655abd377"
+      "bglike_v6_heroes": "0bf8c8274019ff57"
      }
     },
     {
      "i": 886,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "0b6f45f12c2375bb9349a9fb5e0f0681",
+     "action": 24,
+     "n_legal": 20,
+     "state": "d9c6c69dc6e02639d7e226208a4f8b56",
      "obs": {
-      "bglike_v6_heroes": "14d8935937f0deb3"
+      "bglike_v6_heroes": "9f5b9de149cc8e92"
      }
     },
     {
@@ -8897,19 +8897,19 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "05c694526e6cfef0112db9ea8373b582",
+     "state": "e6fb524bf78b89e2d595de00c0cf5bd0",
      "obs": {
-      "bglike_v6_heroes": "3ab0f80824e34bf1"
+      "bglike_v6_heroes": "c45a2bc227ca66a8"
      }
     },
     {
      "i": 888,
      "seat": 4,
-     "action": 16,
-     "n_legal": 23,
-     "state": "19fd86f2f51bceb420f4cb838ff279a2",
+     "action": 25,
+     "n_legal": 19,
+     "state": "0d728742249e3eb383cc340e51fab3f2",
      "obs": {
-      "bglike_v6_heroes": "0ae7b9b11581bb20"
+      "bglike_v6_heroes": "06b908a3856ccf0a"
      }
     },
     {
@@ -8917,79 +8917,79 @@
      "seat": 4,
      "action": 12,
      "n_legal": 16,
-     "state": "5bd6fcd7909d78775024aa22d1f12cc0",
+     "state": "b766781803361510dc4cb302c6adada0",
      "obs": {
-      "bglike_v6_heroes": "0c6695ca363de721"
+      "bglike_v6_heroes": "fcb1550798b5c195"
      }
     },
     {
      "i": 890,
      "seat": 4,
-     "action": 16,
-     "n_legal": 24,
-     "state": "0e0f272241744afb25708fc530c1e2a8",
+     "action": 18,
+     "n_legal": 18,
+     "state": "26cc43d7b29c59dc3fe554b3c1ae5608",
      "obs": {
-      "bglike_v6_heroes": "9fea3cae57adaf30"
+      "bglike_v6_heroes": "a4e47d658e1ce532"
      }
     },
     {
      "i": 891,
      "seat": 4,
      "action": 12,
-     "n_legal": 17,
-     "state": "c46f03433abf391e7b4d3497892aecbd",
+     "n_legal": 16,
+     "state": "ebafb60b1104f948859319ce349fe2fe",
      "obs": {
-      "bglike_v6_heroes": "30bd655bd0d4eb5d"
+      "bglike_v6_heroes": "94f3801b58c153d7"
      }
     },
     {
      "i": 892,
      "seat": 4,
      "action": 16,
-     "n_legal": 24,
-     "state": "1ab60beb9cc1190dc174392487e41bb1",
+     "n_legal": 17,
+     "state": "41e77a30b48b9c984beb4fdf369e0923",
      "obs": {
-      "bglike_v6_heroes": "0e00482021cc5c9c"
+      "bglike_v6_heroes": "c7100994e5da66d1"
      }
     },
     {
      "i": 893,
      "seat": 4,
-     "action": 14,
-     "n_legal": 17,
-     "state": "3c4725e0d19adf0ba1e78d20cedf0a71",
+     "action": 12,
+     "n_legal": 16,
+     "state": "b0d9c45069a0b7816c76db41fcae0db9",
      "obs": {
-      "bglike_v6_heroes": "e898cc05989eb881"
+      "bglike_v6_heroes": "0e048118d55d5dff"
      }
     },
     {
      "i": 894,
      "seat": 4,
-     "action": 12,
-     "n_legal": 15,
-     "state": "586a9bdb75d366ff73eb2613281bf892",
+     "action": 19,
+     "n_legal": 16,
+     "state": "198e4baf1100e0ddab14b396d9d6f1ec",
      "obs": {
-      "bglike_v6_heroes": "0518a4d215f35b94"
+      "bglike_v6_heroes": "ed9d5af635cc22ba"
      }
     },
     {
      "i": 895,
      "seat": 4,
-     "action": 16,
-     "n_legal": 24,
-     "state": "44fa3ab8f10278519ee7cf8ecdc583ed",
+     "action": 12,
+     "n_legal": 16,
+     "state": "d008575167566736a4125e4319113660",
      "obs": {
-      "bglike_v6_heroes": "4a6748ff4da09677"
+      "bglike_v6_heroes": "7d9aebf3ceff15b7"
      }
     },
     {
      "i": 896,
      "seat": 4,
      "action": 99,
-     "n_legal": 8,
-     "state": "592ff16ece1d1eecc531d85952c00c12",
+     "n_legal": 7,
+     "state": "9864dd14066c9e903fe522cc245235d9",
      "obs": {
-      "bglike_v6_heroes": "7da5115733aa1a0d"
+      "bglike_v6_heroes": "9cd80d40cefe4c74"
      }
     },
     {
@@ -8997,9 +8997,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "a51c41dce921a5b1de410737e2a534c8",
+     "state": "0b115cec793f7a2b866924df1910c8a7",
      "obs": {
-      "bglike_v6_heroes": "74e5d74b8e50f5c5"
+      "bglike_v6_heroes": "d90dc8f256baec07"
      }
     },
     {
@@ -9007,9 +9007,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "58521511c179764bb00af5502166e338",
+     "state": "fff901135092706d4d7c96e58260de0f",
      "obs": {
-      "bglike_v6_heroes": "aa4ea77eac540fee"
+      "bglike_v6_heroes": "28ac5ad0307da63f"
      }
     },
     {
@@ -9017,9 +9017,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "78fd64df49675bc9d1667c4781488fbe",
+     "state": "d43bb3bb681b4a51c4e8b8c318fb8cf8",
      "obs": {
-      "bglike_v6_heroes": "b276e400d78fdacf"
+      "bglike_v6_heroes": "91e4080506367685"
      }
     },
     {
@@ -9027,9 +9027,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "c0ccae585345741dfa52b25d37a7ee1d",
+     "state": "3107d85ce70fcefdea27c7afe82e5095",
      "obs": {
-      "bglike_v6_heroes": "750e749b7e8a7a42"
+      "bglike_v6_heroes": "46d31ce136fac902"
      }
     },
     {
@@ -9037,9 +9037,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "862e458c62157e43bc8c2b8e157c1513",
+     "state": "85606f1b26f9ea31dd95b99a57e4653d",
      "obs": {
-      "bglike_v6_heroes": "091474cddb5fac98"
+      "bglike_v6_heroes": "c7e6f0d920db2010"
      }
     },
     {
@@ -9047,9 +9047,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "7d4f1a7e5a97bf8bf74e34d6d72e0bbc",
+     "state": "8fff3227a287b140fc0390319d364939",
      "obs": {
-      "bglike_v6_heroes": "9193cbd15f7788fc"
+      "bglike_v6_heroes": "b6506afed3a60583"
      }
     },
     {
@@ -9057,9 +9057,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "7ee3d899229bc5b7fa9016f721d89669",
+     "state": "373264c292e054b2cb8b8f2dc1fb97bb",
      "obs": {
-      "bglike_v6_heroes": "841469c103b3658d"
+      "bglike_v6_heroes": "ca56d9e2d491f04a"
      }
     },
     {
@@ -9067,9 +9067,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "6d889dde599d68da9e72205b71e63b90",
+     "state": "0e128b5094c3963e2f8582484ba68461",
      "obs": {
-      "bglike_v6_heroes": "334009a945d81c07"
+      "bglike_v6_heroes": "001a5ba548eecc92"
      }
     },
     {
@@ -9077,9 +9077,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "bb0769990af23630a5214b60e9c9cdc4",
+     "state": "8755ceb7868375ab987fe34cf839acda",
      "obs": {
-      "bglike_v6_heroes": "ba64f28b9f5717e8"
+      "bglike_v6_heroes": "e588309c065da3f3"
      }
     },
     {
@@ -9087,9 +9087,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "cfede4a01b036fe107c405eba2231819",
+     "state": "dcf35514f5924d6e26fc36b125d9c66b",
      "obs": {
-      "bglike_v6_heroes": "b8df5f9390db22fa"
+      "bglike_v6_heroes": "b02c4559e207658b"
      }
     },
     {
@@ -9097,9 +9097,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "17c8049062bb2c7fed8d54571f790650",
+     "state": "fbc8b0ed2969cd712d22368af6f676b7",
      "obs": {
-      "bglike_v6_heroes": "0e323748cd6d5aa2"
+      "bglike_v6_heroes": "590e9ffe4fde223b"
      }
     },
     {
@@ -9107,9 +9107,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "2ddd427ca72e2dcff0e462e1acb627b6",
+     "state": "46a9572f92fa6929e8431df2c94ee1b6",
      "obs": {
-      "bglike_v6_heroes": "b98eeacb7c8df18f"
+      "bglike_v6_heroes": "ac1c34505b9eafb4"
      }
     },
     {
@@ -9117,9 +9117,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "4e883214934a408efba21e80429fc798",
+     "state": "2f83db6f0ff28cc62fa16acef8290afb",
      "obs": {
-      "bglike_v6_heroes": "2f14bd52a62e8bb0"
+      "bglike_v6_heroes": "755a08b375a6fbcf"
      }
     },
     {
@@ -9127,9 +9127,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "da765ed13105763e8a79c7058bb5c5f6",
+     "state": "ffef368d37a230358702d0b61164f687",
      "obs": {
-      "bglike_v6_heroes": "c3213e0d028f84b3"
+      "bglike_v6_heroes": "00016a302ba2ba6e"
      }
     },
     {
@@ -9137,9 +9137,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "823248fc34c638aeb2ae3b7374a75e15",
+     "state": "16d8bd3d00ce43b978364e03748abc9f",
      "obs": {
-      "bglike_v6_heroes": "9f05d2056e5dbbe8"
+      "bglike_v6_heroes": "ea9657485ce558a9"
      }
     },
     {
@@ -9147,9 +9147,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "f316458053e7dd247e80f7b76ce31b1f",
+     "state": "f6c072bb98c387259593de70dd6b8cb5",
      "obs": {
-      "bglike_v6_heroes": "db2dcba90ad3c0ba"
+      "bglike_v6_heroes": "467317f9bd8bb338"
      }
     },
     {
@@ -9157,9 +9157,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "c36cdcfc60e93713f64eea48f96247f1",
+     "state": "7446c27b92ba947e7fa2ea15bf4d3c2d",
      "obs": {
-      "bglike_v6_heroes": "8bc3594b42bcfad5"
+      "bglike_v6_heroes": "615bac71908c6855"
      }
     },
     {
@@ -9167,9 +9167,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "26e5f76740b56335f3c42ea941cd1bcb",
+     "state": "472e6623a40524a138429029125a28d7",
      "obs": {
-      "bglike_v6_heroes": "cd5014589eb29837"
+      "bglike_v6_heroes": "feaa3b815586663e"
      }
     },
     {
@@ -9177,9 +9177,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "5066181f8633e252f4c7a0eea57182b4",
+     "state": "455578aef18afc766993d9c3da0be2a4",
      "obs": {
-      "bglike_v6_heroes": "f0cbfc892f721e0b"
+      "bglike_v6_heroes": "4df8b779e3c3cc3d"
      }
     },
     {
@@ -9187,9 +9187,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "476bdd84b5ae34ea5098ce21c2e81d9e",
+     "state": "14810ca11332c71fb938ae903b37642e",
      "obs": {
-      "bglike_v6_heroes": "9d3b3733e1fc8463"
+      "bglike_v6_heroes": "156d0985cd46a282"
      }
     },
     {
@@ -9197,9 +9197,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "ffcba787c19eacc4239b0145cc908f9a",
+     "state": "534e17c4eb587ef7d3715cf361b5ec7e",
      "obs": {
-      "bglike_v6_heroes": "feefc25c11ff0a8a"
+      "bglike_v6_heroes": "2e8c8463fecb3683"
      }
     },
     {
@@ -9207,9 +9207,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "0226a94aec47093098c570224db3f82a",
+     "state": "e994c50a48509dbafddaed1ca90563b1",
      "obs": {
-      "bglike_v6_heroes": "f8fee63dde88c139"
+      "bglike_v6_heroes": "3caeaf377ce7c4d9"
      }
     },
     {
@@ -9217,9 +9217,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "2670cb44b894f3e1dd3f35414e8a2791",
+     "state": "7d9a6640755d447e888b0e3f95cb8d89",
      "obs": {
-      "bglike_v6_heroes": "2eea3b035602ab4c"
+      "bglike_v6_heroes": "87ebe01f9f78349b"
      }
     },
     {
@@ -9227,9 +9227,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "2d90139804597f289d41460596310a7a",
+     "state": "4e84ea50b5a6bd676e4067b08a018646",
      "obs": {
-      "bglike_v6_heroes": "740055ec17c1d1b6"
+      "bglike_v6_heroes": "9200f562e45b7068"
      }
     },
     {
@@ -9237,9 +9237,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "57c4f861bc69fec2015b3f66d3d768b8",
+     "state": "020fbd1ec12e056985dc0b61cea76f5c",
      "obs": {
-      "bglike_v6_heroes": "df316984977c444e"
+      "bglike_v6_heroes": "78c14ce5016c8d58"
      }
     },
     {
@@ -9247,9 +9247,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "ce68c6f352a24aeead75162faf39e82a",
+     "state": "aa8c89f14d6ad8bfdcd8d8c8de6c61c3",
      "obs": {
-      "bglike_v6_heroes": "99a85b47eb1df2c1"
+      "bglike_v6_heroes": "f7bd302f5972ac7b"
      }
     },
     {
@@ -9257,9 +9257,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "528056b2608a6d08ceec34492e1f8f6b",
+     "state": "de0a192add0637a17b55f9b6907d049c",
      "obs": {
-      "bglike_v6_heroes": "7c88f0338e030ae6"
+      "bglike_v6_heroes": "1adb8314be964bc3"
      }
     },
     {
@@ -9267,9 +9267,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "9a80381e4fdcfb8b0db48e6185a07282",
+     "state": "ac4f2cc45ac9e4139d3b974b015e79de",
      "obs": {
-      "bglike_v6_heroes": "1e22824b83d801ec"
+      "bglike_v6_heroes": "228410afb07d9234"
      }
     },
     {
@@ -9277,9 +9277,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "4a5ebed26f06f3eb29ee4ba153ecb566",
+     "state": "71f212ce9d0daf12ee138b7d6b69b692",
      "obs": {
-      "bglike_v6_heroes": "9d2a1a37ce8e93b6"
+      "bglike_v6_heroes": "e4dda26f29b9b598"
      }
     },
     {
@@ -9287,9 +9287,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 25,
-     "state": "3fa5f000958162397ec31609413a9133",
+     "state": "22b456b62bf5f9b250567e3b9aa7660a",
      "obs": {
-      "bglike_v6_heroes": "7ef027fe615e1495"
+      "bglike_v6_heroes": "14767bc9eeaa94b0"
      }
     },
     {
@@ -9297,13 +9297,13 @@
      "seat": 7,
      "action": 99,
      "n_legal": 8,
-     "state": "d24c449bd4c693c0004e260f3502764b",
+     "state": "680ac738a22f16a1ad4052fc855fa5c8",
      "obs": {
-      "bglike_v6_heroes": "704ed7ad4a455879"
+      "bglike_v6_heroes": "57b8344122badf29"
      }
     }
    ],
-   "chain": "bcd52071582b55c96ec429c288fddb57",
+   "chain": "ae529fa2c6d2bedf81318a6e6cd1715d",
    "n_steps": 928,
    "rounds": 15
   },
@@ -18325,7 +18325,7 @@
      "seat": 1,
      "action": 13,
      "n_legal": 16,
-     "state": "f52b4a6cb56d67269c7d307ae812224f",
+     "state": "7b043a5ab72bf351451935c26215a8a4",
      "obs": {
       "bglike_v6_heroes": "5c83bb2c863fac67"
      }
@@ -18335,9 +18335,9 @@
      "seat": 1,
      "action": 8,
      "n_legal": 15,
-     "state": "05172e313619694e66f029deee777275",
+     "state": "63e80f29b76e48a6f0dfda949134e51a",
      "obs": {
-      "bglike_v6_heroes": "ecbfde56cd266b19"
+      "bglike_v6_heroes": "24825001b974cd87"
      }
     },
     {
@@ -18345,9 +18345,9 @@
      "seat": 1,
      "action": 16,
      "n_legal": 15,
-     "state": "877adfdc8e474dcea4577166ca1fb964",
+     "state": "18f94722b7f210b5b6c281486a9f7ddf",
      "obs": {
-      "bglike_v6_heroes": "557579393a862944"
+      "bglike_v6_heroes": "d8d6dcd9edc84d26"
      }
     },
     {
@@ -18355,9 +18355,9 @@
      "seat": 1,
      "action": 13,
      "n_legal": 16,
-     "state": "5e4b8772249b790d71e63cc2092db145",
+     "state": "fced87976fec3d9e065077e604bf7a51",
      "obs": {
-      "bglike_v6_heroes": "7e7444366453abb5"
+      "bglike_v6_heroes": "6e4db17d343820d3"
      }
     },
     {
@@ -18365,9 +18365,9 @@
      "seat": 1,
      "action": 99,
      "n_legal": 15,
-     "state": "5e4b8772249b790d71e63cc2092db145",
+     "state": "fced87976fec3d9e065077e604bf7a51",
      "obs": {
-      "bglike_v6_heroes": "3281b2a34f6082f8"
+      "bglike_v6_heroes": "ab526c3519aa7699"
      }
     },
     {
@@ -18375,7 +18375,7 @@
      "seat": 6,
      "action": 1,
      "n_legal": 22,
-     "state": "cec9aec3d78fb9005d8a6c5da05b518f",
+     "state": "6bc82325ba19ce7037596e348ea97cd5",
      "obs": {
       "bglike_v6_heroes": "e93190892a8d04c6"
      }
@@ -18385,7 +18385,7 @@
      "seat": 6,
      "action": 5,
      "n_legal": 21,
-     "state": "cb098c67fd44ea48892d0e7b6dd23ad3",
+     "state": "a29dcb8c0325e101dc84ef8154009bd7",
      "obs": {
       "bglike_v6_heroes": "56e7218b97b4e8a4"
      }
@@ -18395,7 +18395,7 @@
      "seat": 6,
      "action": 0,
      "n_legal": 20,
-     "state": "86147f90ab92d9622a6516ad63207b46",
+     "state": "4183736c65ab676bce6d56288540a423",
      "obs": {
       "bglike_v6_heroes": "37c2a03562492781"
      }
@@ -18405,7 +18405,7 @@
      "seat": 6,
      "action": 7,
      "n_legal": 16,
-     "state": "10948345aa7fbcfbf49af275f4987b1f",
+     "state": "960a53aed5b67a3ba2f06b427c0b5d3b",
      "obs": {
       "bglike_v6_heroes": "736a5a1d4542bbf7"
      }
@@ -18415,7 +18415,7 @@
      "seat": 6,
      "action": 18,
      "n_legal": 19,
-     "state": "519e9876ef4438e05b33d6b29d0a5a02",
+     "state": "df61c193f7baff0830c28f94eb512209",
      "obs": {
       "bglike_v6_heroes": "fcf82187c0be9338"
      }
@@ -18425,7 +18425,7 @@
      "seat": 6,
      "action": 6,
      "n_legal": 16,
-     "state": "7f0bf44370612d9272a666095db75cda",
+     "state": "348385b00416a7d6b681133a5f18fe47",
      "obs": {
       "bglike_v6_heroes": "1c37153ed4756622"
      }
@@ -18435,7 +18435,7 @@
      "seat": 6,
      "action": 16,
      "n_legal": 21,
-     "state": "f6496dfe5b0deacd52f8cbeee3248587",
+     "state": "013d5a46b5daeb86897984cfe19988e7",
      "obs": {
       "bglike_v6_heroes": "c6c3bc65c2a8c146"
      }
@@ -18445,7 +18445,7 @@
      "seat": 6,
      "action": 4,
      "n_legal": 19,
-     "state": "995f670008323c5b31503cf2007043fb",
+     "state": "af04ab1fd77ffe846b2e78dc472ac6da",
      "obs": {
       "bglike_v6_heroes": "eac1dabd7592c8f5"
      }
@@ -18455,7 +18455,7 @@
      "seat": 6,
      "action": 6,
      "n_legal": 15,
-     "state": "bb44c9d4e68eec81402ff5915d54d213",
+     "state": "f2b986226991d21c717e358117fe958f",
      "obs": {
       "bglike_v6_heroes": "23a0610c1ab459bc"
      }
@@ -18465,7 +18465,7 @@
      "seat": 6,
      "action": 16,
      "n_legal": 18,
-     "state": "280b5603c086fabbe0b4c8315297672e",
+     "state": "c0e1f9c7c5aa8ca14d9642f0c9d1f0ff",
      "obs": {
       "bglike_v6_heroes": "27964f20c56c9fc3"
      }
@@ -18475,7 +18475,7 @@
      "seat": 6,
      "action": 6,
      "n_legal": 16,
-     "state": "30ab604572f31a3a49a8ac8659b4b4ef",
+     "state": "39bafe40722d60f63eabeb766b63b835",
      "obs": {
       "bglike_v6_heroes": "2aaf23a0f03090dc"
      }
@@ -18485,7 +18485,7 @@
      "seat": 6,
      "action": 17,
      "n_legal": 17,
-     "state": "30ab604572f31a3a49a8ac8659b4b4ef",
+     "state": "39bafe40722d60f63eabeb766b63b835",
      "obs": {
       "bglike_v6_heroes": "9f7e44fcd07a62e4"
      }
@@ -18495,7 +18495,7 @@
      "seat": 6,
      "action": 102,
      "n_legal": 1,
-     "state": "187fec04d26db7bb9902cef74d2073c1",
+     "state": "d5e4220cddc58a4689fdf6162877d296",
      "obs": {
       "bglike_v6_heroes": "c10db4fc7b02f843"
      }
@@ -18505,7 +18505,7 @@
      "seat": 6,
      "action": 99,
      "n_legal": 16,
-     "state": "187fec04d26db7bb9902cef74d2073c1",
+     "state": "d5e4220cddc58a4689fdf6162877d296",
      "obs": {
       "bglike_v6_heroes": "c64b0ef600952e08"
      }
@@ -18515,7 +18515,7 @@
      "seat": 3,
      "action": 0,
      "n_legal": 22,
-     "state": "1f3e973b784af836cdd08ef25bae3eb5",
+     "state": "fe760818f63471ea9fe3100a1124daf5",
      "obs": {
       "bglike_v6_heroes": "793466b490c69c66"
      }
@@ -18525,7 +18525,7 @@
      "seat": 3,
      "action": 3,
      "n_legal": 21,
-     "state": "d437263260db2e225b4d04745c56c297",
+     "state": "ca33ed4cb20a48ded82fce11c85591e9",
      "obs": {
       "bglike_v6_heroes": "2e4df914d8e9b7ce"
      }
@@ -18535,7 +18535,7 @@
      "seat": 3,
      "action": 1,
      "n_legal": 19,
-     "state": "cf1d8b4fc78a2c2d1a848ca85fd9b2a8",
+     "state": "2f86577323473ec410ab12bc7ff4563e",
      "obs": {
       "bglike_v6_heroes": "4f8c454f2a6d0255"
      }
@@ -18545,7 +18545,7 @@
      "seat": 3,
      "action": 18,
      "n_legal": 16,
-     "state": "ef20dddc89d98f2e54d348c04df75262",
+     "state": "900de1a5ec995672ee9ea56571d01e80",
      "obs": {
       "bglike_v6_heroes": "990bfd52f7878668"
      }
@@ -18555,7 +18555,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "623cc9a2d7cfd4670b98e9569e5aeb51",
+     "state": "93c4e032a2cc818dc8daf1a054b488c2",
      "obs": {
       "bglike_v6_heroes": "ebfc1f4c3ffdc08b"
      }
@@ -18565,7 +18565,7 @@
      "seat": 3,
      "action": 19,
      "n_legal": 17,
-     "state": "cc4b144b9c49d392bf81c21bbd53c9de",
+     "state": "c1aa0fa006e5b116db0433526d2470e6",
      "obs": {
       "bglike_v6_heroes": "6f93db15ea9e69c7"
      }
@@ -18575,7 +18575,7 @@
      "seat": 3,
      "action": 98,
      "n_legal": 3,
-     "state": "4e651e71aff9854f75bbfacb72e90f6c",
+     "state": "e2418e5fabad561913e2b2cfe198b3ae",
      "obs": {
       "bglike_v6_heroes": "de13a9b41208544a"
      }
@@ -18585,7 +18585,7 @@
      "seat": 3,
      "action": 10,
      "n_legal": 16,
-     "state": "973b8457edc5559827723b331378524f",
+     "state": "b4363e2df21976344fc4d9c3971de39e",
      "obs": {
       "bglike_v6_heroes": "41e27844e630ba24"
      }
@@ -18595,7 +18595,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 16,
-     "state": "09ba022f234244ab37edc82fe77cb4b0",
+     "state": "4dde2afd804f8dcda9d39b73106d162f",
      "obs": {
       "bglike_v6_heroes": "6bfda07a561fe25d"
      }
@@ -18605,7 +18605,7 @@
      "seat": 3,
      "action": 8,
      "n_legal": 16,
-     "state": "56780ad15ba8edae31edf4665d4c3e30",
+     "state": "25146cc135b235f7f48e69d361bee879",
      "obs": {
       "bglike_v6_heroes": "d6b2a768910c7c5e"
      }
@@ -18615,7 +18615,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 17,
-     "state": "934a167f31c0253abcba096db8c41f00",
+     "state": "b60fd5a37c6a0028caa4cd4b467dc66a",
      "obs": {
       "bglike_v6_heroes": "3cd4b0ca4fe37efb"
      }
@@ -18625,7 +18625,7 @@
      "seat": 3,
      "action": 4,
      "n_legal": 18,
-     "state": "7de2c8373f6eda6776bcf848a6499397",
+     "state": "1d1026d452fe86ba08e699e62bc19b36",
      "obs": {
       "bglike_v6_heroes": "9d057ddfe72e8210"
      }
@@ -18635,7 +18635,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 15,
-     "state": "6d304c92f3eb0ebdfe6e60736008f7ec",
+     "state": "f2063f88dcb956d336f62603d65daab1",
      "obs": {
       "bglike_v6_heroes": "8777fdac3ce1dfa6"
      }
@@ -18645,7 +18645,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 16,
-     "state": "41478d1c1d8306649df98ca089b9272b",
+     "state": "cce8f563f96ac4e7067efb099dccbc99",
      "obs": {
       "bglike_v6_heroes": "fb68156c96668b18"
      }
@@ -18655,7 +18655,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "091a6ee8699bbb625de5aea3d93f3bb5",
+     "state": "6326a37b8c59aab8ac69fa59dea9e077",
      "obs": {
       "bglike_v6_heroes": "9681e20cd9ebffda"
      }
@@ -18665,7 +18665,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 15,
-     "state": "923bbba8ac98e288d6e469cdb7883598",
+     "state": "687294ce8c486bbb2cb2bf6121fd1370",
      "obs": {
       "bglike_v6_heroes": "37cbeea5417efb24"
      }
@@ -18675,7 +18675,7 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "9f44e2adf8bcc0834f9e5ee897e3f224",
+     "state": "38f2481741e1fbf1510dcb5e13b92b08",
      "obs": {
       "bglike_v6_heroes": "788d1d28c884b29f"
      }
@@ -18685,9 +18685,9 @@
      "seat": 3,
      "action": 99,
      "n_legal": 16,
-     "state": "251c3e1043c39817eb889b41dfc6a822",
+     "state": "29f8857b88e1b91e1592ab97a8c54779",
      "obs": {
-      "bglike_v6_heroes": "57c3b0d6ca0f28da"
+      "bglike_v6_heroes": "2ae9838b77181d9e"
      }
     },
     {
@@ -18695,29 +18695,29 @@
      "seat": 7,
      "action": 1,
      "n_legal": 22,
-     "state": "b4b47761abe2b79c3e5087cf4ceaf9bf",
+     "state": "9c138af636d7af74129a606a7803e1c2",
      "obs": {
-      "bglike_v6_heroes": "6ecf8042538a4253"
+      "bglike_v6_heroes": "126941711ad24fbf"
      }
     },
     {
      "i": 939,
      "seat": 7,
-     "action": 4,
+     "action": 0,
      "n_legal": 21,
-     "state": "ee4dae9b3b0d5e0825a818bec3a054e7",
+     "state": "224f07c6f3375206ff8e957ce0ea1562",
      "obs": {
-      "bglike_v6_heroes": "e738e3a781c34379"
+      "bglike_v6_heroes": "a7e6f0c28f7330fa"
      }
     },
     {
      "i": 940,
      "seat": 7,
-     "action": 0,
+     "action": 4,
      "n_legal": 19,
-     "state": "df2386a172596d6a76a05481415deda2",
+     "state": "1086ff2a1813db5366d43b91492c5f4f",
      "obs": {
-      "bglike_v6_heroes": "771f3dadeb437cb2"
+      "bglike_v6_heroes": "55a373663f86b60c"
      }
     },
     {
@@ -18725,9 +18725,9 @@
      "seat": 7,
      "action": 2,
      "n_legal": 18,
-     "state": "7c55051a6f605218f9a653ad3ec686d7",
+     "state": "784f816524bc5a104854729e246d261f",
      "obs": {
-      "bglike_v6_heroes": "a1bf2fe6d6c9ee24"
+      "bglike_v6_heroes": "0e0c73254969e445"
      }
     },
     {
@@ -18735,9 +18735,9 @@
      "seat": 7,
      "action": 3,
      "n_legal": 17,
-     "state": "c962876b8a057334c40ac6de4ab257ba",
+     "state": "3c2668385bfe76072f55afdc24a600ef",
      "obs": {
-      "bglike_v6_heroes": "ab63e07177d1dddf"
+      "bglike_v6_heroes": "22384394a7210c53"
      }
     },
     {
@@ -18745,99 +18745,99 @@
      "seat": 7,
      "action": 6,
      "n_legal": 15,
-     "state": "e0f0f94b99c9e03cceb7c7164ebd6e46",
+     "state": "9c31564514abaf27dd28d061725ca4b8",
      "obs": {
-      "bglike_v6_heroes": "d9a18519f78fbd43"
+      "bglike_v6_heroes": "a0e1633d78ee6125"
      }
     },
     {
      "i": 944,
      "seat": 7,
-     "action": 16,
+     "action": 20,
      "n_legal": 22,
-     "state": "b23471ac507ab43954cd5225603f129e",
+     "state": "28c94b47b4f7ddc664e3e55b666220a3",
      "obs": {
-      "bglike_v6_heroes": "cc1c333b78670cc1"
+      "bglike_v6_heroes": "03922aee3f9f829b"
      }
     },
     {
      "i": 945,
      "seat": 7,
-     "action": 16,
-     "n_legal": 21,
-     "state": "74743612792ed5551bd8068bb75a76b4",
+     "action": 10,
+     "n_legal": 15,
+     "state": "97a78892602a6f0d86b924a54ff43b00",
      "obs": {
-      "bglike_v6_heroes": "a2ae28b68aea6a0e"
+      "bglike_v6_heroes": "78a5f26cb8679bdf"
      }
     },
     {
      "i": 946,
      "seat": 7,
-     "action": 20,
-     "n_legal": 23,
-     "state": "ce1af6b2f469e67e030abcbd6b9d45b1",
+     "action": 21,
+     "n_legal": 22,
+     "state": "7063a799374b2ff1b8b9c359faefb45a",
      "obs": {
-      "bglike_v6_heroes": "3bbd69f3b0dd230d"
+      "bglike_v6_heroes": "cf9b780ab508c9d3"
      }
     },
     {
      "i": 947,
      "seat": 7,
-     "action": 25,
+     "action": 7,
      "n_legal": 16,
-     "state": "378d188b2e16cbd71e59df49866a1370",
+     "state": "e0b2ce15c8b40f97ebe222f13be247f6",
      "obs": {
-      "bglike_v6_heroes": "28338ce2694e1b58"
+      "bglike_v6_heroes": "36d3e2f117805dbe"
      }
     },
     {
      "i": 948,
      "seat": 7,
-     "action": 98,
-     "n_legal": 3,
-     "state": "700f628bf1c3eb3de6be688080f9b490",
+     "action": 16,
+     "n_legal": 21,
+     "state": "8c6cbfe0486a48d6ddbce3d271014f65",
      "obs": {
-      "bglike_v6_heroes": "7866a02f65055543"
+      "bglike_v6_heroes": "a389a231a5306b40"
      }
     },
     {
      "i": 949,
      "seat": 7,
-     "action": 10,
-     "n_legal": 15,
-     "state": "41d1e2a6da915c83462ee3e22a7889c7",
+     "action": 16,
+     "n_legal": 20,
+     "state": "c872c0abecff4b70525e53f0c3ce5a14",
      "obs": {
-      "bglike_v6_heroes": "6b94e32e0087aba9"
+      "bglike_v6_heroes": "e319a90030603fb3"
      }
     },
     {
      "i": 950,
      "seat": 7,
-     "action": 20,
-     "n_legal": 23,
-     "state": "b05557258950f136b73ce060a4377998",
+     "action": 16,
+     "n_legal": 22,
+     "state": "468e2c421564708db21d22de4aa41a21",
      "obs": {
-      "bglike_v6_heroes": "1f52d65a9dd9fbfc"
+      "bglike_v6_heroes": "710baae0cc6b577a"
      }
     },
     {
      "i": 951,
      "seat": 7,
-     "action": 11,
-     "n_legal": 16,
-     "state": "84472a027ba79e3cbea7b552dfe381ef",
+     "action": 20,
+     "n_legal": 17,
+     "state": "6e4f47437a55cd2e21b6ea5dcfc28f3f",
      "obs": {
-      "bglike_v6_heroes": "6a0aaaa7af863fe1"
+      "bglike_v6_heroes": "9c4dfe46cb17a4b7"
      }
     },
     {
      "i": 952,
      "seat": 7,
-     "action": 16,
-     "n_legal": 22,
-     "state": "b09b05fc144cd965e9573015c9923794",
+     "action": 98,
+     "n_legal": 3,
+     "state": "d3636b178ec940d43a30cf3f1dd1831c",
      "obs": {
-      "bglike_v6_heroes": "ffd41ade31da6c5f"
+      "bglike_v6_heroes": "0e91a707ec30c2c5"
      }
     },
     {
@@ -18845,39 +18845,39 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "171ffbcade7022f6267bb17557b0865a",
+     "state": "1e306d24c959c9b0dac14ecbe8aa156c",
      "obs": {
-      "bglike_v6_heroes": "53df4ef0b2816016"
+      "bglike_v6_heroes": "8a09649e47f2fb5f"
      }
     },
     {
      "i": 954,
      "seat": 7,
-     "action": 16,
+     "action": 20,
      "n_legal": 22,
-     "state": "e1ec82a7174a4abc40f17e1321c2880d",
+     "state": "ec7fd3055ade362dc446524f21138608",
      "obs": {
-      "bglike_v6_heroes": "99a0f09f81d7e01c"
+      "bglike_v6_heroes": "05bd50b80f971738"
      }
     },
     {
      "i": 955,
      "seat": 7,
-     "action": 12,
+     "action": 9,
      "n_legal": 16,
-     "state": "b1f20005cda6105ef5900e8c2a071725",
+     "state": "a23869c94886529cec040c122cc9757f",
      "obs": {
-      "bglike_v6_heroes": "a160329220d97003"
+      "bglike_v6_heroes": "13ac69cb924ea1cc"
      }
     },
     {
      "i": 956,
      "seat": 7,
      "action": 16,
-     "n_legal": 22,
-     "state": "128a6ad2ebfde0b646aa170edb4b7849",
+     "n_legal": 21,
+     "state": "c19bb3678ddc545cfb19e316dda5c4ce",
      "obs": {
-      "bglike_v6_heroes": "f361f333206fbdad"
+      "bglike_v6_heroes": "264cfdb38768d8ff"
      }
     },
     {
@@ -18885,19 +18885,19 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "f3fd5491a2460ccfc2e0019493e3d090",
+     "state": "e58db7274f05b7476fd9875d6a88bbd2",
      "obs": {
-      "bglike_v6_heroes": "1ddadac2af9754fd"
+      "bglike_v6_heroes": "5018d4b917b153cc"
      }
     },
     {
      "i": 958,
      "seat": 7,
      "action": 16,
-     "n_legal": 22,
-     "state": "fbd205a2892a91e4083fd62b141836fe",
+     "n_legal": 21,
+     "state": "77677beedf7099107c130367d68ad5cc",
      "obs": {
-      "bglike_v6_heroes": "3542b2663d48dd88"
+      "bglike_v6_heroes": "8750a572bd4c813a"
      }
     },
     {
@@ -18905,19 +18905,19 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "24c386c3746756c462fe006a5619b39c",
+     "state": "0cf0a15474d4e346e95e571bd8104d48",
      "obs": {
-      "bglike_v6_heroes": "839e7a558f45dfdc"
+      "bglike_v6_heroes": "6a4b1e5cd89a7737"
      }
     },
     {
      "i": 960,
      "seat": 7,
      "action": 16,
-     "n_legal": 23,
-     "state": "9c3866ce36af5b4136381f460ed649d3",
+     "n_legal": 22,
+     "state": "0c6506cbd5de2e28cbaacb53703999cf",
      "obs": {
-      "bglike_v6_heroes": "a8a1f202bf3b072b"
+      "bglike_v6_heroes": "b91adcdb9de2f4f1"
      }
     },
     {
@@ -18925,19 +18925,19 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "633016c76708203a3763d8e376c55811",
+     "state": "3e50cc756109a6218286d72488130912",
      "obs": {
-      "bglike_v6_heroes": "559b7509b6eb9d91"
+      "bglike_v6_heroes": "16f60214c6a45b1b"
      }
     },
     {
      "i": 962,
      "seat": 7,
      "action": 16,
-     "n_legal": 23,
-     "state": "2464ee2a47497d9bffcbb7597580048e",
+     "n_legal": 22,
+     "state": "105c694592fd1465955c46fd4180a3c1",
      "obs": {
-      "bglike_v6_heroes": "1c66ba47479b94b2"
+      "bglike_v6_heroes": "eac2649944fc2f7d"
      }
     },
     {
@@ -18945,19 +18945,19 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "3b8ed3eb699f81e293cbe90c0db37e5d",
+     "state": "b8f226d2c39a3d96efde37209394e509",
      "obs": {
-      "bglike_v6_heroes": "686c2e5df1ec8dc3"
+      "bglike_v6_heroes": "94e15910478f3d40"
      }
     },
     {
      "i": 964,
      "seat": 7,
      "action": 16,
-     "n_legal": 23,
-     "state": "0cae70da387ba7c22177feed3ca1f32d",
+     "n_legal": 22,
+     "state": "07dbb9e7b74f171562b53ea3f87aa94b",
      "obs": {
-      "bglike_v6_heroes": "bd9a308f47064bc6"
+      "bglike_v6_heroes": "7f01ea4261219b6e"
      }
     },
     {
@@ -18965,19 +18965,19 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "d6816bcc419e98d8cbec1a151f512cf8",
+     "state": "3c3423abcb39ea6bdc6284f08eb62f4f",
      "obs": {
-      "bglike_v6_heroes": "095dd0e7262fbdd0"
+      "bglike_v6_heroes": "50d9956dca2b0c44"
      }
     },
     {
      "i": 966,
      "seat": 7,
      "action": 16,
-     "n_legal": 23,
-     "state": "7fe5bc7aac0b104628f7b4a17106cf9a",
+     "n_legal": 22,
+     "state": "c5d1dd277c046bf1629d3658bb63d8dd",
      "obs": {
-      "bglike_v6_heroes": "ee0bac923d19546a"
+      "bglike_v6_heroes": "f908d8b21fd5a1f3"
      }
     },
     {
@@ -18985,9 +18985,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 17,
-     "state": "3bc93cad19a23b57de6c3408215bbd53",
+     "state": "9aa3f1a1cd5784f180bd8fe978a2baf6",
      "obs": {
-      "bglike_v6_heroes": "e4ca3c59d5cc38b6"
+      "bglike_v6_heroes": "2eba6184307f55e2"
      }
     },
     {
@@ -18995,9 +18995,9 @@
      "seat": 7,
      "action": 99,
      "n_legal": 7,
-     "state": "b3624e2c95f42fcca2a01891ce9ca5ab",
+     "state": "1ba3f99fcd1f26fc7c54badd3191b03d",
      "obs": {
-      "bglike_v6_heroes": "fe8e426eaedf0f97"
+      "bglike_v6_heroes": "e6d1bfb89f0f0f45"
      }
     },
     {
@@ -19005,7 +19005,7 @@
      "seat": 6,
      "action": 0,
      "n_legal": 22,
-     "state": "c5fa39c2679f33510ab7d2c798b51d52",
+     "state": "780b559dbdfed95c8b62697b469d92eb",
      "obs": {
       "bglike_v6_heroes": "0d738fb49d1134e3"
      }
@@ -19015,7 +19015,7 @@
      "seat": 6,
      "action": 3,
      "n_legal": 21,
-     "state": "dd464063f408f2d9ef5fe7e602735cfb",
+     "state": "88932ab55c63f162a4ba905f20d338b1",
      "obs": {
       "bglike_v6_heroes": "4f20f1fff70b4a0f"
      }
@@ -19025,7 +19025,7 @@
      "seat": 6,
      "action": 1,
      "n_legal": 20,
-     "state": "695f97b138b0742f014e2d6649f242ee",
+     "state": "619e025f256eda5bcde3a5848b52e465",
      "obs": {
       "bglike_v6_heroes": "ea62d5d67618291e"
      }
@@ -19035,7 +19035,7 @@
      "seat": 6,
      "action": 99,
      "n_legal": 16,
-     "state": "695f97b138b0742f014e2d6649f242ee",
+     "state": "619e025f256eda5bcde3a5848b52e465",
      "obs": {
       "bglike_v6_heroes": "2698977542e2d63c"
      }
@@ -19045,9 +19045,9 @@
      "seat": 3,
      "action": 1,
      "n_legal": 22,
-     "state": "7fe6ce7025d42a0a240fa9cf4ef8e89d",
+     "state": "aa05f6d7b1804006be3eea840f00f5ae",
      "obs": {
-      "bglike_v6_heroes": "483afbc0ce1584fa"
+      "bglike_v6_heroes": "7bc40c18906ab7d4"
      }
     },
     {
@@ -19055,9 +19055,9 @@
      "seat": 3,
      "action": 4,
      "n_legal": 21,
-     "state": "b6fc88adf26cd4bc18b7b749e722acb2",
+     "state": "66dab88e80bfb4dd187841642cee79c5",
      "obs": {
-      "bglike_v6_heroes": "7044ff59f1947f6b"
+      "bglike_v6_heroes": "f2bb2c46d01fc591"
      }
     },
     {
@@ -19065,9 +19065,9 @@
      "seat": 3,
      "action": 3,
      "n_legal": 19,
-     "state": "d767d2e651edf7b6bd2d438a0dcec5b2",
+     "state": "13951e37f87cac09917e14e15232d513",
      "obs": {
-      "bglike_v6_heroes": "545560ae8a786f09"
+      "bglike_v6_heroes": "c9a0e1823f5e3a16"
      }
     },
     {
@@ -19075,9 +19075,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "4bba1e1742aaaded400bf71fed15a353",
+     "state": "3ced13cddb11e3c62c3b53659784b98e",
      "obs": {
-      "bglike_v6_heroes": "a6475c1988cf0147"
+      "bglike_v6_heroes": "657b3042bbabdbad"
      }
     },
     {
@@ -19085,9 +19085,9 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "a8905de12123498a83631ab22fc24296",
+     "state": "3ebe8ab9eab3ebdc00c75e2e8186494c",
      "obs": {
-      "bglike_v6_heroes": "256d40a87e6cf869"
+      "bglike_v6_heroes": "65b6ad7279f3a1e8"
      }
     },
     {
@@ -19095,9 +19095,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "0c3ce2665011bdafb8f26e7f97ba4e2a",
+     "state": "d15a554553bec5f07c742bc8b6d147e8",
      "obs": {
-      "bglike_v6_heroes": "2814e431bd1c44ff"
+      "bglike_v6_heroes": "f42539f65bc2a9dd"
      }
     },
     {
@@ -19105,19 +19105,19 @@
      "seat": 3,
      "action": 17,
      "n_legal": 18,
-     "state": "3c94ad94359b827893d4005d5c5136d0",
+     "state": "e78c943ec1d65c0ada7b963c3fca52a9",
      "obs": {
-      "bglike_v6_heroes": "0b6c100f63fd0f50"
+      "bglike_v6_heroes": "ee5b68d3d26bc360"
      }
     },
     {
      "i": 980,
      "seat": 3,
-     "action": 0,
+     "action": 2,
      "n_legal": 18,
-     "state": "454e359cacbd59e6c1a2953c87df113b",
+     "state": "bb7b5fb9f0c3f762412a69f9281b17cb",
      "obs": {
-      "bglike_v6_heroes": "6077b80227354fec"
+      "bglike_v6_heroes": "4197798fda5e1306"
      }
     },
     {
@@ -19125,9 +19125,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 15,
-     "state": "f454aeb40723e0a0ae71ce5dc2488a0e",
+     "state": "5b3ef76eb078ec180f10272f96ee731e",
      "obs": {
-      "bglike_v6_heroes": "41af6c6f89c94df1"
+      "bglike_v6_heroes": "9d4bf91bbe07672f"
      }
     },
     {
@@ -19135,9 +19135,9 @@
      "seat": 3,
      "action": 18,
      "n_legal": 16,
-     "state": "9ef90928d4974fcf6cad841d63ac7221",
+     "state": "d9323ecff7c73a5a428a70f0ef34c0db",
      "obs": {
-      "bglike_v6_heroes": "8b0c53580e0fd4c4"
+      "bglike_v6_heroes": "c4707d3a996bdca9"
      }
     },
     {
@@ -19145,9 +19145,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "0000da5ae5b9166f755ca4eea3210e72",
+     "state": "ebc80225cfcaa313a3946cc2a8bc424e",
      "obs": {
-      "bglike_v6_heroes": "08aa7b00b777fdbf"
+      "bglike_v6_heroes": "7a61fb8df7f14869"
      }
     },
     {
@@ -19155,9 +19155,9 @@
      "seat": 3,
      "action": 16,
      "n_legal": 15,
-     "state": "276d2e08b31065bb9475752d8c68404f",
+     "state": "c8ac7304d7791151c5fd9561f82dedd1",
      "obs": {
-      "bglike_v6_heroes": "cd12e2149fe2b80c"
+      "bglike_v6_heroes": "1d44f65bd80f47d4"
      }
     },
     {
@@ -19165,9 +19165,9 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "0d6857132d3040befd9d67033a4b02ee",
+     "state": "02db9f55f3972bf5d1e4dac5b1d534ac",
      "obs": {
-      "bglike_v6_heroes": "2500c5c8c46db0e3"
+      "bglike_v6_heroes": "21a973bd3605a283"
      }
     },
     {
@@ -19175,1705 +19175,1085 @@
      "seat": 3,
      "action": 99,
      "n_legal": 16,
-     "state": "4e6978581936c7d812699f23b5bd81d8",
+     "state": "192656523990fe6b882b4d1126a4e4d6",
      "obs": {
-      "bglike_v6_heroes": "67560f813ea3f3b2"
+      "bglike_v6_heroes": "0c6b000917a7b82c"
      }
     },
     {
      "i": 987,
-     "seat": 3,
-     "action": 4,
-     "n_legal": 22,
-     "state": "837d2dbb16d4f703422d882af7302076",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 27,
+     "state": "672ee8760a077a30796fa1d31164e771",
      "obs": {
-      "bglike_v6_heroes": "2378b5b447755b2b"
+      "bglike_v6_heroes": "60397b503e3e3a6c"
      }
     },
     {
      "i": 988,
-     "seat": 3,
-     "action": 1,
-     "n_legal": 21,
-     "state": "65bd3ddccba6cee94851356aed4a785e",
+     "seat": 7,
+     "action": 0,
+     "n_legal": 22,
+     "state": "c6f8ebad0fc808bf4af589d0dfe02ada",
      "obs": {
-      "bglike_v6_heroes": "56fffaf116e4420b"
+      "bglike_v6_heroes": "fd10d26050a84186"
      }
     },
     {
      "i": 989,
-     "seat": 3,
-     "action": 2,
-     "n_legal": 20,
-     "state": "413fad38f5faa6338095936e702e0344",
+     "seat": 7,
+     "action": 4,
+     "n_legal": 21,
+     "state": "597d28f16859c071f710b69e07e9845c",
      "obs": {
-      "bglike_v6_heroes": "54d6ea395d2f82c0"
+      "bglike_v6_heroes": "01c95727edf9b226"
      }
     },
     {
      "i": 990,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "b194d219cb9285e2a596e4097e1c4cc1",
+     "seat": 7,
+     "action": 1,
+     "n_legal": 20,
+     "state": "f9ad095ba069afbe08ff8154f856e4a6",
      "obs": {
-      "bglike_v6_heroes": "de2c94c00d73d08d"
+      "bglike_v6_heroes": "3347ee2ae37a015e"
      }
     },
     {
      "i": 991,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 17,
-     "state": "9173fe32e6d53664f53644b37ace77ee",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 16,
+     "state": "81834f92c90c7372aa661bbf6517b26c",
      "obs": {
-      "bglike_v6_heroes": "c6486045a5f09bcd"
+      "bglike_v6_heroes": "fb321d44a727e4fe"
      }
     },
     {
      "i": 992,
-     "seat": 3,
-     "action": 8,
-     "n_legal": 16,
-     "state": "7e68734349a4f92d7056d50ce3fe8766",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 24,
+     "state": "fca47eab0284f5e769579c01a3465f03",
      "obs": {
-      "bglike_v6_heroes": "3eb5255af86dd9f0"
+      "bglike_v6_heroes": "223c1ad894b09193"
      }
     },
     {
      "i": 993,
-     "seat": 3,
-     "action": 17,
-     "n_legal": 18,
-     "state": "eebae0dc2826c3facb36c8974443793a",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 16,
+     "state": "335883748133fbd51f46bd6765fe48dd",
      "obs": {
-      "bglike_v6_heroes": "13136cd46b5f1397"
+      "bglike_v6_heroes": "5bd247ca2d0a262b"
      }
     },
     {
      "i": 994,
-     "seat": 3,
-     "action": 3,
-     "n_legal": 18,
-     "state": "b48edb3cef2d515b3247ab2348e5ef62",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "76b738c1e7d08c9b62433c686d45b29c",
      "obs": {
-      "bglike_v6_heroes": "6162fd8d11c7b0ab"
+      "bglike_v6_heroes": "c7fda2dd5e118f2c"
      }
     },
     {
      "i": 995,
-     "seat": 3,
+     "seat": 7,
      "action": 12,
-     "n_legal": 15,
-     "state": "0e81a6b9a1100383d5e395f27bf698bf",
+     "n_legal": 17,
+     "state": "008a045da309b895078e51dba7d33ad1",
      "obs": {
-      "bglike_v6_heroes": "95104c63b4440172"
+      "bglike_v6_heroes": "9b5d6db0bf5feeab"
      }
     },
     {
      "i": 996,
-     "seat": 3,
-     "action": 18,
-     "n_legal": 16,
-     "state": "adab9be69338a3ac87c529c3e2126327",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "e5579ae8cfe77ddfe56d72aa6805759a",
      "obs": {
-      "bglike_v6_heroes": "56c2a0b890b15012"
+      "bglike_v6_heroes": "87536c13eefb7485"
      }
     },
     {
      "i": 997,
-     "seat": 3,
+     "seat": 7,
      "action": 12,
-     "n_legal": 16,
-     "state": "9a025bd17ea72a8655f3073f3aa906a1",
+     "n_legal": 17,
+     "state": "7a358d54036f0b984eee44cc9147d5f7",
      "obs": {
-      "bglike_v6_heroes": "d8be0674b997c9c9"
+      "bglike_v6_heroes": "4bb91598436bc067"
      }
     },
     {
      "i": 998,
-     "seat": 3,
+     "seat": 7,
      "action": 16,
-     "n_legal": 15,
-     "state": "d084ea90cfe776a2c46a15c08865c9b9",
+     "n_legal": 25,
+     "state": "dd89dec7ea65818faa6e46a85b4cbe20",
      "obs": {
-      "bglike_v6_heroes": "66985941b8778808"
+      "bglike_v6_heroes": "32348e52d846e702"
      }
     },
     {
      "i": 999,
-     "seat": 3,
-     "action": 13,
-     "n_legal": 16,
-     "state": "6b93473dd110cca71676cb57841de40d",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "0959be65ebe37be0a785c9bc566cc749",
      "obs": {
-      "bglike_v6_heroes": "4a5537a2ebac0ffe"
+      "bglike_v6_heroes": "d0731a4d37c9af0c"
      }
     },
     {
      "i": 1000,
-     "seat": 3,
-     "action": 99,
-     "n_legal": 16,
-     "state": "6b93473dd110cca71676cb57841de40d",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "0e6a3510555423ef6449b2e1a6f2e748",
      "obs": {
-      "bglike_v6_heroes": "613a7ad260c2117f"
+      "bglike_v6_heroes": "4e7a86b803b57840"
      }
     },
     {
      "i": 1001,
      "seat": 7,
-     "action": 16,
-     "n_legal": 28,
-     "state": "cc61dec80a358bcab74b55fff88c27e9",
+     "action": 12,
+     "n_legal": 17,
+     "state": "b685e9bae25648c425125f75d153a02d",
      "obs": {
-      "bglike_v6_heroes": "f0929a1cf5d20e66"
+      "bglike_v6_heroes": "9df39a9db44d8142"
      }
     },
     {
      "i": 1002,
      "seat": 7,
-     "action": 3,
-     "n_legal": 22,
-     "state": "719f279b2c4a2215a9be396cec83a58d",
+     "action": 16,
+     "n_legal": 25,
+     "state": "5e82be0d9d577f3d29365b9b3379a66c",
      "obs": {
-      "bglike_v6_heroes": "8fa54aef42768d95"
+      "bglike_v6_heroes": "7882a9737e6982ec"
      }
     },
     {
      "i": 1003,
      "seat": 7,
-     "action": 0,
-     "n_legal": 21,
-     "state": "f734786ba1a2f74f2812cad0d2e929b0",
+     "action": 12,
+     "n_legal": 17,
+     "state": "40f966190f6df8d2d278a21e05e9d7b4",
      "obs": {
-      "bglike_v6_heroes": "3dcf8f118eed5051"
+      "bglike_v6_heroes": "0dbe5eb8c240f75d"
      }
     },
     {
      "i": 1004,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "c11f50463d4ec8b71f68e063407e8682",
+     "action": 16,
+     "n_legal": 25,
+     "state": "8e24d37c1f59ec821f033a81f2e3fc28",
      "obs": {
-      "bglike_v6_heroes": "59e965b6c780f5d4"
+      "bglike_v6_heroes": "442caab12d12aa9d"
      }
     },
     {
      "i": 1005,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "ddd9385fa0f94c1e034598cc1feafab7",
+     "action": 12,
+     "n_legal": 17,
+     "state": "5bf7ce4c2023b5e6d9c5cba821573696",
      "obs": {
-      "bglike_v6_heroes": "9f8c1bba5b777d50"
+      "bglike_v6_heroes": "3ac5fe91ae9212b7"
      }
     },
     {
      "i": 1006,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "bba6e84408a52cae2942816c89e6ec68",
+     "action": 16,
+     "n_legal": 25,
+     "state": "9e4f791222f02d8796842f2295e690e0",
      "obs": {
-      "bglike_v6_heroes": "38823173e893e029"
+      "bglike_v6_heroes": "d0a2aecd52af8a86"
      }
     },
     {
      "i": 1007,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "f850b4d48d3a93e34bab865ba995f82c",
+     "action": 12,
+     "n_legal": 17,
+     "state": "c85faadf0b4924f4b9557bda8c8daded",
      "obs": {
-      "bglike_v6_heroes": "5a407cf46ae3780c"
+      "bglike_v6_heroes": "6d4b1ea81ae248cd"
      }
     },
     {
      "i": 1008,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "4078ad390cc443a11791f4af231061ba",
+     "action": 16,
+     "n_legal": 25,
+     "state": "cfde28a7ff6a828bf33e7d542d18c4bb",
      "obs": {
-      "bglike_v6_heroes": "d6164d8dcb125496"
+      "bglike_v6_heroes": "c8455197ad6680eb"
      }
     },
     {
      "i": 1009,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "b7c9c08cb6ea9e9386998d87aaaa5e03",
+     "action": 12,
+     "n_legal": 17,
+     "state": "2816e557248dac2d311938fea96469b2",
      "obs": {
-      "bglike_v6_heroes": "d734c81b5d124b9d"
+      "bglike_v6_heroes": "acf2c8bd396637bf"
      }
     },
     {
      "i": 1010,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "e0c100a2370c2faedc7e8a9a7f0f3068",
+     "action": 16,
+     "n_legal": 25,
+     "state": "f0830f6f4ee63a015f5c56993c64307d",
      "obs": {
-      "bglike_v6_heroes": "141249372a71392a"
+      "bglike_v6_heroes": "5f929380a8ef1c2e"
      }
     },
     {
      "i": 1011,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "8e284229acdae0b8992bdc53a474c023",
+     "action": 12,
+     "n_legal": 17,
+     "state": "2d24be6fe1e966cf0f3b95a6f6fb9218",
      "obs": {
-      "bglike_v6_heroes": "9e5db82d64ced9bf"
+      "bglike_v6_heroes": "8221453fd367e090"
      }
     },
     {
      "i": 1012,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "7a0962181a744b8360b1b9e10e07d56d",
+     "action": 16,
+     "n_legal": 25,
+     "state": "dd4138b2bd256190b98de35f5c223b30",
      "obs": {
-      "bglike_v6_heroes": "f990fec68bbf8bbf"
+      "bglike_v6_heroes": "09ad329f19080e93"
      }
     },
     {
      "i": 1013,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "108f17a6e0fe7b7b499296b17c2e821d",
+     "action": 12,
+     "n_legal": 17,
+     "state": "e904963f3725a0d49470d77aa99ce5fc",
      "obs": {
-      "bglike_v6_heroes": "2f3c912ae896570d"
+      "bglike_v6_heroes": "4acfd38891cc9ef4"
      }
     },
     {
      "i": 1014,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "87ed429df0849286a24319ba5e7d6510",
+     "action": 16,
+     "n_legal": 25,
+     "state": "7afe3fb0282b9c8fa65bc9a472926f60",
      "obs": {
-      "bglike_v6_heroes": "fa0e6fea7d668047"
+      "bglike_v6_heroes": "b8e6e34e01b20132"
      }
     },
     {
      "i": 1015,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "8ef0c951441939d4892af290f38a01d9",
+     "action": 12,
+     "n_legal": 17,
+     "state": "a5a5c43f2269465e58b949fcf03d4336",
      "obs": {
-      "bglike_v6_heroes": "733dc69a04990e54"
+      "bglike_v6_heroes": "68efd7d9defad473"
      }
     },
     {
      "i": 1016,
      "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "15432e2a0a13d721825355634d02854a",
+     "action": 16,
+     "n_legal": 25,
+     "state": "6fe3954668affbc21774040c62ced536",
      "obs": {
-      "bglike_v6_heroes": "4eb28303f124cd38"
+      "bglike_v6_heroes": "1a3211577a034347"
      }
     },
     {
      "i": 1017,
      "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "2e872753daa6bd599d73c2d2274f21ae",
+     "action": 99,
+     "n_legal": 8,
+     "state": "3aef7ec85489c102044481fe3d998c9f",
      "obs": {
-      "bglike_v6_heroes": "ee8b6f91ba723c4c"
+      "bglike_v6_heroes": "21e750a3c4593276"
      }
     },
     {
      "i": 1018,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "f7f15b5c5c332d5e7ecca78e4076a4bf",
+     "seat": 3,
+     "action": 2,
+     "n_legal": 22,
+     "state": "3b918fb81cb4d1680c94fa845283b07c",
      "obs": {
-      "bglike_v6_heroes": "f0751d40428d341d"
+      "bglike_v6_heroes": "8133bf17087fb943"
      }
     },
     {
      "i": 1019,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "7de69f522d75e08ca89128a0d0fa2a7a",
+     "seat": 3,
+     "action": 3,
+     "n_legal": 21,
+     "state": "efe5fe515a7c312d1c2ef0b53e46daaf",
      "obs": {
-      "bglike_v6_heroes": "09c5a090e7450e29"
+      "bglike_v6_heroes": "1574a8910fe58e00"
      }
     },
     {
      "i": 1020,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "ef20eca709d5b7e03e9b62ddf0d97416",
+     "seat": 3,
+     "action": 1,
+     "n_legal": 20,
+     "state": "717efbbae640c0fb6188e1f3407dbf5b",
      "obs": {
-      "bglike_v6_heroes": "1ee3fb796e662440"
+      "bglike_v6_heroes": "83dc67868d123ea5"
      }
     },
     {
      "i": 1021,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "0bfc51546395bd4735813d05e3777899",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 16,
+     "state": "0b0ce15f12a81ad181add7ec6d9092a0",
      "obs": {
-      "bglike_v6_heroes": "c3bea78fa24b0e3a"
+      "bglike_v6_heroes": "1cdc7c75d6a46a87"
      }
     },
     {
      "i": 1022,
-     "seat": 7,
-     "action": 12,
+     "seat": 3,
+     "action": 16,
      "n_legal": 17,
-     "state": "46bbcc08d2ae03b53ffd7ab77aec854d",
+     "state": "f91955e96a4a520dc2c203e27936fae3",
      "obs": {
-      "bglike_v6_heroes": "fc99e403380ea7a0"
+      "bglike_v6_heroes": "a6ef0b69e4730a41"
      }
     },
     {
      "i": 1023,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "6bb3f439d48727d3124644ba9c7b3b4a",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 16,
+     "state": "4545f5658ada21f5d479d357009199cd",
      "obs": {
-      "bglike_v6_heroes": "af6fd205bdb886ed"
+      "bglike_v6_heroes": "e3e898dea438a93a"
      }
     },
     {
      "i": 1024,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "b72158eba11ece808c3e61ec59f066bf",
+     "seat": 3,
+     "action": 17,
+     "n_legal": 18,
+     "state": "cccfad24dbffe7f3ad80ca8624a39108",
      "obs": {
-      "bglike_v6_heroes": "e33a246baeb7347e"
+      "bglike_v6_heroes": "a16fd3b50be63e6e"
      }
     },
     {
      "i": 1025,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "0a3a9d0a37542648d94a54f52d3cd47d",
+     "seat": 3,
+     "action": 0,
+     "n_legal": 18,
+     "state": "c7ecf809f0099a156f3a07c770201075",
      "obs": {
-      "bglike_v6_heroes": "67061e26ba83df07"
+      "bglike_v6_heroes": "1e775a7c00af6405"
      }
     },
     {
      "i": 1026,
-     "seat": 7,
+     "seat": 3,
      "action": 12,
-     "n_legal": 17,
-     "state": "3c93444a154f0a610761438170244d58",
+     "n_legal": 15,
+     "state": "db6cc0ba08f4cf923a76784be04b480c",
      "obs": {
-      "bglike_v6_heroes": "a1c75875d8112734"
+      "bglike_v6_heroes": "244d404ffc9f1f94"
      }
     },
     {
      "i": 1027,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "ca31ab5be46313c4b2f259c3d09d9e1d",
+     "seat": 3,
+     "action": 18,
+     "n_legal": 16,
+     "state": "af32b4956089d381c99c8d9aa530fe80",
      "obs": {
-      "bglike_v6_heroes": "ce872736ef335ae3"
+      "bglike_v6_heroes": "faa4a1fbcf7e5b9d"
      }
     },
     {
      "i": 1028,
-     "seat": 7,
+     "seat": 3,
      "action": 12,
-     "n_legal": 17,
-     "state": "673b25dbcb1db61fde53367b9389956e",
+     "n_legal": 16,
+     "state": "194486d253cc2eb990baed9350ada956",
      "obs": {
-      "bglike_v6_heroes": "c86dbf2e9f2601f8"
+      "bglike_v6_heroes": "0a73a14ea0100106"
      }
     },
     {
      "i": 1029,
-     "seat": 7,
+     "seat": 3,
      "action": 16,
-     "n_legal": 25,
-     "state": "b1da7607a0552867469b10785dcc188a",
+     "n_legal": 15,
+     "state": "8b2c749dbdd6e8845f6ba8ff13bbb2cd",
      "obs": {
-      "bglike_v6_heroes": "c7e591df9ec6cf46"
+      "bglike_v6_heroes": "5ee2966ba36a04b8"
      }
     },
     {
      "i": 1030,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "fbf1a1bf433ccee7fb8ac55eee22cf8a",
+     "seat": 3,
+     "action": 13,
+     "n_legal": 16,
+     "state": "c7a8989c4ca984534692b2d008d6206d",
      "obs": {
-      "bglike_v6_heroes": "94521363c0a2b7f2"
+      "bglike_v6_heroes": "62bb76b395e8eea2"
      }
     },
     {
      "i": 1031,
-     "seat": 7,
+     "seat": 3,
      "action": 99,
-     "n_legal": 7,
-     "state": "148ad9aa120bc2dd8f942a735a9c6fa7",
+     "n_legal": 16,
+     "state": "8a42462bc21c961bf22a709793fd7a74",
      "obs": {
-      "bglike_v6_heroes": "b548908583551517"
+      "bglike_v6_heroes": "000b1aad58f5a502"
      }
     },
     {
      "i": 1032,
-     "seat": 3,
-     "action": 2,
-     "n_legal": 22,
-     "state": "1a6f7da8b9cc20d5119c2a47b72c700f",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "0a56c8ce882c594b53e16567557656a4",
      "obs": {
-      "bglike_v6_heroes": "5e72df70a5e79488"
+      "bglike_v6_heroes": "3100243574ed92d2"
      }
     },
     {
      "i": 1033,
-     "seat": 3,
-     "action": 1,
-     "n_legal": 21,
-     "state": "9ab2b5dd3be1dba5f5a5c2fcd8a9b671",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "7ace16f0f2f4965f7cc82a53cb4ff58a",
      "obs": {
-      "bglike_v6_heroes": "e8c3f6cc977b113e"
+      "bglike_v6_heroes": "c3c7242d63e1cb3f"
      }
     },
     {
      "i": 1034,
-     "seat": 3,
-     "action": 4,
-     "n_legal": 20,
-     "state": "8f5b0bf69b848b259f4adbc747c125c6",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "7de73137e69b005883351da2ce932232",
      "obs": {
-      "bglike_v6_heroes": "102bd4ad4e85c367"
+      "bglike_v6_heroes": "fd540de5c61e7fe4"
      }
     },
     {
      "i": 1035,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "1b33b8a9b480068c7ac6eb818769cf8c",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "ef5f0a659c0454b3bc64dbc53154cc79",
      "obs": {
-      "bglike_v6_heroes": "3893b61172f9c114"
+      "bglike_v6_heroes": "31a977a9e1d30fa2"
      }
     },
     {
      "i": 1036,
-     "seat": 3,
-     "action": 16,
+     "seat": 7,
+     "action": 12,
      "n_legal": 17,
-     "state": "c70220d7ff5e0beb02e4c38d0ff5bf42",
+     "state": "0695998f7d823442fcbd7dd3a4c72da3",
      "obs": {
-      "bglike_v6_heroes": "df85f262b4988d1d"
+      "bglike_v6_heroes": "28f5255b3c930c74"
      }
     },
     {
      "i": 1037,
-     "seat": 3,
-     "action": 11,
-     "n_legal": 16,
-     "state": "6900c920d35660e52acd2ec0f168c713",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "bd292d7dd3958a32d6d4c31b902bed6a",
      "obs": {
-      "bglike_v6_heroes": "6a21374365cf3940"
+      "bglike_v6_heroes": "f865b28b60634e76"
      }
     },
     {
      "i": 1038,
-     "seat": 3,
-     "action": 17,
-     "n_legal": 19,
-     "state": "06d2dc5cc573b9b2b82d8ee5a2c0ad85",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "e7b7d67794b315eab5e861b9a1023778",
      "obs": {
-      "bglike_v6_heroes": "c89c60b11e1885de"
+      "bglike_v6_heroes": "a10f4e9d7dbca3ca"
      }
     },
     {
      "i": 1039,
-     "seat": 3,
-     "action": 3,
-     "n_legal": 19,
-     "state": "c62b2cc958c14f051d54a1478f57893e",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "d36c0b0654456953040a2cb9677808dc",
      "obs": {
-      "bglike_v6_heroes": "f5f4ad8a2d3a0e0b"
+      "bglike_v6_heroes": "fe88a666b061208c"
      }
     },
     {
      "i": 1040,
-     "seat": 3,
-     "action": 10,
-     "n_legal": 15,
-     "state": "bd13739c78711a78e4ed02db7c2e8652",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "06d114f8193194d918a235a76430f010",
      "obs": {
-      "bglike_v6_heroes": "644f48062d880843"
+      "bglike_v6_heroes": "98789f77a5b2c59f"
      }
     },
     {
      "i": 1041,
-     "seat": 3,
+     "seat": 7,
      "action": 16,
-     "n_legal": 17,
-     "state": "6d15fad51c1826365adfbe28379057d6",
+     "n_legal": 25,
+     "state": "f2674d5b506c513b075eb729165efb9f",
      "obs": {
-      "bglike_v6_heroes": "880556aee699cbaf"
+      "bglike_v6_heroes": "4ddc6e6117a86c9d"
      }
     },
     {
      "i": 1042,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 16,
-     "state": "9859f2d0d945b39d4de0594c99916c16",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "110dfeaaa8d00ef5b7498d9f2268b8e6",
      "obs": {
-      "bglike_v6_heroes": "b82157c832a6df18"
+      "bglike_v6_heroes": "4c9fb4876bae5f95"
      }
     },
     {
      "i": 1043,
-     "seat": 3,
+     "seat": 7,
      "action": 16,
-     "n_legal": 18,
-     "state": "69c32c4fc8c5fb8ddf5a621e50b7f381",
+     "n_legal": 25,
+     "state": "b47cc8dddeb682dfa66b39a7ef2f0949",
      "obs": {
-      "bglike_v6_heroes": "892e8e431e1787fc"
+      "bglike_v6_heroes": "8cfaa2e53c2d6b09"
      }
     },
     {
      "i": 1044,
-     "seat": 3,
-     "action": 19,
+     "seat": 7,
+     "action": 12,
      "n_legal": 17,
-     "state": "3fa8080a5566e082266366ee345f9330",
+     "state": "b26526c381a494b19bbf52780b916914",
      "obs": {
-      "bglike_v6_heroes": "64d0d2e76ae7dde4"
+      "bglike_v6_heroes": "5546de278682e87a"
      }
     },
     {
      "i": 1045,
-     "seat": 3,
-     "action": 97,
-     "n_legal": 3,
-     "state": "77242c3926e76cebdf64282246c341ba",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "978d4bd2283bcf2cedcb338bb667c732",
      "obs": {
-      "bglike_v6_heroes": "1e673f26fbce8a62"
+      "bglike_v6_heroes": "8ebd73a566c88593"
      }
     },
     {
      "i": 1046,
-     "seat": 3,
+     "seat": 7,
      "action": 12,
-     "n_legal": 16,
-     "state": "833028987cbc42c67b9b06b449235e01",
+     "n_legal": 17,
+     "state": "655252e59fee4941b3d97bd22c235b4b",
      "obs": {
-      "bglike_v6_heroes": "35dc93d1e296e6ab"
+      "bglike_v6_heroes": "9dfc3fadd4b50857"
      }
     },
     {
      "i": 1047,
-     "seat": 3,
-     "action": 19,
-     "n_legal": 18,
-     "state": "fcc1f14e10b2c76d67eac48e33534b31",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "a7f8bf727c23594d3baabf39a327513d",
      "obs": {
-      "bglike_v6_heroes": "456de8013cfcd707"
+      "bglike_v6_heroes": "27e376f69b945d56"
      }
     },
     {
      "i": 1048,
-     "seat": 3,
-     "action": 10,
-     "n_legal": 16,
-     "state": "d4e8ca3de09c3ad2fc04ada7a56297b8",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "7afe2f1d9adadd51ca753e26d21283a3",
      "obs": {
-      "bglike_v6_heroes": "49dc20b02a8e4a5c"
+      "bglike_v6_heroes": "fef1c7b1911e72f6"
      }
     },
     {
      "i": 1049,
-     "seat": 3,
+     "seat": 7,
      "action": 16,
-     "n_legal": 19,
-     "state": "07cb763a1310acaf1d3a64f89b23ba82",
+     "n_legal": 25,
+     "state": "44dc4a3f2a9768b87e95d6c5af1ca6e1",
      "obs": {
-      "bglike_v6_heroes": "f7ad93a316dbc6e7"
+      "bglike_v6_heroes": "c14b6fa5c0ebaa42"
      }
     },
     {
      "i": 1050,
-     "seat": 3,
-     "action": 0,
-     "n_legal": 18,
-     "state": "d1368cddd8a7ebbb4169140a5063c61a",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "555ee5bcee62a953b33340367ffb482c",
      "obs": {
-      "bglike_v6_heroes": "5097759f614e4871"
+      "bglike_v6_heroes": "027fa654dff7bcaa"
      }
     },
     {
      "i": 1051,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 15,
-     "state": "f5f72df0c640e171da0e540e6ba02528",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "8285473f05a0b1fc92e980b3b8c8e331",
      "obs": {
-      "bglike_v6_heroes": "b37817989364b0e5"
+      "bglike_v6_heroes": "402bb8705b4c5a99"
      }
     },
     {
      "i": 1052,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 18,
-     "state": "f16b973e294776a6a49cfb2377faeb3c",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "f4f5ac7c2ceb4adddf673bfe580c03ce",
      "obs": {
-      "bglike_v6_heroes": "302b146c32698441"
+      "bglike_v6_heroes": "3697280dd6366d3f"
      }
     },
     {
      "i": 1053,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "a993df9d0a8782cf2b4573d466ed58c5",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "742dd58c4e9c9ba9d5f9a98f711e0cf5",
      "obs": {
-      "bglike_v6_heroes": "a2b0b80db8ad67dd"
+      "bglike_v6_heroes": "ee6048637cf6013d"
      }
     },
     {
      "i": 1054,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 18,
-     "state": "e3d17612c43248195d48aa51f63dd7bc",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "4985f4ecb06bf974fe654f32fa7796de",
      "obs": {
-      "bglike_v6_heroes": "caff449c35e5aa2a"
+      "bglike_v6_heroes": "9cdc82f76e6a2a27"
      }
     },
     {
      "i": 1055,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "9a510b7d90f9afe132199d35ae72eee3",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "9347554ca66ba106dc18a91e0f1e4205",
      "obs": {
-      "bglike_v6_heroes": "286471c2e267e854"
+      "bglike_v6_heroes": "ea6f30fa35a4bc90"
      }
     },
     {
      "i": 1056,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 19,
-     "state": "ce65855debe79de59050fab8e089eeb2",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "5b7648fbcf8f88b8aac4bd2388e79faf",
      "obs": {
-      "bglike_v6_heroes": "b403979d10e7b214"
+      "bglike_v6_heroes": "4134765b2d2c3ff0"
      }
     },
     {
      "i": 1057,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "8f9c8b2e1c4da58097e1d101b84515b6",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "42c17d81c4f8cb8b49d212381e631164",
      "obs": {
-      "bglike_v6_heroes": "e9de087a89d5263d"
+      "bglike_v6_heroes": "2c386efbe1552daf"
      }
     },
     {
      "i": 1058,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 19,
-     "state": "bb085021f081392823dbd1bb6a4fb8da",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "30ef77fb5f808b81d176d4c0f7c648f1",
      "obs": {
-      "bglike_v6_heroes": "9319112bcbf2941c"
+      "bglike_v6_heroes": "9430b4d23e9b8b2a"
      }
     },
     {
      "i": 1059,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "f46d514ef4df8c344777ee6ab8e61c33",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "e17b764723db4304d555039ac13706f7",
      "obs": {
-      "bglike_v6_heroes": "3afed183a6d9394d"
+      "bglike_v6_heroes": "1d8f13e70376b992"
      }
     },
     {
      "i": 1060,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 19,
-     "state": "02009ed1df09e101476b24decbc74b42",
+     "seat": 7,
+     "action": 12,
+     "n_legal": 17,
+     "state": "77b3a6ac2c41c8cd856a2f4632b65e44",
      "obs": {
-      "bglike_v6_heroes": "3af1a919978013f4"
+      "bglike_v6_heroes": "f536bae7a14ad5ac"
      }
     },
     {
      "i": 1061,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "7e222aeb62fc045f7c45a6e59cbf652a",
+     "seat": 7,
+     "action": 16,
+     "n_legal": 25,
+     "state": "bd6574ff946f0b36d029e7955b7fa054",
      "obs": {
-      "bglike_v6_heroes": "8b8c8342aff912e1"
+      "bglike_v6_heroes": "6f110cd14c04f9ff"
      }
     },
     {
      "i": 1062,
-     "seat": 3,
+     "seat": 7,
      "action": 99,
-     "n_legal": 7,
-     "state": "7e222aeb62fc045f7c45a6e59cbf652a",
+     "n_legal": 8,
+     "state": "7888b71ec3699ffc5eae9c1cc99f8b9a",
      "obs": {
-      "bglike_v6_heroes": "0ea73f89c1ee3db4"
+      "bglike_v6_heroes": "ca03db27df457222"
      }
     },
     {
      "i": 1063,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "c86e84e3ee52754207fa832000b8d6d4",
+     "seat": 3,
+     "action": 2,
+     "n_legal": 22,
+     "state": "43cd3d71be8cf1a663ae7b0abc999943",
      "obs": {
-      "bglike_v6_heroes": "4dd35ca2da485e4f"
+      "bglike_v6_heroes": "c47f55e347447f4a"
      }
     },
     {
      "i": 1064,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "1fb18f85e914382df35f03c837d16efb",
+     "seat": 3,
+     "action": 1,
+     "n_legal": 21,
+     "state": "42db17c23e56acd39a05df262c782284",
      "obs": {
-      "bglike_v6_heroes": "511417b85c4f1d16"
+      "bglike_v6_heroes": "30d87248c3cded0f"
      }
     },
     {
      "i": 1065,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "b5e72823bf3b2073a9d1b9dadc724d69",
+     "seat": 3,
+     "action": 0,
+     "n_legal": 20,
+     "state": "944e591e2c982b20c1e2bb9953a1fc67",
      "obs": {
-      "bglike_v6_heroes": "34c01e5ae8724f31"
+      "bglike_v6_heroes": "281f74b7376a120c"
      }
     },
     {
      "i": 1066,
-     "seat": 7,
+     "seat": 3,
      "action": 12,
-     "n_legal": 17,
-     "state": "5b8ec798a25d8148414934cc70cb42d7",
+     "n_legal": 16,
+     "state": "d96c071cdb157d050341619885fd424b",
      "obs": {
-      "bglike_v6_heroes": "f918305c847a282d"
+      "bglike_v6_heroes": "c844e281235ced95"
      }
     },
     {
      "i": 1067,
-     "seat": 7,
+     "seat": 3,
      "action": 16,
-     "n_legal": 25,
-     "state": "5138ebf33a001e682cf6c46b2dc8a424",
+     "n_legal": 17,
+     "state": "746bd55c5883cf947bd7ebed30838bda",
      "obs": {
-      "bglike_v6_heroes": "3177336ed4c71a68"
+      "bglike_v6_heroes": "2259951ea6c9534a"
      }
     },
     {
      "i": 1068,
-     "seat": 7,
-     "action": 12,
+     "seat": 3,
+     "action": 16,
      "n_legal": 17,
-     "state": "c8828169992f52d5ecaeb1b7245dab0e",
+     "state": "2f9bef5df25a4225b5249ee556ee452e",
      "obs": {
-      "bglike_v6_heroes": "ae8cc6bbb41f0400"
+      "bglike_v6_heroes": "130133207e8a541d"
      }
     },
     {
      "i": 1069,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "1cdaa7e60ee5d1702e086b1fa723e224",
+     "seat": 3,
+     "action": 17,
+     "n_legal": 17,
+     "state": "718f53fe01150f9fadaca82b4367a58a",
      "obs": {
-      "bglike_v6_heroes": "62759e11259c6778"
+      "bglike_v6_heroes": "ad9a8b92fdadbbd1"
      }
     },
     {
      "i": 1070,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "5eb7df061fb80bf01e882bc351641402",
+     "seat": 3,
+     "action": 97,
+     "n_legal": 3,
+     "state": "e338bfce23b3a0c3e86ad0e0e35a2799",
      "obs": {
-      "bglike_v6_heroes": "f84d8705649484c0"
+      "bglike_v6_heroes": "0dedf8dcfbf5cdf0"
      }
     },
     {
      "i": 1071,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "da3150f6913bdac947d7cb4def480bd3",
+     "seat": 3,
+     "action": 8,
+     "n_legal": 16,
+     "state": "d1beb0e92bc925810bba36eeb114b553",
      "obs": {
-      "bglike_v6_heroes": "6eec9e3c865c00f3"
+      "bglike_v6_heroes": "bdaa149d5812080c"
      }
     },
     {
      "i": 1072,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "9b9e3888d321f4fec985da7ebd031a7a",
+     "seat": 3,
+     "action": 17,
+     "n_legal": 20,
+     "state": "8b0e7ba59d0ebcc459053135a5447a7d",
      "obs": {
-      "bglike_v6_heroes": "d37d1d66f7daaf3d"
+      "bglike_v6_heroes": "d35a29ce1c1e5799"
      }
     },
     {
      "i": 1073,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "618b3a3429d6d421791d16841252c21f",
+     "seat": 3,
+     "action": 4,
+     "n_legal": 19,
+     "state": "59d100679f2e0fd525500336bcd5f171",
      "obs": {
-      "bglike_v6_heroes": "d55a49ee5d55ef1f"
+      "bglike_v6_heroes": "7eea1e272ecd8018"
      }
     },
     {
      "i": 1074,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "a1c3422e5cb7367cc9042c437c7b7c0a",
+     "seat": 3,
+     "action": 10,
+     "n_legal": 15,
+     "state": "42fdb87cf05a4cc86f0d984e87a05b1a",
      "obs": {
-      "bglike_v6_heroes": "8c5ff89dd750b45c"
+      "bglike_v6_heroes": "8bade10ac60bd7df"
      }
     },
     {
      "i": 1075,
-     "seat": 7,
+     "seat": 3,
      "action": 16,
-     "n_legal": 25,
-     "state": "8b9dac6e30f00211df4e6fedd9cebb19",
+     "n_legal": 17,
+     "state": "f6310ca5d23634676982b3023970c852",
      "obs": {
-      "bglike_v6_heroes": "b0259b091873ee4b"
+      "bglike_v6_heroes": "3e541de1a25e18bb"
      }
     },
     {
      "i": 1076,
-     "seat": 7,
+     "seat": 3,
      "action": 12,
-     "n_legal": 17,
-     "state": "e49ebbf1e05c6864ec31f107732495d6",
+     "n_legal": 16,
+     "state": "375676491392d49d5dda6177205d7d02",
      "obs": {
-      "bglike_v6_heroes": "68bc9b48b2816927"
+      "bglike_v6_heroes": "802036dc62820771"
      }
     },
     {
      "i": 1077,
-     "seat": 7,
+     "seat": 3,
      "action": 16,
-     "n_legal": 25,
-     "state": "f4e3c4d7bbaf73e7f0dba5b23dc27407",
+     "n_legal": 17,
+     "state": "aa4e85e1892fc6f1d8f2e6b2bd13a74c",
      "obs": {
-      "bglike_v6_heroes": "44014241094bce5c"
+      "bglike_v6_heroes": "63e9c57522c5e72c"
      }
     },
     {
      "i": 1078,
-     "seat": 7,
+     "seat": 3,
      "action": 12,
-     "n_legal": 17,
-     "state": "df83aa7edac19f00a06f17c5c714db50",
+     "n_legal": 16,
+     "state": "2731f8a728a51d71c08edc10ede5a2ff",
      "obs": {
-      "bglike_v6_heroes": "3695c1d94ee8f709"
+      "bglike_v6_heroes": "ac643d00ce3544c3"
      }
     },
     {
      "i": 1079,
-     "seat": 7,
+     "seat": 3,
      "action": 16,
-     "n_legal": 25,
-     "state": "9cf7ef95027b008aa2e8c644ee2d36d7",
+     "n_legal": 19,
+     "state": "d1bc75ba9b1bb78430592c87a0acc1c8",
      "obs": {
-      "bglike_v6_heroes": "f2018056ca2f67e3"
+      "bglike_v6_heroes": "7b7a4e9b17fa811e"
      }
     },
     {
      "i": 1080,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "7d7f7309940d19e63b72408e3573aa44",
+     "seat": 3,
+     "action": 3,
+     "n_legal": 18,
+     "state": "7d15b59e97f38254eb7513fe86029578",
      "obs": {
-      "bglike_v6_heroes": "f9f2e5bfcba7f7fe"
+      "bglike_v6_heroes": "e4d62a99edacd37c"
      }
     },
     {
      "i": 1081,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "0dd53ca60485ecc46c722f4d5eb64902",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 15,
+     "state": "632e55922636bbb6912f51cc8c7ad566",
      "obs": {
-      "bglike_v6_heroes": "d83d1eead83d0cc2"
+      "bglike_v6_heroes": "38ac8a572432f89c"
      }
     },
     {
      "i": 1082,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "bca93ecc8fd02660a65e8800336e3ae3",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 18,
+     "state": "306b35263ca9da40f3d86c9565c38d22",
      "obs": {
-      "bglike_v6_heroes": "0c2ac37577690634"
+      "bglike_v6_heroes": "147a7d9591c1afe7"
      }
     },
     {
      "i": 1083,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "7a6f69317b8049baadd9227b3d66c0f5",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 16,
+     "state": "560fb76f0296b2ba2710d7e05d954f72",
      "obs": {
-      "bglike_v6_heroes": "a7c4f761570702a2"
+      "bglike_v6_heroes": "b353d05bb6eecef0"
      }
     },
     {
      "i": 1084,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "c2fd650fb78b702a108327759600cd66",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 18,
+     "state": "bdfbaa95621076f6639273c76dc584d0",
      "obs": {
-      "bglike_v6_heroes": "ac824bb2ac4ba7da"
+      "bglike_v6_heroes": "4f4be0a7a81708c2"
      }
     },
     {
      "i": 1085,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "e379417d89fe9c5835bcdccb738f7bd7",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 16,
+     "state": "134c613ce730c9e44be6cc41a9729f40",
      "obs": {
-      "bglike_v6_heroes": "81e4b475c0fbefc0"
+      "bglike_v6_heroes": "7d5f0e22d2d28034"
      }
     },
     {
      "i": 1086,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "81519ba059e1c6931b18faf4d254b83a",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 19,
+     "state": "10f95941963dc30bbf1591ecfa1a6757",
      "obs": {
-      "bglike_v6_heroes": "42d84f400fea9653"
+      "bglike_v6_heroes": "c74227968e77c0a2"
      }
     },
     {
      "i": 1087,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "44a280d4e4a8e3279364f4ce2ea50c05",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 17,
+     "state": "3845ec5992d210f737a4db1c5119cac3",
      "obs": {
-      "bglike_v6_heroes": "ee9e544a72e84666"
+      "bglike_v6_heroes": "7fba3a97ff838283"
      }
     },
     {
      "i": 1088,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "07c840c6e5b7d7541e44a1733f92dbaa",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 19,
+     "state": "0b4a365fd184c36b2e8ef927ba82aa03",
      "obs": {
-      "bglike_v6_heroes": "c78d3465b42a314b"
+      "bglike_v6_heroes": "23d63701d345e177"
      }
     },
     {
      "i": 1089,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "56d181bcc72182f890d0292370badfd3",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 17,
+     "state": "1ba9c3da9baf7aef80f577cb67e2afe2",
      "obs": {
-      "bglike_v6_heroes": "c1638f69b6b40c20"
+      "bglike_v6_heroes": "bfde2b08eda02105"
      }
     },
     {
      "i": 1090,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "35243a582925be7abfe74f32c37202a3",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 19,
+     "state": "ca5c9c0aef495aa4971bc213481074ac",
      "obs": {
-      "bglike_v6_heroes": "f0ffaaefd99e514a"
+      "bglike_v6_heroes": "5f68c99abbbb8b9d"
      }
     },
     {
      "i": 1091,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "d0ed7b1523dc85f27879279552daf91d",
+     "seat": 3,
+     "action": 12,
+     "n_legal": 17,
+     "state": "d6d44bca08f966c034d1cafc0c86638b",
      "obs": {
-      "bglike_v6_heroes": "b867a536b38da980"
+      "bglike_v6_heroes": "a9cb17ca01047abb"
      }
     },
     {
      "i": 1092,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "eb3adf94c7093151480490287cb21029",
+     "seat": 3,
+     "action": 16,
+     "n_legal": 19,
+     "state": "b28fc1904a0081e49a4d69e4ff41dc73",
      "obs": {
-      "bglike_v6_heroes": "a9bf9ab8457d6235"
+      "bglike_v6_heroes": "b49685332a7f46ab"
      }
     },
     {
      "i": 1093,
-     "seat": 7,
-     "action": 99,
-     "n_legal": 7,
-     "state": "d639728cd5073d15d6703e01c60e8255",
-     "obs": {
-      "bglike_v6_heroes": "7febff49373b7ae0"
-     }
-    },
-    {
-     "i": 1094,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "7f7a96c3ce22857117f553b64a47e7a7",
-     "obs": {
-      "bglike_v6_heroes": "c35b7fe36b5bcf8f"
-     }
-    },
-    {
-     "i": 1095,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "0c450c6357e72090e1ba11f94c5cc01f",
-     "obs": {
-      "bglike_v6_heroes": "883a2c8d272d98f6"
-     }
-    },
-    {
-     "i": 1096,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "82d9d918f7268b8a92747580d9b1d8df",
-     "obs": {
-      "bglike_v6_heroes": "925c5dc868b6de55"
-     }
-    },
-    {
-     "i": 1097,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "e0c1f99feb0ad0b621208579d99ae70e",
-     "obs": {
-      "bglike_v6_heroes": "40e00a5899054aad"
-     }
-    },
-    {
-     "i": 1098,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "5685295e0b25f075d048a5af327c66fe",
-     "obs": {
-      "bglike_v6_heroes": "778e931a04e94496"
-     }
-    },
-    {
-     "i": 1099,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "0fe0fe5356fb5d9222cab0b0492b2a2f",
-     "obs": {
-      "bglike_v6_heroes": "48af8d29839a21fc"
-     }
-    },
-    {
-     "i": 1100,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "4cda8a3e2dc9f60244bb9a47f2dbd930",
-     "obs": {
-      "bglike_v6_heroes": "0b588065a63829d0"
-     }
-    },
-    {
-     "i": 1101,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "e7e09cebeb5c8ab00241f1f60c7f825d",
-     "obs": {
-      "bglike_v6_heroes": "0bcd95559af6ab4c"
-     }
-    },
-    {
-     "i": 1102,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "30cc7b39b3ba650901ce61686e00657d",
-     "obs": {
-      "bglike_v6_heroes": "fc8c5417f171b824"
-     }
-    },
-    {
-     "i": 1103,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "474442b8a3c17cabc0636c815af8f8ff",
-     "obs": {
-      "bglike_v6_heroes": "1e16c7f2d43ad114"
-     }
-    },
-    {
-     "i": 1104,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "2280a873ba172362808590ab9629bc83",
-     "obs": {
-      "bglike_v6_heroes": "bdb70f218a06edde"
-     }
-    },
-    {
-     "i": 1105,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "c02b8602559b17db5b7d25516ededed4",
-     "obs": {
-      "bglike_v6_heroes": "8fb3a88be0eacaa0"
-     }
-    },
-    {
-     "i": 1106,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "56526a918f4f173b3eccb8a13cf1eb2e",
-     "obs": {
-      "bglike_v6_heroes": "1527eb158a56f2c0"
-     }
-    },
-    {
-     "i": 1107,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "f2f710df12fcd7a136ed3d78c9fdf217",
-     "obs": {
-      "bglike_v6_heroes": "6d7754a859c7693b"
-     }
-    },
-    {
-     "i": 1108,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "7808d21dafb216cc2710a9a2faafc892",
-     "obs": {
-      "bglike_v6_heroes": "eb5fea3b83c1e549"
-     }
-    },
-    {
-     "i": 1109,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "82442eab76479cbd4a514c22112f836a",
-     "obs": {
-      "bglike_v6_heroes": "cebfcff86b9c371d"
-     }
-    },
-    {
-     "i": 1110,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "466cfd93ac0e2a6836b1d794dd8cd0ae",
-     "obs": {
-      "bglike_v6_heroes": "bb239f7035f405d5"
-     }
-    },
-    {
-     "i": 1111,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "5a4a06274bf62d27cfb7a23ae4b6e616",
-     "obs": {
-      "bglike_v6_heroes": "b81470430d0415e0"
-     }
-    },
-    {
-     "i": 1112,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "b0ff12040bfe230cbb67b278eae2005c",
-     "obs": {
-      "bglike_v6_heroes": "051f9131b2241840"
-     }
-    },
-    {
-     "i": 1113,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "9f762f12132d78cdd85fd5b82416dad6",
-     "obs": {
-      "bglike_v6_heroes": "ab287811a59e55ca"
-     }
-    },
-    {
-     "i": 1114,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "d064dc0a19b61ef92b365459c5e1a536",
-     "obs": {
-      "bglike_v6_heroes": "93812a68244fd17d"
-     }
-    },
-    {
-     "i": 1115,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "8095f8106d4c962a312d3ba1355beea5",
-     "obs": {
-      "bglike_v6_heroes": "e2749ee0ef752601"
-     }
-    },
-    {
-     "i": 1116,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "63c0a3e6ef561957799503ab0ca16560",
-     "obs": {
-      "bglike_v6_heroes": "d7e90cc663d99422"
-     }
-    },
-    {
-     "i": 1117,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "0ca968ff53bf58c73148e251971c0216",
-     "obs": {
-      "bglike_v6_heroes": "c6ba0b3225a6c07f"
-     }
-    },
-    {
-     "i": 1118,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "a1eb480f68330705cb7e080dd6eb70a5",
-     "obs": {
-      "bglike_v6_heroes": "4410274c7c859443"
-     }
-    },
-    {
-     "i": 1119,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "680355bece534de48ba796e8cb727e94",
-     "obs": {
-      "bglike_v6_heroes": "c03623e87e7c9f91"
-     }
-    },
-    {
-     "i": 1120,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "42d501afdc4a81b855aa2dd2fe07b45e",
-     "obs": {
-      "bglike_v6_heroes": "35136056bf19986a"
-     }
-    },
-    {
-     "i": 1121,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "97b1a878883a8449711514e8d37a2d92",
-     "obs": {
-      "bglike_v6_heroes": "7dde1fc048f3be7d"
-     }
-    },
-    {
-     "i": 1122,
-     "seat": 7,
-     "action": 16,
-     "n_legal": 25,
-     "state": "216f28841af7b80b659f7206f6613462",
-     "obs": {
-      "bglike_v6_heroes": "85bb5fb37449274e"
-     }
-    },
-    {
-     "i": 1123,
-     "seat": 7,
-     "action": 12,
-     "n_legal": 17,
-     "state": "c70564e236aaffaf43a0b3ac212aad8e",
-     "obs": {
-      "bglike_v6_heroes": "7309228e4c07d4fe"
-     }
-    },
-    {
-     "i": 1124,
-     "seat": 7,
-     "action": 99,
-     "n_legal": 7,
-     "state": "36df24a7f8bf1711757ec0a0cf041c75",
-     "obs": {
-      "bglike_v6_heroes": "418868591e63a971"
-     }
-    },
-    {
-     "i": 1125,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "1a35cef4fbb33bfc824b55e4d3186d9d",
-     "obs": {
-      "bglike_v6_heroes": "2c0e7af3098247bd"
-     }
-    },
-    {
-     "i": 1126,
-     "seat": 3,
-     "action": 2,
-     "n_legal": 22,
-     "state": "67f76c8f3582aa44d2bd85c7730e9420",
-     "obs": {
-      "bglike_v6_heroes": "8ad79883a9fdd865"
-     }
-    },
-    {
-     "i": 1127,
-     "seat": 3,
-     "action": 4,
-     "n_legal": 21,
-     "state": "8d342795bbf07c319c00e4f244ec86e1",
-     "obs": {
-      "bglike_v6_heroes": "1e12988bb8fd654b"
-     }
-    },
-    {
-     "i": 1128,
-     "seat": 3,
-     "action": 1,
-     "n_legal": 20,
-     "state": "ed154b6efde999d5a88a3f1a3c670b3e",
-     "obs": {
-      "bglike_v6_heroes": "dcfcfb450755cab5"
-     }
-    },
-    {
-     "i": 1129,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "0aac9026680fb2f03fdad8e18caa9afc",
-     "obs": {
-      "bglike_v6_heroes": "0fc3eb0dc9ab7bfd"
-     }
-    },
-    {
-     "i": 1130,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 22,
-     "state": "10c4b21032a28b06dcb6b8995a13d4b0",
-     "obs": {
-      "bglike_v6_heroes": "18b91fd5136f947e"
-     }
-    },
-    {
-     "i": 1131,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "c6f677fbc0f039c58bcfc8b28d9d16ed",
-     "obs": {
-      "bglike_v6_heroes": "9acf9de943971d9b"
-     }
-    },
-    {
-     "i": 1132,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "cf074393eab6a11f89436666c54fdda5",
-     "obs": {
-      "bglike_v6_heroes": "70e94e61e9b03899"
-     }
-    },
-    {
-     "i": 1133,
-     "seat": 3,
-     "action": 0,
-     "n_legal": 19,
-     "state": "99773aec97a4a1f42aab8c08f1c7b587",
-     "obs": {
-      "bglike_v6_heroes": "dac7c542c228319b"
-     }
-    },
-    {
-     "i": 1134,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 15,
-     "state": "6580225748abac9f69e564968765ec66",
-     "obs": {
-      "bglike_v6_heroes": "1ebecbbc6221513e"
-     }
-    },
-    {
-     "i": 1135,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 22,
-     "state": "22c811b9a661e694eab401a28864b2fb",
-     "obs": {
-      "bglike_v6_heroes": "28e97562d5d7dc45"
-     }
-    },
-    {
-     "i": 1136,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "4e9a52078525fea6b8ce3d05630c92b4",
-     "obs": {
-      "bglike_v6_heroes": "dc3f335993e22b74"
-     }
-    },
-    {
-     "i": 1137,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 23,
-     "state": "66f2ba7325cc07e5524c8e2b0ce7920f",
-     "obs": {
-      "bglike_v6_heroes": "be9d014167bba64f"
-     }
-    },
-    {
-     "i": 1138,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "8fce4d57c127bbde3716ad0f4e79604d",
-     "obs": {
-      "bglike_v6_heroes": "a6c521f962bfff6c"
-     }
-    },
-    {
-     "i": 1139,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "48a99d7b0ba67ff0ec4e68ba9996167e",
-     "obs": {
-      "bglike_v6_heroes": "6f903df385dba8c0"
-     }
-    },
-    {
-     "i": 1140,
-     "seat": 3,
-     "action": 3,
-     "n_legal": 18,
-     "state": "563fcd357d63998fbb0e07ae02dbce96",
-     "obs": {
-      "bglike_v6_heroes": "427a203ee1f2b5e5"
-     }
-    },
-    {
-     "i": 1141,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 15,
-     "state": "6a2cd97b598cde364df0da67260d86f8",
-     "obs": {
-      "bglike_v6_heroes": "4ef9122d409132bd"
-     }
-    },
-    {
-     "i": 1142,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 23,
-     "state": "2cf0d00af97b54097616df5224fe7bf6",
-     "obs": {
-      "bglike_v6_heroes": "726f85524e8ae80d"
-     }
-    },
-    {
-     "i": 1143,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 16,
-     "state": "6fa9c2ca01d665e28f6c8f97c4776b36",
-     "obs": {
-      "bglike_v6_heroes": "cf40858b9de2b003"
-     }
-    },
-    {
-     "i": 1144,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "acb4b4933d7f82f5b2db10d5a6808fe5",
-     "obs": {
-      "bglike_v6_heroes": "d1ac3bd977e1f154"
-     }
-    },
-    {
-     "i": 1145,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "06ce7c350343d1c936fb982e84a85589",
-     "obs": {
-      "bglike_v6_heroes": "2c198473fe331b96"
-     }
-    },
-    {
-     "i": 1146,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "119521d7d79a6ba63bc50be903b8a39b",
-     "obs": {
-      "bglike_v6_heroes": "58cf9f40c491e024"
-     }
-    },
-    {
-     "i": 1147,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "ca362d553ebccfee1aa8d5f7e48151ef",
-     "obs": {
-      "bglike_v6_heroes": "ffbf2eb389d34c6d"
-     }
-    },
-    {
-     "i": 1148,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "0e369329f695b14e72aa29ec110b53d9",
-     "obs": {
-      "bglike_v6_heroes": "099bfc28b6f36dd1"
-     }
-    },
-    {
-     "i": 1149,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "6eddab14797874abb20e6cc8ae719762",
-     "obs": {
-      "bglike_v6_heroes": "c80531a602f11020"
-     }
-    },
-    {
-     "i": 1150,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "85a7f1a1ebc065c7b15e93e656292773",
-     "obs": {
-      "bglike_v6_heroes": "204ae6dd206d42a8"
-     }
-    },
-    {
-     "i": 1151,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "e563c51ca5111f87f1490591df9afa74",
-     "obs": {
-      "bglike_v6_heroes": "2f0a1f83e260dc96"
-     }
-    },
-    {
-     "i": 1152,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "87c2135461e2ce7c9681aea021e893cf",
-     "obs": {
-      "bglike_v6_heroes": "144ce36190c3e51d"
-     }
-    },
-    {
-     "i": 1153,
-     "seat": 3,
-     "action": 12,
-     "n_legal": 17,
-     "state": "d2c8a7408c77b67d3af5dc6e9b719b05",
-     "obs": {
-      "bglike_v6_heroes": "a8d26a1a965ef642"
-     }
-    },
-    {
-     "i": 1154,
-     "seat": 3,
-     "action": 16,
-     "n_legal": 24,
-     "state": "46f95999c9b96a7b7ff32bec8df6e09b",
-     "obs": {
-      "bglike_v6_heroes": "86c304e3dd533c00"
-     }
-    },
-    {
-     "i": 1155,
      "seat": 3,
      "action": 99,
      "n_legal": 8,
-     "state": "b07c6af62d6cd7a338f0176b410baf3d",
+     "state": "97b9d20cd355f1fe627ad3d9274f86a3",
      "obs": {
-      "bglike_v6_heroes": "029e06b5f9b1762e"
+      "bglike_v6_heroes": "cbeb9592f13001a6"
      }
     }
    ],
-   "chain": "3e04e296023c833f1d8684092f9ac50f",
-   "n_steps": 1156,
-   "rounds": 17
+   "chain": "a0a4ea8f9b2ee49b0d38b1fe37f481c0",
+   "n_steps": 1094,
+   "rounds": 16
   },
   {
    "seed": 303,
@@ -28493,7 +27873,7 @@
      "seat": 0,
      "action": 13,
      "n_legal": 17,
-     "state": "6e9ad7dd0503c0f1d22b78635a98824d",
+     "state": "e501b336352b13a6513ece0b293e1121",
      "obs": {
       "bglike_v6_heroes": "a90b1412b399d397"
      }
@@ -28503,9 +27883,9 @@
      "seat": 0,
      "action": 99,
      "n_legal": 15,
-     "state": "6e9ad7dd0503c0f1d22b78635a98824d",
+     "state": "e501b336352b13a6513ece0b293e1121",
      "obs": {
-      "bglike_v6_heroes": "a8de6d71a96e437a"
+      "bglike_v6_heroes": "3260ad7e8af5bfb4"
      }
     },
     {
@@ -28513,7 +27893,7 @@
      "seat": 3,
      "action": 4,
      "n_legal": 22,
-     "state": "14f675b7b117ae03d6590e5f1d70e4bf",
+     "state": "a9a715f6bf00a41cdda5a012d132521f",
      "obs": {
       "bglike_v6_heroes": "66738a17093c2e78"
      }
@@ -28523,7 +27903,7 @@
      "seat": 3,
      "action": 3,
      "n_legal": 21,
-     "state": "d94c922e9f925058cc3210ec96c7223a",
+     "state": "8f08702b402fd8d8b42d5c7bef4755dd",
      "obs": {
       "bglike_v6_heroes": "a26599c820d824c7"
      }
@@ -28533,7 +27913,7 @@
      "seat": 3,
      "action": 1,
      "n_legal": 19,
-     "state": "1dd8ee1c47cf35fa86c2cc15a66ecfdb",
+     "state": "ca0b19fe3f46a5a682ef6b6b3eb9f5b8",
      "obs": {
       "bglike_v6_heroes": "c2b5f05c5eb89435"
      }
@@ -28543,7 +27923,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "37270b717f098eff58841daf0510da02",
+     "state": "d32006aa7912e8f9f22e51c2074160d8",
      "obs": {
       "bglike_v6_heroes": "5bf302369c1d4d40"
      }
@@ -28553,7 +27933,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "0f4d1b18ad660238b9b6e80a42af74b0",
+     "state": "5b6509356e2fc09c4ad1d192e8d2a632",
      "obs": {
       "bglike_v6_heroes": "5e75a65b7d3bc67e"
      }
@@ -28563,7 +27943,7 @@
      "seat": 3,
      "action": 11,
      "n_legal": 16,
-     "state": "a4f9208477b1133f40e15f5b3d6e0993",
+     "state": "57078a904f0874e67c89931a401d8267",
      "obs": {
       "bglike_v6_heroes": "09e958e87d1b99b0"
      }
@@ -28573,7 +27953,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 18,
-     "state": "ba4feed5ffa30ca61e60a07cd418d971",
+     "state": "e9e3fde9bf3609a896d7f1c4ba982854",
      "obs": {
       "bglike_v6_heroes": "d57cc2f2f3a0f204"
      }
@@ -28583,7 +27963,7 @@
      "seat": 3,
      "action": 2,
      "n_legal": 18,
-     "state": "cb2a03100082d803598b87c8663e6a9a",
+     "state": "d274b584b00573dbb66814a46e46511c",
      "obs": {
       "bglike_v6_heroes": "ce91891ffb2ca38b"
      }
@@ -28593,7 +27973,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "2ef8f75f1f84c3be26310977a84ad380",
+     "state": "0085022921851fd553ed83350df92040",
      "obs": {
       "bglike_v6_heroes": "e747db40acf5bb8a"
      }
@@ -28603,7 +27983,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 16,
-     "state": "5651581c6f41965ea8637d5cc7bdf54a",
+     "state": "d14e317077b5e0d0fd165b74d6870739",
      "obs": {
       "bglike_v6_heroes": "a103fbde4a532406"
      }
@@ -28613,7 +27993,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "b421f9611c68aa76d43df646952b0a20",
+     "state": "c83c920012f9ef2839358175d5b4c720",
      "obs": {
       "bglike_v6_heroes": "731baf694a8ec511"
      }
@@ -28623,7 +28003,7 @@
      "seat": 3,
      "action": 18,
      "n_legal": 15,
-     "state": "f5324bffce28fc34bd6bd49bc3164a2e",
+     "state": "56d47621b83de069d6fe72b28f8ec425",
      "obs": {
       "bglike_v6_heroes": "d22d186bd479e5de"
      }
@@ -28633,7 +28013,7 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "b9821ea095386f22252c56e4e6fb158e",
+     "state": "d4420c8905a26ce9c93963594415a2c6",
      "obs": {
       "bglike_v6_heroes": "c6f82c421cbc4036"
      }
@@ -28643,7 +28023,7 @@
      "seat": 3,
      "action": 99,
      "n_legal": 16,
-     "state": "2a170b5c677dff372ab24fa373590d28",
+     "state": "ead9f7557b5aba3274b09323cbe9f6ee",
      "obs": {
       "bglike_v6_heroes": "cb3fbbfaf551f4b0"
      }
@@ -28653,29 +28033,29 @@
      "seat": 0,
      "action": 1,
      "n_legal": 21,
-     "state": "d96004c775e5f8c738497a31bf9b1323",
+     "state": "6683516d82eaa803b4c57406e56d0635",
      "obs": {
-      "bglike_v6_heroes": "11ab2a792a152e7c"
+      "bglike_v6_heroes": "e17aeabcf0dd8f7f"
      }
     },
     {
      "i": 778,
      "seat": 0,
-     "action": 0,
+     "action": 2,
      "n_legal": 20,
-     "state": "221a4005c4f48b316650cf149b8b9e07",
+     "state": "91a075c2c96ca851991d10227fd5bf99",
      "obs": {
-      "bglike_v6_heroes": "60f8b28301abe53c"
+      "bglike_v6_heroes": "da78ef4b87f6751d"
      }
     },
     {
      "i": 779,
      "seat": 0,
-     "action": 3,
+     "action": 0,
      "n_legal": 19,
-     "state": "4a7fbd83c256de7d25f9878054b42f4f",
+     "state": "946e3f7590ed8543fc6e3f9df0488e43",
      "obs": {
-      "bglike_v6_heroes": "d5c5d32864b2b69d"
+      "bglike_v6_heroes": "147505ab735f5767"
      }
     },
     {
@@ -28683,9 +28063,9 @@
      "seat": 0,
      "action": 12,
      "n_legal": 17,
-     "state": "67aa05d7045a7400a1a3a66b81172b8b",
+     "state": "98dc3995df45ef44940ca8e8041b37a1",
      "obs": {
-      "bglike_v6_heroes": "91fb827a7dea4fda"
+      "bglike_v6_heroes": "55b46e0ac7909b41"
      }
     },
     {
@@ -28693,19 +28073,19 @@
      "seat": 0,
      "action": 16,
      "n_legal": 19,
-     "state": "4c6f08e23a611c224dec793cd8b0ef54",
+     "state": "1a0b4e13b09674dfb332dcfca643fe08",
      "obs": {
-      "bglike_v6_heroes": "b497607620f46586"
+      "bglike_v6_heroes": "5de22068aa9ddbf8"
      }
     },
     {
      "i": 782,
      "seat": 0,
-     "action": 10,
+     "action": 8,
      "n_legal": 17,
-     "state": "279c108be4680b34fc285810a31cf136",
+     "state": "3f6afe1bb18170f31fd5249d030a736b",
      "obs": {
-      "bglike_v6_heroes": "bd4bd6ef4d1ce355"
+      "bglike_v6_heroes": "8206b305ea3b66e4"
      }
     },
     {
@@ -28713,29 +28093,29 @@
      "seat": 0,
      "action": 17,
      "n_legal": 19,
-     "state": "3ca645915470075ae50eb7bf80fff997",
+     "state": "b05271d2ad7d80daebb88a538f54097b",
      "obs": {
-      "bglike_v6_heroes": "1b63118d7a9f9117"
+      "bglike_v6_heroes": "0829a69946d735dc"
      }
     },
     {
      "i": 784,
      "seat": 0,
-     "action": 2,
+     "action": 3,
      "n_legal": 18,
-     "state": "658d1170bca19c9f0e0bfbcc9cf1b053",
+     "state": "72da80478cfab79adfab45134580d9c8",
      "obs": {
-      "bglike_v6_heroes": "e8aaf01739f88895"
+      "bglike_v6_heroes": "0c9cee9ccec12a65"
      }
     },
     {
      "i": 785,
      "seat": 0,
-     "action": 12,
+     "action": 8,
      "n_legal": 16,
-     "state": "a170fa2367b7614b516bdac13446276d",
+     "state": "4c0860daa40a08a3da0aabdb4ff7f299",
      "obs": {
-      "bglike_v6_heroes": "5c563716f6d4df9c"
+      "bglike_v6_heroes": "e4047e567675036e"
      }
     },
     {
@@ -28743,9 +28123,9 @@
      "seat": 0,
      "action": 18,
      "n_legal": 18,
-     "state": "0eb4a756bf84e93ac224c0b5ba944e11",
+     "state": "32336c8365517e945aeae52db6ae9670",
      "obs": {
-      "bglike_v6_heroes": "c1216d480facacf3"
+      "bglike_v6_heroes": "afe97e4c63632c84"
      }
     },
     {
@@ -28753,9 +28133,9 @@
      "seat": 0,
      "action": 12,
      "n_legal": 17,
-     "state": "078a4c9c94140bc6cb8fb13901d504d9",
+     "state": "37b818d6ccd6d9f592b3f1e60bfb9d64",
      "obs": {
-      "bglike_v6_heroes": "70b1f43ca0e99271"
+      "bglike_v6_heroes": "a7e7858f7fbe120c"
      }
     },
     {
@@ -28763,9 +28143,9 @@
      "seat": 0,
      "action": 16,
      "n_legal": 17,
-     "state": "ee2e1def4fe4ecc59daa8ecc08547b5c",
+     "state": "80ef0fb0631cea7b28c319d8a650fe04",
      "obs": {
-      "bglike_v6_heroes": "8fa9890c8624cfe4"
+      "bglike_v6_heroes": "3481f5d13fad7e68"
      }
     },
     {
@@ -28773,9 +28153,9 @@
      "seat": 0,
      "action": 12,
      "n_legal": 17,
-     "state": "03cb20b2e466503b8d95af1abfd740b7",
+     "state": "32ef323a2d6ba229547cdab8a4a3ff06",
      "obs": {
-      "bglike_v6_heroes": "2084db633fff7dad"
+      "bglike_v6_heroes": "cd9d886e706865ec"
      }
     },
     {
@@ -28783,9 +28163,9 @@
      "seat": 0,
      "action": 19,
      "n_legal": 16,
-     "state": "ebaa2b6a6071d9cc6b3b0a5e0d8a3d2c",
+     "state": "95e3c3d467e6009ddad62e894ec67bde",
      "obs": {
-      "bglike_v6_heroes": "6260bd1a8b76873e"
+      "bglike_v6_heroes": "315c0257d01d4d5c"
      }
     },
     {
@@ -28793,9 +28173,9 @@
      "seat": 0,
      "action": 13,
      "n_legal": 17,
-     "state": "6ee5a717345c60c49c7de0b60c2a6420",
+     "state": "d4208987bb94b3fb4f8c91aac02a928c",
      "obs": {
-      "bglike_v6_heroes": "ed2ce5f11432b134"
+      "bglike_v6_heroes": "f83dfeea49896c31"
      }
     },
     {
@@ -28803,9 +28183,9 @@
      "seat": 0,
      "action": 13,
      "n_legal": 17,
-     "state": "4591a3587c95a21a95bb11f4c51ec5d9",
+     "state": "e189238cd6d98dc841578fcf43c8f612",
      "obs": {
-      "bglike_v6_heroes": "5f0242771b39db2f"
+      "bglike_v6_heroes": "25f7b2e493782fd9"
      }
     },
     {
@@ -28813,9 +28193,9 @@
      "seat": 0,
      "action": 13,
      "n_legal": 17,
-     "state": "adaa7e4fd9229650407e73e6d790637a",
+     "state": "cfa0a338d6e4d185cc6bbea7e0d36f99",
      "obs": {
-      "bglike_v6_heroes": "b29ddb98d8c29a7d"
+      "bglike_v6_heroes": "32cf15ef5a070808"
      }
     },
     {
@@ -28823,9 +28203,9 @@
      "seat": 0,
      "action": 99,
      "n_legal": 16,
-     "state": "adaa7e4fd9229650407e73e6d790637a",
+     "state": "cfa0a338d6e4d185cc6bbea7e0d36f99",
      "obs": {
-      "bglike_v6_heroes": "d44219f468be0785"
+      "bglike_v6_heroes": "735a15a56182336b"
      }
     },
     {
@@ -28833,7 +28213,7 @@
      "seat": 3,
      "action": 1,
      "n_legal": 22,
-     "state": "77214f51d20c0c5def936226d794b50f",
+     "state": "b6f495972e52e668398ccf1be7b69260",
      "obs": {
       "bglike_v6_heroes": "264e2239aad96f8f"
      }
@@ -28843,7 +28223,7 @@
      "seat": 3,
      "action": 0,
      "n_legal": 21,
-     "state": "cd9c3808f845f7b2ba022f5fbd4f71f6",
+     "state": "d2b86f1270e87b039479ebff6111bc7c",
      "obs": {
       "bglike_v6_heroes": "bd90bf40e1575d57"
      }
@@ -28853,7 +28233,7 @@
      "seat": 3,
      "action": 2,
      "n_legal": 20,
-     "state": "8d4d53e155a00826663e47d6b3116fd5",
+     "state": "d2fd72c34dac824616ba7727713caf00",
      "obs": {
       "bglike_v6_heroes": "c6f30a6ff1350af3"
      }
@@ -28863,7 +28243,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "309fbf9497127f78560f7d820553c64a",
+     "state": "aae900369b7ff407ab6e9842ca27ee14",
      "obs": {
       "bglike_v6_heroes": "6c3a0e90ab92c034"
      }
@@ -28873,7 +28253,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "a03b08b255c8d9168c29c0fe208f6968",
+     "state": "4e41ce5df705438294448296d1053559",
      "obs": {
       "bglike_v6_heroes": "bb6d9f37e7734623"
      }
@@ -28883,7 +28263,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "aa2833dfe7af8fef195de24c3e9a5835",
+     "state": "0d001c65901c8a935dd244857994b398",
      "obs": {
       "bglike_v6_heroes": "2f7bd9286c9f9606"
      }
@@ -28893,7 +28273,7 @@
      "seat": 3,
      "action": 17,
      "n_legal": 18,
-     "state": "66ed507a75e1176e54d67976b6e193ac",
+     "state": "7eeb468693dd5d939008c9c0e4ed9d36",
      "obs": {
       "bglike_v6_heroes": "2128a99f71011995"
      }
@@ -28903,7 +28283,7 @@
      "seat": 3,
      "action": 3,
      "n_legal": 18,
-     "state": "f9b09779da16a091d271df3d4dd167f6",
+     "state": "a312d7a08fc0ea07d036a166b55da53e",
      "obs": {
       "bglike_v6_heroes": "8e32a89afc880185"
      }
@@ -28913,7 +28293,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "e01c1ce8e9a7636ddc53168e1f3362e7",
+     "state": "e07e870d3833c8cd9d839555b5262285",
      "obs": {
       "bglike_v6_heroes": "e8394adb599a1d4a"
      }
@@ -28923,7 +28303,7 @@
      "seat": 3,
      "action": 18,
      "n_legal": 16,
-     "state": "e01c1ce8e9a7636ddc53168e1f3362e7",
+     "state": "e07e870d3833c8cd9d839555b5262285",
      "obs": {
       "bglike_v6_heroes": "2460156cc8981c54"
      }
@@ -28933,7 +28313,7 @@
      "seat": 3,
      "action": 100,
      "n_legal": 3,
-     "state": "28ad93270f8112cbcae393a707710a35",
+     "state": "db46d5bd07da2e3e12c4fb266e266b25",
      "obs": {
       "bglike_v6_heroes": "0d3ff2e362b1e444"
      }
@@ -28943,7 +28323,7 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "586802cabcd1b184121d04a7300c1427",
+     "state": "528888e038617cdfa909243333529e44",
      "obs": {
       "bglike_v6_heroes": "218d5280f0892940"
      }
@@ -28953,7 +28333,7 @@
      "seat": 3,
      "action": 16,
      "n_legal": 15,
-     "state": "a0426d232bf05a17df7d672185b52186",
+     "state": "4ee426c042a97eaf8a21bbddafdc8c77",
      "obs": {
       "bglike_v6_heroes": "8e5e8e02c9f728d4"
      }
@@ -28963,7 +28343,7 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "2d17ae410c1c7b08ef3ab88f45fe9682",
+     "state": "0ea12c15f7b0e3bb45861fdfba665ebe",
      "obs": {
       "bglike_v6_heroes": "4be47e1236aa56a6"
      }
@@ -28973,7 +28353,7 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "1d2eb1362a9393c4e6aabb2e265ee225",
+     "state": "f845b1a6ac2f51038371c5c80aea358f",
      "obs": {
       "bglike_v6_heroes": "fc3236ae20af9a1b"
      }
@@ -28983,9 +28363,9 @@
      "seat": 3,
      "action": 99,
      "n_legal": 16,
-     "state": "1d2eb1362a9393c4e6aabb2e265ee225",
+     "state": "f845b1a6ac2f51038371c5c80aea358f",
      "obs": {
-      "bglike_v6_heroes": "3fcc12264acc577c"
+      "bglike_v6_heroes": "d4cf066faeb0b82b"
      }
     },
     {
@@ -28993,7 +28373,7 @@
      "seat": 7,
      "action": 1,
      "n_legal": 22,
-     "state": "c7dbd92d0c479b5d6bbaa72fe29aabb7",
+     "state": "faa857607201dc48aa64dea1fc07352f",
      "obs": {
       "bglike_v6_heroes": "d0854582d0a05d4d"
      }
@@ -29003,7 +28383,7 @@
      "seat": 7,
      "action": 13,
      "n_legal": 21,
-     "state": "12552bfa2ebda169c1b28f06e5b9113e",
+     "state": "a23c85eb4140fe967e04541b3f3fc9a6",
      "obs": {
       "bglike_v6_heroes": "331e4b0d0fdfcd1d"
      }
@@ -29013,9 +28393,9 @@
      "seat": 7,
      "action": 13,
      "n_legal": 22,
-     "state": "7bb58d8844f1eee59039f545ab0819fd",
+     "state": "b7802632e0cec79ada0e8fc432bdfaf8",
      "obs": {
-      "bglike_v6_heroes": "e017ff6eb516dbbf"
+      "bglike_v6_heroes": "5b13d98b341909b7"
      }
     },
     {
@@ -29023,7 +28403,7 @@
      "seat": 7,
      "action": 2,
      "n_legal": 22,
-     "state": "0f73b5b71a7aeeb54cb6543f52560520",
+     "state": "bbfdc3b54cc96896445b48413e8a2bcf",
      "obs": {
       "bglike_v6_heroes": "6fbc3ddda4df5888"
      }
@@ -29033,7 +28413,7 @@
      "seat": 7,
      "action": 13,
      "n_legal": 16,
-     "state": "52aad1e1c2d250069eb3106dc79811fd",
+     "state": "647b88c56045786d53aeb81c85a6b02b",
      "obs": {
       "bglike_v6_heroes": "5e94d26ca77471bb"
      }
@@ -29043,7 +28423,7 @@
      "seat": 7,
      "action": 13,
      "n_legal": 16,
-     "state": "81f1227c0f10cbc942d5c311d86c1893",
+     "state": "1c18fbcb7f1156a88afd5e62bee53ed2",
      "obs": {
       "bglike_v6_heroes": "749ee549550873a1"
      }
@@ -29053,9 +28433,9 @@
      "seat": 7,
      "action": 15,
      "n_legal": 15,
-     "state": "f3348a220be4069e5a34df251f493201",
+     "state": "01e8a478df6d745dd9a580a66e9e229e",
      "obs": {
-      "bglike_v6_heroes": "5e4ed33786caf476"
+      "bglike_v6_heroes": "487daf99a155eea0"
      }
     },
     {
@@ -29063,9 +28443,9 @@
      "seat": 3,
      "action": 3,
      "n_legal": 22,
-     "state": "d4d7bd18cea6fb19f97c692d5093f4c6",
+     "state": "5e3437916ee556655a409f0f7d7814b5",
      "obs": {
-      "bglike_v6_heroes": "ef16c70dcd5eeacc"
+      "bglike_v6_heroes": "209222238ce4b12d"
      }
     },
     {
@@ -29073,19 +28453,19 @@
      "seat": 3,
      "action": 1,
      "n_legal": 21,
-     "state": "162664e68f160dbe6338a5243e8646a8",
+     "state": "7fbaf615ade88536383cd3975336b761",
      "obs": {
-      "bglike_v6_heroes": "b2ae6a7dcacf57e7"
+      "bglike_v6_heroes": "04b9de394d0bf6fe"
      }
     },
     {
      "i": 820,
      "seat": 3,
-     "action": 4,
+     "action": 0,
      "n_legal": 20,
-     "state": "2214e7b68b0d258294e2f4dcacaf1d52",
+     "state": "d7e483a5707de7199adf3ed07a77ae59",
      "obs": {
-      "bglike_v6_heroes": "8fe468e794e95705"
+      "bglike_v6_heroes": "8ba8348190dc76af"
      }
     },
     {
@@ -29093,9 +28473,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "07e493da28eb7bbfb2301892b57694a1",
+     "state": "3e73f58c63e3d839af925f2687067161",
      "obs": {
-      "bglike_v6_heroes": "33f68a0a5c5bd751"
+      "bglike_v6_heroes": "29412ec51d94c3bd"
      }
     },
     {
@@ -29103,9 +28483,9 @@
      "seat": 3,
      "action": 16,
      "n_legal": 17,
-     "state": "ed294c30510a90db623a7a661e7dddf7",
+     "state": "9f544bcabb9e7f9cdc4ef228383cbc85",
      "obs": {
-      "bglike_v6_heroes": "7a1c0933bca443bc"
+      "bglike_v6_heroes": "1739260affd49b23"
      }
     },
     {
@@ -29113,9 +28493,9 @@
      "seat": 3,
      "action": 8,
      "n_legal": 16,
-     "state": "e87e9d8e318a26ea804331672ae3c151",
+     "state": "7ce6b3e09ecfb008a264c11bde8a7728",
      "obs": {
-      "bglike_v6_heroes": "7a414f0ca03f5f22"
+      "bglike_v6_heroes": "51fb6a879d40a7a3"
      }
     },
     {
@@ -29123,19 +28503,19 @@
      "seat": 3,
      "action": 17,
      "n_legal": 19,
-     "state": "d15339d50bb1a464cb26dde58c3c21ad",
+     "state": "d3a7888429832f540718c3dc658c452a",
      "obs": {
-      "bglike_v6_heroes": "dab3413c9aed76ba"
+      "bglike_v6_heroes": "bedad8898e6b1980"
      }
     },
     {
      "i": 825,
      "seat": 3,
-     "action": 0,
+     "action": 4,
      "n_legal": 19,
-     "state": "7100804387b9c0b45483275d28ce8649",
+     "state": "a7a61e9fd41628eaff8b6b67bd8e0b2c",
      "obs": {
-      "bglike_v6_heroes": "e80839000fe0f81f"
+      "bglike_v6_heroes": "494002fee608c089"
      }
     },
     {
@@ -29143,9 +28523,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "6a224126c3ebffcf0c8c009f8cb192c8",
+     "state": "ca9d6df8ca4f3ee88ce1535addccbace",
      "obs": {
-      "bglike_v6_heroes": "77959a48d99c27f5"
+      "bglike_v6_heroes": "b463c6ec076f1a53"
      }
     },
     {
@@ -29153,9 +28533,9 @@
      "seat": 3,
      "action": 18,
      "n_legal": 16,
-     "state": "72bb31e67b658fe975607eb9347994ae",
+     "state": "e39bd28b282fef64c4049d262a21d7d7",
      "obs": {
-      "bglike_v6_heroes": "7eec69375d151c42"
+      "bglike_v6_heroes": "e09188339121213a"
      }
     },
     {
@@ -29163,9 +28543,9 @@
      "seat": 3,
      "action": 12,
      "n_legal": 16,
-     "state": "61136c24f1df2f940a21464cbe0fe5c9",
+     "state": "01a4b545fe760d933bf60c89e138714c",
      "obs": {
-      "bglike_v6_heroes": "2eb676042d274cda"
+      "bglike_v6_heroes": "9f192cbaf2664aad"
      }
     },
     {
@@ -29173,9 +28553,9 @@
      "seat": 3,
      "action": 16,
      "n_legal": 15,
-     "state": "2b5ff0d118fea1b4d8215a126bbe8c22",
+     "state": "39fb471389d5f3a8aeff9b0952b9cf94",
      "obs": {
-      "bglike_v6_heroes": "4e672c986c91c180"
+      "bglike_v6_heroes": "320bbed8bbc4d00e"
      }
     },
     {
@@ -29183,9 +28563,9 @@
      "seat": 3,
      "action": 13,
      "n_legal": 16,
-     "state": "5128746533302aebe76f162828aebe8a",
+     "state": "97749b699270a92396477f9763b221ed",
      "obs": {
-      "bglike_v6_heroes": "ece9c3bae85e2b0d"
+      "bglike_v6_heroes": "21426371708eb276"
      }
     },
     {
@@ -29193,9 +28573,9 @@
      "seat": 3,
      "action": 99,
      "n_legal": 16,
-     "state": "24ac6c33e8ffa409e15bf10175700afc",
+     "state": "e8a464c23204315d3abce1795f30ec8c",
      "obs": {
-      "bglike_v6_heroes": "ac52c37527d82667"
+      "bglike_v6_heroes": "b5389c2c40a1f5f2"
      }
     },
     {
@@ -29203,7 +28583,7 @@
      "seat": 7,
      "action": 2,
      "n_legal": 22,
-     "state": "1ffb6e9cbcfb9e05aae24ba65356faec",
+     "state": "31fcc54c24d6a4ad9897ce1312055b7b",
      "obs": {
       "bglike_v6_heroes": "5f67d0e3b13d4610"
      }
@@ -29213,7 +28593,7 @@
      "seat": 7,
      "action": 13,
      "n_legal": 21,
-     "state": "5356f131ce29c5a65d9d9402520d671c",
+     "state": "98dd75a1d49c3c82c925feabcc615045",
      "obs": {
       "bglike_v6_heroes": "a49280acac9570c8"
      }
@@ -29223,7 +28603,7 @@
      "seat": 7,
      "action": 13,
      "n_legal": 22,
-     "state": "4899dbbd86ad43c5f2d46633236544df",
+     "state": "a052943ef4925f194a10caabc809af8c",
      "obs": {
       "bglike_v6_heroes": "3a72172122107de9"
      }
@@ -29233,7 +28613,7 @@
      "seat": 7,
      "action": 12,
      "n_legal": 22,
-     "state": "06c7bc933de910b13b1b7b1e775d5f5e",
+     "state": "d9433eeb197b70bd5377e63218e82adb",
      "obs": {
       "bglike_v6_heroes": "ed3c676fbab3a086"
      }
@@ -29243,7 +28623,7 @@
      "seat": 7,
      "action": 20,
      "n_legal": 25,
-     "state": "638cd4dfe9e486bef5ed1fcdca6ef9cd",
+     "state": "362a110af867a7725e2fe28ee3deb366",
      "obs": {
       "bglike_v6_heroes": "ae8925a3a33f833f"
      }
@@ -29253,7 +28633,7 @@
      "seat": 7,
      "action": 3,
      "n_legal": 22,
-     "state": "d434233f79ebe917262cc45b2e346eef",
+     "state": "afaf93698eedc4e4c53d7655a3e00795",
      "obs": {
       "bglike_v6_heroes": "07174a8f03aff1ba"
      }
@@ -29263,7 +28643,7 @@
      "seat": 7,
      "action": 2,
      "n_legal": 21,
-     "state": "4743f101d562708dd1feadca6b5a07ac",
+     "state": "561c467be27516320eeb2d4a8317e6a4",
      "obs": {
       "bglike_v6_heroes": "7cfea03d3c1e5a37"
      }
@@ -29273,7 +28653,7 @@
      "seat": 7,
      "action": 12,
      "n_legal": 15,
-     "state": "5212350998eafe4aa04bf30185891383",
+     "state": "6433d86d7e0c1a5d3d683b35a9c6afbf",
      "obs": {
       "bglike_v6_heroes": "6924415f689a106c"
      }
@@ -29283,7 +28663,7 @@
      "seat": 7,
      "action": 20,
      "n_legal": 20,
-     "state": "132e2c3d972fcb81ae5a9a0af1c39f0f",
+     "state": "d13dc989fa7e57bf3813f171e24a6c43",
      "obs": {
       "bglike_v6_heroes": "991be6a8ccdc1c0b"
      }
@@ -29293,7 +28673,7 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "26f34d02f5917c6b69f0db7cc48a9b6c",
+     "state": "d8856f794f12eb40a010b60294268234",
      "obs": {
       "bglike_v6_heroes": "adb174754b71ee00"
      }
@@ -29303,7 +28683,7 @@
      "seat": 7,
      "action": 20,
      "n_legal": 20,
-     "state": "9a221817a66514daa01d5c154a39ec7b",
+     "state": "7f95ec79e731d3d8bc5085a09244bb5e",
      "obs": {
       "bglike_v6_heroes": "dbe3c7e1d853e511"
      }
@@ -29313,7 +28693,7 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "282a217276f19f642f7a7720dd34a5d8",
+     "state": "dbff4ebc9916c10ca114db619c524116",
      "obs": {
       "bglike_v6_heroes": "c0c8ec6405f4031f"
      }
@@ -29323,7 +28703,7 @@
      "seat": 7,
      "action": 20,
      "n_legal": 24,
-     "state": "ca8672cd34f688889ec1e618024299e6",
+     "state": "f8da451476a07d35a64e1907cf81e47b",
      "obs": {
       "bglike_v6_heroes": "fd6035412111599d"
      }
@@ -29333,7 +28713,7 @@
      "seat": 7,
      "action": 4,
      "n_legal": 20,
-     "state": "d4533caea6708a9104e68ce6780d0e54",
+     "state": "4be6eb0a815fe120a9d96aa289cc65dd",
      "obs": {
       "bglike_v6_heroes": "92d1b367f3114a56"
      }
@@ -29343,7 +28723,7 @@
      "seat": 7,
      "action": 19,
      "n_legal": 16,
-     "state": "cf3cff36bd441652e740530b7e8a7124",
+     "state": "da9d46b4ea615818a6ecf3e9d3fafa35",
      "obs": {
       "bglike_v6_heroes": "e228e8ccb808e75c"
      }
@@ -29353,9 +28733,9 @@
      "seat": 7,
      "action": 96,
      "n_legal": 3,
-     "state": "e5e8fef8e3fe29a96c2dd6686d12c562",
+     "state": "5ae4d4e8fa6eac5c5c4484059d3f2075",
      "obs": {
-      "bglike_v6_heroes": "4a71ed8d1e21d95c"
+      "bglike_v6_heroes": "453a68daa5c1590d"
      }
     },
     {
@@ -29363,9 +28743,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 15,
-     "state": "f27322f06f2cca4e499136939dbf2af2",
+     "state": "ea55af28ee8eaf489d50200a83a65ed3",
      "obs": {
-      "bglike_v6_heroes": "2a3a3c7e02278136"
+      "bglike_v6_heroes": "29daec429223c29a"
      }
     },
     {
@@ -29373,9 +28753,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 20,
-     "state": "df8d33acb9bd01182da3f37b26cd5f6e",
+     "state": "49dba30b97b6c1c256959b326755d5f9",
      "obs": {
-      "bglike_v6_heroes": "c578274a33832351"
+      "bglike_v6_heroes": "37fbbca2761a966c"
      }
     },
     {
@@ -29383,9 +28763,9 @@
      "seat": 7,
      "action": 6,
      "n_legal": 16,
-     "state": "e72f2a55ed6c2ef904f27df8a6fabc67",
+     "state": "660c2853986760e760393566d05ad4aa",
      "obs": {
-      "bglike_v6_heroes": "d55ce175ed864fad"
+      "bglike_v6_heroes": "82958d596dd891b4"
      }
     },
     {
@@ -29393,9 +28773,9 @@
      "seat": 7,
      "action": 19,
      "n_legal": 19,
-     "state": "fce49e8792c7d3de2c4846b1ab641551",
+     "state": "583ed71038b05a08db708e1e91e32592",
      "obs": {
-      "bglike_v6_heroes": "e6f24e363cf31a05"
+      "bglike_v6_heroes": "cf960242c692b6ae"
      }
     },
     {
@@ -29403,9 +28783,9 @@
      "seat": 7,
      "action": 7,
      "n_legal": 16,
-     "state": "628f82220feee81bd8a99d4eca408c5b",
+     "state": "bb982571eb6af0ed6862975bc971e761",
      "obs": {
-      "bglike_v6_heroes": "7ac237e7cc105edd"
+      "bglike_v6_heroes": "1c3652ecc2c9c9ac"
      }
     },
     {
@@ -29413,9 +28793,9 @@
      "seat": 7,
      "action": 20,
      "n_legal": 21,
-     "state": "65cf83888bd69d2397483496744fa51e",
+     "state": "60862ceeeaf31887d03e59060d2dcc6c",
      "obs": {
-      "bglike_v6_heroes": "c0b229e9ae197e9e"
+      "bglike_v6_heroes": "de73d6101cdeba80"
      }
     },
     {
@@ -29423,9 +28803,9 @@
      "seat": 7,
      "action": 1,
      "n_legal": 19,
-     "state": "313c7787324f832b90566fd77bd731d3",
+     "state": "56a3e30bc5c3f10329044b2a02c0f268",
      "obs": {
-      "bglike_v6_heroes": "510322849f26c577"
+      "bglike_v6_heroes": "bd5791f7bb177750"
      }
     },
     {
@@ -29433,9 +28813,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 15,
-     "state": "f9d800e244517043b25d012c50edfd44",
+     "state": "9a2c6c4c395bcb1a4f0a3ae0dd6ec336",
      "obs": {
-      "bglike_v6_heroes": "2223e45e61898767"
+      "bglike_v6_heroes": "004caa083279657c"
      }
     },
     {
@@ -29443,9 +28823,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 19,
-     "state": "29c476fc2bbd4b7bbb30ce1506f2ca86",
+     "state": "7991f2dd1ab7e0d6b0189b8c97ecdd00",
      "obs": {
-      "bglike_v6_heroes": "e37955ffc6be8d07"
+      "bglike_v6_heroes": "391ec50b3f872e46"
      }
     },
     {
@@ -29453,9 +28833,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "cbf13f51e415f415d10c5d8e08dac5e1",
+     "state": "012bb7d822e05825b9493cb5b61ccc08",
      "obs": {
-      "bglike_v6_heroes": "fb169703dc36043f"
+      "bglike_v6_heroes": "a63bd293a573b044"
      }
     },
     {
@@ -29463,9 +28843,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 19,
-     "state": "467db3d9bb4cdcd83cb7354102a20429",
+     "state": "0d31e562efd509792db48fd360773cb1",
      "obs": {
-      "bglike_v6_heroes": "4e28e38ae4d4cf94"
+      "bglike_v6_heroes": "57ad22181df33527"
      }
     },
     {
@@ -29473,9 +28853,9 @@
      "seat": 7,
      "action": 12,
      "n_legal": 16,
-     "state": "61162ffc6a5ecdfc0d8ca91a66dc923c",
+     "state": "5471bb76701fe95f1e897a5e016b69f1",
      "obs": {
-      "bglike_v6_heroes": "87d6ce3b00022285"
+      "bglike_v6_heroes": "8935b71d7ffcac72"
      }
     },
     {
@@ -29483,9 +28863,9 @@
      "seat": 7,
      "action": 16,
      "n_legal": 21,
-     "state": "d16143bbc5bb9eed4fd90c7fefc9bd45",
+     "state": "3ce4551747f741eea913d2cd31c5a8f2",
      "obs": {
-      "bglike_v6_heroes": "bff8eb62a5e08c9c"
+      "bglike_v6_heroes": "785dd0478349b2eb"
      }
     },
     {
@@ -29493,9 +28873,9 @@
      "seat": 7,
      "action": 0,
      "n_legal": 18,
-     "state": "89f1c28c943beba16b83a9bbaa38c33b",
+     "state": "3bef5fe4980ebfc92a235d044d539223",
      "obs": {
-      "bglike_v6_heroes": "f31b1db17a05dccd"
+      "bglike_v6_heroes": "2dd709bba140f03e"
      }
     },
     {
@@ -29503,13 +28883,13 @@
      "seat": 7,
      "action": 99,
      "n_legal": 8,
-     "state": "b7c2785359d217d9f9f2da27c213846f",
+     "state": "d863385a1e7e08b97bcc4cf8d151171d",
      "obs": {
-      "bglike_v6_heroes": "856d2e3178477078"
+      "bglike_v6_heroes": "c5db1be0d5a498e3"
      }
     }
    ],
-   "chain": "9afb7f4a416df8c7d93f0f38a5cde957",
+   "chain": "50e109e4842de1fcbdcdd1969ee96741",
    "n_steps": 863,
    "rounds": 15
   }
