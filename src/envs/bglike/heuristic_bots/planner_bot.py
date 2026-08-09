@@ -40,6 +40,7 @@ import numpy as np
 from ..action_map import (
     A_BUY_BASE,
     A_DISCOVER_BASE,
+    A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
     A_PLACE_BASE,
     A_ROLL,
@@ -90,6 +91,40 @@ SRC_BOARD = "b"
 SRC_HAND = "h"
 SRC_SHOP = "s"
 
+# What one more refresh is worth, in this bot's own value units. Sampled from
+# post-roll shops over 25 lobbies (an unconditioned draw of the offer pool):
+# ``_ROLL_BENEFIT[tier][i]`` = E[max(X - cur, 0)] for X the best offer of a fresh
+# shop and ``cur`` = ``_ROLL_CUR_GRID[i]`` the best offer already in front of us.
+_ROLL_CUR_GRID = (5.0, 10.0, 15.0, 20.0, 25.0, 30.0)
+_ROLL_BENEFIT = {
+    1: (9.69, 5.38, 3.05, 1.34, 0.27, 0.05),
+    2: (9.15, 4.23, 1.40, 0.60, 0.19, 0.05),
+    3: (11.76, 6.77, 2.74, 1.09, 0.41, 0.07),
+    4: (15.23, 10.23, 5.45, 2.58, 1.05, 0.25),
+    5: (16.60, 11.60, 6.75, 3.21, 1.19, 0.50),
+    6: (18.32, 13.32, 8.36, 4.30, 1.76, 0.72),
+}
+# Mean best offer of a fresh shop — what next turn is worth without a freeze.
+_FRESH_BEST_MEAN = {1: 14.69, 2: 14.15, 3: 16.76, 4: 20.23, 5: 21.60, 6: 23.32}
+
+# A refresh has to be able to turn up something; below this it is just spending.
+_ROLL_MIN_BENEFIT = 0.5
+
+
+def roll_benefit(tier: int, cur: float) -> float:
+    """Expected gain of one refresh when the best offer in hand is worth ``cur``."""
+    row = _ROLL_BENEFIT[max(1, min(6, int(tier)))]
+    if cur <= _ROLL_CUR_GRID[0]:
+        return row[0] + (_ROLL_CUR_GRID[0] - cur)
+    if cur >= _ROLL_CUR_GRID[-1]:
+        return max(0.0, row[-1] - (cur - _ROLL_CUR_GRID[-1]) * 0.02)
+    for i in range(len(_ROLL_CUR_GRID) - 1):
+        lo, hi = _ROLL_CUR_GRID[i], _ROLL_CUR_GRID[i + 1]
+        if lo <= cur <= hi:
+            t = (cur - lo) / (hi - lo)
+            return row[i] * (1 - t) + row[i + 1] * t
+    return 0.0
+
 
 @dataclass
 class _Cand:
@@ -127,34 +162,31 @@ class PlannerHeuristicBot(HeuristicBot):
     # Valuation
     # ------------------------------------------------------------------
 
-    def _v(
-        self,
-        m: Minion,
-        *,
-        board_len: int,
-        dominant,
-        rl: int,
-        rn: int,
-        cap: Optional[int],
-    ) -> float:
+    def _v(self, m: Minion, *, board_len: int, dominant, rl: int, rn: int) -> float:
+        """Value of a minion standing on the board.
+
+        ``tavern_tier_cap`` is deliberately left out. That term (+3.4 + 0.22*tier
+        for a minion of your own tier) is a *shop preference*, and using it as
+        board value re-ranks the whole board every time the tavern tier changes,
+        which sends the bot off to reshuffle a board that did not get worse.
+        Dropping it is worth -0.209 +- 0.130 places over 600 8-player games.
+        """
         return minion_shop_value(
             m,
             rounds_left=rl,
             dominant=dominant,
             board_len=max(1, board_len),
             round_number=rn,
-            tavern_tier_cap=cap,
         )
 
     def _candidates(self, p: PlayerState, rl: int, rn: int) -> List[_Cand]:
         """Everything that could stand on the board at end of turn, valued once."""
         dom = dominant_race(p.board)
-        cap = p.tavern_tier
         bl = len(p.board)
         out: List[_Cand] = []
 
         for i, m in enumerate(p.board):
-            v = self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn, cap=cap)
+            v = self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn)
             v += triple_cluster_keep_bonus_board(p, i)
             out.append(_Cand(SRC_BOARD, i, m, v))
 
@@ -162,7 +194,7 @@ class PlannerHeuristicBot(HeuristicBot):
             m = p.hand[i]
             if m is None or m.is_triple_reward_spell:
                 continue
-            v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn, cap=cap)
+            v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_place_bonus(p, m.card_id, i) + V_PLAY_FLAT
             out.append(_Cand(SRC_HAND, i, m, v))
 
@@ -170,7 +202,7 @@ class PlannerHeuristicBot(HeuristicBot):
             m = p.shop[s]
             if m is None:
                 continue
-            v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn, cap=cap)
+            v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_buy_bonus(p, m.card_id) + V_PLAY_FLAT
             out.append(_Cand(SRC_SHOP, s, m, v))
 
@@ -231,7 +263,6 @@ class PlannerHeuristicBot(HeuristicBot):
         assert pc is not None
         rl = rounds_left_estimate(env.state.round_number)
         rn = env.state.round_number
-        cap = p.tavern_tier
         best_a = -1
         best_s = -1e18
         for i in range(3):
@@ -251,7 +282,6 @@ class PlannerHeuristicBot(HeuristicBot):
                     dominant=dominant_race(p.board),
                     rl=rl,
                     rn=rn,
-                    cap=cap,
                 )
             else:
                 sc = adapt_choice_score(tok)
@@ -269,15 +299,14 @@ class PlannerHeuristicBot(HeuristicBot):
             return -1e18
         dom = dominant_race(p.board)
         bl = len(p.board)
-        cap = p.tavern_tier
-        v_before = self._v(bm, board_len=bl, dominant=dom, rl=rl, rn=rn, cap=cap)
-        v_hand = self._v(hm, board_len=bl, dominant=dom, rl=rl, rn=rn, cap=cap)
+        v_before = self._v(bm, board_len=bl, dominant=dom, rl=rl, rn=rn)
+        v_hand = self._v(hm, board_len=bl, dominant=dom, rl=rl, rn=rn)
         t = copy(bm)
         mg = copy(hm)
         from src.bg_recruitment.place import merge_magnetic_inplace
 
         merge_magnetic_inplace(t, mg)
-        v_after = self._v(t, board_len=bl, dominant=dom, rl=rl, rn=rn, cap=cap)
+        v_after = self._v(t, board_len=bl, dominant=dom, rl=rl, rn=rn)
         return v_after - v_before - v_hand
 
     def _should_level_up(self, env: HeuristicEnv, p: PlayerState, rl: int) -> bool:
@@ -326,6 +355,8 @@ class PlannerHeuristicBot(HeuristicBot):
         for i in range(min(HAND_SIZE, len(p.hand))):
             if bool(mask[A_PLACE_BASE + i]):
                 return A_PLACE_BASE + i
+        if self._should_freeze(env, p, mask):
+            return A_FINISH_FREEZE_SHOP
         return masked_finish(mask)
 
     # ------------------------------------------------------------------
@@ -413,6 +444,37 @@ class PlannerHeuristicBot(HeuristicBot):
 
         return self._finish(env)
 
+    def _best_offer_value(self, p: PlayerState, rl: int, rn: int) -> float:
+        dom = dominant_race(p.board)
+        bl = len(p.board) + 1
+        return max(
+            (
+                self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn)
+                for m in p.shop
+                if m is not None
+            ),
+            default=0.0,
+        )
+
+    def _should_freeze(self, env: HeuristicEnv, p: PlayerState, mask: np.ndarray) -> bool:
+        """Keep this shop only if it beats spending the leftover gold on refreshes.
+
+        Freezing and refreshing are one decision, not two: on their own each is
+        worth nothing (+0.10 and +0.03 places over 200 games), because refreshing
+        to zero gold with no way to bank the find is a waste, and freezing without
+        having refreshed first just keeps the first shop that came along. Priced
+        against each other they are worth -0.87 +- 0.22 places.
+        """
+        if not bool(mask[A_FINISH_FREEZE_SHOP]) or p.pending_choice is not None:
+            return False
+        rn = env.state.round_number
+        best_offer = self._best_offer_value(p, rounds_left_estimate(rn), rn)
+        tier = max(1, min(6, p.tavern_tier))
+        delta = best_offer - _FRESH_BEST_MEAN[tier]
+        if delta <= 0:
+            return False
+        return delta > roll_benefit(tier, best_offer) * (p.gold + 1)
+
     def _unclog_hand(
         self,
         mask: np.ndarray,
@@ -468,7 +530,16 @@ class PlannerHeuristicBot(HeuristicBot):
         )
         if marginal >= thr:
             return False
-        return p.gold - roll_cost >= self._replacement_cost(p)
+        if p.gold - roll_cost >= self._replacement_cost(p):
+            return True
+        # Not enough gold left to buy afterwards — but gold does not survive the
+        # turn, and a refresh can still turn up a shop worth freezing.
+        if marginal is not None and marginal > 0:
+            return False
+        return (
+            roll_benefit(p.tavern_tier, self._best_offer_value(p, rl, rn))
+            > _ROLL_MIN_BENEFIT
+        )
 
     def _replacement_cost(self, p: PlayerState) -> int:
         """Gold a buy still needs after this turn's refunds are counted in."""
