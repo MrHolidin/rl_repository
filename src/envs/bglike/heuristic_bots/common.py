@@ -109,32 +109,28 @@ def _board_matches_target(board: List[Minion], target: List[Minion]) -> bool:
 def choose_one_swap_toward_target(
     board: List[Minion], mask: np.ndarray, target: List[Minion]
 ) -> int:
+    """One adjacent swap that moves ``board`` toward ``target``.
+
+    Selection sort: find the first wrong slot and walk the minion that belongs
+    there one step left. The quantity that decreases is total displacement, not
+    the number of mismatched slots — requiring the latter to drop on every
+    single adjacent swap (as this did) refuses every target more than one slot
+    away, so a board of 7 essentially never got sorted.
+    """
     k = len(board)
     if k <= 1:
         return masked_finish(mask)
-    dist_before = _perm_mismatch_count(board, target)
     for i in range(k):
-        if board[i] is not target[i]:
-            want = target[i]
-            j = next((jj for jj in range(k) if board[jj] is want), None)
-            if j is None:
-                return masked_finish(mask)
-            si = j - 1 if j > i else j
-            if (
-                0 <= si < NUM_SWAP_ADJ
-                and si + 1 < k
-                and bool(mask[A_SWAP_BOARD_0 + si])
-            ):
-                after = _board_after_adj_swap(board, si)
-                dist_after = _perm_mismatch_count(after, target)
-                if dist_after >= dist_before:
-                    return masked_finish(mask)
-                # Reject swap indices that only 2-cycle without reaching target.
-                back = _board_after_adj_swap(after, si)
-                if dist_after > 0 and all(back[i] is board[i] for i in range(k)):
-                    return masked_finish(mask)
-                return int(A_SWAP_BOARD_0 + si)
+        if board[i] is target[i]:
+            continue
+        want = target[i]
+        j = next((jj for jj in range(i + 1, k) if board[jj] is want), None)
+        if j is None:
             return masked_finish(mask)
+        si = j - 1
+        if 0 <= si < NUM_SWAP_ADJ and si + 1 < k and bool(mask[A_SWAP_BOARD_0 + si]):
+            return int(A_SWAP_BOARD_0 + si)
+        return masked_finish(mask)
     return masked_finish(mask)
 
 
