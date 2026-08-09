@@ -126,6 +126,11 @@ _BUYS_PER_TURN = 1.2
 
 # A refresh has to be able to turn up something; below this it is just spending.
 _ROLL_MIN_BENEFIT = 0.5
+# ...and it has to clear the board, not just the counter: once a fresh shop is
+# not expected to beat the minion a purchase would displace by this much, the
+# gold is better spent on the tier-up. Tried at 0.15 (-0.152) and 1.5 (+0.102)
+# over 200 games; at 0.5 it is worth -0.155 +- 0.130 over 600.
+_ROLL_FLOOR = 0.5
 
 
 def roll_benefit(tier: int, cur: float) -> float:
@@ -335,6 +340,14 @@ class PlannerHeuristicBot(HeuristicBot):
         cost = max(1, effective_level_up_cost(p))
         buys_left = max(0.0, rounds_left_estimate(rn) * _BUYS_PER_TURN)
         return _TIER_DELTA.get(p.tavern_tier, 0.0) * buys_left / cost
+
+    def _displaced_value(self, p: PlayerState, rl: int, rn: int) -> float:
+        """Value a purchase would have to push off the board (0 if a slot is free)."""
+        if len(p.board) < BOARD_SIZE or not p.board:
+            return 0.0
+        return min(
+            (c.v for c in self._candidates(p, rl, rn) if c.src == SRC_BOARD), default=0.0
+        )
 
     def _board_roi(self, p: PlayerState, rl: int, rn: int) -> float:
         """Best board value per gold available to this turn — what a tier-up gives up."""
@@ -586,6 +599,12 @@ class PlannerHeuristicBot(HeuristicBot):
         if p.free_roll_charges > 0 or roll_cost == 0:
             return True
         if p.gold < roll_cost:
+            return False
+        # A refresh is only worth gold while a fresh shop can be expected to beat
+        # the board's own floor. Measured against the best offer on the counter
+        # instead — as this did — a T4 shop whose ceiling sits below the board
+        # still looks worth +5, and whole wallets go into refreshing.
+        if roll_benefit(p.tavern_tier, self._displaced_value(p, rl, rn)) <= _ROLL_FLOOR:
             return False
 
         if marginal is not None:
