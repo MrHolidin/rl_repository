@@ -50,13 +50,7 @@ from ..action_map import (
     is_swap_board,
     magnet_hand_board,
 )
-from ..actions import (
-    BOARD_SIZE,
-    HAND_SIZE,
-    MAX_SHOP_ACTIONS,
-    MAX_SHOP_SLOTS,
-    MAX_TIER,
-)
+from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS, MAX_TIER
 from src.bg_catalog.cards import make_minion
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
@@ -93,14 +87,6 @@ from .common import (
     masked_finish,
     pick_rl_apply_action,
 )
-
-# Flat stand-in for "value of the act of playing a minion" (board reactions to
-# AFTER_FRIENDLY_MINION_PLACED, own battlecry beyond what the stat model sees).
-# Triple progress is scored separately; this is the residual.
-V_PLAY_FLAT = 0.6
-
-# Keep the shop budget clear of the hard engine cap so a turn can always finish.
-SHOP_ACTION_RESERVE = 4
 
 SRC_BOARD = "b"
 SRC_HAND = "h"
@@ -241,15 +227,13 @@ def _context_free_on_place(m: Minion) -> float:
     return add
 
 
-def _hand_free_slots(p: PlayerState) -> int:
-    return sum(1 for s in p.hand if s is None)
-
-
 class PlannerHeuristicBot(HeuristicBot):
     name = "planner"
 
     def __init__(self, seed: Optional[int] = None) -> None:
-        self._rng = np.random.default_rng(seed)
+        # Every decision is a comparison of measured quantities: no rng is read,
+        # and ``seed`` is accepted only to match the bot factory's signature.
+        del seed
         # Only reachable through the env; needed to value a summon battlecry.
         self._patch = None
 
@@ -292,7 +276,7 @@ class PlannerHeuristicBot(HeuristicBot):
             if m is None or m.is_triple_reward_spell:
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
-            v += triple_progress_place_bonus(p, m.card_id, i) + V_PLAY_FLAT
+            v += triple_progress_place_bonus(p, m.card_id, i)
             v += self._play_value_correction(m, p, rl, rn, played=False)
             v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_HAND, i, m, v))
@@ -302,7 +286,7 @@ class PlannerHeuristicBot(HeuristicBot):
             if m is None:
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
-            v += triple_progress_buy_bonus(p, m.card_id) + V_PLAY_FLAT
+            v += triple_progress_buy_bonus(p, m.card_id)
             v += self._play_value_correction(m, p, rl, rn, played=False)
             v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_SHOP, s, m, v))
@@ -641,9 +625,6 @@ class PlannerHeuristicBot(HeuristicBot):
         if bool(mask[A_LEVEL_UP]) and self._should_level_up(env, p, rl):
             return A_LEVEL_UP
 
-        if p.shop_actions_used >= MAX_SHOP_ACTIONS - SHOP_ACTION_RESERVE:
-            return self._finish(env)
-
         cands = self._candidates(p, rl, rn)
         chosen, dropped = self._target_board(p, cands)
 
@@ -671,10 +652,6 @@ class PlannerHeuristicBot(HeuristicBot):
             marginal = best.v - (displaced if free_slots == 0 else 0.0)
             if self._should_roll(env, p, mask, legal, rl, rn, marginal):
                 return A_ROLL
-            if _hand_free_slots(p) == 0:
-                relief = self._unclog_hand(mask, p, chosen, drop_board, free_slots)
-                if relief is not None:
-                    return relief
             if bool(mask[A_BUY_BASE + best.idx]):
                 return A_BUY_BASE + best.idx
 
@@ -720,30 +697,6 @@ class PlannerHeuristicBot(HeuristicBot):
         if delta <= 0:
             return False
         return delta > roll_benefit(tier, best_offer) * (p.gold + 1)
-
-    def _unclog_hand(
-        self,
-        mask: np.ndarray,
-        p: PlayerState,
-        chosen: List[_Cand],
-        drop_board: List[_Cand],
-        free_slots: int,
-    ) -> Optional[int]:
-        """Hand is full and blocks the buy: play the best card, or free a slot first."""
-        hand_cands = [c for c in chosen if c.src == SRC_HAND]
-        if free_slots > 0:
-            for c in hand_cands:
-                if bool(mask[A_PLACE_BASE + c.idx]):
-                    return A_PLACE_BASE + c.idx
-            for i in range(min(HAND_SIZE, len(p.hand))):
-                if p.hand[i] is not None and bool(mask[A_PLACE_BASE + i]):
-                    return A_PLACE_BASE + i
-            return None
-        if drop_board:
-            worst = min(drop_board, key=lambda c: c.v)
-            if bool(mask[A_SELL_BASE + worst.idx]):
-                return A_SELL_BASE + worst.idx
-        return None
 
     def _should_roll(
         self,
