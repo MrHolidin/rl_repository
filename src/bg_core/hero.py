@@ -218,6 +218,9 @@ class Hero:
     # None ⇒ inherit the ruleset's default starting health; only heroes whose
     # power sets a custom pool (Patchwerk) override it.
     start_health: Optional[int] = None
+    # Flat armor granted at game start (absorbs damage before health; modern
+    # per-hero balance lever, 0 on classic/no-armor patches).
+    start_armor: int = 0
     passives: Tuple[HeroPassive, ...] = field(default_factory=tuple)
 
     # -- passive-derived reads (cheap scans; called from economy/shop/combat) --

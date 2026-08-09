@@ -15,16 +15,9 @@ from src.games.turn_based_game import TurnBasedGame
 from .actions import (
     BOARD_SIZE,
     COMBAT_BOARD_MAX,
-    DAMAGE_CAP,
     HAND_SIZE,
-    LEVEL_UP_COSTS,
-    LEVEL_UP_DISCOUNT_PER_ROUND,
-    MAX_ROUNDS,
     MAX_SHOP_SLOTS,
-    MAX_TIER,
     Action,
-    gold_for_round,
-    STARTING_HEALTH,
     STARTING_TIER,
 )
 from src.bg_recruitment import place as recruitment_place
@@ -309,11 +302,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             state,
             rng=self._rng,
             combat_board_max=COMBAT_BOARD_MAX,
-            damage_cap=DAMAGE_CAP,
             board_size=BOARD_SIZE,
-            max_rounds=MAX_ROUNDS,
-            max_tier=MAX_TIER,
-            level_up_discount_per_round=LEVEL_UP_DISCOUNT_PER_ROUND,
+            ruleset=self._patch.meta.ruleset,
             fire_on_turn_start=self._shop_triggers.fire_on_turn_start,
             refresh_shop=refresh_shop,
             refresh_shop_fill_empty_slots=refresh_fill,
@@ -327,12 +317,13 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
         *,
         shared_pool: Optional[SharedCardPool] = None,
     ) -> PlayerState:
+        ruleset = self._patch.meta.ruleset
         player = PlayerState(
-            health=STARTING_HEALTH,
+            health=ruleset.starting_health,
             hero_damage_taken_total=0,
-            gold=gold_for_round(round_number),
+            gold=ruleset.gold_for_round(round_number),
             tavern_tier=STARTING_TIER,
-            next_tier_up_cost=LEVEL_UP_COSTS[STARTING_TIER],
+            next_tier_up_cost=ruleset.level_up_cost(STARTING_TIER),
             board=[],
             shop=[None for _ in range(MAX_SHOP_SLOTS)],
             hand=[None for _ in range(HAND_SIZE)],

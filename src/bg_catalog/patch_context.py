@@ -19,6 +19,7 @@ from src.bg_catalog.patch_catalog import (
     minion_from_tavern_record,
     race_from_hs_string,
 )
+from src.bg_catalog.ruleset import Ruleset, ruleset_from_meta
 from src.bg_catalog.triple_effects import resolve_triple_forged_abilities
 from src.bg_core.effects import Ability
 from src.bg_core.hero import Hero
@@ -32,6 +33,7 @@ class PatchMeta:
     rotation_tribes: Tuple[Race, ...]
     rotation_excluded_count: int
     pool_copies_by_tier: Mapping[int, int]
+    ruleset: Ruleset = field(default_factory=Ruleset)
 
     @property
     def cnt_active_shop_tribes(self) -> int:
@@ -153,6 +155,7 @@ def _load_meta(path: Path) -> PatchMeta:
         rotation_tribes=tribes,
         rotation_excluded_count=int(raw["rotation_excluded_count"]),
         pool_copies_by_tier=copies,
+        ruleset=ruleset_from_meta(raw.get("ruleset")),
     )
 
 

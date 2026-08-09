@@ -91,6 +91,8 @@ def apply_hero_on_game_start(
         return
     if h.start_health is not None:
         player.health = h.start_health
+    if h.start_armor:
+        player.armor = h.start_armor
     for p in h.passives:
         if isinstance(p, StartHandToken):
             slot = first_free_hand_slot(player)

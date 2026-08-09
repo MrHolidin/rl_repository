@@ -302,11 +302,8 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             state,
             rng=self._rng,
             combat_board_max=bglike_actions.COMBAT_BOARD_MAX,
-            damage_cap=bglike_actions.DAMAGE_CAP,
             board_size=bglike_actions.BOARD_SIZE,
-            max_tier=bglike_actions.MAX_TIER,
-            level_up_discount_per_round=bglike_actions.LEVEL_UP_DISCOUNT_PER_ROUND,
-            max_rounds=bglike_actions.MAX_ROUNDS,
+            ruleset=self._patch.meta.ruleset,
             fire_on_turn_start=self._shop_triggers.fire_on_turn_start,
             refresh_shop=refresh_shop,
             refresh_shop_fill_empty_slots=refresh_fill,
@@ -319,12 +316,13 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         *,
         shared_pool: SharedCardPool,
     ) -> PlayerState:
+        ruleset = self._patch.meta.ruleset
         player = PlayerState(
-            health=bglike_actions.STARTING_HEALTH,
+            health=ruleset.starting_health,
             hero_damage_taken_total=0,
-            gold=bglike_actions.gold_for_round(round_number),
+            gold=ruleset.gold_for_round(round_number),
             tavern_tier=bglike_actions.STARTING_TIER,
-            next_tier_up_cost=bglike_actions.LEVEL_UP_COSTS[bglike_actions.STARTING_TIER],
+            next_tier_up_cost=ruleset.level_up_cost(bglike_actions.STARTING_TIER),
             board=[],
             shop=[None for _ in range(bglike_actions.MAX_SHOP_SLOTS)],
             hand=[None for _ in range(bglike_actions.HAND_SIZE)],
@@ -395,13 +393,14 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
     ) -> PlayerState:
         """High-mode player: tier 5, gold for ``round_number`` (10 at round 8),
         and a board seeded with one random tier-5 and one random tier-6 minion."""
+        ruleset = self._patch.meta.ruleset
         tier = bglike_actions.HIGH_MODE_START_TIER
         player = PlayerState(
-            health=bglike_actions.STARTING_HEALTH,
+            health=ruleset.starting_health,
             hero_damage_taken_total=0,
-            gold=bglike_actions.gold_for_round(round_number),
+            gold=ruleset.gold_for_round(round_number),
             tavern_tier=tier,
-            next_tier_up_cost=bglike_actions.LEVEL_UP_COSTS.get(tier, 0),
+            next_tier_up_cost=ruleset.level_up_cost(tier),
             board=[],
             shop=[None for _ in range(bglike_actions.MAX_SHOP_SLOTS)],
             hand=[None for _ in range(bglike_actions.HAND_SIZE)],

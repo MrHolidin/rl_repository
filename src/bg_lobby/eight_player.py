@@ -6,17 +6,17 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from src.bg_catalog.ruleset import Ruleset
 from src.bg_combat.battle import simulate_battle
 from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot, GHOST_OPPONENT_ID
 from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
-from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState
+from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment import hero_passives
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
-from src.envs.bglike.actions import gold_for_round
 
 
 def _count_board_tribes(board: Sequence[Minion]) -> dict:
@@ -114,8 +114,7 @@ def _apply_hero_damage(
     seat: int,
     damage: int,
 ) -> None:
-    if damage > 0:
-        state.players[seat].health -= damage
+    apply_hero_damage(state.players[seat], damage)
 
 
 def _eliminate_seat(
@@ -179,11 +178,8 @@ def resolve_combat_round(
     *,
     rng: np.random.Generator,
     combat_board_max: int,
-    damage_cap: int,
     board_size: int,
-    max_tier: int,
-    level_up_discount_per_round: int,
-    max_rounds: int,
+    ruleset: Ruleset,
     fire_on_turn_start: Callable[[PlayerState], None],
     refresh_shop: Callable[[PlayerState, Optional[Race]], None],
     refresh_shop_fill_empty_slots: Callable[[PlayerState, Optional[Race]], None],
@@ -207,6 +203,7 @@ def resolve_combat_round(
         draw_combat_pairings(state, rng=rng)
     matches = state.pairings
     state.combat_round += 1
+    damage_cap = ruleset.effective_damage_cap(state.combat_round, len(state.alive))
 
     if state.shared_pool is None:
         raise RuntimeError("shared_pool is required for combat resolution")
@@ -353,7 +350,7 @@ def resolve_combat_round(
         state.winner = state.alive[0] if state.alive else None
         return
 
-    if state.round_number >= max_rounds:
+    if state.round_number >= ruleset.max_rounds:
         state.done = True
         state.winner = state.alive[0]
         return
@@ -361,11 +358,11 @@ def resolve_combat_round(
     state.round_number += 1
     for seat in state.alive:
         p = state.players[seat]
-        if p.tavern_tier < max_tier:
+        if p.tavern_tier < ruleset.max_tier:
             p.next_tier_up_cost = max(
-                0, p.next_tier_up_cost - level_up_discount_per_round
+                0, p.next_tier_up_cost - ruleset.level_up_discount_per_round
             )
-        p.gold = gold_for_round(state.round_number)
+        p.gold = ruleset.gold_for_round(state.round_number)
         p.phase = PlayerPhase.SHOP
         p.shop_actions_used = 0
         p.pending_choice = None

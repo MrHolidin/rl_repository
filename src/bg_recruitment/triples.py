@@ -187,7 +187,7 @@ def resolve_one_triple(
     hslot = first_free_hand_slot(player)
     assert hslot is not None, "triple merge with full hand (bug)"
     player.hand[hslot] = merged
-    discover_tier = triple_reward_discover_tier(player.tavern_tier)
+    discover_tier = triple_reward_discover_tier(player.tavern_tier, patch=patch)
     if not grant_triple_reward_discover_spell(
         player, discover_tier=discover_tier, patch=patch
     ):
@@ -246,7 +246,9 @@ def play_triple_reward_discover_spell_from_hand(
 ) -> None:
     spell = player.hand[hand_slot]
     assert spell is not None and is_triple_reward_discover_spell(spell)
-    tier = spell.triple_discover_tier or triple_reward_discover_tier(player.tavern_tier)
+    tier = spell.triple_discover_tier or triple_reward_discover_tier(
+        player.tavern_tier, patch=patch
+    )
     player.hand[hand_slot] = None
     open_triple_reward_discover_modal(
         player,
@@ -268,7 +270,7 @@ def flush_triple_reward_queue_if_idle(
     if player.pending_choice is not None or not player.triple_reward_discover_pending:
         return
     tier = player.triple_reward_spell_tier or triple_reward_discover_tier(
-        player.tavern_tier
+        player.tavern_tier, patch=patch
     )
     if grant_triple_reward_discover_spell(
         player, discover_tier=tier, patch=patch

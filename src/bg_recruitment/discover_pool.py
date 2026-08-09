@@ -13,12 +13,10 @@ from src.bg_catalog.cards import (
     templates,
 )
 from src.bg_catalog.patch_context import PatchContext, require_patch
+from src.bg_catalog.ruleset import DEFAULT_RULESET
 from src.bg_core.effects import Ability, Keyword, SummonEffect, Trigger
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.shared_pool import SharedCardPool
-
-# Retail BG max tavern tier (recruitment discover heuristics).
-_MAX_TIER = 6
 
 # Keys for Gentle Megasaur–style Adapt (HS Journey to Un'Goro set).
 ADAPT_KEYS_ALL: Tuple[str, ...] = (
@@ -37,8 +35,8 @@ ADAPT_KEYS_ALL: Tuple[str, ...] = (
 assert len(ADAPT_KEYS_ALL) == 10
 
 
-def _tier_weights(tavern_tier: int) -> Dict[int, float]:
-    hi = min(_MAX_TIER, tavern_tier + 1)
+def _tier_weights(tavern_tier: int, max_tier: int) -> Dict[int, float]:
+    hi = min(max_tier, tavern_tier + 1)
     w: Dict[int, float] = {}
     for t in range(1, hi + 1):
         dist = abs(t - tavern_tier)
@@ -65,7 +63,8 @@ def roll_discover_murloc_triple(
 ) -> Optional[Tuple[str, str, str]]:
     ctx = require_patch(patch, where="discover_pool.roll_discover_murloc_triple")
     tpl = ctx.templates
-    cap = min(_MAX_TIER, tavern_tier + 1)
+    max_tier = ctx.meta.ruleset.max_tier
+    cap = min(max_tier, tavern_tier + 1)
     if Race.MURLOC in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
@@ -82,7 +81,7 @@ def roll_discover_murloc_triple(
         raise RuntimeError(
             f"need at least 3 murlocs for discover (tavern {tavern_tier}), got {len(eligible)}"
         )
-    wmap = _tier_weights(tavern_tier)
+    wmap = _tier_weights(tavern_tier, max_tier)
     pool = list(eligible)
     picks: List[str] = []
     for _ in range(3):
@@ -99,8 +98,11 @@ def roll_adapt_triple(rng: np.random.Generator) -> Tuple[str, str, str]:
     return (keys[0], keys[1], keys[2])
 
 
-def triple_reward_discover_tier(tavern_tier: int) -> int:
-    return min(_MAX_TIER, int(tavern_tier) + 1)
+def triple_reward_discover_tier(
+    tavern_tier: int, *, patch: Optional[PatchContext] = None
+) -> int:
+    max_tier = patch.meta.ruleset.max_tier if patch is not None else DEFAULT_RULESET.max_tier
+    return min(max_tier, int(tavern_tier) + 1)
 
 
 def roll_triple_reward_discover_at_target_tier(
@@ -113,7 +115,7 @@ def roll_triple_reward_discover_at_target_tier(
 ) -> Optional[Tuple[str, str, str]]:
     ctx = require_patch(patch, where="discover_pool.roll_triple_reward_discover_at_target_tier")
     tpl = ctx.templates
-    tgt = min(_MAX_TIER, max(1, int(target_tier)))
+    tgt = min(ctx.meta.ruleset.max_tier, max(1, int(target_tier)))
     eligible_exact = [
         cid
         for cid in shop_pool_for_tier(
@@ -161,7 +163,7 @@ def roll_triple_reward_discover_triple(
 ) -> Optional[Tuple[str, str, str]]:
     return roll_triple_reward_discover_at_target_tier(
         rng,
-        triple_reward_discover_tier(tavern_tier),
+        triple_reward_discover_tier(tavern_tier, patch=patch),
         shop_excluded_race,
         shared_pool=shared_pool,
         patch=patch,

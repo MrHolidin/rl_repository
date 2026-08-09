@@ -7,13 +7,13 @@ from typing import Callable, Optional, TYPE_CHECKING
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext
+from src.bg_catalog.ruleset import Ruleset
 from src.bg_combat.battle import simulate_battle
 from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Race
-from src.bg_lobby.player import PlayerPhase, PlayerState
+from src.bg_lobby.player import PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shop_order import sample_shop_turn_order
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
-from src.envs.minibg.actions import gold_for_round
 
 if TYPE_CHECKING:
     from src.envs.minibg.state import MiniBGState
@@ -46,11 +46,8 @@ def resolve_battle_and_advance(
     *,
     rng: np.random.Generator,
     combat_board_max: int,
-    damage_cap: int,
     board_size: int,
-    max_rounds: int,
-    max_tier: int,
-    level_up_discount_per_round: int,
+    ruleset: Ruleset,
     fire_on_turn_start: Callable[[PlayerState], None],
     refresh_shop: Callable[[PlayerState, Optional[Race]], None],
     refresh_shop_fill_empty_slots: Callable[[PlayerState, Optional[Race]], None],
@@ -68,6 +65,11 @@ def resolve_battle_and_advance(
     pb.last_opponent_board = snapshot_warband(pa.board)
     combat_gold = [0, 0]
     combat_hand_adds: list[list[str]] = [[], []]
+    # minibg is a 1v1 sandbox — "alive count" for the top-N damage-cap lift
+    # doesn't carry the 8-player "down to top 4" meaning, but is always 2
+    # here, so a ruleset that enables the lift at N>=2 applies it from the
+    # start (matches the 8-player lobby's field-of-2 endgame framing).
+    damage_cap = ruleset.effective_damage_cap(state.round_number, 2)
     dmg_p0, dmg_p1 = simulate_battle(
         pa.board,
         pb.board,
@@ -82,8 +84,8 @@ def resolve_battle_and_advance(
         combat_gold_out=combat_gold,
         combat_hand_adds_out=combat_hand_adds,
     )
-    state.players[0].health -= dmg_p0
-    state.players[1].health -= dmg_p1
+    apply_hero_damage(state.players[0], dmg_p0)
+    apply_hero_damage(state.players[1], dmg_p1)
     state.players[0].gold += combat_gold[0]
     state.players[1].gold += combat_gold[1]
     apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
@@ -104,16 +106,16 @@ def resolve_battle_and_advance(
             state.winner = 1
         return
 
-    if state.round_number >= max_rounds:
+    if state.round_number >= ruleset.max_rounds:
         state.done = True
         state.winner = 0
         return
 
     state.round_number += 1
     for p in state.players:
-        if p.tavern_tier < max_tier:
-            p.next_tier_up_cost = max(0, p.next_tier_up_cost - level_up_discount_per_round)
-        p.gold = gold_for_round(state.round_number)
+        if p.tavern_tier < ruleset.max_tier:
+            p.next_tier_up_cost = max(0, p.next_tier_up_cost - ruleset.level_up_discount_per_round)
+        p.gold = ruleset.gold_for_round(state.round_number)
         p.phase = PlayerPhase.SHOP
         p.shop_actions_used = 0
         p.pending_choice = None

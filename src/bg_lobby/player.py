@@ -24,6 +24,7 @@ __all__ = [
     "PendingChoice",
     "CasterKind",
     "CasterRef",
+    "apply_hero_damage",
 ]
 
 
@@ -91,6 +92,10 @@ class PlayerState:
     hand: List[Optional[Minion]]
     phase: PlayerPhase
     shop_actions_used: int
+    # Absorbs combat damage before health (modern per-hero balance lever via
+    # ``Hero.start_armor``; 0 on classic/no-armor patches — see
+    # ``apply_hero_damage``).
+    armor: int = 0
     shop_freeze_next_round: bool = False
     shop_frozen: Tuple[bool, ...] = (False,) * MAX_SHOP_SLOTS
     upgrade_cost_delta: int = 0
@@ -142,3 +147,17 @@ class PlayerState:
     @property
     def shopping_finished(self) -> bool:
         return self.phase == PlayerPhase.DONE
+
+
+def apply_hero_damage(player: PlayerState, damage: int) -> None:
+    """Apply combat damage to ``player``, absorbing with ``armor`` first.
+
+    Single choke point for hero-damage application (both the 2-player and
+    8-player lobbies route through this) so armor — 0 and a no-op on patches
+    that don't have it — behaves identically everywhere damage lands.
+    """
+    if damage <= 0:
+        return
+    absorbed = min(player.armor, damage)
+    player.armor -= absorbed
+    player.health -= damage - absorbed
