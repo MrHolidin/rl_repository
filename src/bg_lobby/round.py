@@ -88,8 +88,8 @@ def resolve_battle_and_advance(
     apply_hero_damage(state.players[1], dmg_p1)
     state.players[0].gold += combat_gold[0]
     state.players[1].gold += combat_gold[1]
-    apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
-    apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+    apply_combat_hand_adds(pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool)
+    apply_combat_hand_adds(pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool)
     state.players[0].last_combat_won = dmg_p0 == 0 and dmg_p1 > 0
     state.players[1].last_combat_won = dmg_p1 == 0 and dmg_p0 > 0
 

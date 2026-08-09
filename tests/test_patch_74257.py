@@ -1464,3 +1464,257 @@ def test_ring_matron_summons_fiery_imps():
     imps = [m for m in p0_out if m.card_id == "DMF_533t"]
     assert len(imps) == 2
     assert all(m.raw_attack == 3 and m.max_health == 2 for m in imps)
+
+
+def test_pack_leader_gives_summoned_beasts_two_attack():
+    """19.6 text is +2 Attack; the golden row confirms it at +4."""
+    ctx = PatchContext.load(PATCH_74257)
+    eff = ctx.effects["BGS_017"][0].effect
+    assert eff.attack == 2 and eff.health == 0
+    assert ctx.triple_merge_golden_abilities("BGS_017")[0].effect.attack == 4
+
+
+def test_goldrinn_deathrattle_gives_beasts_five():
+    ctx = PatchContext.load(PATCH_74257)
+    eff = ctx.effects["BGS_018"][0].effect
+    assert eff.attack == 5 and eff.health == 5
+    golden = ctx.triple_merge_golden_abilities("BGS_018")[0].effect
+    assert golden.attack == 10 and golden.health == 10
+
+
+def test_razorgore_counts_himself_among_your_dragons():
+    """"for each Dragon you have" included Razorgore until 28.2.0 reworded it."""
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    razorgore = ctx.make_minion("BGS_036")
+    p.board = [razorgore, ctx.make_minion("BGS_039")]
+    ShopTriggers(patch=ctx, rng=np.random.default_rng(0)).fire_on_turn_end(p)
+    assert (razorgore.bonus_attack, razorgore.bonus_health) == (2, 2)
+
+
+def test_soul_devourer_eats_the_aura_buffed_body():
+    """Mal'Ganis' +2/+2 is part of what the shop shows, so it is part of the meal."""
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+    from src.bg_recruitment.targeted_battlecry import (
+        apply_targeted_on_place_battlecries,
+    )
+
+    ctx = PatchContext.load(PATCH_74257)
+
+    def consume(with_malganis: bool):
+        p = _shop_player(gold=0)
+        food = ctx.make_minion("BGS_001")            # a 2/3 Demon
+        p.board = [ctx.make_minion("GVG_021"), food] if with_malganis else [food]
+        devourer = ctx.make_minion("BGS_059")        # a 3/3 body
+        p.board.append(devourer)
+        apply_targeted_on_place_battlecries(
+            ShopTriggers(patch=ctx, rng=np.random.default_rng(0)),
+            p,
+            devourer,
+            rng=np.random.default_rng(0),
+            forced_buff_target=food,
+        )
+        return devourer.raw_attack, devourer.max_health
+
+    assert consume(False) == (5, 6)
+    assert consume(True) == (7, 8)
+
+
+def test_shop_aura_bonus_only_reaches_matching_tribes():
+    from src.bg_recruitment.shop_auras import shop_stat_aura_bonus
+
+    ctx = PatchContext.load(PATCH_74257)
+    demon = ctx.make_minion("BGS_001")
+    malganis = ctx.make_minion("GVG_021")
+    captain = ctx.make_minion("NEW1_027")            # Pirates only
+    assert shop_stat_aura_bonus([malganis, demon], demon) == (2, 2)
+    assert shop_stat_aura_bonus([captain, demon], demon) == (0, 0)
+    assert shop_stat_aura_bonus([malganis, demon], malganis) == (0, 0)
+    assert shop_stat_aura_bonus([malganis], ctx.make_minion("BGS_001")) == (0, 0)
+
+
+def test_freeze_does_not_outlive_the_minion_it_pinned():
+    """Buying out of a frozen slot must unpin it — the freeze rode the minion."""
+    from src.bg_recruitment.economy import buy_from_shop
+    from src.bg_recruitment.shop import refresh_shop, toggle_shop_slot_frozen
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.shop[0] = ctx.make_minion("BGS_019")
+    p.shop[1] = ctx.make_minion("BGS_055")
+    toggle_shop_slot_frozen(p, 0)
+
+    buy_from_shop(p, 0, on_bought=lambda m, pl: None, on_triples=lambda pl: None)
+    assert p.shop_frozen[0] is False
+
+    rng = np.random.default_rng(0)
+    seen = set()
+    for _ in range(5):
+        refresh_shop(p, None, rng=rng, frozen_slots=p.shop_frozen, patch=ctx)
+        seen.add(p.shop[0].card_id)
+    assert len(seen) > 1, "slot stayed pinned to one offer after the buy"
+
+
+def test_freeze_still_survives_a_roll():
+    from src.bg_recruitment.shop import refresh_shop, toggle_shop_slot_frozen
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.shop[0] = ctx.make_minion("BGS_019")
+    p.shop[1] = ctx.make_minion("BGS_055")
+    toggle_shop_slot_frozen(p, 0)
+    rng = np.random.default_rng(0)
+    for _ in range(4):
+        refresh_shop(p, None, rng=rng, frozen_slots=p.shop_frozen, patch=ctx)
+        assert p.shop[0].card_id == "BGS_019"
+        assert p.shop_frozen[0] is True
+
+
+def test_combat_hand_add_completes_a_triple():
+    """Nat Pagle's third copy forges on arrival, not on the next buy."""
+    from src.bg_recruitment.hand_slots import apply_combat_hand_adds
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.board = [ctx.make_minion("BGS_019"), ctx.make_minion("BGS_019")]
+    apply_combat_hand_adds(p, ["BGS_019"], ctx)
+    assert p.board == []
+    golden = [m for m in p.hand if m is not None and m.card_id == "BGS_019"]
+    assert len(golden) == 1 and golden[0].is_golden
+
+
+def test_combat_hand_add_triple_is_pool_neutral():
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.hand_slots import apply_combat_hand_adds
+
+    ctx = PatchContext.load(PATCH_74257)
+    pool = build_initial_shared_pool(patch=ctx)
+    for _ in range(3):
+        pool.try_reserve_offer("BGS_019")
+    before = pool.remaining_copies("BGS_019")
+    p = _shop_player()
+    p.board = [ctx.make_minion("BGS_019"), ctx.make_minion("BGS_019")]
+    apply_combat_hand_adds(p, ["BGS_019"], ctx, shared_pool=pool)
+    assert pool.remaining_copies("BGS_019") == before
+
+
+def test_combat_hand_add_with_full_hand_queues_the_reward():
+    from src.bg_recruitment.hand_slots import apply_combat_hand_adds
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.board = [ctx.make_minion("BGS_019"), ctx.make_minion("BGS_019")]
+    p.hand = [ctx.make_minion("BGS_037") for _ in range(len(p.hand) - 1)] + [None]
+    apply_combat_hand_adds(p, ["BGS_019"], ctx)
+    assert any(m is not None and m.is_golden for m in p.hand)
+    assert p.triple_reward_discover_pending or any(
+        m is not None and m.is_triple_reward_spell for m in p.hand
+    )
+
+
+def test_combat_with_no_hand_adds_leaves_the_hand_alone():
+    from src.bg_recruitment.hand_slots import apply_combat_hand_adds
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.board = [ctx.make_minion("BGS_019")]
+    p.hand[0] = ctx.make_minion("BGS_055")
+    apply_combat_hand_adds(p, [], ctx)
+    assert len(p.board) == 1
+    assert p.hand[0] is not None and p.hand[0].card_id == "BGS_055"
+
+
+def test_referenced_keyword_tags_do_not_become_own_keywords():
+    """A card that hands out Taunt does not thereby have Taunt."""
+    from src.bg_core.effects import Keyword
+
+    ctx = PatchContext.load(PATCH_74257)
+    hands_it_out = {
+        "DS1_070": Keyword.TAUNT,          # Houndmaster
+        "EX1_093": Keyword.TAUNT,          # Defender of Argus
+        "ICC_807": Keyword.TAUNT,          # Strongshell Scavenger
+        "BOT_218": Keyword.TAUNT,          # Security Rover summons one
+        "BGS_044": Keyword.TAUNT,          # Imp Mama summons one
+        "BGS_110": Keyword.TAUNT,          # Arm of the Empire watches for one
+        "BGS_111": Keyword.TAUNT,
+        "BGS_112": Keyword.TAUNT,
+        "OG_221": Keyword.SHIELD,          # Selfless Hero
+        "TB_BaconUps_014": Keyword.SHIELD,
+        "BGS_040": Keyword.SHIELD,         # Nadina the Red
+        "BGS_067": Keyword.SHIELD,         # Drakonid Enforcer watches for one
+        "DAL_077": Keyword.POISONOUS,      # Toxfin
+    }
+    for card_id, kw in hands_it_out.items():
+        assert kw not in ctx.templates[card_id].keywords, card_id
+
+
+def test_text_only_keywords_survive_an_empty_mechanics_list():
+    """hearthstonejson leaves ``mechanics`` empty for these — the text is the source."""
+    from src.bg_core.effects import Keyword
+
+    ctx = PatchContext.load(PATCH_74257)
+    assert Keyword.WINDFURY in ctx.templates["BGS_022"].keywords   # Zapp Slywick
+    assert Keyword.TAUNT in ctx.templates["BGS_060"].keywords      # Yo-Ho-Ogre
+    assert Keyword.WINDFURY in ctx.templates["BGS_080"].keywords   # Seabreaker Goliath
+    assert Keyword.SHIELD in ctx.templates["BGS_071"].keywords     # Deflect-o-Bot
+
+
+def test_targeted_battlecries_pick_a_target_instead_of_rolling():
+    """The six 'give a friendly X' battlecries route through the target modal."""
+    from src.bg_core.effects import BuffTargetFriendlyBattlecry, Keyword, Trigger
+
+    ctx = PatchContext.load(PATCH_74257)
+    expected = {
+        "BGS_001": (2, 2, None),           # Nathrezim Overseer
+        "CFM_816": (2, 2, None),           # Virmen Sensei
+        "DS1_070": (2, 2, Keyword.TAUNT),  # Houndmaster
+        "GVG_055": (2, 2, None),           # Screwjank Clunker
+        "UNG_073": (1, 1, None),           # Rockpool Hunter
+        "DAL_077": (0, 0, Keyword.POISONOUS),  # Toxfin
+    }
+    for card_id, (atk, hp, kw) in expected.items():
+        ability = next(
+            ab for ab in ctx.effects[card_id] if ab.trigger == Trigger.ON_PLACE
+        )
+        eff = ability.effect
+        assert isinstance(eff, BuffTargetFriendlyBattlecry), card_id
+        assert (eff.attack, eff.health, eff.grant_keyword) == (atk, hp, kw), card_id
+
+
+def test_targeted_battlecry_buffs_only_the_chosen_minion():
+    from src.bg_core.effects import Keyword
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+    from src.bg_recruitment.targeted_battlecry import (
+        apply_targeted_on_place_battlecries,
+    )
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    passed_over = ctx.make_minion("EX1_506")
+    passed_over.bonus_attack = 7            # keep the two distinguishable
+    chosen = ctx.make_minion("EX1_506")
+    p.board = [passed_over, chosen]
+    toxfin = ctx.make_minion("DAL_077")
+    p.board.append(toxfin)
+    apply_targeted_on_place_battlecries(
+        ShopTriggers(patch=ctx, rng=np.random.default_rng(0)),
+        p,
+        toxfin,
+        rng=np.random.default_rng(0),
+        forced_buff_target=chosen,
+    )
+    assert Keyword.POISONOUS in chosen.all_keywords
+    assert Keyword.POISONOUS not in passed_over.all_keywords
+    assert Keyword.POISONOUS not in toxfin.all_keywords
+
+
+def test_targeted_battlecry_with_no_eligible_tribe_opens_no_plan():
+    from src.envs.minibg.rl_place import open_rl_place_plan
+
+    ctx = PatchContext.load(PATCH_74257)
+    p = _shop_player()
+    p.board = [ctx.make_minion("EX1_531")]          # a Beast
+    p.hand[0] = ctx.make_minion("DAL_077")          # Toxfin wants a Murloc
+    assert open_rl_place_plan(p, 0) is None

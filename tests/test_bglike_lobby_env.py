@@ -170,3 +170,46 @@ def test_run_lobby_episode_resets_cap_each_round(monkeypatch) -> None:
     assert result.outcomes == {}
     assert stub.state.combat_round == 2
     assert stub.lobby_done
+
+
+def test_placement_trigger_survives_a_discover_modal() -> None:
+    """A battlecry that opens a modal must still count as "a minion was played".
+
+    Primalfin Lookout is a Battlecry minion, so Kalecgos owes the board +1/+1 —
+    the RL wrapper used to drop the deferred trigger when it cleared the handoff
+    before the discover was answered.
+    """
+    from src.envs.bglike.action_map import A_DISCOVER_PICK_0, A_FINISH, A_PLACE_HAND_0
+
+    env = BGLobbySingleAgentEnv(
+        training_seat=0,
+        learned_seats=(0,),
+        agent_by_seat={0: RandomAgent(seed=1)},
+        seed=3,
+        patch_dir="data/bgcore/19_6_0_74257",
+    )
+    env.reset()
+    ctx = env._lobby._game._patch if hasattr(env, "_lobby") else env._game._patch
+
+    player = env.state.players[0]
+    player.board = [
+        ctx.make_minion("BGS_041"),          # Kalecgos, Arcane Aspect
+        ctx.make_minion("BGS_039"),          # a Dragon to receive the buff
+        ctx.make_minion("EX1_506"),          # a Murloc so the discover fires
+    ]
+    player.hand = [ctx.make_minion("BGS_020")] + [None] * (len(player.hand) - 1)
+    player.pending_choice = None
+    player.shop_actions_used = 0
+    player.gold = 10
+
+    env.step(A_PLACE_HAND_0)
+    player = env.state.players[0]
+    assert player.pending_choice is not None
+    assert player.placed_minion_pending_after is not None
+    assert not env.legal_actions_mask[A_FINISH], "modal must own the turn"
+
+    env.step(A_DISCOVER_PICK_0)
+    player = env.state.players[0]
+    dragon = next(m for m in player.board if m.card_id == "BGS_039")
+    assert (dragon.raw_attack, dragon.max_health) == (3, 4)
+    assert player.placed_minion_pending_after is None

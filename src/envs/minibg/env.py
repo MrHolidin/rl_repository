@@ -824,15 +824,17 @@ class MiniBGEnv(TurnBasedEnv):
     def _finish_rl_place_after_effects(self) -> None:
         assert self._state is not None
         player = self._state.players[self._state.current_player_index]
-        ref = player.placed_minion_pending_after
-        if (
-            ref is not None
-            and ref in player.board
-            and player.pending_choice is None
-        ):
-            self._game._shop_triggers.fire_after_friendly_minion_placed(player, ref)
-        player.placed_minion_board_index = None
-        player.placed_minion_pending_after = None
+        # While a modal is open the deferred placement trigger belongs to it:
+        # ``resolve_discover_pick`` fires it and clears the handoff when the pick
+        # lands. Clearing the field here dropped the trigger for good. The shop
+        # action below is still spent — the placement happened, the modal is only
+        # its tail.
+        if player.pending_choice is None:
+            ref = player.placed_minion_pending_after
+            if ref is not None and ref in player.board:
+                self._game._shop_triggers.fire_after_friendly_minion_placed(player, ref)
+            player.placed_minion_board_index = None
+            player.placed_minion_pending_after = None
         flush_triple_reward_queue_if_idle(
             player,
             self._state.shop_excluded_race,

@@ -12,6 +12,7 @@ from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import EliminatedSnapshot
 from src.bg_lobby.pairing import opponent_from_pairings, peek_next_opponent
 from src.bg_lobby.player import BATTLE_HISTORY_LEN, PlayerPhase, PlayerState
+from src.bg_recruitment import economy
 from src.envs.minibg import obs as minibg_obs
 from src.envs.minibg.obs import (
     GLOBAL_DIM,
@@ -382,13 +383,14 @@ def build_observation(
     card_id_to_dense = patch.card_id_to_dense
     meta = patch.meta
     actions_left = MAX_SHOP_ACTIONS - me.shop_actions_used
+    # What the actions actually cost, not the base numbers: the legal mask is built
+    # from ``economy.effective_*``, so a raw read here shows the model an upgrade it
+    # cannot afford while offering it as legal (Deck Swabbie, Millhouse, Nozdormu).
     tier_up_cost = (
-        0.0 if me.tavern_tier >= MAX_TIER else float(me.next_tier_up_cost)
+        0.0 if me.tavern_tier >= MAX_TIER else float(economy.effective_level_up_cost(me))
     )
 
-    effective_roll_cost = float(
-        me.next_roll_cost_override if me.next_roll_cost_override is not None else ROLL_COST
-    )
+    effective_roll_cost = float(economy.effective_roll_cost(me))
     globals_core = np.array(
         [
             state.round_number / MAX_ROUNDS,

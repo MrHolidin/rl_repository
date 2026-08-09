@@ -171,3 +171,59 @@ def test_battle_history_left_pads_when_short():
     assert bh[2] == np.float32(0.42)
     assert bh[0] == 0.0 and bh[1] == 0.0
     assert bh[3] == 0.0 and bh[4] == 0.0 and bh[5] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Economy globals: the model must be shown the cost the legal mask is built from.
+# ---------------------------------------------------------------------------
+
+_TIER_UP_COST_IDX = 9
+_ROLL_COST_IDX = 11
+
+
+def _obs_globals_for(state, game, seat=0):
+    return build_observation(
+        state, seat, 0.0, is_my_turn=True, patch=game._patch
+    )
+
+
+def test_tier_up_cost_channel_follows_the_effective_cost():
+    """Deck Swabbie's discount must show up, or obs contradicts the legal mask."""
+    from src.envs.bglike.obs import LEVEL_UP_COST_MAX
+    from src.bg_recruitment.economy import effective_level_up_cost
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    game = BGLikeGame(seed=0, patch_dir="data/bgcore/19_6_0_74257")
+    state = game.initial_state()
+    me = state.players[0]
+    me.tavern_tier = 1
+    me.next_tier_up_cost = 5
+
+    obs = _obs_globals_for(state, game)
+    assert obs[_TIER_UP_COST_IDX] * LEVEL_UP_COST_MAX == 5.0
+
+    swabbie = game._patch.make_minion("BGS_055")
+    me.board = [swabbie]
+    ShopTriggers(patch=game._patch, rng=np.random.default_rng(0)).fire_on_place(
+        swabbie, me, None
+    )
+    assert effective_level_up_cost(me) == 4
+    obs = _obs_globals_for(state, game)
+    assert obs[_TIER_UP_COST_IDX] * LEVEL_UP_COST_MAX == 4.0
+
+
+def test_roll_cost_channel_follows_the_effective_cost():
+    from src.envs.bglike.obs import ROLL_COST
+    from src.bg_recruitment.economy import effective_roll_cost
+
+    game = BGLikeGame(seed=0, patch_dir="data/bgcore/19_6_0_74257")
+    state = game.initial_state()
+    me = state.players[0]
+
+    obs = _obs_globals_for(state, game)
+    assert obs[_ROLL_COST_IDX] * ROLL_COST == float(ROLL_COST)
+
+    me.hero_free_roll_pending = True          # Nozdormu: this refresh is free
+    assert effective_roll_cost(me) == 0
+    obs = _obs_globals_for(state, game)
+    assert obs[_ROLL_COST_IDX] == 0.0
