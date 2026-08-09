@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as _dataclass_fields
 from enum import IntEnum
 from typing import Dict, List, Optional, Tuple
 
@@ -161,3 +161,83 @@ def apply_hero_damage(player: PlayerState, damage: int) -> None:
     absorbed = min(player.armor, damage)
     player.armor -= absorbed
     player.health -= damage - absorbed
+
+
+# Fields whose value is a mutable container: a copy must clone them, or two
+# states would share a list and mutating one would rewrite the other.
+_CONTAINER_FIELDS = frozenset({"board", "shop", "hand", "last_round_tribe_counts"})
+
+# Fields the copy rebuilds rather than carries: the pending-placement pair
+# points AT board minions, so it has to be re-aimed at the clones.
+_REMAPPED_FIELDS = frozenset(
+    {"pending_choice", "placed_minion_board_index", "placed_minion_pending_after"}
+)
+
+
+def copy_player_state(p: PlayerState) -> PlayerState:
+    """Value copy of a seat, carrying **every** field.
+
+    Enumerated by ``dataclasses.fields`` rather than by hand. The hand-written
+    version this replaces listed 22 of 38 fields, so the other 16 silently took
+    their defaults on every copy -- and the copy runs once per *action*, not per
+    turn. Measured on the live lobby: battle_history, last_opponent_board,
+    shop_frozen, armor, last_combat_won and the economy counters survived
+    exactly one decision after a combat and were zero for the rest of the turn.
+    That reached play through Nomi, Steward of Time, Southsea Strongarm, Deck
+    Swabbie, Refreshing Anomaly, Cap'n Hoggarr, Murozond and Hangry Dragon, and
+    through the 13 battle-history floats in the observation.
+
+    Nothing is reset here, deliberately. Every field that should be cleared
+    already is, in the place that owns its lifetime: ``fire_on_turn_start``
+    zeroes the per-turn counters, and ``economy`` clears the one-shot hero
+    levers when they are spent. The old comment claiming this copy
+    "intentionally resets" the transient economy fields was wrong -- it reset
+    them a second time and at the wrong moment.
+
+    Enumerating the fields also flips the direction of the next mistake: a field
+    added to :class:`PlayerState` is now carried by default, and skipping it has
+    to be written down.
+    """
+    new_board = [m.__copy__() for m in p.board]
+
+    remapped_pending: Optional[Minion] = None
+    pend = p.placed_minion_pending_after
+    if pend is not None:
+        try:
+            i = p.board.index(pend)
+        except ValueError:
+            pass
+        else:
+            if 0 <= i < len(new_board):
+                remapped_pending = new_board[i]
+    placed_idx: Optional[int] = None
+    if remapped_pending is not None:
+        try:
+            placed_idx = new_board.index(remapped_pending)
+        except ValueError:
+            placed_idx = None
+
+    pc = p.pending_choice
+    values = {
+        "board": new_board,
+        "shop": [m.__copy__() if m is not None else None for m in p.shop],
+        "hand": [m.__copy__() if m is not None else None for m in p.hand],
+        "last_round_tribe_counts": dict(p.last_round_tribe_counts),
+        "pending_choice": (
+            PendingChoice(
+                pc.kind,
+                pc.options,
+                pc.extra_modals_after,
+                pc.options_pool_reserved,
+                pc.transform_board_idx,
+            )
+            if pc is not None
+            else None
+        ),
+        "placed_minion_board_index": placed_idx,
+        "placed_minion_pending_after": remapped_pending,
+    }
+    for f in _dataclass_fields(PlayerState):
+        if f.name not in values:
+            values[f.name] = getattr(p, f.name)
+    return PlayerState(**values)

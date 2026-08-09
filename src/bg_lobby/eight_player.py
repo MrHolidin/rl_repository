@@ -391,6 +391,13 @@ def resolve_combat_round(
             p.shop_freeze_next_round = False
         else:
             refresh_shop(p, state.shop_excluded_race)
+        # A freeze lasts until the shop it protected is served, then lifts: the
+        # kept minions stay on the counter but are no longer pinned, so the next
+        # roll clears them. Only the whole-shop flag above used to be cleared
+        # here; the per-slot tuple was never cleared anywhere, and rolling with
+        # it set preserved those slots for the rest of the game. That went
+        # unnoticed because the per-action state copy dropped the field.
+        p.shop_frozen = (False,) * len(p.shop_frozen)
 
     from src.bg_lobby.shop_order import sample_shop_turn_order
 

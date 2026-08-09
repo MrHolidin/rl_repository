@@ -6,6 +6,7 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 
 from src.bg_lobby import eight_player as bg_lobby_eight
+from src.bg_lobby.player import copy_player_state
 from src.bg_lobby.shared_pool import SharedCardPool, build_initial_shared_pool
 from src.bg_lobby.shop_order import sample_shop_turn_order
 from src.bg_player_turn import PlayerTurnContext, PlayerTurnEngine
@@ -453,60 +454,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
 
     @staticmethod
     def _copy_player(p: PlayerState) -> PlayerState:
-        new_board = [m.__copy__() for m in p.board]
-        remapped_pending: Optional[Minion] = None
-        pend = p.placed_minion_pending_after
-        if pend is not None:
-            try:
-                i = p.board.index(pend)
-            except ValueError:
-                pass
-            else:
-                if 0 <= i < len(new_board):
-                    remapped_pending = new_board[i]
-        placed_idx: Optional[int] = None
-        if remapped_pending is not None:
-            try:
-                placed_idx = new_board.index(remapped_pending)
-            except ValueError:
-                placed_idx = None
-        return PlayerState(
-            health=p.health,
-            hero_damage_taken_total=p.hero_damage_taken_total,
-            gold=p.gold,
-            tavern_tier=p.tavern_tier,
-            next_tier_up_cost=p.next_tier_up_cost,
-            board=new_board,
-            shop=[m.__copy__() if m is not None else None for m in p.shop],
-            hand=[m.__copy__() if m is not None else None for m in p.hand],
-            phase=p.phase,
-            shop_actions_used=p.shop_actions_used,
-            shop_freeze_next_round=p.shop_freeze_next_round,
-            pending_choice=(
-                PendingChoice(
-                    p.pending_choice.kind,
-                    p.pending_choice.options,
-                    p.pending_choice.extra_modals_after,
-                    p.pending_choice.options_pool_reserved,
-                    p.pending_choice.transform_board_idx,
-                )
-                if p.pending_choice is not None
-                else None
-            ),
-            placed_minion_board_index=placed_idx,
-            placed_minion_pending_after=remapped_pending,
-            triple_reward_discover_pending=p.triple_reward_discover_pending,
-            triple_reward_spell_tier=p.triple_reward_spell_tier,
-            pogo_hoppers_played=p.pogo_hoppers_played,
-            # Hero is immutable for the game; its counters/levers must survive
-            # the per-action copy (the transient economy fields above do not).
-            hero=p.hero,
-            hero_buy_count=p.hero_buy_count,
-            hero_rotating_tribe=p.hero_rotating_tribe,
-            hero_elementals_progress=p.hero_elementals_progress,
-            hero_free_roll_pending=p.hero_free_roll_pending,
-            hero_upgrade_discount=p.hero_upgrade_discount,
-        )
+        # Single implementation lives next to the dataclass, so the field
+        # list cannot drift out of step with it again.
+        return copy_player_state(p)
 
-
-__all__ = ["BGLikeGame"]
