@@ -324,8 +324,12 @@ def resolve_combat_round(
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
-            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
-            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+            apply_combat_hand_adds(
+                pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool
+            )
+            apply_combat_hand_adds(
+                pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool
+            )
         else:
             _apply_hero_damage(state, b, dmg_b)
             _apply_hero_damage(state, a, dmg_a)
@@ -333,8 +337,12 @@ def resolve_combat_round(
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
-            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
-            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+            apply_combat_hand_adds(
+                pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool
+            )
+            apply_combat_hand_adds(
+                pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool
+            )
 
         new_recent: List[Tuple[int, ...]] = []
         for i in range(len(state.players)):

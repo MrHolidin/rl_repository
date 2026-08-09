@@ -338,6 +338,8 @@ class BuffTargetFriendlyBattlecry:
     health: int = 1
     exclude_self: bool = True
     filter_race: Optional[Any] = None
+    # Houndmaster hands out Taunt with the stats; Toxfin is keyword-only (0/0).
+    grant_keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)

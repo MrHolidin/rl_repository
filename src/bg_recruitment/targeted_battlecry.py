@@ -21,6 +21,7 @@ from src.bg_recruitment.effect_modal import (
 )
 from src.bg_lobby.player import PlayerState
 
+from .shop_auras import shop_effective_stats
 from .shop_triggers import ShopTriggers
 
 
@@ -32,8 +33,11 @@ def _apply_consume_friendly(
 ) -> None:
     if target not in player.board:
         return
-    source.bonus_attack += target.raw_attack * effect.stat_multiplier
-    source.bonus_health += target.max_health * effect.stat_multiplier
+    # The stats the shop shows for the target, not its bare body: a demon standing
+    # next to Mal'Ganis is eaten at +2/+2, which is what the aura displays.
+    atk, hp = shop_effective_stats(player.board, target)
+    source.bonus_attack += atk * effect.stat_multiplier
+    source.bonus_health += hp * effect.stat_multiplier
     player.gold += effect.gold_reward
     player.board.remove(target)
 

@@ -145,7 +145,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_001": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(2, 2, exclude_self=True, filter_race=Race.DEMON),
+            BuffTargetFriendlyBattlecry(attack=2, health=2, filter_race=Race.DEMON),
         ),
     ),
     "BGS_002": (
@@ -202,13 +202,13 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_017": (
         Ability(
             Trigger.ON_FRIENDLY_MINION_SUMMONED,
-            BuffSummonedIfRace(Race.BEAST, attack=3, health=0),
+            BuffSummonedIfRace(Race.BEAST, attack=2, health=0),
         ),
     ),
     "BGS_018": (
         Ability(
             Trigger.ON_DEATH,
-            BuffAllFriendlyOfTribe(Race.BEAST, attack=4, health=4),
+            BuffAllFriendlyOfTribe(Race.BEAST, attack=5, health=5),
         ),
     ),
     "BGS_020": (
@@ -249,7 +249,11 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_036": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffSelfFromFriendlyTribeCount(Race.DRAGON, attack_per=1, health_per=1),
+            # "for each Dragon you have" counted Razorgore himself until 28.2.0
+            # reworded it to "each other friendly Dragon" — at 19.6 he is in the count.
+            BuffSelfFromFriendlyTribeCount(
+                Race.DRAGON, attack_per=1, health_per=1, exclude_self=False
+            ),
         ),
     ),
     "BGS_038": (
@@ -304,14 +308,17 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "CFM_816": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(2, 2, exclude_self=True, filter_race=Race.BEAST),
+            BuffTargetFriendlyBattlecry(attack=2, health=2, filter_race=Race.BEAST),
         ),
     ),
     "DAL_077": (
         Ability(
             Trigger.ON_PLACE,
-            GrantKeywordRandomFriendly(
-                Keyword.POISONOUS, filter_race=Race.MURLOC, exclude_self=True
+            BuffTargetFriendlyBattlecry(
+                attack=0,
+                health=0,
+                filter_race=Race.MURLOC,
+                grant_keyword=Keyword.POISONOUS,
             ),
         ),
     ),
@@ -319,12 +326,11 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "DS1_070": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(
-                2,
-                2,
-                exclude_self=True,
+            BuffTargetFriendlyBattlecry(
+                attack=2,
+                health=2,
                 filter_race=Race.BEAST,
-                grant_taunt=True,
+                grant_keyword=Keyword.TAUNT,
             ),
         ),
     ),
@@ -398,7 +404,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "GVG_055": (
         Ability(
             Trigger.ON_PLACE,
-            BuffRandomFriendly(2, 2, exclude_self=True, filter_race=Race.MECHANICAL),
+            BuffTargetFriendlyBattlecry(
+                attack=2, health=2, filter_race=Race.MECHANICAL
+            ),
         ),
     ),
     "GVG_106": (
@@ -450,9 +458,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "UNG_073": (
         Ability(
             Trigger.ON_PLACE,
-            BuffOnePerListedTribeFriendly(
-                1, 1, (Race.MURLOC,), exclude_self=True
-            ),
+            BuffTargetFriendlyBattlecry(attack=1, health=1, filter_race=Race.MURLOC),
         ),
     ),
     "target_buffer": (

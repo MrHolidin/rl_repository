@@ -184,6 +184,16 @@ def clear_shop_slot(
     if m is not None and shared_pool is not None and release_to_pool:
         shared_pool.release_offer(m.card_id)
     player.shop[slot] = None
+    # A freeze belongs to the minion, not to the slot: once that body leaves the
+    # counter (bought, or rolled away) nothing is pinned there any more. Leaving
+    # the flag up made the next roll drop a fresh offer into a slot the player
+    # never froze and then refuse to reroll it. ``refresh_shop`` reads its
+    # ``frozen_slots`` argument, an immutable snapshot, so clearing here cannot
+    # disturb the roll that is in flight.
+    if slot < len(player.shop_frozen) and player.shop_frozen[slot]:
+        frozen = list(player.shop_frozen)
+        frozen[slot] = False
+        player.shop_frozen = tuple(frozen)
 
 
 def fill_shop_slot(

@@ -96,6 +96,7 @@ from src.bg_core.effects import (
     SummonRandomOnSelfDamagedEffect,
     TransferAttackToRandomFriendlyEffect,
 )
+from src.bg_recruitment import economy as bg_economy
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
 from .state import (
     MiniBGState,
@@ -652,11 +653,13 @@ def _encode_shop_with_pair_counts(
             continue
         nh = _count_non_golden_same_card_hand(player, m.card_id)
         nb = _count_non_golden_same_card_board(player, m.card_id)
+        frozen = bool(player.shop_frozen[i]) if i < len(player.shop_frozen) else False
         out[i] = encode_minion(
             m,
             same_non_golden_hand_elsewhere=nh,
             same_non_golden_board_elsewhere=nb,
             card_id_to_dense=card_id_to_dense,
+            is_frozen=frozen,
         )
     return out
 
@@ -703,8 +706,11 @@ def build_observation(
     meta = patch.meta
 
     actions_left = MAX_SHOP_ACTIONS - me.shop_actions_used
+    # The cost the legal mask is built from — see the same read in ``bglike/obs.py``.
     tier_up_cost = (
-        0.0 if me.tavern_tier >= MAX_TIER else float(me.next_tier_up_cost)
+        0.0
+        if me.tavern_tier >= MAX_TIER
+        else float(bg_economy.effective_level_up_cost(me))
     )
 
     globals_core = np.array(
