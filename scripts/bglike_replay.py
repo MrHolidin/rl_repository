@@ -21,6 +21,9 @@ from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.evaluation.eval_checkpoints import find_checkpoints, load_training_agent_checkpoint
 
 
+DEFAULT_PATCH_DIR = "data/bgcore/19_6_0_74257"
+
+
 def _build_env(
     *,
     seed: int,
@@ -29,19 +32,27 @@ def _build_env(
     replay_path: Path,
     replay_meta: dict,
     agent_by_seat: dict | None = None,
+    patch_dir: str = DEFAULT_PATCH_DIR,
+    bots_by_seat: list[str] | None = None,
 ) -> BGLobbyEnv:
     learned = tuple(range(8))
     if agent_by_seat is None:
-        if bot == "random":
-            agent_by_seat = {s: RandomAgent(seed=seed + 100 + s) for s in learned}
-        else:
-            agent_by_seat = {s: make_heuristic_agent(bot, seed=seed + 100 + s) for s in learned}
+        names = bots_by_seat if bots_by_seat is not None else [bot] * len(learned)
+        agent_by_seat = {
+            s: (
+                RandomAgent(seed=seed + 100 + s)
+                if names[s] == "random"
+                else make_heuristic_agent(names[s], seed=seed + 100 + s)
+            )
+            for s in learned
+        }
     configs = lobby_from_learned_seats(learned, agent_by_seat=agent_by_seat)
     env = BGLobbyEnv(
         configs,
         learned_seats=learned,
         training_seats=(0,),
         seed=seed,
+        patch_dir=patch_dir,
     )
     attach_replay(
         env,
@@ -49,23 +60,29 @@ def _build_env(
         {"bot": bot, "seed": seed, **replay_meta},
         record_seats=record_seats,
     )
-    if bot != "random" and agent_by_seat is None:
-        bridge = ReplayHeuristicEnvBridge(env)
-        for agent in agent_by_seat.values():
-            if hasattr(agent, "set_env"):
-                agent.set_env(bridge)
+    bridge = ReplayHeuristicEnvBridge(env)
+    for agent in agent_by_seat.values():
+        if hasattr(agent, "set_env"):
+            agent.set_env(bridge)
     return env
 
 
 def cmd_generate(args: argparse.Namespace) -> None:
     out = args.out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
+    bots_by_seat = None
+    if args.bots:
+        bots_by_seat = [n.strip() for n in args.bots.split(",")]
+        if len(bots_by_seat) != 8:
+            raise SystemExit(f"--bots needs 8 comma-separated names, got {len(bots_by_seat)}")
     env = _build_env(
         seed=args.seed,
         bot=args.bot,
         record_seats=None if not args.no_shop_frames else frozenset(),
         replay_path=out,
-        replay_meta={"episodes": args.episodes},
+        replay_meta={"episodes": args.episodes, "bots": bots_by_seat},
+        patch_dir=args.patch_dir,
+        bots_by_seat=bots_by_seat,
     )
     try:
         for ep in range(args.episodes):
@@ -159,6 +176,13 @@ def main() -> None:
         default="structured",
         help="Heuristic bot name for all seats, or 'random'",
     )
+    gen.add_argument(
+        "--bots",
+        type=str,
+        default=None,
+        help="Per-seat bot names, 8 comma-separated (overrides --bot)",
+    )
+    gen.add_argument("--patch-dir", type=str, default=DEFAULT_PATCH_DIR)
     gen.add_argument(
         "--no-shop-frames",
         action="store_true",

@@ -90,66 +90,95 @@ def run_lobby(bot_names: list[str], *, seed: int, patch_dir: str) -> dict[int, i
     return env.finalize_placements()
 
 
-def run_comparison(n_games: int, patch_dir: str) -> None:
-    # Seats 0,1 = elemental; seats 2-7 = structured
-    elemental_placements: list[int] = []
-    structured_placements: list[int] = []
+def run_comparison(
+    n_games: int,
+    patch_dir: str,
+    *,
+    bot_a: str = "elemental",
+    bot_b: str = "structured",
+    seats_a: int = 2,
+    quiet: bool = False,
+) -> None:
+    """Seats [0, seats_a) play ``bot_a``; the rest play ``bot_b``.
+
+    Seat order alternates per game so seat bias (turn order, shop RNG) cancels.
+    """
+    a_placements: list[int] = []
+    b_placements: list[int] = []
 
     for game_i in range(n_games):
         seed = game_i * 13 + 7
-        bot_names = ["elemental", "elemental"] + ["structured"] * 6
+        # Rotate which seats belong to A so neither bot owns a fixed seat.
+        offset = (game_i * seats_a) % NUM_PLAYERS
+        a_seats = {(offset + k) % NUM_PLAYERS for k in range(seats_a)}
+        bot_names = [bot_a if s in a_seats else bot_b for s in range(NUM_PLAYERS)]
         placements = run_lobby(bot_names, seed=seed, patch_dir=patch_dir)
-        for s in range(2):
-            elemental_placements.append(placements[s])
-        for s in range(2, NUM_PLAYERS):
-            structured_placements.append(placements[s])
+        for s in range(NUM_PLAYERS):
+            (a_placements if s in a_seats else b_placements).append(placements[s])
 
-        e_places = [placements[0], placements[1]]
-        avg_e = sum(elemental_placements) / len(elemental_placements)
-        avg_s = sum(structured_placements) / len(structured_placements)
-        print(f"Game {game_i+1:3d}/{n_games}  elemental={e_places}  "
-              f"elemental_avg={avg_e:.2f}  structured_avg={avg_s:.2f}")
+        if not quiet:
+            avg_a = sum(a_placements) / len(a_placements)
+            avg_b = sum(b_placements) / len(b_placements)
+            print(
+                f"Game {game_i+1:3d}/{n_games}  {bot_a}={[placements[s] for s in sorted(a_seats)]}  "
+                f"{bot_a}_avg={avg_a:.2f}  {bot_b}_avg={avg_b:.2f}"
+            )
 
     print()
     print("=" * 55)
-    n = n_games
-    avg_e = sum(elemental_placements) / len(elemental_placements)
-    avg_s = sum(structured_placements) / len(structured_placements)
+    avg_a = sum(a_placements) / len(a_placements)
+    avg_b = sum(b_placements) / len(b_placements)
 
-    e_dist: dict[int, int] = defaultdict(int)
-    s_dist: dict[int, int] = defaultdict(int)
-    for p in elemental_placements:
-        e_dist[p] += 1
-    for p in structured_placements:
-        s_dist[p] += 1
+    a_dist: dict[int, int] = defaultdict(int)
+    b_dist: dict[int, int] = defaultdict(int)
+    for p in a_placements:
+        a_dist[p] += 1
+    for p in b_placements:
+        b_dist[p] += 1
 
-    n_e = len(elemental_placements)
-    n_s = len(structured_placements)
-    print(f"Games: {n}  |  elemental seats: 2, structured seats: 6")
-    print(f"elemental_avg={avg_e:.3f}  structured_avg={avg_s:.3f}  (lower = better, equal-skill baseline = 4.5)")
+    n_a = len(a_placements)
+    n_b = len(b_placements)
+    # Placement is a per-lobby ranking, so the two averages are coupled; the
+    # standard error below treats seats as independent and is only a guide.
+    var_a = sum((x - avg_a) ** 2 for x in a_placements) / max(1, n_a - 1)
+    var_b = sum((x - avg_b) ** 2 for x in b_placements) / max(1, n_b - 1)
+    se = (var_a / max(1, n_a) + var_b / max(1, n_b)) ** 0.5
+
+    print(f"Games: {n_games}  |  {bot_a} seats: {seats_a}, {bot_b} seats: {NUM_PLAYERS - seats_a}")
+    print(
+        f"{bot_a}_avg={avg_a:.3f}  {bot_b}_avg={avg_b:.3f}  "
+        f"diff={avg_a - avg_b:+.3f} (+-{1.96 * se:.3f})  (lower = better, equal skill = 4.5)"
+    )
     print()
-    print(f"Elemental placement distribution  (n={n_e}):")
-    for place in range(1, 9):
-        cnt = e_dist.get(place, 0)
-        bar = "#" * (cnt * 30 // max(n_e, 1))
-        pct = cnt / n_e * 100
-        print(f"  {place}: {bar:<30s} {cnt:3d}  ({pct:5.1f}%)")
-    print()
-    print(f"Structured placement distribution  (n={n_s}):")
-    for place in range(1, 9):
-        cnt = s_dist.get(place, 0)
-        pct = cnt / n_s * 100
-        print(f"  {place}: {'#' * (cnt * 30 // n_s):<30s} {cnt:3d}  ({pct:5.1f}%)")
+    for label, dist, n in ((bot_a, a_dist, n_a), (bot_b, b_dist, n_b)):
+        print(f"{label} placement distribution  (n={n}):")
+        for place in range(1, 9):
+            cnt = dist.get(place, 0)
+            bar = "#" * (cnt * 30 // max(n, 1))
+            pct = cnt / max(n, 1) * 100
+            print(f"  {place}: {bar:<30s} {cnt:3d}  ({pct:5.1f}%)")
+        print()
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--games", type=int, default=50)
     ap.add_argument("--patch", default=DEFAULT_PATCH)
+    ap.add_argument("--bot-a", default="elemental")
+    ap.add_argument("--bot-b", default="structured")
+    ap.add_argument("--seats-a", type=int, default=2)
+    ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
-    print(f"Running {args.games} games  patch={args.patch}")
+    print(f"Running {args.games} games  patch={args.patch}  {args.bot_a} x{args.seats_a} vs {args.bot_b}")
     print()
-    run_comparison(args.games, args.patch)
+    run_comparison(
+        args.games,
+        args.patch,
+        bot_a=args.bot_a,
+        bot_b=args.bot_b,
+        seats_a=args.seats_a,
+        quiet=args.quiet,
+    )
 
 
 if __name__ == "__main__":
