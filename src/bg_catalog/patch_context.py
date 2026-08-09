@@ -24,6 +24,7 @@ from src.bg_catalog.triple_effects import resolve_triple_forged_abilities
 from src.bg_core.effects import Ability
 from src.bg_core.hero import Hero
 from src.bg_core.minion import Minion, Race
+from src.bg_core.tavern_spell import TavernSpell
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -71,6 +72,12 @@ class PatchContext:
     # consumed when the env runs with ``with_heroes=True``.
     heroes: Mapping[str, Hero] = field(default_factory=dict)
     hero_pool_ids: FrozenSet[str] = frozenset()
+    # Battleground tavern spells (not minions — never in ``templates``, never
+    # placed/sold). Empty on every patch package that doesn't construct them;
+    # today that's every package, since the only spell that exists so far
+    # (triple-reward discover) is built in the shared loader below, not from
+    # per-patch data.
+    tavern_spells: Mapping[str, TavernSpell] = field(default_factory=dict)
 
     def make_minion(self, card_id: str) -> Minion:
         from copy import copy
@@ -82,8 +89,6 @@ class PatchContext:
         fresh.has_shield = Keyword.SHIELD in tpl.all_keywords
         fresh.is_golden = tpl.is_golden
         fresh.from_triple_merge = False
-        fresh.is_triple_reward_spell = tpl.is_triple_reward_spell
-        fresh.triple_discover_tier = tpl.triple_discover_tier
         return fresh
 
     def triple_merge_golden_abilities(self, normal_card_id: str) -> Tuple[Ability, ...]:
@@ -143,6 +148,7 @@ class PatchContext:
             num_pool_indices=len(card_index_ids),
             heroes=heroes,
             hero_pool_ids=hero_pool_ids,
+            tavern_spells=_build_tavern_spells(),
         )
 
 
@@ -315,6 +321,15 @@ def _build_templates_and_descriptions(
             False,
         ),
         (
+            # This id also gets a real ``TavernSpell`` entry (see
+            # ``_build_tavern_spells``) — gameplay logic uses that one.
+            # The ``Minion`` placeholder below only exists so this card_id
+            # keeps occupying its current slot in ``templates``/
+            # ``card_id_to_dense``: removing it would shift the dense index
+            # of every alphabetically-later card and desync old checkpoints'
+            # card embeddings. ``is_token=True`` (plus ``tier=0``) is what
+            # actually keeps it out of every shop/pool/discover filter now —
+            # see the audit in the card-model migration plan.
             "triple_reward_discover",
             "Discover (Triple Reward)",
             Minion(
@@ -324,7 +339,6 @@ def _build_templates_and_descriptions(
                 tier=0,
                 name="Discover (Triple Reward)",
                 is_token=True,
-                is_triple_reward_spell=True,
             ),
             False,
         ),
@@ -341,6 +355,19 @@ def _build_templates_and_descriptions(
         descriptions[card_id] = desc
 
     return out, descriptions, frozenset(pool_ids)
+
+
+def _build_tavern_spells() -> Dict[str, TavernSpell]:
+    """The tavern-spell catalog. Patch-independent today (mirrors the old
+    synthetic-``Minion`` construction it replaces) — a real per-patch
+    ``tavern_spells.py`` loader is a follow-up once actual spell content
+    exists; this only carries the one spell that already existed."""
+    return {
+        "triple_reward_discover": TavernSpell(
+            card_id="triple_reward_discover",
+            name="Discover (Triple Reward)",
+        ),
+    }
 
 
 def _build_card_index(

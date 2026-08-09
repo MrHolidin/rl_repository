@@ -124,7 +124,6 @@ def shop_pool_for_tier(
         for cid, m in ctx.templates.items()
         if not m.is_token
         and not m.is_golden
-        and not m.is_triple_reward_spell
         and m.tier == tier
         and shop_minion_allowed_with_exclusion(m, shop_excluded_race)
     ]

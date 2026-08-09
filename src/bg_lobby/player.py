@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from src.bg_core.hero import Hero
 from src.bg_core.minion import Minion, Race
+from src.bg_core.tavern_spell import TavernSpell
 from src.envs.minibg.actions import MAX_SHOP_SLOTS
+
+# What a hand slot can hold. `board`/`shop` stay Minion-only — only minions
+# are ever placed or offered in the minion shop; a bought tavern spell sits
+# in `hand` until PLACE consumes it (see src/bg_recruitment/triples.py).
+HandCard = Union[Minion, TavernSpell]
 
 # History length for obs-side last-N-battles features. Length = 3 matches
 # what real-BG shows on the opponent panel; bumping requires re-training.
@@ -16,6 +22,7 @@ BATTLE_HISTORY_LEN = 3
 
 __all__ = [
     "BattleSnapshot",
+    "HandCard",
     "Minion",
     "PlayerState",
     "PlayerPhase",
@@ -89,7 +96,7 @@ class PlayerState:
     next_tier_up_cost: int
     board: List[Minion]
     shop: List[Optional[Minion]]
-    hand: List[Optional[Minion]]
+    hand: List[Optional[HandCard]]
     phase: PlayerPhase
     shop_actions_used: int
     # Absorbs combat damage before health (modern per-hero balance lever via

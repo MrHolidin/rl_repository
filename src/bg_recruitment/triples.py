@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Dict, List, Optional, Tuple
+from dataclasses import replace
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -12,6 +13,7 @@ from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_catalog.golden_catalog import forged_golden_keywords
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion, Race
+from src.bg_core.tavern_spell import TavernSpell
 from src.bg_recruitment.discover_pool import (
     roll_triple_reward_discover_at_target_tier,
     triple_reward_discover_tier,
@@ -24,19 +26,19 @@ from .pool_ledger import on_sell_minion
 
 TRIPLE_REWARD_SPELL_CARD_ID = "triple_reward_discover"
 
+HandCard = Union[Minion, TavernSpell]
 
-def is_triple_reward_discover_spell(m: Minion) -> bool:
-    return m.is_triple_reward_spell or m.card_id == TRIPLE_REWARD_SPELL_CARD_ID
+
+def is_triple_reward_discover_spell(m: HandCard) -> bool:
+    return isinstance(m, TavernSpell)
 
 
 def make_triple_reward_discover_spell(
     *, discover_tier: int, patch: PatchContext
-) -> Minion:
+) -> TavernSpell:
     ctx = require_patch(patch, where="triples.make_triple_reward_discover_spell")
-    spell = copy(ctx.templates[TRIPLE_REWARD_SPELL_CARD_ID])
-    spell.triple_discover_tier = int(discover_tier)
-    spell.is_triple_reward_spell = True
-    return spell
+    base = ctx.tavern_spells[TRIPLE_REWARD_SPELL_CARD_ID]
+    return replace(base, triple_discover_tier=int(discover_tier))
 
 
 def hand_has_free_slot(player: PlayerState) -> bool:
@@ -153,8 +155,8 @@ def resolve_one_triple(
     for i, hm in enumerate(player.hand):
         if (
             hm is not None
-            and not hm.is_golden
             and not is_triple_reward_discover_spell(hm)
+            and not hm.is_golden
         ):
             groups.setdefault(hm.card_id, []).append(("h", i, hm))
     candidate: Optional[str] = None

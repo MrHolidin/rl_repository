@@ -42,7 +42,6 @@ def eligible_card_ids_for_tier(
         for cid, t in templates.items()
         if not t.is_token
         and not t.is_golden
-        and not t.is_triple_reward_spell
         and t.tier <= tavern_tier
         and shop_minion_allowed_with_exclusion(t, shop_excluded_race)
     ]
@@ -65,7 +64,7 @@ def build_initial_shared_pool(
     tpl = ctx.templates
     remaining: Dict[str, int] = {}
     for cid, t in tpl.items():
-        if t.is_token or t.is_golden or t.is_triple_reward_spell:
+        if t.is_token or t.is_golden:
             continue
         if not shop_minion_allowed_with_exclusion(t, shop_excluded_race):
             continue

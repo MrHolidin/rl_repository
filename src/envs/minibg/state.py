@@ -8,6 +8,7 @@ from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_lobby.player import (
     CasterKind,
     CasterRef,
+    HandCard,
     Minion,
     PendingChoice,
     PendingChoiceKind,
@@ -16,6 +17,7 @@ from src.bg_lobby.player import (
 )
 
 __all__ = [
+    "HandCard",
     "Minion",
     "PlayerState",
     "MiniBGState",
