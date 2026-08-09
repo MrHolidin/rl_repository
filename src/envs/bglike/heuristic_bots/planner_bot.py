@@ -69,7 +69,6 @@ from src.envs.minibg.heuristic_bots.value_model import (
     board_power,
     dominant_race,
     minion_shop_value,
-    roll_threshold_adjusted,
     rounds_left_estimate,
     triple_cluster_keep_bonus_board,
     triple_progress_buy_bonus,
@@ -139,6 +138,7 @@ class _Cand:
 def _strongest_alive_opponent_board_power(
     env: HeuristicEnv, seat: int, rl: int, rn: int
 ) -> float:
+    """Strength of the strongest board still in the lobby (level-up gate only)."""
     best = 0.0
     for o in env.state.alive:
         if o == seat:
@@ -509,33 +509,37 @@ class PlannerHeuristicBot(HeuristicBot):
         rn: int,
         marginal: Optional[float],
     ) -> bool:
-        """Refresh when the shop's best marginal upgrade is below the tier bar."""
+        """Refresh when the same gold returns more from a refresh than from a buy.
+
+        A refresh does not add board value by itself — the find still has to be
+        bought — so the comparison is *refresh then buy* against *buy now*, per
+        gold spent, and not the refresh's own return (which always wins, since
+        it costs 1 gold, and leaves the bot refreshing forever without buying).
+        ``roll_threshold_adjusted``, an absolute bar borrowed from ``structured``
+        and compared against a marginal gain, is what this replaces.
+        """
         if not bool(mask[A_ROLL]) or A_ROLL not in legal:
             return False
         roll_cost = effective_roll_cost(p)
         if p.free_roll_charges > 0 or roll_cost == 0:
             return True
-        if marginal is None:
-            # Nothing in the shop made the plan at all: only worth a refresh if
-            # the gold left after it could still pay for a replacement.
-            return p.gold - roll_cost >= self._replacement_cost(p)
-        seat = env.current_player()
-        mine_bp = board_power(p.board, rounds_left=rl, round_number=rn)
-        opp_bp = _strongest_alive_opponent_board_power(env, seat, rl, rn)
-        thr = roll_threshold_adjusted(
-            tavern_tier=p.tavern_tier,
-            round_number=rn,
-            mine_board_power=mine_bp,
-            opp_board_power=opp_bp,
-        )
-        if marginal >= thr:
+        if p.gold < roll_cost:
             return False
+
+        if marginal is not None:
+            need = max(1, self._replacement_cost(p))
+            if p.gold >= need + roll_cost:
+                cur = self._best_offer_value(p, rl, rn)
+                after = (marginal + roll_benefit(p.tavern_tier, cur)) / (need + roll_cost)
+                if after > marginal / need:
+                    return True
+            if marginal > 0:
+                return False
+
         if p.gold - roll_cost >= self._replacement_cost(p):
             return True
-        # Not enough gold left to buy afterwards — but gold does not survive the
-        # turn, and a refresh can still turn up a shop worth freezing.
-        if marginal is not None and marginal > 0:
-            return False
+        # The gold left cannot pay for a buy, but it does not survive the turn
+        # either, and a refresh can still turn up a shop worth freezing.
         return (
             roll_benefit(p.tavern_tier, self._best_offer_value(p, rl, rn))
             > _ROLL_MIN_BENEFIT
