@@ -69,7 +69,6 @@ from src.bg_recruitment.economy import (
 )
 from src.envs.minibg.heuristic_bots.value_model import (
     adapt_choice_score,
-    board_power,
     dominant_race,
     minion_shop_value,
     rounds_left_estimate,
@@ -152,19 +151,6 @@ class _Cand:
     idx: int
     m: Minion
     v: float
-
-
-def _strongest_alive_opponent_board_power(
-    env: HeuristicEnv, seat: int, rl: int, rn: int
-) -> float:
-    """Strength of the strongest board still in the lobby (level-up gate only)."""
-    best = 0.0
-    for o in env.state.alive:
-        if o == seat:
-            continue
-        bp = board_power(env.state.players[o].board, rounds_left=rl, round_number=rn)
-        best = max(best, bp)
-    return best
 
 
 def _order_key(m: Minion) -> Tuple[float, str, int, int]:
@@ -373,52 +359,24 @@ class PlannerHeuristicBot(HeuristicBot):
         It is the one purchase that pays in later turns — it lifts the whole offer
         distribution by ``_TIER_DELTA`` for every buy left in the game — so it
         belongs in the same currency as buying and refreshing. ``structured``'s
-        board-power ratio never made that comparison, which is how the bot ends up
-        at T4 with 9 gold refreshing a shop whose ceiling is below its own board.
-        The ratio rule is kept only as a survival floor. Worth -0.738 +- 0.222
-        places over 200 games against the same bot without it.
+        board-power ratio never made that comparison, which is how the bot ended
+        up at T4 with 9 gold refreshing a shop whose ceiling was below its own
+        board: pricing it is worth -0.738 +- 0.222 places over 200 games.
+
+        That ratio rule was kept on as a survival floor at first, on the reasoning
+        that a tier-up buys nothing if the next combat ends the run. It does not
+        hold up — removing it is worth a further -0.223 +- 0.130 over 600 games,
+        and two other ways of pricing survival (discounting the tier-up by hit
+        points, and weighting bodies and defensive keywords when close to death)
+        measured +0.03 and +0.13. Being behind is a reason to reach for a better
+        shop, not to stay in a worse one.
         """
         if p.tavern_tier >= MAX_TIER:
             return False
         if p.gold < effective_level_up_cost(p):
             return False
         rn = env.state.round_number
-        if not self._ratio_gate(env, p, rl, rn):
-            mine_bp = board_power(p.board, rounds_left=rl, round_number=rn)
-            opp_bp = _strongest_alive_opponent_board_power(
-                env, env.current_player(), rl, rn
-            )
-            if rn <= 10 and mine_bp / max(opp_bp, 1e-6) < 0.62:
-                return False
         return self._level_roi(p, rn) > self._board_roi(p, rl, rn)
-
-    def _ratio_gate(
-        self, env: HeuristicEnv, p: PlayerState, rl: int, rn: int
-    ) -> bool:
-        """``structured``'s board-power rule, now only a survival floor."""
-        if p.tavern_tier >= MAX_TIER:
-            return False
-        if p.gold < p.next_tier_up_cost:
-            return False
-        seat = env.current_player()
-        mine_bp = board_power(p.board, rounds_left=rl, round_number=rn)
-        opp_bp = _strongest_alive_opponent_board_power(env, seat, rl, rn)
-        gold_left = p.gold - p.next_tier_up_cost
-        cost = p.next_tier_up_cost
-        ratio = mine_bp / max(opp_bp, 1e-6)
-        if rn <= 10 and ratio < 0.62:
-            return False
-        if ratio >= 1.10 and gold_left >= 1:
-            return True
-        if cost <= 4 and rn >= 5 and ratio >= 0.70 and gold_left >= 2:
-            return True
-        if rn >= 7 and ratio >= 0.85 and gold_left >= 3:
-            return True
-        if rn >= 11 and ratio >= 0.76 and gold_left >= 2:
-            return True
-        if gold_left >= 4 and ratio >= 0.72:
-            return True
-        return False
 
     def _finish(self, env: HeuristicEnv) -> int:
         mask = _mask(env)
