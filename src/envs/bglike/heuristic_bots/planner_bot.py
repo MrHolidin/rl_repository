@@ -135,6 +135,19 @@ _BUYS_PER_TURN = 1.2
 # Mean stat line an adapt hands out, over the ten options.
 _ADAPT_STATS = (2.0, 2.0)
 
+# How many more rounds a board minion is actually kept. ``ability_shop_estimate``
+# pays per-turn triggers for min(rounds_left, 10) rounds — the minion still
+# standing at the end of the game — while a planner board minion survives to the
+# next round with p=0.772 over ten lobbies, i.e. 4.4 rounds. A 1/2 Micro Machine
+# was worth 28 on the strength of that assumption.
+#
+# Tenure is endogenous — what survives is what the bot chose to keep — so
+# conditioning on anything makes it worse, not better: by tier gap -0.318, by
+# rank on the board -0.290, flat -0.480 over 200 games each. The flat value is
+# also at the optimum rather than merely below 10 (3.0: +0.045, 6.0: -0.185).
+_KEEP_HORIZON = 4.4
+_PER_TURN_RATE = {Trigger.ON_TURN_START: 2.0, Trigger.ON_TURN_END: 1.6}
+
 # A refresh has to be able to turn up something; below this it is just spending.
 _ROLL_MIN_BENEFIT = 0.5
 # ...and it has to clear the board, not just the counter: once a fresh shop is
@@ -194,6 +207,14 @@ def _tribe_match(m: Minion, tribe) -> bool:
     if tribe is None or tribe == Race.ALL:
         return True
     return m.race == tribe or m.race == Race.ALL
+
+
+def _per_turn_horizon_correction(m: Minion, rl: int) -> float:
+    """Re-price per-turn triggers over the rounds the minion is really kept."""
+    rate = sum(_PER_TURN_RATE[ab.trigger] for ab in m.abilities if ab.trigger in _PER_TURN_RATE)
+    if rate == 0.0:
+        return 0.0
+    return rate * (min(float(rl), _KEEP_HORIZON) - min(float(rl), 10.0))
 
 
 def _context_free_on_place(m: Minion) -> float:
@@ -263,6 +284,7 @@ class PlannerHeuristicBot(HeuristicBot):
             v = self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn)
             v += triple_cluster_keep_bonus_board(p, i)
             v += self._play_value_correction(m, p, rl, rn, played=True)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_BOARD, i, m, v))
 
         for i in range(min(HAND_SIZE, len(p.hand))):
@@ -272,6 +294,7 @@ class PlannerHeuristicBot(HeuristicBot):
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_place_bonus(p, m.card_id, i) + V_PLAY_FLAT
             v += self._play_value_correction(m, p, rl, rn, played=False)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_HAND, i, m, v))
 
         for s in range(min(MAX_SHOP_SLOTS, len(p.shop))):
@@ -281,6 +304,7 @@ class PlannerHeuristicBot(HeuristicBot):
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_buy_bonus(p, m.card_id) + V_PLAY_FLAT
             v += self._play_value_correction(m, p, rl, rn, played=False)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_SHOP, s, m, v))
 
         out.sort(key=lambda c: -c.v)
