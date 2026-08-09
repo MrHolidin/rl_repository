@@ -28,19 +28,23 @@ def _attacker_has_cleave(attacker: BattleMinion) -> bool:
 def _cleave_victim_ids_at_swing_start(
     defender_side: BattleSide, primary: BattleMinion
 ) -> List[int]:
-    try:
-        idx = defender_side.minions.index(primary)
-    except ValueError:
+    """Splash onto the target's neighbours *on the board*, not in the minion list.
+
+    Dead bodies stay in ``side.minions`` so that indices and the attack cursor
+    survive a death, but the board the players see has closed over them. Reading
+    raw list neighbours let a corpse swallow half the splash, and a deathrattle
+    token is inserted directly behind the body that summoned it — so the left
+    half was lost for essentially every token on the board.
+    """
+    alive = defender_side.alive_minions()
+    idx = next((i for i, m in enumerate(alive) if m is primary), None)
+    if idx is None:
         return []
     out: List[int] = []
     if idx > 0:
-        left = defender_side.minions[idx - 1]
-        if left.alive:
-            out.append(left.instance_id)
-    if idx + 1 < len(defender_side.minions):
-        right = defender_side.minions[idx + 1]
-        if right.alive:
-            out.append(right.instance_id)
+        out.append(alive[idx - 1].instance_id)
+    if idx + 1 < len(alive):
+        out.append(alive[idx + 1].instance_id)
     return out
 
 
