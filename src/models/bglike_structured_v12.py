@@ -107,6 +107,10 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         card_text_dim: int = DEFAULT_CARD_TEXT_DIM,
         card_static_seed: int = 0,
         strength_pred_config: Optional[Dict[str, Any]] = None,
+        # Accepted and ignored. Checkpoints trained while the critic-entity
+        # experiment existed persist this in their constructor kwargs, so
+        # deleting the parameter outright would make them unloadable. It is no
+        # longer re-persisted, so new checkpoints stop carrying it.
         critic_queries: int = 0,
         card_patch_dir: Optional[str] = None,
         battle_pred_config: Optional[Dict[str, Any]] = None,
@@ -181,44 +185,6 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
                 nn.GELU(),
                 nn.Linear(hidden, 1),
             )
-
-        # ---- Optional: a critic-only second read of the entity set ---------
-        # The actor reaches the entities twice: through the pooled summary and
-        # again through action_cross_attn. The critic has only the first, so
-        # everything it knows about the board arrives through
-        # summary_queries * slot_hidden = 128 floats.
-        #
-        # These queries cross-attend to the entity sequence AFTER the entity
-        # self-attention and are concatenated onto the critic's input only.
-        # They deliberately do NOT join the self-attention pass: extra tokens
-        # there would also be attended to BY every entity, shifting E_own/... and
-        # the actor with them (measured -- an in-sequence variant moved
-        # state_emb). As written, everything the actor consumes is bit-identical
-        # to critic_queries=0.
-        self.critic_queries = int(critic_queries)
-        if self.critic_queries < 0:
-            raise ValueError(f"critic_queries must be >= 0, got {critic_queries}")
-        self._critic_extra_dim = self.critic_queries * self.slot_hidden
-        if self.critic_queries:
-            self.critic_query_emb = nn.Embedding(self.critic_queries, self.slot_hidden)
-            nn.init.normal_(self.critic_query_emb.weight, mean=0.0, std=0.02)
-            self.critic_cross_attn = CrossAttentionBlock(
-                self.slot_hidden,
-                num_heads=self.action_cross_attn_heads,
-                ff_mult=self.action_cross_attn_ff_mult,
-                init_scale=self.action_cross_attn_init_scale,
-            )
-            # The trunk half is LayerNorm'd and passed through thinking_core;
-            # normalise the pooled half too or the two enter the critic's first
-            # Linear at different scales.
-            self.critic_summary_ln = nn.LayerNorm(self._critic_extra_dim)
-            self.critic_dist = nn.Sequential(
-                nn.Linear(self._state_summary_dim + self._critic_extra_dim, self.critic_hidden),
-                nn.ReLU(),
-                nn.Linear(self.critic_hidden, int(self.critic_dist[-1].out_features)),
-            )
-            nn.init.zeros_(self.critic_dist[-1].weight)
-            nn.init.zeros_(self.critic_dist[-1].bias)
 
         # ---- Auxiliary battle-outcome head (v11 dropped it; v12 restores it)
         # It predicts the signed uncapped damage of the resolved combat from
@@ -420,7 +386,6 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
                 "card_text_dim": self.card_text_dim,
                 "card_static_seed": self.card_static_seed,
                 "card_patch_dir": self.card_patch_dir,
-                "critic_queries": self.critic_queries,
                 "battle_pred_config": dict(self.battle_pred_config),
                 "strength_pred_config": dict(self.strength_pred_config),
             }
@@ -561,15 +526,7 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         trunk_in = torch.cat([summary, econ_emb, combat_emb, pctx_emb, hero_emb], dim=-1)
         state_summary_n = self.state_summary_ln(trunk_in)
         trunk = self.thinking_core(state_summary_n)
-        # The actor reads the trunk BEFORE the critic's extra view is appended.
         state_emb = self.state_proj(trunk)
-        if self.critic_queries:
-            cq = self.critic_query_emb.weight.unsqueeze(0).expand(B, -1, -1)
-            entity_seq = torch.cat([E_own, E_shop, E_hand, E_pending, E_opp], dim=1)
-            cq = self.critic_cross_attn(cq, entity_seq)
-            trunk = torch.cat(
-                [trunk, self.critic_summary_ln(cq.reshape(B, self._critic_extra_dim))], dim=-1
-            )
 
         cache: Dict[str, torch.Tensor] = {
             "E_own": E_own,

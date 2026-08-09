@@ -248,6 +248,12 @@ def resolve_combat_round(
             live.last_battle_raw_signed = float(
                 battle_result.raw_damage_p1 - battle_result.raw_damage_p0
             )
+            # A ghost fight is a fight the seat saw, so it must overwrite the
+            # remembered board like any other. Leaving it stale kept the board
+            # of whoever was fought BEFORE the ghost, which silently ages the
+            # memory by a round and mis-feeds AddFromLastOpponentBoardEffect
+            # (it draws a minion from "the last opponent's board").
+            live.last_opponent_board = snapshot_warband(ghost_board)
             ghost_rec = record_combat_opponent(
                 state.recent_opponents[match.a], GHOST_OPPONENT_ID
             )
