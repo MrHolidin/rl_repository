@@ -58,8 +58,17 @@ from ..actions import (
     MAX_TIER,
 )
 from src.bg_catalog.cards import make_minion
-from src.bg_core.effects import Trigger
-from src.bg_core.minion import Minion
+from src.bg_core.effects import (
+    AdaptAllMurlocsEffect,
+    BuffAdjacentBattlecry,
+    BuffAllOtherOfTribe,
+    BuffTargetFriendlyBattlecry,
+    DiscoverMurlocEffect,
+    SummonEffect,
+    SummonRandomMinionEffect,
+    Trigger,
+)
+from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PendingChoiceKind, PlayerState
 from src.bg_recruitment.economy import (
     effective_buy_cost,
@@ -123,6 +132,8 @@ _FRESH_BEST_MEAN = {1: 12.50, 2: 14.10, 3: 16.52, 4: 18.62, 5: 21.33, 6: 23.07}
 _TIER_DELTA = {1: 0.50, 2: 2.50, 3: 2.65, 4: 2.28, 5: 2.15}
 # Buys per shop turn, measured over 633 planner turns in 10 lobbies.
 _BUYS_PER_TURN = 1.2
+# Mean stat line an adapt hands out, over the ten options.
+_ADAPT_STATS = (2.0, 2.0)
 
 # A refresh has to be able to turn up something; below this it is just spending.
 _ROLL_MIN_BENEFIT = 0.5
@@ -172,6 +183,43 @@ def _order_key(m: Minion) -> Tuple[float, str, int, int]:
     return (w, m.card_id, int(m.raw_attack), int(m.max_health))
 
 
+def _buffed(m: Minion, atk: float, hp: float) -> Minion:
+    out = copy(m)
+    out.bonus_attack = m.bonus_attack + int(round(atk))
+    out.bonus_health = m.bonus_health + int(round(hp))
+    return out
+
+
+def _tribe_match(m: Minion, tribe) -> bool:
+    if tribe is None or tribe == Race.ALL:
+        return True
+    return m.race == tribe or m.race == Race.ALL
+
+
+def _context_free_on_place(m: Minion) -> float:
+    """What ``ability_shop_estimate`` charges for a battlecry, board or no board."""
+    add = 0.0
+    for ab in m.abilities:
+        if ab.trigger != Trigger.ON_PLACE:
+            continue
+        eff = ab.effect
+        if isinstance(eff, DiscoverMurlocEffect):
+            add += 6.5 * float(eff.repeats)
+        elif isinstance(eff, AdaptAllMurlocsEffect):
+            add += 9.0 * float(eff.repeats)
+        elif isinstance(eff, BuffAdjacentBattlecry):
+            add += (eff.attack + eff.health) * 2.5 + (1.5 if eff.grant_taunt else 0.0)
+        elif isinstance(eff, BuffTargetFriendlyBattlecry):
+            add += (eff.attack + eff.health) * 1.6 * (
+                0.75 if eff.filter_race is not None else 1.0
+            )
+        elif isinstance(eff, BuffAllOtherOfTribe):
+            add += (eff.attack + eff.health) * 2.0
+        else:
+            add += 2.2
+    return add
+
+
 def _hand_free_slots(p: PlayerState) -> int:
     return sum(1 for s in p.hand if s is None)
 
@@ -181,6 +229,8 @@ class PlannerHeuristicBot(HeuristicBot):
 
     def __init__(self, seed: Optional[int] = None) -> None:
         self._rng = np.random.default_rng(seed)
+        # Only reachable through the env; needed to value a summon battlecry.
+        self._patch = None
 
     # ------------------------------------------------------------------
     # Valuation
@@ -212,6 +262,7 @@ class PlannerHeuristicBot(HeuristicBot):
         for i, m in enumerate(p.board):
             v = self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn)
             v += triple_cluster_keep_bonus_board(p, i)
+            v += self._play_value_correction(m, p, rl, rn, played=True)
             out.append(_Cand(SRC_BOARD, i, m, v))
 
         for i in range(min(HAND_SIZE, len(p.hand))):
@@ -220,6 +271,7 @@ class PlannerHeuristicBot(HeuristicBot):
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_place_bonus(p, m.card_id, i) + V_PLAY_FLAT
+            v += self._play_value_correction(m, p, rl, rn, played=False)
             out.append(_Cand(SRC_HAND, i, m, v))
 
         for s in range(min(MAX_SHOP_SLOTS, len(p.shop))):
@@ -228,10 +280,102 @@ class PlannerHeuristicBot(HeuristicBot):
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_buy_bonus(p, m.card_id) + V_PLAY_FLAT
+            v += self._play_value_correction(m, p, rl, rn, played=False)
             out.append(_Cand(SRC_SHOP, s, m, v))
 
         out.sort(key=lambda c: -c.v)
         return out
+
+    def _play_value_correction(
+        self, m: Minion, p: PlayerState, rl: int, rn: int, *, played: bool
+    ) -> float:
+        """Replace the flat battlecry charge with the stats it actually moves.
+
+        A battlecry hands out stats that then live in the targets' own bodies,
+        so its value has to equal the increase it causes in the board total —
+        price it higher and the same stats are paid for twice, once as the
+        battlecry and once as the buffed target. As a difference it needs no
+        constant, and the awkward cases price themselves: no targets of the
+        tribe is zero, a full board makes a summon battlecry zero, and "buff a
+        friendly" is worth its best actual target.
+
+        A minion already on the board has spent its battlecry, so it keeps only
+        the body. Worth -0.280 +- 0.129 places over 600 games.
+        """
+        cf = _context_free_on_place(m)
+        if cf == 0.0:
+            return 0.0
+        if played:
+            return -cf
+        return self._delivered_play_value(m, p, rl, rn) - cf
+
+    def _delivered_play_value(
+        self, m: Minion, p: PlayerState, rl: int, rn: int
+    ) -> float:
+        total = 0.0
+        free_slots = max(0, BOARD_SIZE - len(p.board) - 1)
+        bl = len(p.board) + 1
+        for ab in m.abilities:
+            if ab.trigger != Trigger.ON_PLACE:
+                continue
+            eff = ab.effect
+            if isinstance(eff, BuffAllOtherOfTribe):
+                total += sum(
+                    self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                    for t in p.board
+                    if _tribe_match(t, eff.tribe)
+                )
+            elif isinstance(eff, BuffTargetFriendlyBattlecry):
+                targets = [
+                    t
+                    for t in p.board
+                    if eff.filter_race is None or _tribe_match(t, eff.filter_race)
+                ]
+                if targets:
+                    total += max(
+                        self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                        for t in targets
+                    )
+            elif isinstance(eff, BuffAdjacentBattlecry):
+                deltas = sorted(
+                    (
+                        self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                        for t in p.board
+                    ),
+                    reverse=True,
+                )
+                total += sum(deltas[:2])
+            elif isinstance(eff, AdaptAllMurlocsEffect):
+                total += float(eff.repeats) * sum(
+                    self._buff_delta(t, _ADAPT_STATS[0], _ADAPT_STATS[1], bl, rl, rn)
+                    for t in p.board
+                    if _tribe_match(t, Race.MURLOC)
+                )
+            elif isinstance(eff, SummonEffect):
+                if free_slots and self._patch is not None:
+                    tok = make_minion(eff.token_id, patch=self._patch)
+                    total += min(int(eff.count), free_slots) * self._v(
+                        tok, board_len=bl, dominant=None, rl=rl, rn=rn
+                    )
+            elif isinstance(eff, SummonRandomMinionEffect):
+                if free_slots:
+                    tier = max(1, min(MAX_TIER, int(eff.exact_tier or 1)))
+                    total += (
+                        min(int(eff.count), free_slots) * _FRESH_BEST_MEAN[tier] * 0.6
+                    )
+            elif isinstance(eff, DiscoverMurlocEffect):
+                tier = max(1, min(MAX_TIER, p.tavern_tier))
+                total += float(eff.repeats) * _FRESH_BEST_MEAN[tier] * 0.5
+            else:
+                total += 2.2
+        return total
+
+    def _buff_delta(
+        self, t: Minion, atk: float, hp: float, bl: int, rl: int, rn: int
+    ) -> float:
+        before = self._v(t, board_len=bl, dominant=None, rl=rl, rn=rn)
+        after = self._v(_buffed(t, atk, hp), board_len=bl, dominant=None, rl=rl, rn=rn)
+        return after - before
 
     def _plan_cost(self, p: PlayerState, sel: List[_Cand]) -> int:
         """Gold needed for a selection: buys minus the refunds of displaced minions."""
@@ -441,6 +585,9 @@ class PlannerHeuristicBot(HeuristicBot):
     def _choose_action(self, env: HeuristicEnv) -> int:
         mask = _mask(env)
         p = _me(env)
+
+        if self._patch is None:
+            self._patch = getattr(env, "patch", None)
 
         rl_apply = pick_rl_apply_action(env, mask)
         if rl_apply is not None:
