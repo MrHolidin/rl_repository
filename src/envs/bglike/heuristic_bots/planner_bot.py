@@ -61,6 +61,7 @@ from src.bg_core.minion import Minion
 from src.bg_lobby.player import PendingChoiceKind, PlayerState
 from src.bg_recruitment.economy import (
     effective_buy_cost,
+    effective_level_up_cost,
     effective_roll_cost,
     effective_sell_reward,
 )
@@ -90,21 +91,32 @@ SRC_BOARD = "b"
 SRC_HAND = "h"
 SRC_SHOP = "s"
 
-# What one more refresh is worth, in this bot's own value units. Sampled from
-# post-roll shops over 25 lobbies (an unconditioned draw of the offer pool):
+# What one more refresh is worth, in this bot's own value units:
 # ``_ROLL_BENEFIT[tier][i]`` = E[max(X - cur, 0)] for X the best offer of a fresh
-# shop and ``cur`` = ``_ROLL_CUR_GRID[i]`` the best offer already in front of us.
-_ROLL_CUR_GRID = (5.0, 10.0, 15.0, 20.0, 25.0, 30.0)
+# shop and ``cur`` = ``_ROLL_CUR_GRID[i]`` the best offer already on the counter.
+#
+# Drawn straight from the card pool with the round held fixed at 10 (4000 shops
+# per cell, scripts/bglike_offer_calibration.py). Sampling this from live games
+# instead — as the first version did — confounds tier with round, because a T5
+# shop only ever appears at round 12+, and it came out overvaluing a refresh by
+# 2-3x at the bars that matter late (T4 at bar 25: 1.05 sampled live vs 0.46
+# actual). The bot then spent whole wallets refreshing a shop whose ceiling was
+# below its own board: worth -0.955 +- 0.220 places over 200 games to fix.
+_ROLL_CUR_GRID = (5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0)
 _ROLL_BENEFIT = {
-    1: (9.69, 5.38, 3.05, 1.34, 0.27, 0.05),
-    2: (9.15, 4.23, 1.40, 0.60, 0.19, 0.05),
-    3: (11.76, 6.77, 2.74, 1.09, 0.41, 0.07),
-    4: (15.23, 10.23, 5.45, 2.58, 1.05, 0.25),
-    5: (16.60, 11.60, 6.75, 3.21, 1.19, 0.50),
-    6: (18.32, 13.32, 8.36, 4.30, 1.76, 0.72),
+    1: (7.50, 3.50, 1.93, 0.70, 0.00, 0.00, 0.00, 0.00),
+    2: (9.10, 4.25, 1.88, 0.66, 0.00, 0.00, 0.00, 0.00),
+    3: (11.52, 6.53, 2.78, 1.12, 0.34, 0.05, 0.00, 0.00),
+    4: (13.62, 8.62, 4.18, 1.70, 0.46, 0.04, 0.00, 0.00),
+    5: (16.33, 11.33, 6.63, 3.42, 1.40, 0.49, 0.26, 0.05),
+    6: (18.07, 13.07, 8.18, 4.23, 1.60, 0.40, 0.19, 0.04),
 }
 # Mean best offer of a fresh shop — what next turn is worth without a freeze.
-_FRESH_BEST_MEAN = {1: 14.69, 2: 14.15, 3: 16.76, 4: 20.23, 5: 21.60, 6: 23.32}
+_FRESH_BEST_MEAN = {1: 12.50, 2: 14.10, 3: 16.52, 4: 18.62, 5: 21.33, 6: 23.07}
+# What one tier-up adds to the mean best offer, at a fixed round.
+_TIER_DELTA = {1: 0.50, 2: 2.50, 3: 2.65, 4: 2.28, 5: 2.15}
+# Buys per shop turn, measured over 633 planner turns in 10 lobbies.
+_BUYS_PER_TURN = 1.2
 
 # A refresh has to be able to turn up something; below this it is just spending.
 _ROLL_MIN_BENEFIT = 0.5
@@ -116,7 +128,7 @@ def roll_benefit(tier: int, cur: float) -> float:
     if cur <= _ROLL_CUR_GRID[0]:
         return row[0] + (_ROLL_CUR_GRID[0] - cur)
     if cur >= _ROLL_CUR_GRID[-1]:
-        return max(0.0, row[-1] - (cur - _ROLL_CUR_GRID[-1]) * 0.02)
+        return row[-1]
     for i in range(len(_ROLL_CUR_GRID) - 1):
         lo, hi = _ROLL_CUR_GRID[i], _ROLL_CUR_GRID[i + 1]
         if lo <= cur <= hi:
@@ -309,12 +321,64 @@ class PlannerHeuristicBot(HeuristicBot):
         v_after = self._v(t, board_len=bl, dominant=dom, rl=rl, rn=rn)
         return v_after - v_before - v_hand
 
+    def _level_roi(self, p: PlayerState, rn: int) -> float:
+        """Board value a tier-up returns per gold, spread over the buys left."""
+        if p.tavern_tier >= MAX_TIER:
+            return 0.0
+        cost = max(1, effective_level_up_cost(p))
+        buys_left = max(0.0, rounds_left_estimate(rn) * _BUYS_PER_TURN)
+        return _TIER_DELTA.get(p.tavern_tier, 0.0) * buys_left / cost
+
+    def _board_roi(self, p: PlayerState, rl: int, rn: int) -> float:
+        """Best board value per gold available to this turn — what a tier-up gives up."""
+        cands = self._candidates(p, rl, rn)
+        shop = [c for c in cands if c.src == SRC_SHOP]
+        if not shop:
+            return 0.0
+        full = len(p.board) >= BOARD_SIZE
+        worst = min((c.v for c in cands if c.src == SRC_BOARD), default=0.0) if full else 0.0
+        need = max(1, self._replacement_cost(p))
+        best = max(c.v for c in shop)
+        gain = max(0.0, best - worst)
+        roi = gain / need
+        roll_cost = effective_roll_cost(p)
+        if p.gold >= need + roll_cost:
+            roi = max(roi, (gain + roll_benefit(p.tavern_tier, best)) / (need + roll_cost))
+        return roi
+
     def _should_level_up(self, env: HeuristicEnv, p: PlayerState, rl: int) -> bool:
+        """A tier-up is bought when it returns more per gold than this turn's board.
+
+        It is the one purchase that pays in later turns — it lifts the whole offer
+        distribution by ``_TIER_DELTA`` for every buy left in the game — so it
+        belongs in the same currency as buying and refreshing. ``structured``'s
+        board-power ratio never made that comparison, which is how the bot ends up
+        at T4 with 9 gold refreshing a shop whose ceiling is below its own board.
+        The ratio rule is kept only as a survival floor. Worth -0.738 +- 0.222
+        places over 200 games against the same bot without it.
+        """
+        if p.tavern_tier >= MAX_TIER:
+            return False
+        if p.gold < effective_level_up_cost(p):
+            return False
+        rn = env.state.round_number
+        if not self._ratio_gate(env, p, rl, rn):
+            mine_bp = board_power(p.board, rounds_left=rl, round_number=rn)
+            opp_bp = _strongest_alive_opponent_board_power(
+                env, env.current_player(), rl, rn
+            )
+            if rn <= 10 and mine_bp / max(opp_bp, 1e-6) < 0.62:
+                return False
+        return self._level_roi(p, rn) > self._board_roi(p, rl, rn)
+
+    def _ratio_gate(
+        self, env: HeuristicEnv, p: PlayerState, rl: int, rn: int
+    ) -> bool:
+        """``structured``'s board-power rule, now only a survival floor."""
         if p.tavern_tier >= MAX_TIER:
             return False
         if p.gold < p.next_tier_up_cost:
             return False
-        rn = env.state.round_number
         seat = env.current_player()
         mine_bp = board_power(p.board, rounds_left=rl, round_number=rn)
         opp_bp = _strongest_alive_opponent_board_power(env, seat, rl, rn)
