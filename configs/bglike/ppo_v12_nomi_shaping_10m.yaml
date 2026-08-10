@@ -29,10 +29,15 @@ game:
     with_heroes: true
     percent_high_game: 0.0
     # Nomi shaping: pay per point of tavern elemental buff the acting seat adds,
-    # capped per lobby. 0.02 * 10 = 0.20, i.e. 20% of the best terminal reward
-    # (placement 1 pays 1.0) and about 0.7 of one placement step (2/7).
-    elemental_shop_bonus_shaping: 0.02
-    elemental_shop_bonus_cap: 10
+    # capped per lobby. 0.04 * 5 = 0.20, the same 20% of the best terminal reward
+    # (placement 1 pays 1.0) as the previous arm, but the ceiling is now five
+    # elementals deep instead of ten. At cap 10 the first run never got paid at
+    # all: over 10 self-play lobbies at 1.6M and again at 3.4M steps Nomi was
+    # bought 0.1 times a game and never held, so the buff never left zero. A
+    # shorter ladder pays the first points sooner, while the per-point value
+    # doubles to keep the total budget where it was.
+    elemental_shop_bonus_shaping: 0.04
+    elemental_shop_bonus_cap: 5
 
 agent:
   id: ppo
@@ -77,7 +82,7 @@ agent:
     ppo_clip_eps: 0.2
     clip_value_loss: false
     value_clip_eps: null
-    entropy_coef: 0.02
+    entropy_coef: 0.04
     value_coef: 0.05
     max_grad_norm: 1.0
     rollout_steps: 32768
@@ -123,7 +128,7 @@ train:
     - type: checkpoint
       params:
         interval: 200000
-        prefix: dist_bglike_ppo_v12_nomi02
+        prefix: dist_bglike_ppo_v12_nomi04
     - type: metrics_file
       params:
         interval: 1
