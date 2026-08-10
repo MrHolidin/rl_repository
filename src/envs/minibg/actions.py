@@ -39,11 +39,11 @@ class Action(IntEnum):
     ROLL = 13
     LEVEL_UP = 14
     FINISH = 15
-    PLACE_HAND_0 = 16
-    PLACE_HAND_1 = 17
-    PLACE_HAND_2 = 18
-    PLACE_HAND_3 = 19
-    PLACE_HAND_4 = 20
+    PLAY_HAND_0 = 16
+    PLAY_HAND_1 = 17
+    PLAY_HAND_2 = 18
+    PLAY_HAND_3 = 19
+    PLAY_HAND_4 = 20
     MAGNET_HAND_0_BOARD_0 = 21
     MAGNET_HAND_0_BOARD_1 = 22
     MAGNET_HAND_0_BOARD_2 = 23
@@ -152,8 +152,8 @@ def sell_board_action(pos: int) -> Action:
     return Action(Action.SELL_BOARD_0 + pos)
 
 
-def place_hand_action(slot: int) -> Action:
-    return Action(Action.PLACE_HAND_0 + slot)
+def play_hand_action(slot: int) -> Action:
+    return Action(Action.PLAY_HAND_0 + slot)
 
 
 def is_magnet_game_action(action_int: int) -> bool:
@@ -229,7 +229,7 @@ __all__ = [
     "gold_for_round",
     "buy_slot_action",
     "sell_board_action",
-    "place_hand_action",
+    "play_hand_action",
     "is_magnet_game_action",
     "magnet_hand_board_from_game_action",
     "magnet_game_action",

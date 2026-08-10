@@ -104,7 +104,7 @@ def test_place_moves_hand_to_board():
     g, s = _make_game()
     _force_shop(s, 0, "recruit", "recruit", "recruit")
     s2 = g.apply_action(s, int(Action.BUY_SLOT_0))
-    s3 = g.apply_action(s2, int(Action.PLACE_HAND_0))
+    s3 = g.apply_action(s2, int(Action.PLAY_HAND_0))
     p0 = s3.players[0]
     assert p0.hand[0] is None
     assert [m.card_id for m in p0.board] == ["EX1_162"]
@@ -125,7 +125,7 @@ def test_place_illegal_when_board_full():
     g, s = _make_game()
     s.players[0].board = [make_minion("recruit") for _ in range(BOARD_SIZE)]
     s.players[0].hand[0] = make_minion("guard")
-    assert int(Action.PLACE_HAND_0) not in set(g.legal_actions(s))
+    assert int(Action.PLAY_HAND_0) not in set(g.legal_actions(s))
 
 
 def test_sell_returns_one_gold_and_compacts_board():
@@ -189,7 +189,7 @@ def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
     s2 = g.apply_action(s, int(Action.BUY_SLOT_0))
     mur = s2.players[0].board[0]
     assert (mur.bonus_attack, mur.bonus_health) == (0, 0)
-    s3 = g.apply_action(s2, int(Action.PLACE_HAND_0))
+    s3 = g.apply_action(s2, int(Action.PLAY_HAND_0))
     mur_after = s3.players[0].board[0]
     assert mur_after.card_id == "EX1_507"
     assert (mur_after.bonus_attack, mur_after.bonus_health) == (1, 1)
@@ -207,7 +207,7 @@ def test_rockpool_on_place_buffs_murloc_on_board_not_hand():
     assert s2.players[0].hand[1] is not None
     assert s2.players[0].hand[1].card_id == "UNG_073"
     assert s2.players[0].hand[0].bonus_attack == 0
-    s3 = g.apply_action(s2, int(Action.PLACE_HAND_1))
+    s3 = g.apply_action(s2, int(Action.PLAY_HAND_1))
     assert s3.players[0].board[0].card_id == "UNG_073"
     rec_hand = s3.players[0].hand[0]
     assert rec_hand is not None and rec_hand.card_id == "EX1_162"
@@ -219,7 +219,7 @@ def test_crowd_favorite_buff_when_battlecry_minion_placed():
     s = g.initial_state()
     s.players[0].board = [make_minion("AT_121")]
     s.players[0].hand[0] = make_minion("buffer")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     cf = s2.players[0].board[0]
     assert cf.card_id == "AT_121"
     assert cf.bonus_attack == 1 and cf.bonus_health == 1
@@ -230,7 +230,7 @@ def test_vulgar_homunculus_damage_blocked_by_mal_ganis():
     s = g.initial_state()
     s.players[0].board = [make_minion("mal_ganis")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     assert s2.players[0].health == STARTING_HEALTH
     assert s2.players[0].hero_damage_taken_total == 0
 
@@ -240,7 +240,7 @@ def test_wrath_weaver_buffs_when_demon_placed_damage_not_blocked():
     s = g.initial_state()
     s.players[0].board = [make_minion("wrath_weaver")]
     s.players[0].hand[0] = make_minion("imp_demon")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     p0 = s2.players[0]
     assert p0.health == STARTING_HEALTH - 1
     assert p0.hero_damage_taken_total == 1
@@ -254,9 +254,9 @@ def test_annihilan_gains_stats_from_cumulative_hero_damage():
     s = g.initial_state()
     s.players[0].board = [make_minion("wrath_weaver")]
     s.players[0].hand[0] = make_minion("imp_demon")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     s2.players[0].hand[0] = make_minion("annihilan")
-    s3 = g.apply_action(s2, int(Action.PLACE_HAND_0))
+    s3 = g.apply_action(s2, int(Action.PLAY_HAND_0))
     ann = s3.players[0].board[2]
     assert ann.card_id == "BGS_010"
     assert ann.bonus_attack == 0 and ann.bonus_health == 1

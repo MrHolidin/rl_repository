@@ -119,7 +119,7 @@ def test_bglike_struct_action_accepts_large_hand_slot():
     from src.envs.bglike.actions import BOARD_SIZE, HAND_SIZE
     from src.envs.minibg.structured_actions import StructAction, validate_struct_action
 
-    action = StructAction(StructActionType.PLACE, (5,))
+    action = StructAction(StructActionType.PLAY, (5,))
     validate_struct_action(action, hand_size=HAND_SIZE, board_size=BOARD_SIZE)
 
     import pytest

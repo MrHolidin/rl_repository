@@ -1,4 +1,4 @@
-"""RL placement: PLACE → APPLY (geometry / target only) → commit via game APIs."""
+"""RL placement: PLAY → APPLY (geometry / target only) → commit via game APIs."""
 
 from __future__ import annotations
 

@@ -15,7 +15,7 @@ from .action_map import (
     A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
     A_MAGNET_BASE,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     A_SWAP_BOARD_0,
@@ -23,10 +23,10 @@ from .action_map import (
     NUM_SWAP_ADJ,
     env_action_to_game_action,
     is_apply_effect_skip,
-    is_place,
+    is_play,
     is_target_board,
     is_swap_board,
-    place_slot,
+    play_slot,
     swap_adj_index_from_env_action,
     target_board_slot,
 )
@@ -222,14 +222,14 @@ class MiniBGEnv(TurnBasedEnv):
                         detail="expected TARGET_BOARD or SKIP during rl_pending",
                         rl_pending=True,
                     )
-            elif is_place(action_int):
-                if not self._try_place_hand_rl(place_slot(action_int)):
+            elif is_play(action_int):
+                if not self._try_place_hand_rl(play_slot(action_int)):
                     raise_illegal_env_action(
                         self._state,
                         where="MiniBGEnv.step.place",
                         action=action_int,
                         mask=legal_mask,
-                        detail="PLACE failed",
+                        detail="PLAY failed",
                         rl_pending=False,
                     )
             else:
@@ -343,8 +343,8 @@ class MiniBGEnv(TurnBasedEnv):
                 out.append(StructAction(StructActionType.SELL, (pos,)))
 
         for h in range(HAND_SIZE):
-            if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
-                out.append(StructAction(StructActionType.PLACE, (h,)))
+            if (int(GameAction.PLAY_HAND_0) + h) in legal_game:
+                out.append(StructAction(StructActionType.PLAY, (h,)))
 
         for h in range(HAND_SIZE):
             for b in range(BOARD_SIZE):
@@ -473,13 +473,13 @@ class MiniBGEnv(TurnBasedEnv):
                         detail="APPLY_EFFECT_SKIP without rl_pending",
                     )
                 self._apply_rl_effect_skip()
-            elif action.type == StructActionType.PLACE:
+            elif action.type == StructActionType.PLAY:
                 if not self._try_place_hand_rl(action.args[0]):
                     raise_illegal_env_action(
                         self._state,
                         where="MiniBGEnv.step_structured.place",
                         structured_action=repr(action),
-                        detail="PLACE failed",
+                        detail="PLAY failed",
                     )
             else:
                 ga = self._struct_action_to_game_action(action)
@@ -578,8 +578,8 @@ class MiniBGEnv(TurnBasedEnv):
             return int(GameAction.BUY_SLOT_0) + action.args[0]
         if action.type == StructActionType.SELL:
             return int(GameAction.SELL_BOARD_0) + action.args[0]
-        if action.type == StructActionType.PLACE:
-            return int(GameAction.PLACE_HAND_0) + action.args[0]
+        if action.type == StructActionType.PLAY:
+            return int(GameAction.PLAY_HAND_0) + action.args[0]
         if action.type == StructActionType.MAGNET:
             return int(magnet_game_action(action.args[0], action.args[1]))
         if action.type == StructActionType.DISCOVER_PICK:
@@ -634,8 +634,8 @@ class MiniBGEnv(TurnBasedEnv):
 
         if self._rl_pending is None:
             for h in range(HAND_SIZE):
-                if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
-                    mask[A_PLACE_BASE + h] = True
+                if (int(GameAction.PLAY_HAND_0) + h) in legal_game:
+                    mask[A_PLAY_BASE + h] = True
 
         for h in range(HAND_SIZE):
             for b in range(BOARD_SIZE):
@@ -771,7 +771,7 @@ class MiniBGEnv(TurnBasedEnv):
             return False
         player = self._state.players[self._state.current_player_index]
         legal = set(int(a) for a in self._game.legal_actions(self._state))
-        if int(GameAction.PLACE_HAND_0) + hand_slot not in legal:
+        if int(GameAction.PLAY_HAND_0) + hand_slot not in legal:
             return False
         if player.hand[hand_slot] is None:
             return False

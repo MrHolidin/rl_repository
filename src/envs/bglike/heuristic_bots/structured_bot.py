@@ -12,7 +12,7 @@ from ..action_map import (
     A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     buy_slot,
     is_buy,
@@ -20,7 +20,7 @@ from ..action_map import (
     is_magnet,
     is_sell,
     magnet_hand_board,
-    place_slot,
+    play_slot,
     sell_pos,
 )
 from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS, MAX_TIER
@@ -83,8 +83,8 @@ class StructuredHeuristicBot(HeuristicBot):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
         for i in range(HAND_SIZE):
-            if i < len(p.hand) and bool(mask[A_PLACE_BASE + i]):
-                return A_PLACE_BASE + i
+            if i < len(p.hand) and bool(mask[A_PLAY_BASE + i]):
+                return A_PLAY_BASE + i
         return masked_finish(mask)
 
     def _pick_discover(self, env: HeuristicEnv, mask: np.ndarray, p: PlayerState) -> int:
@@ -131,7 +131,7 @@ class StructuredHeuristicBot(HeuristicBot):
         best_a = actions[0]
         best_sc = -1e18
         for a in actions:
-            slot = place_slot(a)
+            slot = play_slot(a)
             hm = p.hand[slot]
             assert hm is not None
             # A TavernSpell (e.g. the triple-reward discover spell) has no

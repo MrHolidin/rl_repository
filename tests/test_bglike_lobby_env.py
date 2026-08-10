@@ -179,7 +179,7 @@ def test_placement_trigger_survives_a_discover_modal() -> None:
     the RL wrapper used to drop the deferred trigger when it cleared the handoff
     before the discover was answered.
     """
-    from src.envs.bglike.action_map import A_DISCOVER_PICK_0, A_FINISH, A_PLACE_HAND_0
+    from src.envs.bglike.action_map import A_DISCOVER_PICK_0, A_FINISH, A_PLAY_HAND_0
 
     env = BGLobbySingleAgentEnv(
         training_seat=0,
@@ -202,7 +202,7 @@ def test_placement_trigger_survives_a_discover_modal() -> None:
     player.shop_actions_used = 0
     player.gold = 10
 
-    env.step(A_PLACE_HAND_0)
+    env.step(A_PLAY_HAND_0)
     player = env.state.players[0]
     assert player.pending_choice is not None
     assert player.placed_minion_pending_after is not None

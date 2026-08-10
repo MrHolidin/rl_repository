@@ -11,7 +11,7 @@ def test_brann_triples_vulgar_hero_hits():
     s = g.initial_state()
     s.players[0].board = [make_minion("brann_golden")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     assert s2.players[0].hero_damage_taken_total == 6
 
 
@@ -20,7 +20,7 @@ def test_two_branns_multiply_battlecries():
     s = g.initial_state()
     s.players[0].board = [make_minion("brann"), make_minion("brann")]
     s.players[0].hand[0] = make_minion("vulgar_homunculus")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     assert s2.players[0].hero_damage_taken_total == 8
 
 

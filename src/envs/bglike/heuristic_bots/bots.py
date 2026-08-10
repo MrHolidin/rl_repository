@@ -12,7 +12,7 @@ from ..action_map import (
     A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     buy_slot,
@@ -51,8 +51,8 @@ def _maybe_rl_apply(env: HeuristicEnv, mask: np.ndarray) -> Optional[int]:
 def _mandatory_place_actions(mask: np.ndarray, p: PlayerState) -> list[int]:
     out: list[int] = []
     for i in range(HAND_SIZE):
-        if i < len(p.hand) and p.hand[i] is not None and bool(mask[A_PLACE_BASE + i]):
-            out.append(A_PLACE_BASE + i)
+        if i < len(p.hand) and p.hand[i] is not None and bool(mask[A_PLAY_BASE + i]):
+            out.append(A_PLAY_BASE + i)
     return out
 
 
@@ -140,8 +140,8 @@ class HeuristicBot(ABC):
                 return A_DISCOVER_BASE + i
 
         for i in range(HAND_SIZE):
-            if i < len(p.hand) and bool(mask[A_PLACE_BASE + i]):
-                return A_PLACE_BASE + i
+            if i < len(p.hand) and bool(mask[A_PLAY_BASE + i]):
+                return A_PLAY_BASE + i
 
         return masked_finish(mask)
 

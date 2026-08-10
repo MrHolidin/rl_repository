@@ -126,8 +126,8 @@ def parse_txt(path: Path) -> Dict[str, object]:
                 ctr["ROLL"] += 1
             elif verb == "LEVEL_UP":
                 ctr["LEVEL_UP"] += 1
-            elif verb.startswith("PLACE_HAND"):
-                ctr["PLACE"] += 1
+            elif verb.startswith("PLAY_HAND"):
+                ctr["PLAY"] += 1
             elif verb.startswith("SELL_BOARD"):
                 ctr["SELL"] += 1
             elif verb == "FINISH":

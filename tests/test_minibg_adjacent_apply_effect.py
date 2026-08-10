@@ -15,9 +15,9 @@ def test_argus_flat_mask_includes_skip_after_first_pick():
     p = env._state.players[idx]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
-    from src.envs.minibg.action_map import A_APPLY_EFFECT_SKIP, A_PLACE_BASE, A_TARGET_BOARD_BASE
+    from src.envs.minibg.action_map import A_APPLY_EFFECT_SKIP, A_PLAY_BASE, A_TARGET_BOARD_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     assert not env.legal_actions_mask[A_APPLY_EFFECT_SKIP]
     env.step(A_TARGET_BOARD_BASE + 1)
     assert env.legal_actions_mask[A_APPLY_EFFECT_SKIP]
@@ -33,9 +33,9 @@ def test_argus_structured_place_then_apply_skip_for_single_neighbor():
     p = env._state.players[idx]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     legal = env.legal_structured_actions()
     assert all(
         a.type in (StructActionType.APPLY_EFFECT, StructActionType.APPLY_EFFECT_SKIP)
@@ -89,9 +89,9 @@ def test_env_argus_two_neighbors_two_apply_then_between():
     p = env._state.players[idx]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     assert env._rl_pending is not None
 
     legal = env.legal_structured_actions()

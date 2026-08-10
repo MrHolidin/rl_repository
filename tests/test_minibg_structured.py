@@ -26,7 +26,7 @@ def _shop_struct_to_env_int(a: StructAction) -> int:
         A_DISCOVER_BASE,
         A_LEVEL_UP,
         A_MAGNET_BASE,
-        A_PLACE_BASE,
+        A_PLAY_BASE,
         A_ROLL,
         A_SELL_BASE,
     )
@@ -40,8 +40,8 @@ def _shop_struct_to_env_int(a: StructAction) -> int:
         return int(A_BUY_BASE + a.args[0])
     if a.type == StructActionType.SELL:
         return int(A_SELL_BASE + a.args[0])
-    if a.type == StructActionType.PLACE:
-        return int(A_PLACE_BASE + a.args[0])
+    if a.type == StructActionType.PLAY:
+        return int(A_PLAY_BASE + a.args[0])
     if a.type == StructActionType.MAGNET:
         return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
     if a.type == StructActionType.DISCOVER_PICK:

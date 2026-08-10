@@ -22,9 +22,9 @@ def test_obs_encodes_apply_effect_modal():
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     p = env._state.players[0]
     pend = encode_pending_choice(p, rl_pending=env._rl_pending)
     assert pend[PENDING_IS_APPLY_OFFSET] == 1.0
@@ -40,9 +40,9 @@ def test_structured_legal_apply_effect_tokens():
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     legal = env.legal_structured_actions()
     assert all(a.type == StructActionType.APPLY_EFFECT for a in legal)
     assert all(len(a.args) == 1 for a in legal)
@@ -54,9 +54,9 @@ def test_structured_step_apply_effect():
     env.reset()
     env._state.players[0].board = [make_minion("recruit"), make_minion("guard")]
     env._state.players[0].hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     legal = env.legal_structured_actions()
     pick = next(a for a in legal if a.args[0] == 0)
     res = env.step_structured(pick)
@@ -78,9 +78,9 @@ def test_obs_apply_remaining_and_picked_mask():
     p = env._state.players[idx]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     pend = encode_pending_choice(p, rl_pending=env._rl_pending)
     assert pend[PENDING_APPLY_REMAINING_OFFSET] == 1.0
     assert pend[PENDING_HEADER_OFFSET + 2] == 1.0

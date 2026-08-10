@@ -11,7 +11,7 @@ from ..action_map import (
     A_DISCOVER_BASE,
     A_FINISH,
     A_LEVEL_UP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     buy_slot,
@@ -45,8 +45,8 @@ def _mandatory_place_actions(mask: np.ndarray, p: PlayerState) -> list[int]:
     """PLACE_* that are legal and move a real card from hand—avoids FINISH with stranded minions."""
     out: list[int] = []
     for i in range(HAND_SIZE):
-        if p.hand[i] is not None and bool(mask[A_PLACE_BASE + i]):
-            out.append(A_PLACE_BASE + i)
+        if p.hand[i] is not None and bool(mask[A_PLAY_BASE + i]):
+            out.append(A_PLAY_BASE + i)
     return out
 
 
@@ -142,8 +142,8 @@ class HeuristicBot(ABC):
             return swap_finish
 
         for i in range(HAND_SIZE):
-            if bool(mask[A_PLACE_BASE + i]):
-                return A_PLACE_BASE + i
+            if bool(mask[A_PLAY_BASE + i]):
+                return A_PLAY_BASE + i
 
         return masked_finish(mask)
 
@@ -167,7 +167,7 @@ class HeuristicBot(ABC):
 
 
 class Tier1RandomBot(HeuristicBot):
-    """Never levels; only buys tier-1 minions; always plays hand to board when a PLACE is legal.
+    """Never levels; only buys tier-1 minions; always plays hand to board when a PLAY is legal.
     Sells only to make room for a hand minion or to buy a tier-1 replacement from the shop (never raw sell)."""
 
     name = "t1_random"
@@ -207,7 +207,7 @@ class Tier1RandomBot(HeuristicBot):
 
 class TierUpRandomBot(HeuristicBot):
     """Levels sometimes; prefers max-tier shop buys. Sells only to place from hand or swap a lower-tier
-    board minion for a current-tier shop buy. Always plays hand to board when a PLACE is legal."""
+    board minion for a current-tier shop buy. Always plays hand to board when a PLAY is legal."""
 
     name = "t_up_random"
 

@@ -10,10 +10,10 @@ Two layers:
 - `state.py` — `Minion`, `PlayerState` (`health`, `gold`, `tavern_tier`, **`next_tier_up_cost`**, `board`, `shop`, `hand`, `phase`, `shop_actions_used`, `hero_damage_taken_total`, pending-choice fields), `MiniBGState`. `PlayerPhase` is `SHOP | ORDER | DONE`.
 - `cards.py` — `CARD_TEMPLATES` declarative pool, `make_minion(card_id)`, `shop_pool_for_tier(tier)`.
 - `patch_catalog.py` — loads `data/minibg/bg_patch_15_6_2_36393_catalog.json`: 186 Hearthstone BG minions with **tavern tier** from HearthSim `CardDefs.xml` (commit `e6cdbc5`, build 36393) merged with HearthstoneJSON card text/stats. Regenerate via `scripts/build_minibg_patch_catalog.py`.
-- `actions.py` — `Action` IntEnum (41 discrete game actions: BUY×6, SELL×4, ROLL, LEVEL_UP, FINISH, PLACE_HAND×5, MAGNET 5×4, DISCOVER_PICK×3) and gameplay constants (`MAX_SHOP_SLOTS=6` with `shop_offers_count(tier)` matching BG offers 3/4/4/5/5/6, `BOARD_SIZE=4` shop placement cap, `HAND_SIZE=5`). Combat summoning uses `battle.COMBAT_BOARD_MAX=7` (BG board space).
+- `actions.py` — `Action` IntEnum (41 discrete game actions: BUY×6, SELL×4, ROLL, LEVEL_UP, FINISH, PLAY_HAND×5, MAGNET 5×4, DISCOVER_PICK×3) and gameplay constants (`MAX_SHOP_SLOTS=6` with `shop_offers_count(tier)` matching BG offers 3/4/4/5/5/6, `BOARD_SIZE=4` shop placement cap, `HAND_SIZE=5`). Combat summoning uses `battle.COMBAT_BOARD_MAX=7` (BG board space).
 - `battle.py` — event-driven combat (`BeginAttackExchange`, `DamageStrike` → `ShieldLost` / `DamageDealt` / `Overkill`, `AttackCompleted`, `MinionDied`, `MinionSummoned`). Strikes use `attack_with_auras`; in death resolution `attack_value(..., death_resolution=True)` and `health_aura_bonus(..., death_resolution=True)` **freeze** continuous stat auras (no tribal/keyword/adjacent/global contributions during `ON_DEATH` / Kangor windows). **Health auras** (`StatAura.health`, `TribalOtherStatAura`, `KeywordStatAura`, `AdjacentStatAura`) use `health_aura_snapshot` and resync after damage/summons so current/max drop when a source dies (e.g. Mal'Ganis). **Adjacency** (`AdjacentStatAura`): only board index ±1 from the source; **corpses keep slots** (no nearest-living retarget). **Baron** / **Khadgar** / Kangor / board-cap behavior unchanged. **Initiative**, **Windfury**, **Zapp**, **Cleave**, **Charge** as before (`simulate_battle(..., death_log=, mech_death_log=, p0_survivors_out=)`).
 - `game.py` — `MiniBGGame(TurnBasedGame[MiniBGState])`: shop loop, hand mechanic, two-phase shop turn (`shop` → `order`), `ON_BUY` / `ON_PLACE` / `AFTER_FRIENDLY_MINION_PLACED` / `ON_TURN_END` dispatch, **Magnetic** (`MAGNET_HAND_h_BOARD_b`): merge hand Magnetic Mech onto an existing board Mech (stats add, keywords combine incl. Divine Shield, target keeps board buffs, `ON_DEATH` from magnet queued after existing DRs; no `ON_PLACE` / battlecry from the magnetic piece), hero damage + `hero_damage_taken_total`, Mal'Ganis-style hero immune (`HeroImmuneAura`), **Brann** (`BattlecryMultiplierAura`): each `ON_PLACE` effect iterates with **fresh** product `Π` over `player.board` each repetition (normal `factor=2`, golden `3`); **not** applied to `AFTER_FRIENDLY_MINION_PLACED`, round orchestration, battle invocation, `reorder_board` primitive (compact-after-permute).
-- `action_map.py` — 65-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SLOT_0..5` / `SELL_BOARD_*` / `PLACE_HAND_0..4` / `MAGNET_HAND_*_BOARD_*` / `DISCOVER_PICK_0..2` / `FINISH` / `SELECT_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
+- `action_map.py` — 65-action env layout: `ROLL` / `LEVEL_UP` / `BUY_SLOT_0..5` / `SELL_BOARD_*` / `PLAY_HAND_0..4` / `MAGNET_HAND_*_BOARD_*` / `DISCOVER_PICK_0..2` / `FINISH` / `SELECT_ORDER_0..23`. Holds the precomputed permutation table and the env→game action mapper.
 - `obs.py` — fixed-size vector observation (10 globals + 4·SLOT_DIM own board + 6·SLOT_DIM shop + 5·SLOT_DIM hand + 4·SLOT_DIM last-seen enemy board + 1 last-battle scalar + 1 phase indicator + 10-dim pending-choice vector for Discover/Adapt modals).
 - `env.py` — `MiniBGEnv(TurnBasedEnv)`: applies actions, on `SELECT_ORDER_*` calls `reorder_board(perm)` then submits the order via `apply_action(FINISH)` from the order phase. Tracks last-seen enemy board and signed last-battle damage delta per player, emits self-centric obs. On battle resolution emits `info["battle_signed"] = (signed_p0, signed_p1)` for symmetric per-player shaping; the env's own `step().reward` carries only terminal win/loss/draw (shaping is computed in `src.training.agent_perspective_env.AgentPerspectiveEnv`). Read-only `state` / `game` for scripted opponents. Optional `replay_path` / `replay_meta`: JSONL per-step snapshots via `replay.py` (replay format `2` includes `hand` and `phase`). Structured-eval replay headers add seating metadata (`learned_player_index`, `agent_token`, `learned_agent_kind`, `scripted_opponent`, `roles_note`); tier rollups: `replay_tier_stats.py`, CLI `scripts/minibg_replay_tier_stats.py`. Training: the trainer consumes `AgentPerspectiveEnv` which wraps `MiniBGEnv`, drives opponent moves until the agent must act again, and attributes terminal + shaping reward in the agent's zero-sum perspective.
 - `heuristic_bots/` — scripted opponents (`t1_random`, `t_up_random`) + `tournament.run_tournament`. CLI: `python -m src.envs.minibg.heuristic_bots` or `python scripts/minibg_tournament.py`. The shared `_finish(env)` helper is phase-aware: in shop phase it auto-places pending hand cards then issues `FINISH`; in order phase it picks a permutation via `choose_final_order`.
@@ -53,7 +53,7 @@ This is by design for v0; if MCTS-style search is added later, RNG state can be 
 
 Each round is split into a shop phase and an order phase per player.
 
-**Shop phase** (`PlayerPhase.SHOP`): the active player issues any sequence of `BUY` / `SELL` / `PLACE` / `MAGNET` / `ROLL` / `LEVEL_UP` actions; each costs one of `MAX_SHOP_ACTIONS` budget slots. None of these actions pass the turn. `FINISH` ends the shop phase by flipping `phase` → `ORDER` (also without passing the turn). If the action budget hits the cap, `apply_action` auto-flips to `ORDER`.
+**Shop phase** (`PlayerPhase.SHOP`): the active player issues any sequence of `BUY` / `SELL` / `PLAY` / `MAGNET` / `ROLL` / `LEVEL_UP` actions; each costs one of `MAX_SHOP_ACTIONS` budget slots. None of these actions pass the turn. `FINISH` ends the shop phase by flipping `phase` → `ORDER` (also without passing the turn). If the action budget hits the cap, `apply_action` auto-flips to `ORDER`.
 
 **Order phase** (`PlayerPhase.ORDER`): only the env-level `SELECT_ORDER_j` action is legal. The env layer applies `reorder_board(state, idx, perm)` and then calls `apply_action(FINISH)`; from order phase, `FINISH`:
 1. Sets `phase = DONE`.
@@ -77,7 +77,7 @@ After `simulate_battle`, the core game applies hero damage only. Optional `p0_bo
 ## Board ordering invariants
 
 - `BUY_SLOT_i`: `shop[i] → first empty hand slot`. Never touches `board`. Illegal when hand is full.
-- `PLACE_HAND_i`: `hand[i] → board.append`. Illegal when board is full or `hand[i]` is empty.
+- `PLAY_HAND_i`: `hand[i] → board.append`. Illegal when board is full or `hand[i]` is empty.
 - `MAGNET_HAND_h_BOARD_b`: requires `hand[h]` non-empty with `Keyword.MAGNETIC` and Mech tribe, `board[b]` a Mech (`MECHANICAL` or `ALL`), `shop_actions_used < MAX_SHOP_ACTIONS`. Merges into `board[b]` in place (hand slot cleared); does not append a minion or fire `ON_PLACE` on the magnetic card.
 - `SELL_BOARD_i`: list element removed at the chosen position; remaining minions shift left. Refunds 1 gold.
 - `SELECT_ORDER_j` (env): `reorder_board(perm = PERMUTATIONS_4[j])` followed by submit. `reorder_board` keeps only positions `< k` (current board size) in the order specified by `perm`, and drops the empty tail. Only `k!` canonical perms are exposed via the legal mask (one per equivalence class).
@@ -90,7 +90,7 @@ After `simulate_battle`, the core game applies hero damage only. Optional `p0_bo
 **Shop phase**:
 - `BUY_SLOT_i` requires non-empty shop slot, hand not full, gold ≥ 3, `shop_actions_used < MAX_SHOP_ACTIONS`.
 - `SELL_BOARD_i` requires position < `len(board)`, `shop_actions_used < MAX_SHOP_ACTIONS`.
-- `PLACE_HAND_i` requires `hand[i]` non-empty, `len(board) < BOARD_SIZE`, `shop_actions_used < MAX_SHOP_ACTIONS`.
+- `PLAY_HAND_i` requires `hand[i]` non-empty, `len(board) < BOARD_SIZE`, `shop_actions_used < MAX_SHOP_ACTIONS`.
 - `MAGNET_HAND_h_BOARD_b` requires `hand[h]` Magnetic Mech, `b < len(board)`, `board[b]` a Mech, `shop_actions_used < MAX_SHOP_ACTIONS`.
 - `ROLL` requires gold ≥ 1, `shop_actions_used < MAX_SHOP_ACTIONS`.
 - `LEVEL_UP` requires tier `< MAX_TIER` (6), gold ≥ ``player.next_tier_up_cost``, `shop_actions_used < MAX_SHOP_ACTIONS`. After each battle, `next_tier_up_cost` decreases by 1 (min 0) until the player levels; on tier-up it resets to the **base** for the new step from `LEVEL_UP_COSTS` (wiki.gg table: 5,7,8,11,11).
@@ -98,7 +98,7 @@ After `simulate_battle`, the core game applies hero damage only. Optional `p0_bo
 
 **Order phase**: only `FINISH` is legal. Submits the order: sets `phase = DONE`, fires `ON_TURN_END`, passes turn (or triggers battle).
 
-After `MAX_SHOP_ACTIONS` BUY/SELL/PLACE/MAGNET/ROLL/LEVEL_UP actions, the game auto-flips the player to the order phase; `FINISH` is then the only legal action.
+After `MAX_SHOP_ACTIONS` BUY/SELL/PLAY/MAGNET/ROLL/LEVEL_UP actions, the game auto-flips the player to the order phase; `FINISH` is then the only legal action.
 
 `MiniBGGame.reorder_board(state, idx, perm)` is a free primitive (no action cost) used by the env to fuse reorder + submit. With **compact-after-permute** semantics, it accepts any of the 24 permutations of `(0,1,2,3)`: positions `< k` are taken in `perm` order and concatenated, positions `≥ k` are dropped.
 
@@ -112,7 +112,7 @@ After `MAX_SHOP_ACTIONS` BUY/SELL/PLACE/MAGNET/ROLL/LEVEL_UP actions, the game a
 | 1           | `LEVEL_UP`                                             |
 | 2..7        | `BUY_SLOT_0..5` (only tiers with that offer pack legal) |
 | 8..11       | `SELL_BOARD_0/1/2/3`                                   |
-| 12..16      | `PLACE_HAND_0..4`                                      |
+| 12..16      | `PLAY_HAND_0..4`                                      |
 | 17..36      | `MAGNET_HAND_h_BOARD_b` (`h∈{0..4}`, `b∈{0,1,2,3}`)  |
 | 37..39      | `DISCOVER_PICK_0..2`                                   |
 | 40          | `FINISH` (shop → order)                                |

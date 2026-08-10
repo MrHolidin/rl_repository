@@ -36,7 +36,7 @@ class MiniBGSlotEncoderNet(BaseDQNNetwork):
     enemy (4×25). Runs a shared Conv1d encoder over the slot axis (kernel=1 then
     optional kernel=3 with padding on ``region_conv2``) and **flattens** per-slot features so slot
     identity is preserved — required so that slot-indexed action heads
-    (BUY_SLOT_*, SELL_BOARD_*, PLACE_HAND_*, SELECT_ORDER_*) can read
+    (BUY_SLOT_*, SELL_BOARD_*, PLAY_HAND_*, SELECT_ORDER_*) can read
     "what's in slot i" rather than the regional mean.
     """
 

@@ -24,13 +24,13 @@ from .action_map import (
     is_finish,
     is_finish_freeze_shop,
     is_magnet,
-    is_place,
+    is_play,
     is_sell,
     is_swap_board,
     is_target_board,
     magnet_hand_board,
     discover_pick_slot,
-    place_slot,
+    play_slot,
     sell_pos,
     swap_adj_index_from_env_action,
     target_board_slot,
@@ -46,8 +46,8 @@ def decode_env_action(a: int) -> str:
         return f"BUY_SHOP_{buy_slot(a)}"
     if is_sell(a):
         return f"SELL_BOARD_{sell_pos(a)}"
-    if is_place(a):
-        return f"PLACE_HAND_{place_slot(a)}"
+    if is_play(a):
+        return f"PLAY_HAND_{play_slot(a)}"
     if is_magnet(a):
         h, b = magnet_hand_board(a)
         return f"MAGNET_HAND_{h}_BOARD_{b}"
@@ -78,8 +78,8 @@ def decode_env_action_compact(a: int) -> str:
         return "BUY"
     if is_sell(a):
         return "SELL"
-    if is_place(a):
-        return "PLACE"
+    if is_play(a):
+        return "PLAY"
     if is_magnet(a):
         return "MAGNET"
     if is_discover_pick(a):

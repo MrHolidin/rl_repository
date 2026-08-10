@@ -40,7 +40,7 @@ def _build_action_enum() -> type[IntEnum]:
     members["FINISH"] = n
     n += 1
     for i in range(HAND_SIZE):
-        members[f"PLACE_HAND_{i}"] = n
+        members[f"PLAY_HAND_{i}"] = n
         n += 1
     for h in range(HAND_SIZE):
         for b in range(BOARD_SIZE):

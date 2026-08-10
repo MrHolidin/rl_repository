@@ -8,7 +8,7 @@ from src.envs.minibg.action_map import (
     A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
     A_MAGNET_BASE,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     A_SWAP_BOARD_0,
@@ -29,7 +29,7 @@ def test_action_layout():
     assert A_FINISH == int(GameAction.FINISH)
     assert A_FINISH_FREEZE_SHOP == int(GameAction.FINISH_FREEZE_SHOP)
     assert A_SELL_BASE == int(GameAction.SELL_BOARD_0)
-    assert A_PLACE_BASE == int(GameAction.PLACE_HAND_0)
+    assert A_PLAY_BASE == int(GameAction.PLAY_HAND_0)
     assert A_MAGNET_BASE == int(GameAction.MAGNET_HAND_0_BOARD_0)
     assert A_DISCOVER_BASE == int(GameAction.DISCOVER_PICK_0)
     assert A_SWAP_BOARD_0 == NUM_ACTIONS
@@ -47,7 +47,7 @@ def test_env_to_game_mapping_covers_all_non_order_actions():
     for p in range(BOARD_SIZE):
         assert env_action_to_game_action(A_SELL_BASE + p) == int(GameAction.SELL_BOARD_0) + p
     for h in range(HAND_SIZE):
-        assert env_action_to_game_action(A_PLACE_BASE + h) == int(GameAction.PLACE_HAND_0) + h
+        assert env_action_to_game_action(A_PLAY_BASE + h) == int(GameAction.PLAY_HAND_0) + h
     for h in range(HAND_SIZE):
         for b in range(BOARD_SIZE):
             assert (

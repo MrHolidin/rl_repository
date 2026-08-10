@@ -1,4 +1,4 @@
-"""Triple reward: discover spell in hand, PLACE opens modal (not on golden play)."""
+"""Triple reward: discover spell in hand, PLAY opens modal (not on golden play)."""
 
 from copy import copy
 

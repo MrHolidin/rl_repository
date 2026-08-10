@@ -11,9 +11,9 @@ def test_single_other_minion_auto_buffs_without_modal():
     p = env._state.players[0]
     p.board = [make_minion("recruit")]
     p.hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     pick = next(a for a in env.legal_structured_actions() if a.type == StructActionType.APPLY_EFFECT)
     env.step_structured(pick)
     p0 = env._state.players[0]
@@ -29,9 +29,9 @@ def test_two_minions_opens_rl_apply_then_buffs_chosen():
     p = env._state.players[0]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     assert env._rl_pending is not None
     legal = env.legal_structured_actions()
     assert all(a.type == StructActionType.APPLY_EFFECT for a in legal)
@@ -50,9 +50,9 @@ def test_env_target_board_pick():
     env.reset()
     env._state.players[0].board = [make_minion("recruit"), make_minion("guard")]
     env._state.players[0].hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE, A_TARGET_BOARD_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE, A_TARGET_BOARD_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     assert env._rl_pending is not None
     mask = env.legal_actions_mask
     assert mask[A_TARGET_BOARD_BASE]
@@ -91,9 +91,9 @@ def test_rl_brann_one_apply_buffs_twice():
     recruit = make_minion("recruit")
     p.board = [recruit, make_minion("brann"), make_minion("guard")]
     p.hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE
+    from src.envs.minibg.action_map import A_PLAY_BASE
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     env.step_structured(
         next(
             a
@@ -111,8 +111,8 @@ def test_finish_blocked_while_rl_effect_pending():
     idx = env._state.current_player_index
     env._state.players[idx].board = [make_minion("recruit"), make_minion("guard")]
     env._state.players[idx].hand[0] = make_minion("target_buffer")
-    from src.envs.minibg.action_map import A_PLACE_BASE, A_FINISH
+    from src.envs.minibg.action_map import A_PLAY_BASE, A_FINISH
 
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     assert env._rl_pending is not None
     assert not env.legal_actions_mask[A_FINISH]

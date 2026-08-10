@@ -292,7 +292,7 @@ def role_for_struct(a: StructAction) -> int:
         return _ROLE_SHOP
     if t == StructActionType.SELL:
         return _ROLE_BOARD
-    if t == StructActionType.PLACE or t == StructActionType.MAGNET:
+    if t == StructActionType.PLAY or t == StructActionType.MAGNET:
         return _ROLE_HAND
     if t == StructActionType.DISCOVER_PICK:
         return _ROLE_PENDING
@@ -314,7 +314,7 @@ def _struct_action_codes(a: StructAction) -> Tuple[int, int, int, int, int, int]
         return (int(t), _ROLE_SHOP, _REGION_SHOP, int(a.args[0]), _REGION_NULL, 0)
     if t == StructActionType.SELL:
         return (int(t), _ROLE_BOARD, _REGION_OWN, int(a.args[0]), _REGION_NULL, 0)
-    if t == StructActionType.PLACE:
+    if t == StructActionType.PLAY:
         return (int(t), _ROLE_HAND, _REGION_HAND, int(a.args[0]), _REGION_NULL, 0)
     if t == StructActionType.MAGNET:
         return (

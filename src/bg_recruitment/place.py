@@ -1,4 +1,4 @@
-"""Play from hand: PLACE and Magnetic."""
+"""Play from hand: PLAY and Magnetic."""
 
 from __future__ import annotations
 

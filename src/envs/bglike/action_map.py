@@ -28,8 +28,8 @@ A_ROLL = int(Action.ROLL)
 A_LEVEL_UP = int(Action.LEVEL_UP)
 A_FINISH = int(Action.FINISH)
 A_FINISH_FREEZE_SHOP = int(Action.FINISH_FREEZE_SHOP)
-A_PLACE_HAND_0 = int(Action.PLACE_HAND_0)
-A_PLACE_HAND_LAST = int(Action.PLACE_HAND_0) + HAND_SIZE - 1
+A_PLAY_HAND_0 = int(Action.PLAY_HAND_0)
+A_PLAY_HAND_LAST = int(Action.PLAY_HAND_0) + HAND_SIZE - 1
 A_MAGNET_HAND_0_BOARD_0 = int(Action.MAGNET_HAND_0_BOARD_0)
 A_MAGNET_HAND_LAST_BOARD_LAST = (
     int(Action.MAGNET_HAND_0_BOARD_0) + HAND_SIZE * BOARD_SIZE - 1
@@ -46,7 +46,7 @@ NUM_ENV_ACTIONS = A_APPLY_EFFECT_SKIP + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0
-A_PLACE_BASE = A_PLACE_HAND_0
+A_PLAY_BASE = A_PLAY_HAND_0
 A_MAGNET_BASE = A_MAGNET_HAND_0_BOARD_0
 A_DISCOVER_BASE = A_DISCOVER_PICK_0
 A_TARGET_BOARD_BASE = A_TARGET_BOARD_0
@@ -87,16 +87,16 @@ def sell_pos(env_action: int) -> int:
     return a - A_SELL_BASE
 
 
-def is_place(env_action: int) -> bool:
+def is_play(env_action: int) -> bool:
     a = int(env_action)
-    return A_PLACE_BASE <= a <= A_PLACE_HAND_LAST
+    return A_PLAY_BASE <= a <= A_PLAY_HAND_LAST
 
 
-def place_slot(env_action: int) -> int:
+def play_slot(env_action: int) -> int:
     a = int(env_action)
-    if not is_place(a):
-        raise ValueError(f"not a place action: {env_action}")
-    return a - A_PLACE_BASE
+    if not is_play(a):
+        raise ValueError(f"not a play action: {env_action}")
+    return a - A_PLAY_BASE
 
 
 def is_magnet(env_action: int) -> bool:
@@ -156,8 +156,8 @@ def struct_action_to_game_action(action) -> int:
         return int(Action.BUY_SLOT_0) + action.args[0]
     if action.type == StructActionType.SELL:
         return int(Action.SELL_BOARD_0) + action.args[0]
-    if action.type == StructActionType.PLACE:
-        return int(Action.PLACE_HAND_0) + action.args[0]
+    if action.type == StructActionType.PLAY:
+        return int(Action.PLAY_HAND_0) + action.args[0]
     if action.type == StructActionType.MAGNET:
         return int(magnet_game_action(action.args[0], action.args[1]))
     if action.type == StructActionType.DISCOVER_PICK:
@@ -189,7 +189,7 @@ __all__ = [
     "A_FINISH_FREEZE_SHOP",
     "A_LEVEL_UP",
     "A_MAGNET_BASE",
-    "A_PLACE_BASE",
+    "A_PLAY_BASE",
     "A_ROLL",
     "A_SELL_BASE",
     "A_SWAP_BOARD_0",
@@ -202,7 +202,7 @@ __all__ = [
     "is_buy",
     "is_discover_pick",
     "is_magnet",
-    "is_place",
+    "is_play",
     "is_sell",
     "is_apply_effect_skip",
     "is_finish",
@@ -214,6 +214,6 @@ __all__ = [
     "struct_action_to_log_int",
     "swap_adj_index_from_env_action",
     "target_board_slot",
-    "place_slot",
+    "play_slot",
     "sell_pos",
 ]

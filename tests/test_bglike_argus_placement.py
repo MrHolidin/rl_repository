@@ -7,7 +7,7 @@ from tests.minibg_helpers import make_minion
 from src.bg_core.effects import Keyword
 from src.envs.bglike.action_map import (
     A_APPLY_EFFECT_SKIP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_TARGET_BOARD_BASE,
     is_apply_effect_skip,
     is_target_board,
@@ -39,7 +39,7 @@ def test_argus_two_targets_then_skip_not_needed():
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
 
-    lobby.step_action(seat, A_PLACE_BASE)
+    lobby.step_action(seat, A_PLAY_BASE)
     assert seat in lobby._rl_pending
     mask = lobby.legal_mask_for_seat(seat)
     assert mask[A_TARGET_BOARD_BASE]
@@ -73,7 +73,7 @@ def test_argus_single_neighbor_skip_second():
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
 
-    lobby.step_action(seat, A_PLACE_BASE)
+    lobby.step_action(seat, A_PLAY_BASE)
     lobby.step_action(seat, A_TARGET_BOARD_BASE + 1)
     assert lobby._rl_pending[seat].can_skip_second_adjacent()
     lobby.step_action(seat, A_APPLY_EFFECT_SKIP)
@@ -93,6 +93,6 @@ def test_obs_encodes_rl_pending_apply():
     p = lobby.state.players[seat]
     p.board = [make_minion("recruit"), make_minion("guard")]
     p.hand[0] = make_minion("defender_argus")
-    lobby.step_action(seat, A_PLACE_BASE)
+    lobby.step_action(seat, A_PLAY_BASE)
     pend = encode_pending_choice(p, rl_pending=lobby.rl_pending_for_seat(seat))
     assert pend[PENDING_IS_APPLY_OFFSET] == 1.0

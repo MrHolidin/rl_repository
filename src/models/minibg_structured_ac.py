@@ -269,7 +269,7 @@ class MiniBGStructuredActorCritic(nn.Module):
 
         self.type_emb = nn.Embedding(_NUM_STRUCT_TYPES, self.action_dim)
         self.role_emb = nn.Embedding(_NUM_ROLES, self.action_dim)
-        # Source entity projection (used by BUY/SELL/PLACE/MAGNET/DISCOVER_PICK).
+        # Source entity projection (used by BUY/SELL/PLAY/MAGNET/DISCOVER_PICK).
         self.entity_to_action = nn.Linear(self.slot_hidden, self.action_dim)
         # Target entity projection — only fires for MAGNET (board target). Separate
         # weights from source so the model doesn't have to learn an arbitrary tag
@@ -537,7 +537,7 @@ class MiniBGStructuredActorCritic(nn.Module):
     ) -> torch.Tensor:
         """Batched action embedding for ``(B, Lmax)`` token tensors → ``(B, Lmax, action_dim)``.
 
-        Source entity covers BUY/SELL/PLACE shopper, MAGNET's hand card, DISCOVER_PICK's
+        Source entity covers BUY/SELL/PLAY shopper, MAGNET's hand card, DISCOVER_PICK's
         pending option. Target entity covers MAGNET's board target (everything else: NULL).
         """
         B, Lmax = type_ids.shape

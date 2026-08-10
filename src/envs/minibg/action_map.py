@@ -18,8 +18,8 @@ A_ROLL = int(Action.ROLL)
 A_LEVEL_UP = int(Action.LEVEL_UP)
 A_FINISH = int(Action.FINISH)
 A_FINISH_FREEZE_SHOP = int(Action.FINISH_FREEZE_SHOP)
-A_PLACE_HAND_0 = int(Action.PLACE_HAND_0)
-A_PLACE_HAND_LAST = int(Action.PLACE_HAND_0) + HAND_SIZE - 1
+A_PLAY_HAND_0 = int(Action.PLAY_HAND_0)
+A_PLAY_HAND_LAST = int(Action.PLAY_HAND_0) + HAND_SIZE - 1
 A_MAGNET_HAND_0_BOARD_0 = int(Action.MAGNET_HAND_0_BOARD_0)
 A_MAGNET_HAND_LAST_BOARD_LAST = int(Action.MAGNET_HAND_4_BOARD_6)
 A_DISCOVER_PICK_0 = int(Action.DISCOVER_PICK_0)
@@ -38,7 +38,7 @@ NUM_ENV_ACTIONS = A_APPLY_EFFECT_SKIP + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0
-A_PLACE_BASE = A_PLACE_HAND_0
+A_PLAY_BASE = A_PLAY_HAND_0
 A_MAGNET_BASE = A_MAGNET_HAND_0_BOARD_0
 A_DISCOVER_BASE = A_DISCOVER_PICK_0
 A_TARGET_BOARD_BASE = A_TARGET_BOARD_0
@@ -85,16 +85,16 @@ def sell_pos(env_action: int) -> int:
     return a - A_SELL_BASE
 
 
-def is_place(env_action: int) -> bool:
+def is_play(env_action: int) -> bool:
     a = int(env_action)
-    return A_PLACE_BASE <= a <= A_PLACE_HAND_LAST
+    return A_PLAY_BASE <= a <= A_PLAY_HAND_LAST
 
 
-def place_slot(env_action: int) -> int:
+def play_slot(env_action: int) -> int:
     a = int(env_action)
-    if not is_place(a):
-        raise ValueError(f"not a place action: {env_action}")
-    return a - A_PLACE_BASE
+    if not is_play(a):
+        raise ValueError(f"not a play action: {env_action}")
+    return a - A_PLAY_BASE
 
 
 def is_magnet(env_action: int) -> bool:
@@ -170,7 +170,7 @@ def _iter_primitive_actions(*, tavern_tier: int) -> Iterable[int]:
     yield A_LEVEL_UP
     yield A_FINISH
     yield A_FINISH_FREEZE_SHOP
-    yield from range(A_PLACE_HAND_0, A_PLACE_HAND_LAST + 1)
+    yield from range(A_PLAY_HAND_0, A_PLAY_HAND_LAST + 1)
     yield from range(A_MAGNET_HAND_0_BOARD_0, A_MAGNET_HAND_LAST_BOARD_LAST + 1)
     yield from range(A_DISCOVER_PICK_0, A_DISCOVER_PICK_LAST + 1)
     yield from range(A_TARGET_BOARD_0, A_TARGET_BOARD_LAST + 1)
@@ -203,7 +203,7 @@ __all__ = [
     "A_LEVEL_UP",
     "A_MAGNET_BASE",
     "A_MAGNET_HAND_LAST_BOARD_LAST",
-    "A_PLACE_BASE",
+    "A_PLAY_BASE",
     "A_ROLL",
     "A_SELECT_ORDER_BASE",
     "A_SELL_BASE",
@@ -222,11 +222,11 @@ __all__ = [
     "is_finish",
     "is_finish_freeze_shop",
     "is_magnet",
-    "is_place",
+    "is_play",
     "is_sell",
     "is_swap_board",
     "magnet_hand_board",
-    "place_slot",
+    "play_slot",
     "sell_pos",
     "shop_slot_from_env_action",
     "swap_adj_index_from_env_action",

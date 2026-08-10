@@ -14,7 +14,7 @@ from src.envs.minibg.actions import MAX_SHOP_SLOTS
 
 # What a hand slot can hold. `board`/`shop` stay Minion-only — only minions
 # are ever placed or offered in the minion shop; a bought tavern spell sits
-# in `hand` until PLACE consumes it (see src/bg_recruitment/triples.py).
+# in `hand` until PLAY consumes it (see src/bg_recruitment/triples.py).
 HandCard = Union[Minion, TavernSpell]
 
 # History length for obs-side last-N-battles features. Length = 3 matches

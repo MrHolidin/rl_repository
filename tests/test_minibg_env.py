@@ -6,7 +6,7 @@ from src.envs.minibg.action_map import (
     A_FINISH,
     A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     A_SWAP_BOARD_0,
@@ -87,7 +87,7 @@ def test_buy_to_hand_then_place_to_board():
     assert p.hand[0] is not None and p.hand[0].card_id == "EX1_162"
     assert p.board == []
     assert env._state.current_player_index == 0
-    env.step(A_PLACE_BASE)
+    env.step(A_PLAY_BASE)
     p = env._state.players[0]
     assert p.hand[0] is None
     assert [m.card_id for m in p.board] == ["EX1_162"]

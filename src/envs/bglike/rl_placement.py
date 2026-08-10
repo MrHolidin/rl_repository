@@ -1,4 +1,4 @@
-"""Staged PLACE + TARGET_BOARD for Argus / targeted battlecries in BGLike."""
+"""Staged PLAY + TARGET_BOARD for Argus / targeted battlecries in BGLike."""
 
 from __future__ import annotations
 

@@ -257,7 +257,7 @@ def handle_command(env: BGLobbyEnv, seat: int, line: str) -> None:
         env.step_structured_for_seat(seat, sa)
     elif cmd in ("play", "p"):
         (n,) = _parse_ints(rest, 1, "hand slot")
-        sa = StructAction(StructActionType.PLACE, (n,))
+        sa = StructAction(StructActionType.PLAY, (n,))
         _require(legal, sa)
         env.step_structured_for_seat(seat, sa)
     elif cmd in ("magnet", "m"):

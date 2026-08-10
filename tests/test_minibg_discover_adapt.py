@@ -18,7 +18,7 @@ def test_primalfin_blocks_shop_until_discover_pick():
     p.board = []
     p.hand[0] = make_minion("primalfin_lookout")
     assert p.pending_choice is None
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     p2 = s2.players[0]
     assert p2.pending_choice is not None
     assert p2.pending_choice.kind == PendingChoiceKind.DISCOVER_MURLOC
@@ -46,7 +46,7 @@ def test_gentle_megasaur_adapt_all_murlocs():
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
     p.hand[0] = make_minion("gentle_megasaur")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     pc = s2.players[0].pending_choice
     assert pc is not None and pc.kind == PendingChoiceKind.ADAPT
     for k in pc.options:
@@ -66,7 +66,7 @@ def test_golden_megasaur_two_adapt_rounds():
     p = s.players[0]
     p.board = [make_minion("rockpool_hunter")]
     p.hand[0] = make_minion("gentle_megasaur_golden")
-    s2 = g.apply_action(s, int(Action.PLACE_HAND_0))
+    s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     assert s2.players[0].pending_choice.extra_modals_after >= 1
     s3 = g.apply_action(s2, int(Action.DISCOVER_PICK_0))
     assert s3.players[0].pending_choice is not None
@@ -84,9 +84,9 @@ def test_place_primalfin_illegal_if_discover_overflow_hand():
     p.hand[0] = make_minion("primalfin_lookout")
     for i in range(1, HAND_SIZE):
         p.hand[i] = make_minion("recruit")
-    assert int(Action.PLACE_HAND_0) not in set(g.legal_actions(s))
+    assert int(Action.PLAY_HAND_0) not in set(g.legal_actions(s))
     p.hand = [None] * HAND_SIZE
     p.hand[0] = make_minion("primalfin_lookout")
     p.hand[1] = make_minion("recruit")
-    assert int(Action.PLACE_HAND_0) in set(g.legal_actions(s))
+    assert int(Action.PLAY_HAND_0) in set(g.legal_actions(s))
 

@@ -42,7 +42,7 @@ from src.bg_core.effects import (
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PlayerState
 
-from ..action_map import A_PLACE_BASE, A_SELL_BASE
+from ..action_map import A_PLAY_BASE, A_SELL_BASE
 from ..actions import HAND_SIZE
 from src.envs.minibg.heuristic_bots.value_model import rounds_left_estimate
 
@@ -257,8 +257,8 @@ class PlannerElementalBot(PlannerHeuristicBot):
         if not held:
             return None
         i, m = held[0]
-        if bool(mask[A_PLACE_BASE + i]):
-            return A_PLACE_BASE + i
+        if bool(mask[A_PLAY_BASE + i]):
+            return A_PLAY_BASE + i
 
         # Board is full: free the slot, preferring a minion whose own play value
         # is already spent — in the steady cycle that is last turn's Elemental,

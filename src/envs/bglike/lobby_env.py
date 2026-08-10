@@ -13,16 +13,16 @@ from src.envs.reward_config import RewardConfig
 
 from .action_map import (
     A_APPLY_EFFECT_SKIP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_SWAP_BOARD_0,
     A_TARGET_BOARD_BASE,
     NUM_ENV_ACTIONS,
     NUM_SWAP_ADJ,
     is_apply_effect_skip,
-    is_place,
+    is_play,
     is_swap_board,
     is_target_board,
-    place_slot,
+    play_slot,
     struct_action_to_game_action,
     struct_action_to_log_int,
     swap_adj_index_from_env_action,
@@ -587,8 +587,8 @@ class BGLobbyEnv:
                 out.append(StructAction(StructActionType.SELL, (pos,)))
 
         for h in range(HAND_SIZE):
-            if (int(GameAction.PLACE_HAND_0) + h) in legal_game:
-                out.append(StructAction(StructActionType.PLACE, (h,)))
+            if (int(GameAction.PLAY_HAND_0) + h) in legal_game:
+                out.append(StructAction(StructActionType.PLAY, (h,)))
 
         for h in range(HAND_SIZE):
             for b in range(BOARD_SIZE):
@@ -644,9 +644,9 @@ class BGLobbyEnv:
             self._state = self._game.swap_board_adjacent(
                 s, seat, swap_adj_index_from_env_action(action_int)
             )
-        elif is_place(action_int) and seat == s.current_player_index:
-            if not self._try_begin_rl_place(seat, place_slot(action_int)):
-                raise ValueError(f"PLACE hand slot {place_slot(action_int)} failed")
+        elif is_play(action_int) and seat == s.current_player_index:
+            if not self._try_begin_rl_place(seat, play_slot(action_int)):
+                raise ValueError(f"PLAY hand slot {play_slot(action_int)} failed")
         else:
             self._state = self._game.apply_action(s, action_int)
 
@@ -673,9 +673,9 @@ class BGLobbyEnv:
             self._apply_rl_effect_pick(seat, action.args[0])
         elif action.type == StructActionType.APPLY_EFFECT_SKIP:
             self._apply_rl_effect_skip(seat)
-        elif action.type == StructActionType.PLACE:
+        elif action.type == StructActionType.PLAY:
             if not self._try_begin_rl_place(seat, action.args[0]):
-                raise ValueError(f"PLACE hand slot {action.args[0]} failed")
+                raise ValueError(f"PLAY hand slot {action.args[0]} failed")
         else:
             ga = struct_action_to_game_action(action)
             self._state = self._game.apply_action(self.state, ga)
@@ -861,7 +861,7 @@ class BGLobbyEnv:
         from .actions import Action as GameAction
 
         legal = {int(a) for a in self._game.legal_actions(self._state)}
-        if int(GameAction.PLACE_HAND_0) + hand_slot not in legal:
+        if int(GameAction.PLAY_HAND_0) + hand_slot not in legal:
             return False
         if player.hand[hand_slot] is None:
             return False

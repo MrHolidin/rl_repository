@@ -42,7 +42,7 @@ from ..action_map import (
     A_DISCOVER_BASE,
     A_FINISH_FREEZE_SHOP,
     A_LEVEL_UP,
-    A_PLACE_BASE,
+    A_PLAY_BASE,
     A_ROLL,
     A_SELL_BASE,
     is_discover_pick,
@@ -562,8 +562,8 @@ class PlannerHeuristicBot(HeuristicBot):
             if bool(mask[A_DISCOVER_BASE + i]):
                 return A_DISCOVER_BASE + i
         for i in range(min(HAND_SIZE, len(p.hand))):
-            if bool(mask[A_PLACE_BASE + i]):
-                return A_PLACE_BASE + i
+            if bool(mask[A_PLAY_BASE + i]):
+                return A_PLAY_BASE + i
         order = self._order_step(p, mask)
         if order is not None:
             return order
@@ -612,8 +612,8 @@ class PlannerHeuristicBot(HeuristicBot):
         # A triple reward spell is free value and does not cost a board slot.
         for i in range(min(HAND_SIZE, len(p.hand))):
             hm = p.hand[i]
-            if hm is not None and isinstance(hm, TavernSpell) and bool(mask[A_PLACE_BASE + i]):
-                return A_PLACE_BASE + i
+            if hm is not None and isinstance(hm, TavernSpell) and bool(mask[A_PLAY_BASE + i]):
+                return A_PLAY_BASE + i
 
         magnets = [a for a in legal if is_magnet(a)]
         if magnets:
@@ -637,8 +637,8 @@ class PlannerHeuristicBot(HeuristicBot):
         # 1. Put a wanted card from hand onto a free slot.
         if free_slots > 0 and want_hand:
             for c in want_hand:
-                if bool(mask[A_PLACE_BASE + c.idx]):
-                    return A_PLACE_BASE + c.idx
+                if bool(mask[A_PLAY_BASE + c.idx]):
+                    return A_PLAY_BASE + c.idx
 
         # 2. Free a slot for something the plan wants — and only then.
         if free_slots == 0 and (want_hand or want_shop) and drop_board:
@@ -663,8 +663,8 @@ class PlannerHeuristicBot(HeuristicBot):
         # 5. Park leftover hand cards on free slots rather than end with them idle.
         if free_slots > 0:
             for c in cands:
-                if c.src == SRC_HAND and bool(mask[A_PLACE_BASE + c.idx]):
-                    return A_PLACE_BASE + c.idx
+                if c.src == SRC_HAND and bool(mask[A_PLAY_BASE + c.idx]):
+                    return A_PLAY_BASE + c.idx
 
         return self._finish(env)
 

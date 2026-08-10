@@ -14,7 +14,7 @@ class StructActionType(IntEnum):
     LEVEL_UP = 1
     BUY = 2
     SELL = 3
-    PLACE = 4
+    PLAY = 4
     COMPLETE_TURN = 5
     MAGNET = 6
     DISCOVER_PICK = 7
@@ -86,12 +86,12 @@ def validate_struct_action(
         p = a.args[0]
         if p < 0 or p >= board_size:
             raise ValueError(f"SELL board_slot out of range [0,{board_size}): {p}")
-    elif t == StructActionType.PLACE:
+    elif t == StructActionType.PLAY:
         if len(a.args) != 1:
-            raise ValueError(f"PLACE expects args (hand_slot,), got {a.args}")
+            raise ValueError(f"PLAY expects args (hand_slot,), got {a.args}")
         h = a.args[0]
         if h < 0 or h >= hand_size:
-            raise ValueError(f"PLACE hand_slot out of range [0,{hand_size}): {h}")
+            raise ValueError(f"PLAY hand_slot out of range [0,{hand_size}): {h}")
     elif t == StructActionType.MAGNET:
         if len(a.args) != 2:
             raise ValueError(f"MAGNET expects args (hand_slot, board_pos), got {a.args}")
@@ -137,7 +137,7 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         A_FINISH_FREEZE_SHOP,
         A_LEVEL_UP,
         A_MAGNET_BASE,
-        A_PLACE_BASE,
+        A_PLAY_BASE,
         A_ROLL,
         A_SELL_BASE,
     )
@@ -150,8 +150,8 @@ def structured_action_to_replay_env_int(a: StructAction) -> int:
         return int(A_BUY_BASE + a.args[0])
     if a.type == StructActionType.SELL:
         return int(A_SELL_BASE + a.args[0])
-    if a.type == StructActionType.PLACE:
-        return int(A_PLACE_BASE + a.args[0])
+    if a.type == StructActionType.PLAY:
+        return int(A_PLAY_BASE + a.args[0])
     if a.type == StructActionType.MAGNET:
         return int(A_MAGNET_BASE + a.args[0] * BOARD_SIZE + a.args[1])
     if a.type == StructActionType.DISCOVER_PICK:

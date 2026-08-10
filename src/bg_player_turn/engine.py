@@ -81,7 +81,7 @@ class PlayerTurnEngine:
                 if hm is None:
                     continue
                 if recruitment_triples.is_triple_reward_discover_spell(hm):
-                    actions.append(int(a.Action.PLACE_HAND_0) + h)
+                    actions.append(int(a.Action.PLAY_HAND_0) + h)
                     continue
                 if board_full:
                     continue
@@ -90,7 +90,7 @@ class PlayerTurnEngine:
                 free = sum(1 for s in player.hand if s is None) + 1
                 if needs > free:
                     continue
-                actions.append(int(a.Action.PLACE_HAND_0) + h)
+                actions.append(int(a.Action.PLAY_HAND_0) + h)
 
             for h in range(hsz):
                 hm = player.hand[h]
@@ -244,10 +244,10 @@ class PlayerTurnEngine:
                 return True
 
         hsz = hand_size(player)
-        if int(a.Action.PLACE_HAND_0) <= action_int < int(a.Action.PLACE_HAND_0) + hsz:
+        if int(a.Action.PLAY_HAND_0) <= action_int < int(a.Action.PLAY_HAND_0) + hsz:
             recruitment_place.place_from_hand(
                 player,
-                action_int - int(a.Action.PLACE_HAND_0),
+                action_int - int(a.Action.PLAY_HAND_0),
                 race,
                 board_size=a.BOARD_SIZE,
                 triggers=ctx.triggers,
