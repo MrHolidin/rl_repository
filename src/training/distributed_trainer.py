@@ -1039,6 +1039,17 @@ def _worker_main(
     run_dir: str,
 ) -> None:
     import os
+
+    # A CPU worker has no business holding a CUDA context, but every one of them
+    # opened one anyway — 384 MB of VRAM apiece, ~15 GB across 40 workers, on a
+    # 24 GB card whose host process only needs 2.2 GB. Neither the checkpoint
+    # load nor the torch.compile of the policy initializes CUDA (both measured),
+    # so rather than chase the trigger, take the card away: PyTorch reads this
+    # variable when it first initializes CUDA, not at import, so setting it here
+    # is early enough. Guarded, so worker_device="cuda" still works.
+    if str(device).startswith("cpu"):
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
     import torch
 
     os.environ["RL_RUN_DIR"] = run_dir
