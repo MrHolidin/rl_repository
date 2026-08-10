@@ -50,16 +50,19 @@ from ..action_map import (
     is_swap_board,
     magnet_hand_board,
 )
-from ..actions import (
-    BOARD_SIZE,
-    HAND_SIZE,
-    MAX_SHOP_ACTIONS,
-    MAX_SHOP_SLOTS,
-    MAX_TIER,
-)
+from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS, MAX_TIER
 from src.bg_catalog.cards import make_minion
-from src.bg_core.effects import Trigger
-from src.bg_core.minion import Minion
+from src.bg_core.effects import (
+    AdaptAllMurlocsEffect,
+    BuffAdjacentBattlecry,
+    BuffAllOtherOfTribe,
+    BuffTargetFriendlyBattlecry,
+    DiscoverMurlocEffect,
+    SummonEffect,
+    SummonRandomMinionEffect,
+    Trigger,
+)
+from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PendingChoiceKind, PlayerState
 from src.bg_recruitment.economy import (
     effective_buy_cost,
@@ -84,14 +87,6 @@ from .common import (
     masked_finish,
     pick_rl_apply_action,
 )
-
-# Flat stand-in for "value of the act of playing a minion" (board reactions to
-# AFTER_FRIENDLY_MINION_PLACED, own battlecry beyond what the stat model sees).
-# Triple progress is scored separately; this is the residual.
-V_PLAY_FLAT = 0.6
-
-# Keep the shop budget clear of the hard engine cap so a turn can always finish.
-SHOP_ACTION_RESERVE = 4
 
 SRC_BOARD = "b"
 SRC_HAND = "h"
@@ -123,6 +118,21 @@ _FRESH_BEST_MEAN = {1: 12.50, 2: 14.10, 3: 16.52, 4: 18.62, 5: 21.33, 6: 23.07}
 _TIER_DELTA = {1: 0.50, 2: 2.50, 3: 2.65, 4: 2.28, 5: 2.15}
 # Buys per shop turn, measured over 633 planner turns in 10 lobbies.
 _BUYS_PER_TURN = 1.2
+# Mean stat line an adapt hands out, over the ten options.
+_ADAPT_STATS = (2.0, 2.0)
+
+# How many more rounds a board minion is actually kept. ``ability_shop_estimate``
+# pays per-turn triggers for min(rounds_left, 10) rounds — the minion still
+# standing at the end of the game — while a planner board minion survives to the
+# next round with p=0.772 over ten lobbies, i.e. 4.4 rounds. A 1/2 Micro Machine
+# was worth 28 on the strength of that assumption.
+#
+# Tenure is endogenous — what survives is what the bot chose to keep — so
+# conditioning on anything makes it worse, not better: by tier gap -0.318, by
+# rank on the board -0.290, flat -0.480 over 200 games each. The flat value is
+# also at the optimum rather than merely below 10 (3.0: +0.045, 6.0: -0.185).
+_KEEP_HORIZON = 4.4
+_PER_TURN_RATE = {Trigger.ON_TURN_START: 2.0, Trigger.ON_TURN_END: 1.6}
 
 # A refresh has to be able to turn up something; below this it is just spending.
 _ROLL_MIN_BENEFIT = 0.5
@@ -172,15 +182,60 @@ def _order_key(m: Minion) -> Tuple[float, str, int, int]:
     return (w, m.card_id, int(m.raw_attack), int(m.max_health))
 
 
-def _hand_free_slots(p: PlayerState) -> int:
-    return sum(1 for s in p.hand if s is None)
+def _buffed(m: Minion, atk: float, hp: float) -> Minion:
+    out = copy(m)
+    out.bonus_attack = m.bonus_attack + int(round(atk))
+    out.bonus_health = m.bonus_health + int(round(hp))
+    return out
+
+
+def _tribe_match(m: Minion, tribe) -> bool:
+    if tribe is None or tribe == Race.ALL:
+        return True
+    return m.race == tribe or m.race == Race.ALL
+
+
+def _per_turn_horizon_correction(m: Minion, rl: int) -> float:
+    """Re-price per-turn triggers over the rounds the minion is really kept."""
+    rate = sum(_PER_TURN_RATE[ab.trigger] for ab in m.abilities if ab.trigger in _PER_TURN_RATE)
+    if rate == 0.0:
+        return 0.0
+    return rate * (min(float(rl), _KEEP_HORIZON) - min(float(rl), 10.0))
+
+
+def _context_free_on_place(m: Minion) -> float:
+    """What ``ability_shop_estimate`` charges for a battlecry, board or no board."""
+    add = 0.0
+    for ab in m.abilities:
+        if ab.trigger != Trigger.ON_PLACE:
+            continue
+        eff = ab.effect
+        if isinstance(eff, DiscoverMurlocEffect):
+            add += 6.5 * float(eff.repeats)
+        elif isinstance(eff, AdaptAllMurlocsEffect):
+            add += 9.0 * float(eff.repeats)
+        elif isinstance(eff, BuffAdjacentBattlecry):
+            add += (eff.attack + eff.health) * 2.5 + (1.5 if eff.grant_taunt else 0.0)
+        elif isinstance(eff, BuffTargetFriendlyBattlecry):
+            add += (eff.attack + eff.health) * 1.6 * (
+                0.75 if eff.filter_race is not None else 1.0
+            )
+        elif isinstance(eff, BuffAllOtherOfTribe):
+            add += (eff.attack + eff.health) * 2.0
+        else:
+            add += 2.2
+    return add
 
 
 class PlannerHeuristicBot(HeuristicBot):
     name = "planner"
 
     def __init__(self, seed: Optional[int] = None) -> None:
-        self._rng = np.random.default_rng(seed)
+        # Every decision is a comparison of measured quantities: no rng is read,
+        # and ``seed`` is accepted only to match the bot factory's signature.
+        del seed
+        # Only reachable through the env; needed to value a summon battlecry.
+        self._patch = None
 
     # ------------------------------------------------------------------
     # Valuation
@@ -212,6 +267,8 @@ class PlannerHeuristicBot(HeuristicBot):
         for i, m in enumerate(p.board):
             v = self._v(m, board_len=bl, dominant=dom, rl=rl, rn=rn)
             v += triple_cluster_keep_bonus_board(p, i)
+            v += self._play_value_correction(m, p, rl, rn, played=True)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_BOARD, i, m, v))
 
         for i in range(min(HAND_SIZE, len(p.hand))):
@@ -219,7 +276,9 @@ class PlannerHeuristicBot(HeuristicBot):
             if m is None or m.is_triple_reward_spell:
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
-            v += triple_progress_place_bonus(p, m.card_id, i) + V_PLAY_FLAT
+            v += triple_progress_place_bonus(p, m.card_id, i)
+            v += self._play_value_correction(m, p, rl, rn, played=False)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_HAND, i, m, v))
 
         for s in range(min(MAX_SHOP_SLOTS, len(p.shop))):
@@ -227,11 +286,104 @@ class PlannerHeuristicBot(HeuristicBot):
             if m is None:
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
-            v += triple_progress_buy_bonus(p, m.card_id) + V_PLAY_FLAT
+            v += triple_progress_buy_bonus(p, m.card_id)
+            v += self._play_value_correction(m, p, rl, rn, played=False)
+            v += _per_turn_horizon_correction(m, rl)
             out.append(_Cand(SRC_SHOP, s, m, v))
 
         out.sort(key=lambda c: -c.v)
         return out
+
+    def _play_value_correction(
+        self, m: Minion, p: PlayerState, rl: int, rn: int, *, played: bool
+    ) -> float:
+        """Replace the flat battlecry charge with the stats it actually moves.
+
+        A battlecry hands out stats that then live in the targets' own bodies,
+        so its value has to equal the increase it causes in the board total —
+        price it higher and the same stats are paid for twice, once as the
+        battlecry and once as the buffed target. As a difference it needs no
+        constant, and the awkward cases price themselves: no targets of the
+        tribe is zero, a full board makes a summon battlecry zero, and "buff a
+        friendly" is worth its best actual target.
+
+        A minion already on the board has spent its battlecry, so it keeps only
+        the body. Worth -0.280 +- 0.129 places over 600 games.
+        """
+        cf = _context_free_on_place(m)
+        if cf == 0.0:
+            return 0.0
+        if played:
+            return -cf
+        return self._delivered_play_value(m, p, rl, rn) - cf
+
+    def _delivered_play_value(
+        self, m: Minion, p: PlayerState, rl: int, rn: int
+    ) -> float:
+        total = 0.0
+        free_slots = max(0, BOARD_SIZE - len(p.board) - 1)
+        bl = len(p.board) + 1
+        for ab in m.abilities:
+            if ab.trigger != Trigger.ON_PLACE:
+                continue
+            eff = ab.effect
+            if isinstance(eff, BuffAllOtherOfTribe):
+                total += sum(
+                    self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                    for t in p.board
+                    if _tribe_match(t, eff.tribe)
+                )
+            elif isinstance(eff, BuffTargetFriendlyBattlecry):
+                targets = [
+                    t
+                    for t in p.board
+                    if eff.filter_race is None or _tribe_match(t, eff.filter_race)
+                ]
+                if targets:
+                    total += max(
+                        self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                        for t in targets
+                    )
+            elif isinstance(eff, BuffAdjacentBattlecry):
+                deltas = sorted(
+                    (
+                        self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
+                        for t in p.board
+                    ),
+                    reverse=True,
+                )
+                total += sum(deltas[:2])
+            elif isinstance(eff, AdaptAllMurlocsEffect):
+                total += float(eff.repeats) * sum(
+                    self._buff_delta(t, _ADAPT_STATS[0], _ADAPT_STATS[1], bl, rl, rn)
+                    for t in p.board
+                    if _tribe_match(t, Race.MURLOC)
+                )
+            elif isinstance(eff, SummonEffect):
+                if free_slots and self._patch is not None:
+                    tok = make_minion(eff.token_id, patch=self._patch)
+                    total += min(int(eff.count), free_slots) * self._v(
+                        tok, board_len=bl, dominant=None, rl=rl, rn=rn
+                    )
+            elif isinstance(eff, SummonRandomMinionEffect):
+                if free_slots:
+                    tier = max(1, min(MAX_TIER, int(eff.exact_tier or 1)))
+                    total += (
+                        min(int(eff.count), free_slots) * _FRESH_BEST_MEAN[tier] * 0.6
+                    )
+            elif isinstance(eff, DiscoverMurlocEffect):
+                tier = max(1, min(MAX_TIER, p.tavern_tier))
+                total += float(eff.repeats) * _FRESH_BEST_MEAN[tier] * 0.5
+            else:
+                total += 2.2
+        return total
+
+    def _buff_delta(
+        self, t: Minion, atk: float, hp: float, bl: int, rl: int, rn: int
+    ) -> float:
+        before = self._v(t, board_len=bl, dominant=None, rl=rl, rn=rn)
+        after = self._v(_buffed(t, atk, hp), board_len=bl, dominant=None, rl=rl, rn=rn)
+        return after - before
 
     def _plan_cost(self, p: PlayerState, sel: List[_Cand]) -> int:
         """Gold needed for a selection: buys minus the refunds of displaced minions."""
@@ -442,6 +594,9 @@ class PlannerHeuristicBot(HeuristicBot):
         mask = _mask(env)
         p = _me(env)
 
+        if self._patch is None:
+            self._patch = getattr(env, "patch", None)
+
         rl_apply = pick_rl_apply_action(env, mask)
         if rl_apply is not None:
             return rl_apply
@@ -470,9 +625,6 @@ class PlannerHeuristicBot(HeuristicBot):
         if bool(mask[A_LEVEL_UP]) and self._should_level_up(env, p, rl):
             return A_LEVEL_UP
 
-        if p.shop_actions_used >= MAX_SHOP_ACTIONS - SHOP_ACTION_RESERVE:
-            return self._finish(env)
-
         cands = self._candidates(p, rl, rn)
         chosen, dropped = self._target_board(p, cands)
 
@@ -500,10 +652,6 @@ class PlannerHeuristicBot(HeuristicBot):
             marginal = best.v - (displaced if free_slots == 0 else 0.0)
             if self._should_roll(env, p, mask, legal, rl, rn, marginal):
                 return A_ROLL
-            if _hand_free_slots(p) == 0:
-                relief = self._unclog_hand(mask, p, chosen, drop_board, free_slots)
-                if relief is not None:
-                    return relief
             if bool(mask[A_BUY_BASE + best.idx]):
                 return A_BUY_BASE + best.idx
 
@@ -549,30 +697,6 @@ class PlannerHeuristicBot(HeuristicBot):
         if delta <= 0:
             return False
         return delta > roll_benefit(tier, best_offer) * (p.gold + 1)
-
-    def _unclog_hand(
-        self,
-        mask: np.ndarray,
-        p: PlayerState,
-        chosen: List[_Cand],
-        drop_board: List[_Cand],
-        free_slots: int,
-    ) -> Optional[int]:
-        """Hand is full and blocks the buy: play the best card, or free a slot first."""
-        hand_cands = [c for c in chosen if c.src == SRC_HAND]
-        if free_slots > 0:
-            for c in hand_cands:
-                if bool(mask[A_PLACE_BASE + c.idx]):
-                    return A_PLACE_BASE + c.idx
-            for i in range(min(HAND_SIZE, len(p.hand))):
-                if p.hand[i] is not None and bool(mask[A_PLACE_BASE + i]):
-                    return A_PLACE_BASE + i
-            return None
-        if drop_board:
-            worst = min(drop_board, key=lambda c: c.v)
-            if bool(mask[A_SELL_BASE + worst.idx]):
-                return A_SELL_BASE + worst.idx
-        return None
 
     def _should_roll(
         self,

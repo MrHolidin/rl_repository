@@ -141,7 +141,13 @@ def add_random_minion_to_hand(
     rng: np.random.Generator,
     patch: PatchContext,
 ) -> None:
-    """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot."""
+    """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot.
+
+    The source card stays in the pool: "add another random Elemental" means one
+    more Elemental, not a different one, and Tavern Tempest handing over a copy
+    of itself is a real outcome. What must not happen is that it is the *only*
+    outcome — see ``tavern_card_pool``.
+    """
     slot = first_free_hand_slot(player)
     if slot is None:
         return
@@ -162,11 +168,29 @@ def tavern_card_pool(
     *,
     patch: PatchContext,
 ) -> List[str]:
-    pool = shop_pool_for_tier(
-        tavern_tier, shop_excluded_race=shop_excluded_race, patch=patch
-    )
+    """Cards a random tavern draw can produce: everything up to ``tavern_tier``.
+
+    The shop's own roll uses ``tier <= tavern_tier`` (``eligible_card_ids_for_tier``);
+    this drew from the tier exactly, which is a different pool and in one place a
+    degenerate one. Tavern Tempest is the only tier-5 Elemental, so its battlecry
+    — "add another random Elemental to your hand" — could only ever hand over
+    another Tavern Tempest: play it for the Nomi tick, sell it for a gold, play
+    the copy, and the loop runs until the turn's action budget is gone. A bot
+    hunting Elementals found it and took a turn from 10 gold to 21.
+    """
+    pool = [
+        cid
+        for tier in range(1, max(1, int(tavern_tier)) + 1)
+        for cid in shop_pool_for_tier(
+            tier, shop_excluded_race=shop_excluded_race, patch=patch
+        )
+    ]
     if not pool:
-        pool = shop_pool_for_tier(tavern_tier, shop_excluded_race=None, patch=patch)
+        pool = [
+            cid
+            for tier in range(1, max(1, int(tavern_tier)) + 1)
+            for cid in shop_pool_for_tier(tier, shop_excluded_race=None, patch=patch)
+        ]
     return pool
 
 
