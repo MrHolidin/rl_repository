@@ -27,6 +27,16 @@ _MECHANIC_KEYWORDS: dict[str, Keyword] = {
     "REBORN": Keyword.REBORN,
 }
 
+# How each mechanic tag is printed in card text, for the self-grant check below.
+_KEYWORD_TEXT_NAMES: dict[str, str] = {
+    "TAUNT": "Taunt",
+    "DIVINE_SHIELD": "Divine Shield",
+    "WINDFURY": "Windfury",
+    "CHARGE": "Charge",
+    "POISONOUS": "Poisonous",
+    "REBORN": "Reborn",
+}
+
 
 @dataclass(frozen=True)
 class TavernMinionRecord:
@@ -137,6 +147,27 @@ def _text_has_mega_windfury(text: Optional[str]) -> bool:
     return "mega-windfury" in cleaned
 
 
+def _text_grants_keyword_to_self(text: Optional[str], tag: str) -> bool:
+    """True when the card body opens with ``tag`` as a standalone keyword line.
+
+    ``referencedTags`` says only that the card *mentions* a keyword, which is just
+    as true of Houndmaster ("give a friendly Beast +2/+2 and Taunt") as of a card
+    that actually has it. Taking the tag at face value handed Taunt to nine cards
+    that hand it out, and Divine Shield to two that grant it on death. But the tag
+    cannot simply be dropped either: hearthstonejson leaves ``mechanics`` empty for
+    Zapp Slywick, Yo-Ho-Ogre and Seabreaker Goliath, whose keyword is real and only
+    visible in the text. A keyword the minion owns is printed first, on its own,
+    before any Battlecry/Deathrattle/trigger clause — that is what we match.
+    """
+    if not text:
+        return False
+    name = _KEYWORD_TEXT_NAMES.get(tag)
+    if name is None:
+        return False
+    body = re.sub(r"\[x\]", "", text).replace("\n", " ").strip()
+    return re.match(rf"^(<b>)?{name}(</b>)?\s*\.?(\s|$)", body, re.IGNORECASE) is not None
+
+
 def keywords_for_tavern_record(rec: TavernMinionRecord) -> FrozenSet[Keyword]:
     out: set[Keyword] = set()
     for tag in rec.mechanics:
@@ -148,7 +179,7 @@ def keywords_for_tavern_record(rec: TavernMinionRecord) -> FrozenSet[Keyword]:
             out.add(k)
     for tag in rec.referenced_tags:
         k = _MECHANIC_KEYWORDS.get(tag)
-        if k is not None:
+        if k is not None and _text_grants_keyword_to_self(rec.text, tag):
             out.add(k)
     if _text_has_mega_windfury(rec.text):
         out.add(Keyword.MEGA_WINDFURY)

@@ -366,3 +366,44 @@ def test_build_observation_encodes_shop_excluded_race():
     assert rot[7] == PATCH_CTX.meta.cnt_active_shop_tribes / len(
         PATCH_CTX.meta.rotation_tribes
     )
+
+
+def test_shop_slots_expose_the_freeze_flag():
+    """minibg can freeze a slot, so it has to see the slot it froze."""
+    from src.envs.minibg.obs import FROZEN_OFFSET, _encode_shop_with_pair_counts
+    from src.bg_recruitment.shop import toggle_shop_slot_frozen
+
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/19_6_0_74257")
+    ctx = g._patch
+    s = g.initial_state()
+    p = s.players[0]
+    p.shop[0] = ctx.make_minion("BGS_019")
+    p.shop[1] = ctx.make_minion("BGS_055")
+    toggle_shop_slot_frozen(p, 1)
+
+    enc = _encode_shop_with_pair_counts(p, card_id_to_dense=ctx.card_id_to_dense)
+    assert enc[0][FROZEN_OFFSET] == 0.0
+    assert enc[1][FROZEN_OFFSET] == 1.0
+
+
+def test_tier_up_cost_channel_follows_the_effective_cost():
+    from src.bg_recruitment.economy import effective_level_up_cost
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+    from src.envs.minibg.obs import LEVEL_UP_COST_MAX
+
+    idx = 10  # globals_core: ..., initiative, tier_up_cost
+    g = MiniBGGame(seed=0, patch_dir="data/bgcore/19_6_0_74257")
+    ctx = g._patch
+    s = g.initial_state()
+    me = s.players[0]
+    me.tavern_tier = 1
+    me.next_tier_up_cost = 5
+    assert build_observation(s, 0, 0.0, [])[idx] * LEVEL_UP_COST_MAX == 5.0
+
+    swabbie = ctx.make_minion("BGS_055")
+    me.board = [swabbie]
+    ShopTriggers(patch=ctx, rng=np.random.default_rng(0)).fire_on_place(
+        swabbie, me, None
+    )
+    assert effective_level_up_cost(me) == 4
+    assert build_observation(s, 0, 0.0, [])[idx] * LEVEL_UP_COST_MAX == 4.0

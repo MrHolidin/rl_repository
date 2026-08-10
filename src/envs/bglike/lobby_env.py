@@ -830,12 +830,17 @@ class BGLobbyEnv:
     def _finish_rl_place_after_effects(self, seat: int) -> None:
         assert self._state is not None
         player = self._state.players[seat]
+        if player.pending_choice is not None:
+            # The placement opened a discover/transform modal, so the deferred
+            # AFTER_FRIENDLY_MINION_PLACED trigger is not ours to run or to drop:
+            # ``resolve_discover_pick`` / ``resolve_transform_shop_pick`` fire it
+            # and clear the handoff once the modal closes. Zeroing the field here
+            # lost the trigger outright (Kalecgos never saw a Primalfin Lookout).
+            # Nothing else reads it in the meantime — the only consumer gates
+            # FINISH, which the open modal already suppresses.
+            return
         ref = player.placed_minion_pending_after
-        if (
-            ref is not None
-            and ref in player.board
-            and player.pending_choice is None
-        ):
+        if ref is not None and ref in player.board:
             self._game._shop_triggers.fire_after_friendly_minion_placed(player, ref)
         player.placed_minion_board_index = None
         player.placed_minion_pending_after = None

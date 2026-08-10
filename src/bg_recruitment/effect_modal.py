@@ -75,6 +75,10 @@ def _apply_buff_target(
     m = board[idx]
     m.bonus_attack += effect.attack
     m.bonus_health += effect.health
+    if effect.grant_keyword is not None:
+        m.keywords = frozenset(m.keywords | {effect.grant_keyword})
+        if effect.grant_keyword == Keyword.SHIELD:
+            m.has_shield = True
 
 
 def _apply_adjacent_pick(

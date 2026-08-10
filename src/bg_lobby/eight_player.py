@@ -324,8 +324,12 @@ def resolve_combat_round(
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
-            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
-            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+            apply_combat_hand_adds(
+                pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool
+            )
+            apply_combat_hand_adds(
+                pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool
+            )
         else:
             _apply_hero_damage(state, b, dmg_b)
             _apply_hero_damage(state, a, dmg_a)
@@ -333,8 +337,12 @@ def resolve_combat_round(
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
-            apply_combat_hand_adds(pa, combat_hand_adds[0], patch)
-            apply_combat_hand_adds(pb, combat_hand_adds[1], patch)
+            apply_combat_hand_adds(
+                pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool
+            )
+            apply_combat_hand_adds(
+                pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool
+            )
 
         new_recent: List[Tuple[int, ...]] = []
         for i in range(len(state.players)):
@@ -391,6 +399,13 @@ def resolve_combat_round(
             p.shop_freeze_next_round = False
         else:
             refresh_shop(p, state.shop_excluded_race)
+        # A freeze lasts until the shop it protected is served, then lifts: the
+        # kept minions stay on the counter but are no longer pinned, so the next
+        # roll clears them. Only the whole-shop flag above used to be cleared
+        # here; the per-slot tuple was never cleared anywhere, and rolling with
+        # it set preserved those slots for the rest of the game. That went
+        # unnoticed because the per-action state copy dropped the field.
+        p.shop_frozen = (False,) * len(p.shop_frozen)
 
     from src.bg_lobby.shop_order import sample_shop_turn_order
 

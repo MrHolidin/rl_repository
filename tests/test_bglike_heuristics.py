@@ -79,6 +79,61 @@ def test_heuristic_drain_seat_not_learner_acting_seat():
     assert "structured" in auto.controller or "t1" in auto.controller or "BGLike" in auto.controller
 
 
+def test_planner_bot_is_a_training_opponent():
+    """The planner reaches training by name through both opponent paths.
+
+    Nothing enumerates bot names — the scripted pool and the distributed worker
+    both go through ``default_bot_constructors`` — so this locks that in: adding
+    ``planner: 1`` to ``opponent_sampler.params.scripted.distribution`` is the
+    whole integration.
+    """
+    from src.training.distributed_trainer import _create_scripted_opponent
+    from src.training.selfplay.opponent_pool import OpponentPool, ScriptedOpponentsSpec
+
+    assert "planner" in default_bot_constructors()
+
+    agent = _create_scripted_opponent("planner", seed=3, game_id="bglike")
+    assert agent.__class__.__name__ == "BGLikeHeuristicAgent"
+
+    pool = OpponentPool(
+        device="cpu",
+        seed=5,
+        self_play_config=None,
+        scripted=ScriptedOpponentsSpec("bglike", {"planner": 1.0}),
+        current_agent=RandomAgent(seed=1),
+    )
+    assert pool._create_scripted_opponent(0).__class__.__name__ == "BGLikeHeuristicAgent"
+
+
+def test_planner_bot_plays_a_legal_lobby():
+    env = make_bglike_training_env(
+        current_seats=(0,), seed=7, patch_dir="data/bgcore/19_6_0_74257"
+    )
+    learner = RandomAgent(seed=1)
+    bot_agent = make_heuristic_agent("planner", seed=2)
+    env.set_agents(learner, {s: bot_agent for s in range(1, 8)})
+    bot_agent.set_env(env)
+    obs = env.reset(seed=11)
+    steps = 0
+    while not env.done and steps < 400:
+        seat = env.acting_seat
+        if seat is None:
+            break
+        mask = env.legal_actions_mask
+        if seat in env.current_seats:
+            action = int(learner.act(obs, legal_mask=mask))
+        else:
+            action = int(bot_agent.act(obs, legal_mask=mask))
+        assert mask[action], (seat, action, np.flatnonzero(mask)[:20])
+        out = env.step(action)
+        obs = out.obs
+        steps += 1
+    if not env.done:
+        env.finish_lobby_to_end()
+    assert steps > 0
+    assert env.done
+
+
 def test_agent_perspective_with_heuristic_opponent():
     from src.training.selfplay.opponent_pool import OpponentPool, ScriptedOpponentsSpec
     from src.training.opponent_sampler import OpponentPoolSampler

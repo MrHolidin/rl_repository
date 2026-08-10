@@ -144,11 +144,19 @@ class SharedCardPool:
         return True
 
     def release_offer(self, card_id: str, count: int = 1) -> None:
+        """Return copies to the pool.
+
+        Not clamped to the starting count: copies do reach play without passing
+        through a reservation (a battlecry that adds a minion to your hand, a
+        summoned token that later counts as a copy), and clamping the way back
+        silently destroys them. The ledger then reports fewer copies than are
+        physically returned, and the next holder of three of them cannot forge a
+        golden — ``resolve_one_triple`` returns 3 and immediately fails to take 3
+        back, which aborts the game.
+        """
         if count <= 0:
             return
-        cap = self._initial.get(card_id, 0)
-        cur = self.remaining_copies(card_id)
-        self.remaining[card_id] = min(cap, cur + count)
+        self.remaining[card_id] = self.remaining_copies(card_id) + count
 
     def acquire_new(self, card_id: str, count: int = 1) -> bool:
         """Take copies that were not reserved via a shop offer (Discover, etc.)."""
