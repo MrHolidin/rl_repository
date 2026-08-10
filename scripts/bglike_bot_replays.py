@@ -23,6 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.agents.random_agent import RandomAgent
 from src.envs.bglike.heuristic_bots.bots import make_bot
+from src.bg_core.minion import Race
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.replay import attach_replay, close_replay
 from src.envs.bglike.replay_render import render_jsonl_file
@@ -42,6 +43,13 @@ def main() -> None:
     ap.add_argument("--episodes", type=int, default=10)
     ap.add_argument("--seed", type=int, default=41)
     ap.add_argument("--patch-dir", type=str, default=DEFAULT_PATCH)
+    ap.add_argument(
+        "--excluded-tribe",
+        type=str,
+        default=None,
+        help="Pin the tribe the lobby leaves out (e.g. MURLOC), so the tribe "
+             "under study is guaranteed to be in the pool",
+    )
     ap.add_argument("--extended", action="store_true", default=True)
     args = ap.parse_args()
 
@@ -56,6 +64,10 @@ def main() -> None:
         learned_seats=[0],
         seed=args.seed,
         patch_dir=args.patch_dir,
+        shop_excluded_race=(
+            None if args.excluded_tribe is None
+            else Race[args.excluded_tribe.strip().upper()]
+        ),
     )
     attach_replay(
         env,

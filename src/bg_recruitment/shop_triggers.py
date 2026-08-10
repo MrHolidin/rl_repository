@@ -417,6 +417,7 @@ class ShopTriggers:
                 shop_excluded_race,
                 rng=self._rng,
                 patch=self._patch,
+                exclude_card_id=source.card_id,
             )
 
     @staticmethod
