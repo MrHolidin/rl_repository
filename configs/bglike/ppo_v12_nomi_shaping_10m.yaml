@@ -123,7 +123,7 @@ train:
     - type: checkpoint
       params:
         interval: 200000
-        prefix: dist_bglike_ppo_v12_planner_ent02
+        prefix: dist_bglike_ppo_v12_nomi02
     - type: metrics_file
       params:
         interval: 1
