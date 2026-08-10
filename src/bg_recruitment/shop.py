@@ -140,12 +140,13 @@ def add_random_minion_to_hand(
     *,
     rng: np.random.Generator,
     patch: PatchContext,
-    exclude_card_id: Optional[str] = None,
 ) -> None:
     """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot.
 
-    ``exclude_card_id`` is what "add **another** random Elemental" means on
-    Tavern Tempest: the card it hands you is not itself.
+    The source card stays in the pool: "add another random Elemental" means one
+    more Elemental, not a different one, and Tavern Tempest handing over a copy
+    of itself is a real outcome. What must not happen is that it is the *only*
+    outcome — see ``tavern_card_pool``.
     """
     slot = first_free_hand_slot(player)
     if slot is None:
@@ -153,8 +154,7 @@ def add_random_minion_to_hand(
     pool = [
         cid
         for cid in tavern_card_pool(player.tavern_tier, shop_excluded_race, patch=patch)
-        if (tribe is None or minion_matches_tribe(patch.templates[cid], tribe))
-        and cid != exclude_card_id
+        if tribe is None or minion_matches_tribe(patch.templates[cid], tribe)
     ]
     if not pool:
         return
