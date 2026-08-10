@@ -25,7 +25,8 @@ from ..action_map import (
 )
 from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS
 from src.bg_catalog.cards import make_minion
-from src.bg_core.minion import Race
+from src.bg_core.minion import Minion, Race
+from src.bg_core.tavern_spell import TavernSpell
 from src.bg_lobby.player import PendingChoiceKind, PlayerState
 from src.envs.minibg.heuristic_bots.value_model import (
     adapt_choice_score,
@@ -285,9 +286,17 @@ class ElementalHeuristicBot(HeuristicBot):
             slot = place_slot(a)
             hm = p.hand[slot]
             assert hm is not None
+            # A TavernSpell (e.g. the triple-reward discover spell) has no
+            # race/stats to value — score it the same zero-stat, tokened way
+            # its old hacked-Minion representation always did.
+            hm_valued = (
+                Minion(card_id=hm.card_id, base_attack=0, base_health=0, tier=0, is_token=True)
+                if isinstance(hm, TavernSpell)
+                else hm
+            )
             bl = len(p.board) + 1
             sc = minion_shop_value(
-                hm,
+                hm_valued,
                 rounds_left=rl,
                 dominant=Race.ELEMENTAL,
                 board_len=bl,

@@ -25,6 +25,8 @@ from ..action_map import (
 )
 from ..actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS, MAX_TIER
 from src.bg_catalog.cards import make_minion
+from src.bg_core.minion import Minion
+from src.bg_core.tavern_spell import TavernSpell
 from ..env import MiniBGEnv
 from ..game import MiniBGGame
 from ..state import PendingChoiceKind, PlayerState
@@ -156,16 +158,24 @@ class StructuredHeuristicBot(HeuristicBot):
             slot = place_slot(a)
             hm = p.hand[slot]
             assert hm is not None
+            # A TavernSpell (e.g. the triple-reward discover spell) has no
+            # race/stats to value — score it the same zero-stat, tokened,
+            # raceless way its old hacked-Minion representation always did.
+            hm_valued = (
+                Minion(card_id=hm.card_id, base_attack=0, base_health=0, tier=0, is_token=True)
+                if isinstance(hm, TavernSpell)
+                else hm
+            )
             counts: dict = {}
             for m in p.board:
                 if m.race is not None:
                     counts[m.race] = counts.get(m.race, 0) + 1
-            if hm.race is not None:
-                counts[hm.race] = counts.get(hm.race, 0) + 1
+            if hm_valued.race is not None:
+                counts[hm_valued.race] = counts.get(hm_valued.race, 0) + 1
             dominant = max(counts, key=counts.get) if counts else None
             bl = len(p.board) + 1
             sc = minion_shop_value(
-                hm,
+                hm_valued,
                 rounds_left=rl,
                 dominant=dominant,
                 board_len=bl,

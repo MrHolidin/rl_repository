@@ -57,7 +57,7 @@ def test_shop_pool_is_monotone_by_tier_and_excludes_goldens():
     cumulative6 = {
         cid
         for cid, m in _CARD_TEMPLATES.items()
-        if not m.is_token and not m.is_golden and not m.is_triple_reward_spell and m.tier <= 6
+        if not m.is_token and not m.is_golden and m.tier <= 6
     }
     assert t1.issubset(cumulative6)
     for cid in t1:

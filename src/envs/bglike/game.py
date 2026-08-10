@@ -367,7 +367,6 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
                 for cid, t in tpl.items()
                 if not t.is_token
                 and not t.is_golden
-                and not t.is_triple_reward_spell
                 and t.tier == tier
                 and (
                     shop_minion_allowed_with_exclusion(t, shop_excluded_race)
@@ -478,7 +477,9 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             next_tier_up_cost=p.next_tier_up_cost,
             board=new_board,
             shop=[m.__copy__() if m is not None else None for m in p.shop],
-            hand=[m.__copy__() if m is not None else None for m in p.hand],
+            # hand can hold a TavernSpell (no custom __copy__) alongside
+            # Minion — copy.copy() dispatches correctly for both.
+            hand=[copy(m) if m is not None else None for m in p.hand],
             phase=p.phase,
             shop_actions_used=p.shop_actions_used,
             shop_freeze_next_round=p.shop_freeze_next_round,

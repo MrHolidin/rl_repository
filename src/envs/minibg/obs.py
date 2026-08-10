@@ -97,7 +97,9 @@ from src.bg_core.effects import (
     TransferAttackToRandomFriendlyEffect,
 )
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
+from src.bg_core.tavern_spell import TavernSpell
 from .state import (
+    HandCard,
     MiniBGState,
     Minion,
     PendingChoiceKind,
@@ -497,7 +499,8 @@ def _count_non_golden_same_card_hand(
             continue
         if exclude_hand_idx is not None and i == exclude_hand_idx:
             continue
-        if not hm.is_golden and hm.card_id == card_id:
+        # TavernSpell has no is_golden — never golden, so treat as False.
+        if not getattr(hm, "is_golden", False) and hm.card_id == card_id:
             n += 1
     return n
 
@@ -528,7 +531,7 @@ def _count_non_golden_same_card_enemy_board(
 
 
 def encode_minion(
-    minion: Optional[Minion],
+    minion: Optional[HandCard],
     *,
     same_non_golden_hand_elsewhere: int = 0,
     same_non_golden_board_elsewhere: int = 0,
@@ -544,6 +547,26 @@ def encode_minion(
     # Dense card index — networks gather an nn.Embedding row from this channel.
     # Unknown card_ids (e.g. test fixtures outside patch templates) collapse to 0.
     v[CARD_IDX_OFFSET] = float(dense.get(minion.card_id, CARD_INDEX_EMPTY))
+
+    if isinstance(minion, TavernSpell):
+        # Reproduces exactly what the old is_triple_reward_spell-hacked,
+        # zero-stat Minion used to encode for this card: no tier one-hot (its
+        # tier is 0), no stats, race one-hot's "no race" bit (index 0, same
+        # as _encode_race(None) below), no keywords/shield/golden.
+        v[RACE_OFFSET] = 1.0
+        v[HAND_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_hand_elsewhere) / float(
+            HAND_SIZE
+        )
+        v[BOARD_SAME_CARD_COUNT_OFFSET] = float(
+            same_non_golden_board_elsewhere
+        ) / float(BOARD_SIZE)
+        v[TRIPLE_REWARD_SPELL_OFFSET] = 1.0
+        if minion.triple_discover_tier > 0:
+            v[TRIPLE_DISCOVER_TIER_OFFSET] = float(
+                minion.triple_discover_tier
+            ) / float(MAX_TIER)
+        v[FROZEN_OFFSET] = 1.0 if is_frozen else 0.0
+        return v
 
     tier = minion.tier
     if 1 <= tier <= NUM_TIER_ONEHOT:
@@ -577,11 +600,9 @@ def encode_minion(
     v[BOARD_SAME_CARD_COUNT_OFFSET] = float(same_non_golden_board_elsewhere) / float(
         BOARD_SIZE
     )
-    if minion.is_triple_reward_spell:
-        v[TRIPLE_REWARD_SPELL_OFFSET] = 1.0
-        tier = minion.triple_discover_tier
-        if tier > 0:
-            v[TRIPLE_DISCOVER_TIER_OFFSET] = float(tier) / float(MAX_TIER)
+    # TRIPLE_REWARD_SPELL_OFFSET/TRIPLE_DISCOVER_TIER_OFFSET are set in the
+    # TavernSpell branch above and stay 0 here — a real Minion is never that
+    # card anymore (see the early-return branch).
     v[FROZEN_OFFSET] = 1.0 if is_frozen else 0.0
     return v
 

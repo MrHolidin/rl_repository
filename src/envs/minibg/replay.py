@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional, TextIO, Union
 
 from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_core.effects import Ability, Effect, Keyword
-from .state import Minion, MiniBGState, PlayerState
+from src.bg_core.tavern_spell import TavernSpell
+from .state import HandCard, MiniBGState, PlayerState
 
 
 def _keyword_names(kw: frozenset[Keyword]) -> List[str]:
@@ -45,7 +46,29 @@ def _ability_dict(ab: Ability) -> Dict[str, Any]:
     }
 
 
-def minion_to_dict(m: Minion) -> Dict[str, Any]:
+def minion_to_dict(m: HandCard) -> Dict[str, Any]:
+    if isinstance(m, TavernSpell):
+        # Same shape as a Minion dict, reproducing exactly what the old
+        # is_triple_reward_spell-hacked Minion used to serialize for this
+        # card: zero-stat, tokened, no race/keywords, the two spell fields set.
+        return {
+            "card_id": m.card_id,
+            "name": m.name,
+            "dbf_id": m.dbf_id,
+            "atk": 0,
+            "hp": 0,
+            "tier": m.tier,
+            "race": None,
+            "kw": [],
+            "granted_kw": [],
+            "shield": False,
+            "token": True,
+            "golden": False,
+            "from_triple_merge": False,
+            "is_triple_reward_spell": True,
+            "triple_discover_tier": m.triple_discover_tier,
+            "abilities": [_ability_dict(a) for a in m.abilities],
+        }
     race_name = None if m.race is None else m.race.name
     return {
         "card_id": m.card_id,
@@ -61,8 +84,8 @@ def minion_to_dict(m: Minion) -> Dict[str, Any]:
         "token": m.is_token,
         "golden": m.is_golden,
         "from_triple_merge": m.from_triple_merge,
-        "is_triple_reward_spell": m.is_triple_reward_spell,
-        "triple_discover_tier": m.triple_discover_tier,
+        "is_triple_reward_spell": False,
+        "triple_discover_tier": 0,
         "abilities": [_ability_dict(a) for a in m.abilities],
     }
 

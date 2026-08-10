@@ -281,7 +281,6 @@ def _add_tier_minions_to_hand(
             for cid, t in tpl.items()
             if not t.is_token
             and not t.is_golden
-            and not t.is_triple_reward_spell
             and t.tier == tier
             and (
                 shop_minion_allowed_with_exclusion(t, shop_excluded_race)

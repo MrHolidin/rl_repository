@@ -81,9 +81,12 @@ def build_initial_shared_pool(
 
 
 def copies_for_minion(m: Minion) -> int:
-    """Copies one minion instance represents in the shared pool."""
-    if m.is_triple_reward_spell:
-        return 0
+    """Copies one minion instance represents in the shared pool.
+
+    Tavern spells never reach here — they don't go through minion pool
+    bookkeeping at all (see triples.py) — so there's no TavernSpell case to
+    handle, unlike the other ``Minion``-filtering call sites in this module.
+    """
     if m.is_golden:
         return 3
     return 1

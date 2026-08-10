@@ -38,7 +38,6 @@ def _card_of(patch, race, tier=1):
             and t.tier == tier
             and not t.is_token
             and not t.is_golden
-            and not t.is_triple_reward_spell
         ):
             return cid
     raise AssertionError(f"no tier-{tier} {race} in patch")

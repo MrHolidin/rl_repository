@@ -96,7 +96,8 @@ def _count_non_golden_same_card_hand(
 ) -> int:
     n = 0
     for i, hm in enumerate(player.hand):
-        if i == exclude_hand_idx or hm is None or hm.is_golden:
+        # TavernSpell has no is_golden — never golden, so treat as False.
+        if i == exclude_hand_idx or hm is None or getattr(hm, "is_golden", False):
             continue
         if hm.card_id == card_id:
             n += 1

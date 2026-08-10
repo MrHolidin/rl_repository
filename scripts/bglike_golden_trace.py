@@ -120,6 +120,12 @@ class _BotView:
 def _minion_digest(m) -> tuple:
     if m is None:
         return ()
+    from src.bg_core.tavern_spell import TavernSpell
+
+    if isinstance(m, TavernSpell):
+        # Reproduces the digest of the zero-stat, tokened Minion this card
+        # used to be represented as before the TavernSpell migration.
+        return (m.card_id, 0, 0, 0, 0, False, False, (), len(m.abilities or ()))
     return (
         m.card_id,
         int(m.raw_attack), int(m.max_health),
@@ -153,7 +159,7 @@ def _coverage(state, cov: Counter) -> None:
         for m in list(p.board) + list(p.hand):
             if m is None:
                 continue
-            if m.is_golden:
+            if getattr(m, "is_golden", False):
                 cov["golden"] += 1
             if getattr(m, "from_triple_merge", False):
                 cov["triple"] += 1

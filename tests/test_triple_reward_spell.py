@@ -38,7 +38,11 @@ def test_triple_merge_grants_spell_not_immediate_discover():
     p = _player_with_triple_in_hand()
     assert resolve_one_triple(p, patch=PATCH_CTX)
     spells = [h for h in p.hand if h is not None and is_triple_reward_discover_spell(h)]
-    goldens = [h for h in p.hand if h is not None and h.is_golden]
+    goldens = [
+        h
+        for h in p.hand
+        if h is not None and not is_triple_reward_discover_spell(h) and h.is_golden
+    ]
     assert len(goldens) == 1
     assert len(spells) == 1
     assert spells[0].triple_discover_tier == triple_reward_discover_tier(2)

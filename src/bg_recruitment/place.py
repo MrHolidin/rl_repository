@@ -21,8 +21,11 @@ def is_mech(m: Minion) -> bool:
     return m.race in (Race.MECHANICAL, Race.ALL)
 
 
-def hand_minion_can_magnetize(m: Minion) -> bool:
-    return Keyword.MAGNETIC in m.all_keywords and is_mech(m)
+def hand_minion_can_magnetize(m) -> bool:
+    # ``m`` may be a TavernSpell (see PlayerState.hand's HandCard union) — a
+    # spell obviously can't magnetize; the isinstance check is what actually
+    # guards it, since TavernSpell has neither ``all_keywords`` nor ``race``.
+    return isinstance(m, Minion) and Keyword.MAGNETIC in m.all_keywords and is_mech(m)
 
 
 def merge_magnetic_inplace(target: Minion, magnet: Minion) -> None:
