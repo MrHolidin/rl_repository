@@ -100,6 +100,8 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         percent_high_game: float = 0.0,
         tier_milestones: Optional[Dict[int, Tuple[float, int]]] = None,
         tier_milestone_decay: float = 0.8,
+        elemental_shop_bonus_shaping: float = 0.0,
+        elemental_shop_bonus_cap: int = 10,
     ) -> None:
         super().__init__(
             base_env,
@@ -126,6 +128,15 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._tier_milestones: Dict[int, Tuple[float, int]] = dict(tier_milestones or {})
         self._tier_milestone_decay = float(tier_milestone_decay)
         self._tier_paid: Dict[int, set] = {}
+        # Nomi shaping: pay per point the acting seat adds to its own tavern
+        # elemental bonus, up to ``cap`` points a lobby. Nomi only ever fires for
+        # the player who played the elemental, so watching that seat's own
+        # counter is already "the model's own action did this". Not
+        # potential-based either — same caveat as the tier milestones above.
+        self._elem_bonus_coef = float(elemental_shop_bonus_shaping)
+        self._elem_bonus_cap = int(elemental_shop_bonus_cap)
+        self._elem_bonus_seen: Dict[int, int] = {}
+        self._elem_bonus_paid: Dict[int, int] = {}
 
     @property
     def supports_seat_segments(self) -> bool:
@@ -364,9 +375,46 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
             total += float(base) * (getattr(self, "_tier_milestone_decay", 0.8) ** late)
         return total
 
+    def _elemental_bonus_reward(self, info: Dict[str, Any]) -> float:
+        """Pay for each point the acting seat adds to its tavern's elemental buff.
+
+        Nomi raises this counter only for the player who played the Elemental, so
+        the seat's own counter is the attribution. Credit is capped per lobby, and
+        the cap is on what has been *paid*, not on the counter — the engine leaves
+        the buff itself unbounded.
+        """
+        # getattr for the same reason as the tier milestones: an env built
+        # without __init__ (test fixtures) reads as "shaping disabled", not raise.
+        coef = float(getattr(self, "_elem_bonus_coef", 0.0) or 0.0)
+        if not coef:
+            return 0.0
+        seat = info.get("acting_seat")
+        if seat is None:
+            return 0.0
+        seat = int(seat)
+        state = getattr(self._bg_base, "state", None)
+        if state is None:
+            return 0.0
+        try:
+            current = int(state.players[seat].shop_elemental_bonus)
+        except (IndexError, AttributeError):
+            return 0.0
+        seen = self._elem_bonus_seen
+        gained = current - seen.get(seat, 0)
+        seen[seat] = current
+        if gained <= 0:
+            return 0.0
+        paid = self._elem_bonus_paid.get(seat, 0)
+        creditable = min(gained, max(0, int(self._elem_bonus_cap) - paid))
+        if creditable <= 0:
+            return 0.0
+        self._elem_bonus_paid[seat] = paid + creditable
+        return coef * float(creditable)
+
     def _reward_in_agent_perspective(self, step, agent_acted: bool) -> float:
         info = step.info if isinstance(step.info, dict) else {}
         reward = self._tier_milestone_reward(info)
+        reward += self._elemental_bonus_reward(info)
         if info.get("combat_advanced"):
             reward += self._battle_shaping_for_acting_seat(info)
         return reward
@@ -378,6 +426,8 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         # be reset here, not on a transition flag. DvD uses this to hand out a
         # fresh, collision-free seat→identity assignment each lobby.
         self._tier_paid = {}
+        self._elem_bonus_seen = {}
+        self._elem_bonus_paid = {}
         learner = self._learner
         if learner is not None:
             hook = getattr(learner, "on_episode_boundary", None)
@@ -413,6 +463,8 @@ def make_bglike_agent_perspective_env(
     percent_high_game: float = 0.0,
     tier_milestones: Optional[Dict[Any, Any]] = None,
     tier_milestone_decay: float = 0.8,
+    elemental_shop_bonus_shaping: float = 0.0,
+    elemental_shop_bonus_cap: int = 10,
     **lobby_kwargs: Any,
 ) -> BGLikeAgentPerspectiveEnv:
     # ``percent_high_game`` and the tier-milestone knobs are consumed by the
@@ -434,6 +486,8 @@ def make_bglike_agent_perspective_env(
         percent_high_game=percent_high_game,
         tier_milestones=parse_tier_milestones(tier_milestones),
         tier_milestone_decay=tier_milestone_decay,
+        elemental_shop_bonus_shaping=elemental_shop_bonus_shaping,
+        elemental_shop_bonus_cap=elemental_shop_bonus_cap,
     )
 
 
