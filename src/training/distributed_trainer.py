@@ -428,6 +428,14 @@ def _merge_buffers(buffers: List[Any], mg: dict) -> Any:
                 out.placement_label.extend(pl)
             else:
                 out.placement_label.extend([-1] * len(buf.obs))
+            # Same treatment for the critic-baseline column: a worker built
+            # before this field existed pads with -1 and is masked out of the
+            # baseline metrics rather than skewing them.
+            na = getattr(buf, "n_alive", None)
+            if na is not None and len(na) == len(buf.obs):
+                out.n_alive.extend(na)
+            else:
+                out.n_alive.extend([-1] * len(buf.obs))
         return out
     out = RolloutBuffer()
     for buf in buffers:
