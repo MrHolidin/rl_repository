@@ -78,8 +78,13 @@ agent:
     clip_value_loss: false
     value_clip_eps: null
     entropy_coef: 0.02
+    # One-sided floor on exploration: entropy_coef is only ever raised (up to
+    # entropy_coef_max) while measured entropy sits under the target, never
+    # lowered. v12_text_40w fell 2.17 -> 0.81 and spent its last third there,
+    # so 1.0 is set just above where that run flattened out.
+    entropy_target: 1.0
     value_coef: 0.05
-    max_grad_norm: 1.0
+    max_grad_norm: 3.0
     rollout_steps: 32768
     ppo_epochs: 4
     minibatch_size: 1024
