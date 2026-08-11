@@ -48,6 +48,24 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "clip_frac",
         "grad_norm",
     ),
+    # Action-head entropy split by action type (chain rule: the parts sum back
+    # to `entropy` in core). Kept out of `core` because it is 26 columns wide
+    # and only PPO-structured runs produce it.
+    #
+    # Per type: `p_` mass, `pstd_` its spread across states (a policy that rolls
+    # by habit rather than by situation shows up here and nowhere else), `hb_`
+    # the binary "take this kind of action or not" entropy — which is the only
+    # entropy a one-option type like ROLL can have. `hin_`/`n_` exist only for
+    # the types that really offer a choice; `hin_` is normalised by log(n).
+    "acthead": (
+        "h_type",
+        "p_buy", "pstd_buy", "hb_buy", "hin_buy", "n_buy",
+        "p_place", "pstd_place", "hb_place", "hin_place", "n_place",
+        "p_sell", "pstd_sell", "hb_sell", "hin_sell", "n_sell",
+        "p_roll", "pstd_roll", "hb_roll",
+        "p_levelup", "pstd_levelup", "hb_levelup", "frac_levelup",
+        "p_finish", "pstd_finish", "hb_finish", "p_freeze_given_finish",
+    ),
     # Critic quality / advantage statistics.
     "critic": (
         "return_mean",
@@ -55,6 +73,14 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "advantage_std",
         "explained_variance",
         "placement_acc",
+        # Skill net of the free signal. With n seats alive the placement is
+        # already boxed into 1..n, so `explained_variance` (measured against the
+        # unconditional mean) pays the critic for reading the scoreboard.
+        # `alive_baseline_ev` is what that alone buys; `ev_vs_alive_baseline` is
+        # what the critic adds on top, and goes negative when it adds nothing.
+        "alive_baseline_ev",
+        "ev_vs_alive_baseline",
+        "alive_mean",
     ),
     # Rollout / replay bookkeeping.
     "rollout": (
