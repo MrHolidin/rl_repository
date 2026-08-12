@@ -45,6 +45,11 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "entropy_coef",
         "order_entropy_coef",
         "approx_kl",
+        # Per-minibatch mean (above) vs the whole update's drift, measured once
+        # after the last epoch against the behaviour policy. The first is an
+        # average over a moving target; only the second says how far the policy
+        # travelled on this rollout.
+        "approx_kl_rollout",
         "clip_frac",
         "grad_norm",
     ),

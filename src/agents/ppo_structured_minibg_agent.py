@@ -1494,6 +1494,61 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         if total_batches == 0:
             return {}
 
+        # How far the policy actually moved over the whole update, measured once
+        # against the behaviour policy after every epoch is done.
+        #
+        # `approx_kl` cannot answer this: each minibatch is scored against the
+        # same stored log-probs, but at the moment that minibatch ran — the
+        # first ones see a policy that has barely moved and the last ones a
+        # fully updated one, and their mean lands somewhere in between. Early
+        # stopping and step-size decisions need the end-of-update drift, so
+        # take one no-grad pass over the rollout and compare directly. Same k2
+        # estimator and same joint (action + order) log-prob as the per-minibatch
+        # column, so the two are on one scale.
+        kl_rollout = float("nan")
+        try:
+            with torch.no_grad():
+                kl_sum = torch.zeros((), device=device, dtype=torch.float32)
+                seen = 0
+                for s0 in range(0, N, self.minibatch_size):
+                    sl = slice(s0, min(s0 + self.minibatch_size, N))
+                    lg, mk, _v, ck = self.policy_net.policy_logits_value_from_tokens(
+                        obs_tensor[sl],
+                        type_ids_all[sl],
+                        role_ids_all[sl],
+                        src_region_kinds_all[sl],
+                        src_region_slots_all[sl],
+                        tgt_region_kinds_all[sl],
+                        tgt_region_slots_all[sl],
+                        mask_all[sl],
+                        return_cache=True,
+                    )
+                    lsm = F.log_softmax(lg, dim=-1)
+                    ar = torch.arange(lg.shape[0], device=device)
+                    lp = lsm[ar, actions_tensor[sl]]
+                    _of = getattr(
+                        self.policy_net, "order_logprob_entropy_given_sequence", None
+                    )
+                    if _of is not None:
+                        lpo, _ = _of(
+                            ck["state_emb"], ck["E_own"], ck["g_full"],
+                            occupied_tensor[sl], picks_tensor[sl],
+                        )
+                    else:
+                        lpo = self.policy_net.order_logprob_given_sequence(
+                            ck["state_emb"], ck["E_own"], ck["g_full"],
+                            occupied_tensor[sl], picks_tensor[sl],
+                        )
+                    lp = lp + complete_tensor[sl].to(lp.dtype) * lpo
+                    d = log_probs_old_tensor[sl] - lp
+                    kl_sum = kl_sum + (0.5 * d.pow(2)).sum()
+                    seen += int(lg.shape[0])
+                if seen:
+                    kl_rollout = float((kl_sum / seen).item())
+        except Exception:
+            # A diagnostic must never take the update down with it.
+            kl_rollout = float("nan")
+
         # Single GPU->CPU sync for all per-minibatch metrics (see accumulators above).
         total_policy_loss = float(acc_policy.item())
         total_value_loss = float(acc_value.item())
@@ -1518,6 +1573,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "entropy_order": total_ent_order / total_batches,
             "order_entropy_coef": float(self.order_entropy_coef),
             "approx_kl": total_approx_kl / total_batches,
+            "approx_kl_rollout": kl_rollout,
             "clip_frac": total_clip_frac / total_batches,
             "grad_norm": gn,
             "rollout_size": float(N),

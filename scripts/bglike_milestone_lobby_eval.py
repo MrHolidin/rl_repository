@@ -20,6 +20,7 @@ import src.envs.bglike.lobby_env as lobby_mod
 from src.bg_core.minion import Minion
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.placement import placement_for_seat
+from src.training.bg_network_policy import obs_kind_for_checkpoint
 from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.envs.bglike.state import BGLikeState
 from src.evaluation.eval_checkpoints import load_training_agent_checkpoint
@@ -96,6 +97,7 @@ def run_eval(
     seed: int,
     device: str,
     drain_steps: int,
+    patch_dir: str = "data/bgcore/19_6_0_74257",
 ) -> List[dict]:
     agents_by_label: Dict[str, object] = {}
     seat_to_label: Dict[int, str] = {}
@@ -114,7 +116,19 @@ def run_eval(
 
     learned = tuple(sorted(agents))
     configs = lobby_from_learned_seats(learned, agent_by_seat=agents)
-    env = BGLobbyEnv(configs, learned_seats=learned, training_seats=learned, seed=seed)
+    # The checkpoints dictate the observation layout; the lobby default is the
+    # older, smaller one and every net from v11_heroes on refuses it. All
+    # milestones here come from one run, so one kind covers the whole lobby.
+    obs_kind = obs_kind_for_checkpoint(milestones[0][1])
+    env = BGLobbyEnv(
+        configs,
+        learned_seats=learned,
+        training_seats=learned,
+        seed=seed,
+        patch_dir=patch_dir,
+        obs_kind=obs_kind,
+        with_heroes=obs_kind.endswith("_heroes"),
+    )
 
     old_cap = lobby_mod.MAX_DRAIN_STEPS
     lobby_mod.MAX_DRAIN_STEPS = int(drain_steps)
@@ -212,6 +226,7 @@ def main() -> None:
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument("--drain-steps", type=int, default=20_000)
     ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--patch-dir", type=str, default="data/bgcore/19_6_0_74257")
     args = ap.parse_args()
 
     ckpt_dir = args.run_dir.resolve() / "checkpoints"
@@ -243,6 +258,7 @@ def main() -> None:
         seed=args.seed,
         device=args.device,
         drain_steps=args.drain_steps,
+        patch_dir=args.patch_dir,
     )
 
     summaries = {label: summarize_cohort(games, label) for label, _, _, _ in milestones}
