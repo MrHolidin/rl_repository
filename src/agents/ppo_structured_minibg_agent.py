@@ -52,6 +52,186 @@ INFO_STRUCT_NEXT_LEGAL = "minibg_struct_next_legal"
 # are masked, so it is bit-identical to the exact Lmax.
 _LMAX_BUCKET = 16
 
+# Per-action-type entropy logging. Keyed by the integer code so the cosmetic
+# PLACE/PLAY rename cannot silently relabel a column; the assert below fails
+# loudly if the enum is ever renumbered. The four rare types (DISCOVER_PICK,
+# APPLY_EFFECT, APPLY_EFFECT_SKIP, MAGNET) are deliberately absent: measured on
+# 3889 states they appear in 0.0-0.7% of them, so a per-update average would be
+# a handful of samples wide.
+_ACTHEAD_TYPES: Tuple[Tuple[str, int], ...] = (
+    ("roll", 0),
+    ("levelup", 1),
+    ("buy", 2),
+    ("sell", 3),
+    ("place", 4),
+    ("finish", 5),
+    ("freeze", 8),
+)
+# Types worth a within-type entropy: the rest carry exactly one option, so their
+# conditional entropy is identically zero and only the mass on them is news.
+_ACTHEAD_MULTI = frozenset({"buy", "sell", "place"})
+_ACTHEAD_NUM_TYPES = 11
+# Binary-entropy clamp, and it has to survive float32: 1-1e-12 rounds to exactly
+# 1.0 there, so log1p(-q) became log(0) and 0*-inf turned hb_finish into NaN for
+# every row where the end-of-turn decision carried nearly all the mass.
+_HB_EPS = 1e-6
+# Binary-entropy clamp. Must survive float32: 1-1e-12 rounds to 1.0 there, and
+# the resulting log1p(-1) turned hb_finish into NaN for a whole run.
+_HB_EPS = 1e-6
+
+assert [int(getattr(StructActionType, n)) for n in (
+    "ROLL", "LEVEL_UP", "BUY", "SELL", "COMPLETE_TURN", "COMPLETE_TURN_FREEZE_SHOP"
+)] == [0, 1, 2, 3, 5, 8], "StructActionType renumbered: _ACTHEAD_TYPES is now mislabelled"
+
+
+def _acthead_stats(
+    p_safe: torch.Tensor,
+    mask: torch.Tensor,
+    type_ids: torch.Tensor,
+) -> Dict[str, torch.Tensor]:
+    """Per-action-type breakdown of one minibatch's action-head distribution.
+
+    ``p_safe``/``mask``/``type_ids`` are all ``[B, L]`` over the padded legal
+    slots. Returns per-key sums plus the row counts they were summed over, so
+    the caller can accumulate across minibatches and divide once at the end.
+
+    The split is the chain rule, ``H = H(type) + sum_g p_g * H(within g)``, so
+    the parts add back up to the ``entropy`` column rather than being a
+    heuristic. Within-type entropy is normalised by ``log n_g``: the option
+    count moves with the game (shop width grows with tavern tier, SELL/PLACE
+    with how full the board is), and an unnormalised number would track the
+    phase of the game instead of the policy.
+    """
+    out: Dict[str, torch.Tensor] = {}
+    G = _ACTHEAD_NUM_TYPES
+    p_g = torch.zeros(p_safe.shape[0], G, device=p_safe.device, dtype=p_safe.dtype)
+    p_g.scatter_add_(1, type_ids, p_safe)
+    n_g = torch.zeros_like(p_g)
+    n_g.scatter_add_(1, type_ids, mask.to(p_safe.dtype))
+    # sum of p*log p inside each type, for the conditional entropy below
+    plogp = p_safe * torch.log(p_safe.clamp_min(1e-12))
+    a_g = torch.zeros_like(p_g)
+    a_g.scatter_add_(1, type_ids, plogp.masked_fill(~mask, 0.0))
+
+    out["h_type"] = -(p_g * torch.log(p_g.clamp_min(1e-12))).sum(dim=-1).sum()
+    out["_rows"] = torch.tensor(float(p_safe.shape[0]), device=p_safe.device)
+
+    for name, code in _ACTHEAD_TYPES:
+        present = n_g[:, code] > 0
+        cnt = present.to(p_safe.dtype).sum()
+        out[f"_n_{name}"] = cnt
+        if name in ("finish", "freeze"):
+            continue  # both folded into the combined finish columns below
+        p = p_g[:, code]
+        # float32 rounds 1-1e-12 to exactly 1.0, and log1p(-1) * 0 is NaN.
+        q = p.clamp(_HB_EPS, 1.0 - _HB_EPS)
+        hb = -(q * torch.log(q) + (1 - q) * torch.log1p(-q))
+        out[f"p_{name}"] = (p * present).sum()
+        out[f"psq_{name}"] = (p.pow(2) * present).sum()
+        out[f"hb_{name}"] = (hb * present).sum()
+        if name in _ACTHEAD_MULTI:
+            out[f"n_{name}"] = (n_g[:, code] * present).sum()
+            # H_in = -A_g/p_g + log p_g, normalised by log n_g (0 when n_g == 1)
+            h_in = -(a_g[:, code] / p.clamp_min(1e-12)) + torch.log(p.clamp_min(1e-12))
+            denom = torch.log(n_g[:, code].clamp_min(2.0))
+            usable = present & (n_g[:, code] > 1)
+            out[f"hin_{name}"] = ((h_in / denom).clamp(0.0, 1.0) * usable).sum()
+            out[f"_nin_{name}"] = usable.to(p_safe.dtype).sum()
+    # Freeze-vs-plain split inside the end-of-turn decision.
+    p_fin = p_g[:, 5] + p_g[:, 8]
+    fin_present = (n_g[:, 5] + n_g[:, 8]) > 0
+    out["p_finish_tot"] = (p_fin * fin_present).sum()
+    out["psq_finish_tot"] = (p_fin.pow(2) * fin_present).sum()
+    qf = p_fin.clamp(_HB_EPS, 1.0 - _HB_EPS)
+    out["hb_finish_tot"] = (
+        -(qf * torch.log(qf) + (1 - qf) * torch.log1p(-qf)) * fin_present
+    ).sum()
+    out["_n_finish_tot"] = fin_present.to(p_safe.dtype).sum()
+    out["p_freeze_given_finish"] = (
+        (p_g[:, 8] / p_fin.clamp_min(1e-12)) * fin_present
+    ).sum()
+    return out
+
+
+def _acthead_metrics(acc: Dict[str, torch.Tensor]) -> Dict[str, float]:
+    """Turn the accumulated sums into the ``metrics_acthead.csv`` row.
+
+    Averages are taken over the rows where each type was actually legal, not
+    over the whole minibatch: LEVEL_UP is offered in about half of all states,
+    and dividing its mass by every row would report a policy that never wants
+    to upgrade. ``frac_levelup`` carries the legality rate separately so the
+    two are not conflated.
+    """
+    if not acc:
+        return {}
+    g = {k: float(v.item()) if isinstance(v, torch.Tensor) else float(v) for k, v in acc.items()}
+    rows = g.get("_rows", 0.0)
+    if rows <= 0:
+        return {}
+    out: Dict[str, float] = {"h_type": g["h_type"] / rows}
+    for name, _code in _ACTHEAD_TYPES:
+        if name in ("finish", "freeze"):
+            continue  # reported below as one combined end-of-turn decision
+        n = g.get(f"_n_{name}", 0.0)
+        if n <= 0:
+            continue
+        mean_p = g[f"p_{name}"] / n
+        var = max(0.0, g[f"psq_{name}"] / n - mean_p * mean_p)
+        out[f"p_{name}"] = mean_p
+        out[f"pstd_{name}"] = math.sqrt(var)
+        out[f"hb_{name}"] = g[f"hb_{name}"] / n
+        if name in _ACTHEAD_MULTI:
+            out[f"n_{name}"] = g[f"n_{name}"] / n
+            nin = g.get(f"_nin_{name}", 0.0)
+            out[f"hin_{name}"] = (g[f"hin_{name}"] / nin) if nin > 0 else 0.0
+    out["frac_levelup"] = g.get("_n_levelup", 0.0) / rows
+    nf = g.get("_n_finish_tot", 0.0)
+    if nf > 0:
+        mp = g["p_finish_tot"] / nf
+        out["p_finish"] = mp
+        out["pstd_finish"] = math.sqrt(max(0.0, g["psq_finish_tot"] / nf - mp * mp))
+        out["hb_finish"] = g["hb_finish_tot"] / nf
+        out["p_freeze_given_finish"] = g["p_freeze_given_finish"] / nf
+    return out
+
+
+def _alive_baseline_metrics(
+    ret: np.ndarray,
+    values: np.ndarray,
+    n_alive: np.ndarray,
+    ret_var: float,
+) -> Dict[str, float]:
+    """Critic skill measured against the trivial "how many seats are left" predictor.
+
+    ``explained_variance`` alone flatters the critic: with n players alive the
+    final placement is already confined to 1..n, so a predictor knowing only the
+    alive count explains much of the return variance without reading a single
+    board. ``alive_baseline_ev`` is exactly that share, and
+    ``ev_vs_alive_baseline`` is what the critic adds on top —
+    1 - Var(R - V) / Var(R - B): zero when the critic is no better than the
+    count, negative when it is worse.
+
+    B is the per-alive-count mean return of this rollout, so it self-normalises
+    against the current opponent pool the same way the plain EV does.
+    """
+    out: Dict[str, float] = {}
+    valid = n_alive > 0
+    if int(valid.sum()) < 2 or ret_var <= 1e-12:
+        return out
+    r, v, k = ret[valid], values[valid], n_alive[valid]
+    base = np.empty_like(r)
+    for c in np.unique(k):
+        sel = k == c
+        base[sel] = r[sel].mean()
+    base_resid_var = float(np.var(r - base))
+    r_var = float(np.var(r))
+    out["alive_mean"] = float(k.mean())
+    out["alive_baseline_ev"] = 1.0 - base_resid_var / r_var if r_var > 1e-12 else 0.0
+    out["ev_vs_alive_baseline"] = (
+        1.0 - float(np.var(r - v)) / base_resid_var if base_resid_var > 1e-12 else 0.0
+    )
+    return out
+
 
 def _stack_and_release(arrs: List[np.ndarray]) -> np.ndarray:
     """Stack equal-shape arrays into one contiguous array, releasing each
@@ -117,6 +297,12 @@ class StructuredMiniBGRolloutBuffer:
         # closes (``close_rollout_segment`` backfills the whole segment). CE
         # target for the v8 distributional critic; ignored by scalar critics.
         self.placement_label: List[int] = []
+        # Players still alive when the row was recorded. Not a training signal:
+        # it is the trivial predictor the critic has to beat. Knowing that four
+        # seats are left already pins the final placement to 1..4, and an
+        # explained-variance measured against the unconditional mean hands the
+        # critic credit for that for free.
+        self.n_alive: List[int] = []
 
     def add(
         self,
@@ -136,6 +322,7 @@ class StructuredMiniBGRolloutBuffer:
         seat_id: int = -1,
         h_prev: Optional[np.ndarray] = None,
         episode_id: int = 0,
+        n_alive: int = -1,
     ) -> None:
         self.obs.append(np.asarray(obs, dtype=np.float32))
         self.legal_lists.append(list(legal_list))
@@ -166,6 +353,7 @@ class StructuredMiniBGRolloutBuffer:
         self.strength_target.append([1.0] * self._n_strength_horizons)
         self.strength_valid.append([False] * self._n_strength_horizons)
         self.placement_label.append(-1)
+        self.n_alive.append(int(n_alive) if n_alive else -1)
 
     def __len__(self) -> int:
         return len(self.obs)
@@ -193,6 +381,7 @@ class StructuredMiniBGRolloutBuffer:
         self.strength_target.clear()
         self.strength_valid.clear()
         self.placement_label.clear()
+        self.n_alive.clear()
 
 
 class MiniBGPPOStructuredAgent(BaseAgent):
@@ -624,6 +813,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             seat_id=seat_id,
             h_prev=h_prev_for_buffer,
             episode_id=self._episode_id,
+            n_alive=int(info.get("n_alive", -1)) if isinstance(info, dict) else -1,
         )
 
         # v4: advance the seat's round-level hidden state on COMPLETE_TURN.
@@ -889,6 +1079,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         explained_variance = (
             1.0 - float(np.var(ret_np - values_arr)) / ret_var if ret_var > 1e-12 else 0.0
         )
+        baseline_metrics = _alive_baseline_metrics(
+            ret_np, values_arr, np.asarray(buf.n_alive, dtype=np.int64), ret_var
+        )
 
         # Pre-tokenize the entire rollout buffer's legal lists. One H2D copy per update
         # replaces O(N * Lmax * mini_batches * epochs) per-action kernel launches that were
@@ -969,6 +1162,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_approx_kl = 0.0
         total_batches = 0
         total_clip_frac = 0.0
+        acthead_acc: Dict[str, torch.Tensor] = {}
         total_battle_loss = 0.0
         total_battle_mae = 0.0
         total_battle_corr = 0.0
@@ -1065,6 +1259,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 p_safe = log_sm.exp().masked_fill(~mask, 0.0)
                 ent_row = -(p_safe * log_sm_safe).sum(dim=-1)
                 entropy_mb = ent_row.mean()
+
+                # Per-action-type breakdown, logged apart from the scalar above.
+                # Detached and accumulated only — never touches the loss.
+                with torch.no_grad():
+                    _ah = _acthead_stats(p_safe.detach(), mask, type_ids_mb)
+                    for _k, _v in _ah.items():
+                        acthead_acc[_k] = acthead_acc.get(_k, 0.0) + _v
 
                 # Mix in autoregressive order-head log-prob without a `.any().item()` sync.
                 # `order_logprob_given_sequence` already masks rows that don't have a real pick,
@@ -1293,6 +1494,61 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         if total_batches == 0:
             return {}
 
+        # How far the policy actually moved over the whole update, measured once
+        # against the behaviour policy after every epoch is done.
+        #
+        # `approx_kl` cannot answer this: each minibatch is scored against the
+        # same stored log-probs, but at the moment that minibatch ran — the
+        # first ones see a policy that has barely moved and the last ones a
+        # fully updated one, and their mean lands somewhere in between. Early
+        # stopping and step-size decisions need the end-of-update drift, so
+        # take one no-grad pass over the rollout and compare directly. Same k2
+        # estimator and same joint (action + order) log-prob as the per-minibatch
+        # column, so the two are on one scale.
+        kl_rollout = float("nan")
+        try:
+            with torch.no_grad():
+                kl_sum = torch.zeros((), device=device, dtype=torch.float32)
+                seen = 0
+                for s0 in range(0, N, self.minibatch_size):
+                    sl = slice(s0, min(s0 + self.minibatch_size, N))
+                    lg, mk, _v, ck = self.policy_net.policy_logits_value_from_tokens(
+                        obs_tensor[sl],
+                        type_ids_all[sl],
+                        role_ids_all[sl],
+                        src_region_kinds_all[sl],
+                        src_region_slots_all[sl],
+                        tgt_region_kinds_all[sl],
+                        tgt_region_slots_all[sl],
+                        mask_all[sl],
+                        return_cache=True,
+                    )
+                    lsm = F.log_softmax(lg, dim=-1)
+                    ar = torch.arange(lg.shape[0], device=device)
+                    lp = lsm[ar, actions_tensor[sl]]
+                    _of = getattr(
+                        self.policy_net, "order_logprob_entropy_given_sequence", None
+                    )
+                    if _of is not None:
+                        lpo, _ = _of(
+                            ck["state_emb"], ck["E_own"], ck["g_full"],
+                            occupied_tensor[sl], picks_tensor[sl],
+                        )
+                    else:
+                        lpo = self.policy_net.order_logprob_given_sequence(
+                            ck["state_emb"], ck["E_own"], ck["g_full"],
+                            occupied_tensor[sl], picks_tensor[sl],
+                        )
+                    lp = lp + complete_tensor[sl].to(lp.dtype) * lpo
+                    d = log_probs_old_tensor[sl] - lp
+                    kl_sum = kl_sum + (0.5 * d.pow(2)).sum()
+                    seen += int(lg.shape[0])
+                if seen:
+                    kl_rollout = float((kl_sum / seen).item())
+        except Exception:
+            # A diagnostic must never take the update down with it.
+            kl_rollout = float("nan")
+
         # Single GPU->CPU sync for all per-minibatch metrics (see accumulators above).
         total_policy_loss = float(acc_policy.item())
         total_value_loss = float(acc_value.item())
@@ -1317,6 +1573,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "entropy_order": total_ent_order / total_batches,
             "order_entropy_coef": float(self.order_entropy_coef),
             "approx_kl": total_approx_kl / total_batches,
+            "approx_kl_rollout": kl_rollout,
             "clip_frac": total_clip_frac / total_batches,
             "grad_norm": gn,
             "rollout_size": float(N),
@@ -1327,6 +1584,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "advantage_std": adv_std,
             "explained_variance": explained_variance,
         }
+        out_metrics.update(_acthead_metrics(acthead_acc))
+        out_metrics.update(baseline_metrics)
         if total_battle_batches > 0:
             out_metrics["battle_pred_loss"] = total_battle_loss / total_battle_batches
             out_metrics["battle_pred_mae"] = total_battle_mae / total_battle_batches

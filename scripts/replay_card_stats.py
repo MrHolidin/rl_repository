@@ -28,6 +28,7 @@ from src.agents.ppo_dvd_agent import PPODvDAgent
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.envs.minibg.structured_actions import StructActionType
+from src.training.bg_network_policy import obs_kind_for_checkpoint
 
 
 class _StateView:
@@ -45,6 +46,9 @@ def main() -> None:
     ap.add_argument("--num-identities", type=int, default=4)
     args = ap.parse_args()
 
+    # The checkpoint dictates its observation layout: this was pinned to
+    # bglike_v5, so anything from v11_heroes on refused to run at all.
+    obs_kind = obs_kind_for_checkpoint(args.checkpoint.resolve())
     agent = PPODvDAgent.load(str(args.checkpoint), device="cpu", seed=args.seed)
     agent.eval()
     agent.training = False
@@ -56,7 +60,8 @@ def main() -> None:
         training_seats=(0,),
         seed=args.seed,
         patch_dir=args.patch_dir,
-        obs_kind="bglike_v5",
+        obs_kind=obs_kind,
+        with_heroes=obs_kind.endswith("_heroes"),
     )
 
     bought = Counter()

@@ -1729,6 +1729,11 @@ class BGLobbyMultiCurrentEnv(SingleAgentEnv):
             "lobby_done": self._lobby.lobby_done,
             "winner": self._lobby.state.winner,
             "eliminated_seats": step_info.eliminated_seats,
+            # Seats still standing. Carried for the critic's baseline metrics:
+            # with n alive the final placement is already pinned to 1..n, so a
+            # critic scored against the unconditional mean is credited for
+            # knowing something the round counter gives away.
+            "n_alive": len(self._lobby.state.alive),
             **{
                 k: v
                 for k, v in reward_info.items()
