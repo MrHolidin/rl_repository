@@ -98,6 +98,11 @@ def run_eval(
     device: str,
     drain_steps: int,
     patch_dir: str = "data/bgcore/19_6_0_74257",
+    # None = read the layout out of the checkpoint (the usual case); pass a
+    # string to force one, e.g. to score a net against an observation it was
+    # not trained on.
+    obs_kind: str | None = None,
+    with_heroes: bool | None = None,
 ) -> List[dict]:
     agents_by_label: Dict[str, object] = {}
     seat_to_label: Dict[int, str] = {}
@@ -119,15 +124,13 @@ def run_eval(
     # The checkpoints dictate the observation layout; the lobby default is the
     # older, smaller one and every net from v11_heroes on refuses it. All
     # milestones here come from one run, so one kind covers the whole lobby.
-    obs_kind = obs_kind_for_checkpoint(milestones[0][1])
+    if obs_kind is None:
+        obs_kind = obs_kind_for_checkpoint(milestones[0][1])
+    if with_heroes is None:
+        with_heroes = obs_kind.endswith("_heroes")
     env = BGLobbyEnv(
-        configs,
-        learned_seats=learned,
-        training_seats=learned,
-        seed=seed,
-        patch_dir=patch_dir,
-        obs_kind=obs_kind,
-        with_heroes=obs_kind.endswith("_heroes"),
+        configs, learned_seats=learned, training_seats=learned, seed=seed,
+        patch_dir=patch_dir, obs_kind=obs_kind, with_heroes=with_heroes,
     )
 
     old_cap = lobby_mod.MAX_DRAIN_STEPS
@@ -227,6 +230,8 @@ def main() -> None:
     ap.add_argument("--drain-steps", type=int, default=20_000)
     ap.add_argument("--out-dir", type=Path, default=None)
     ap.add_argument("--patch-dir", type=str, default="data/bgcore/19_6_0_74257")
+    ap.add_argument("--obs-kind", default=None, help="override; default reads it from the checkpoint")
+    ap.add_argument("--no-heroes", action="store_true")
     args = ap.parse_args()
 
     ckpt_dir = args.run_dir.resolve() / "checkpoints"
@@ -259,6 +264,8 @@ def main() -> None:
         device=args.device,
         drain_steps=args.drain_steps,
         patch_dir=args.patch_dir,
+        obs_kind=args.obs_kind,
+        with_heroes=(False if args.no_heroes else None),
     )
 
     summaries = {label: summarize_cohort(games, label) for label, _, _, _ in milestones}

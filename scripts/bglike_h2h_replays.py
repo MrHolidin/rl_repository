@@ -32,6 +32,7 @@ import torch
 torch.set_num_threads(1)
 
 import src.envs  # noqa: F401
+from src.training.bg_network_policy import obs_kind_for_network
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.placement import placement_for_seat
 from src.envs.bglike.replay import attach_replay, close_replay
@@ -64,9 +65,20 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     index = []
 
+    # Checkpoints of different versions read different observations; the
+    # lobby serves each seat the one its own net expects.
+    import torch as _t
+    net_a = str(_t.load(args.ckpt_a, map_location="cpu", weights_only=False).get("ppo_network_type",""))
+    net_b = str(_t.load(args.ckpt_b, map_location="cpu", weights_only=False).get("ppo_network_type",""))
+    kind_a = obs_kind_for_network(net_a)
+    kind_b = obs_kind_for_network(net_b)
+    print(f"obs: A={kind_a}  B={kind_b}")
+
     for g in range(args.games):
         # Alternate which seats each side holds so seat order cannot bias the set.
         a_seats = set(range(0, 8, 2)) if g % 2 == 0 else set(range(1, 8, 2))
+
+        obs_kind_by_seat = {s: (kind_a if s in a_seats else kind_b) for s in range(8)}
         side = {s: (args.label_a if s in a_seats else args.label_b) for s in range(8)}
         agents = {s: (A if side[s] == args.label_a else B) for s in range(8)}
 
@@ -74,7 +86,7 @@ def main() -> int:
             lobby_from_learned_seats(tuple(range(8)), agent_by_seat=agents),
             learned_seats=tuple(range(8)), training_seats=(0,),
             seed=args.seed + 977 * g, patch_dir=args.patch_dir,
-            obs_kind="bglike_v6_heroes", with_heroes=True,
+            obs_kind=kind_a, obs_kind_by_seat=obs_kind_by_seat, with_heroes=True,
         )
         env.reset(seed=args.seed + 977 * g)
         path = args.out_dir / f"lobby_{g:03d}.jsonl"
