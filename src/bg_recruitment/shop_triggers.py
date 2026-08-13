@@ -17,9 +17,7 @@ from src.bg_core.effects import (
     AddFromLastOpponentBoardEffect,
     AddRandomMinionToHandEffect,
     AddTokenToHandEffect,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
-    BuffSelfFromUniqueTribeCount,
+    BuffSelfPerCount,
     TransformIntoShopMinionEffect,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
@@ -56,6 +54,7 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
+    apply_buff_self_per_count,
     count_friendly_tribe,
     count_golden_friendlies,
     count_unique_tribes,
@@ -593,15 +592,8 @@ class ShopTriggers:
                     m.bonus_attack += eff.attack
                     m.bonus_health += eff.health
                     continue
-                if isinstance(eff, BuffSelfFromFriendlyTribeCount):
-                    e = eff
-                    n = count_friendly_tribe(
-                        player.board,
-                        e.tribe,
-                        exclude=m if e.exclude_self else None,
-                    )
-                    m.bonus_attack += e.attack_per * n
-                    m.bonus_health += e.health_per * n
+                if isinstance(eff, BuffSelfPerCount):
+                    apply_buff_self_per_count(eff, m, player.board)
                     continue
                 if isinstance(eff, BuffRandomFriendlyFromPlacedTierEffect):
                     e = eff
@@ -639,29 +631,8 @@ class ShopTriggers:
                     self.apply_buff_one_per_listed_tribe(
                         source, ab.effect, player.board
                     )
-                elif isinstance(ab.effect, BuffSelfFromFriendlyTribeCount):
-                    e = ab.effect
-                    n = count_friendly_tribe(
-                        player.board,
-                        e.tribe,
-                        exclude=source if e.exclude_self else None,
-                    )
-                    source.bonus_attack += e.attack_per * n
-                    source.bonus_health += e.health_per * n
-                elif isinstance(ab.effect, BuffSelfFromUniqueTribeCount):
-                    e = ab.effect
-                    n = count_unique_tribes(
-                        player.board, exclude=source if e.exclude_self else None
-                    )
-                    source.bonus_attack += e.attack_per * n
-                    source.bonus_health += e.health_per * n
-                elif isinstance(ab.effect, BuffSelfFromGoldenFriendlyCount):
-                    e = ab.effect
-                    n = count_golden_friendlies(
-                        player.board, exclude=source if e.exclude_self else None
-                    )
-                    source.bonus_attack += e.attack_per * n
-                    source.bonus_health += e.health_per * n
+                elif isinstance(ab.effect, BuffSelfPerCount):
+                    apply_buff_self_per_count(ab.effect, source, player.board)
                 elif isinstance(ab.effect, BuffLeftmostRepeatedEffect):
                     e = ab.effect
                     n = int(getattr(player, e.counter, 0))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -30,9 +30,8 @@ from src.bg_core.effects import (
     BattlecryMultiplierAura,
     BuffAllShopOffersEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
-    BuffSelfFromUniqueTribeCount,
+    BuffSelfPerCount,
+    CountSource,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffSummonedIfRace,
     BuffTargetFriendlyBattlecry,
@@ -200,7 +199,7 @@ if _missing_triggers:
 
 # Effect markers — high-impact aura/multiplier/listener types the network should distinguish
 # beyond the trigger fan-out (Brann/Khadgar/Baron etc. all share AURA trigger but differ wildly).
-_EFFECT_CLASSES: Tuple[type, ...] = (
+_EFFECT_CLASSES: Tuple[Any, ...] = (
     # --- original 15 (preserved in order for checkpoint compat on minibg) ---
     BattlecryMultiplierAura,
     DeathrattleMultiplierAura,
@@ -237,9 +236,12 @@ _EFFECT_CLASSES: Tuple[type, ...] = (
     DealExcessDamageToAdjacentEffect,
     StartOfCombatDamagePerFriendlyTribe,
     # scaling / synergy
-    BuffSelfFromUniqueTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
-    BuffSelfFromFriendlyTribeCount,
+    # These three were once three classes; they are now one composed effect
+    # discriminated by ``CountSource``. Each keeps the exact slot (and thus the
+    # obs id) its old class held, so v5-family observations are unchanged.
+    (BuffSelfPerCount, CountSource.UNIQUE_TRIBES),
+    (BuffSelfPerCount, CountSource.GOLDEN_FRIENDLIES),
+    (BuffSelfPerCount, CountSource.FRIENDLY_OF_TRIBE),
     ConsumeFriendlyBattlecry,
     AdaptSelfRandomEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
@@ -289,7 +291,26 @@ assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS, (
     f"_EFFECT_CLASSES has {len(_EFFECT_CLASSES)} entries but "
     f"NUM_EFFECT_CHANNELS={NUM_EFFECT_CHANNELS}"
 )
-EFFECT_INDEX: Dict[type, int] = {cls: i for i, cls in enumerate(_EFFECT_CLASSES)}
+
+# An entry is either a bare effect class (one class → one id, the common case)
+# or ``(class, discriminator)`` for a composed effect whose variants must keep
+# the distinct ids their pre-merge classes had. ``effect_signature`` turns an
+# instance into the key; positions here are frozen — append only.
+EFFECT_INDEX: Dict[Any, int] = {sig: i for i, sig in enumerate(_EFFECT_CLASSES)}
+
+# Composed effects: which field discriminates the variant.
+_EFFECT_DISCRIMINATOR: Dict[type, str] = {
+    BuffSelfPerCount: "source",
+}
+
+
+def effect_signature(effect_obj) -> Any:
+    """Registry key for an effect instance: its class, or ``(class, variant)``."""
+    cls = type(effect_obj)
+    field = _EFFECT_DISCRIMINATOR.get(cls)
+    if field is None:
+        return cls
+    return (cls, getattr(effect_obj, field))
 
 
 def _assert_effect_registry_complete() -> None:
@@ -303,7 +324,10 @@ def _assert_effect_registry_complete() -> None:
     import src.bg_core.effects as _effects_mod
 
     _non_effect_dataclasses = {"Condition", "Ability"}
-    known = set(_EFFECT_CLASSES)
+    # A composed effect is registered as ``(class, variant)`` entries; the class
+    # counts as known once any of its variants is present. Whether *every*
+    # variant is registered is checked separately below.
+    known = {sig if isinstance(sig, type) else sig[0] for sig in _EFFECT_CLASSES}
     missing = sorted(
         obj.__name__
         for _name, obj in _inspect.getmembers(_effects_mod, _inspect.isclass)
@@ -318,6 +342,25 @@ def _assert_effect_registry_complete() -> None:
             f"{missing}. Append them to _EFFECT_CLASSES (and bump "
             "NUM_EFFECT_CHANNELS) — this changes obs dim and requires retrain."
         )
+
+    # Every variant of a composed effect needs its own id: an unregistered one
+    # would only surface as a KeyError deep in a rollout, on whatever patch
+    # first ships a card using it.
+    for cls, field in _EFFECT_DISCRIMINATOR.items():
+        enum_cls = cls.__dataclass_fields__[field].type
+        if isinstance(enum_cls, str):  # postponed annotations
+            enum_cls = getattr(_effects_mod, enum_cls, None)
+        if enum_cls is None or not hasattr(enum_cls, "__members__"):
+            continue
+        unregistered = sorted(
+            v.name for v in enum_cls if (cls, v) not in EFFECT_INDEX
+        )
+        if unregistered:
+            raise RuntimeError(
+                f"EFFECT_INDEX is missing {cls.__name__} variants: {unregistered}. "
+                "Append them to _EFFECT_CLASSES (and bump NUM_EFFECT_CHANNELS) — "
+                "this changes obs dim and requires retrain."
+            )
 
 
 _assert_effect_registry_complete()

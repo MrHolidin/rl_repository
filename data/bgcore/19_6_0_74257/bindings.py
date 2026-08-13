@@ -74,9 +74,8 @@ from src.bg_core.effects import (
     AddTokenToHandEffect,
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
-    BuffSelfFromUniqueTribeCount,
+    BuffSelfPerCount,
+    CountSource,
     ConsumeFriendlyBattlecry,
     GrantKeywordAllFriendlyOfTribe,
     TransformIntoShopMinionEffect,
@@ -251,8 +250,12 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_TURN_END,
             # "for each Dragon you have" counted Razorgore himself until 28.2.0
             # reworded it to "each other friendly Dragon" — at 19.6 he is in the count.
-            BuffSelfFromFriendlyTribeCount(
-                Race.DRAGON, attack_per=1, health_per=1, exclude_self=False
+            BuffSelfPerCount(
+                CountSource.FRIENDLY_OF_TRIBE,
+                Race.DRAGON,
+                attack_per=1,
+                health_per=1,
+                exclude_self=False,
             ),
         ),
     ),
@@ -654,7 +657,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_066": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffSelfFromGoldenFriendlyCount(attack_per=2, health_per=2),
+            BuffSelfPerCount(
+                CountSource.GOLDEN_FRIENDLIES, attack_per=2, health_per=2
+            ),
         ),
     ),
     "BGS_079": (
@@ -710,8 +715,12 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_124": (
         Ability(
             Trigger.AFTER_FRIENDLY_MINION_PLACED,
-            BuffSelfFromFriendlyTribeCount(
-                Race.ELEMENTAL, attack_per=0, health_per=1, exclude_self=False
+            BuffSelfPerCount(
+                CountSource.FRIENDLY_OF_TRIBE,
+                Race.ELEMENTAL,
+                attack_per=0,
+                health_per=1,
+                exclude_self=False,
             ),
             filter_race=Race.ELEMENTAL,
         ),
@@ -722,7 +731,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_202": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffSelfFromUniqueTribeCount(attack_per=1, health_per=2),
+            BuffSelfPerCount(
+                CountSource.UNIQUE_TRIBES, attack_per=1, health_per=2
+            ),
         ),
     ),
     "BGS_204": (

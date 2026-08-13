@@ -11,7 +11,8 @@ from src.bg_catalog.triple_effects import resolve_triple_forged_abilities
 from src.bg_core.effects import (
     AddFromLastOpponentBoardEffect,
     BuffSelf,
-    BuffSelfFromFriendlyTribeCount,
+    BuffSelfPerCount,
+    CountSource,
     BuffSelfFromHeroDamageTaken,
     BuffAllOtherOfTribe,
     DealDamageRandomEnemyMinion,
@@ -108,7 +109,8 @@ def test_forged_deck_swabbie_reduces_two(ctx_74257):
 
 def test_forged_razorgore_doubles_per_dragon(ctx_74257):
     eff = _forged("BGS_036", ctx_74257)[0].effect
-    assert isinstance(eff, BuffSelfFromFriendlyTribeCount)
+    assert isinstance(eff, BuffSelfPerCount)
+    assert eff.source is CountSource.FRIENDLY_OF_TRIBE
     assert eff.attack_per == 2 and eff.health_per == 2
 
 

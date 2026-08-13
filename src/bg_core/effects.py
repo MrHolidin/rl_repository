@@ -562,31 +562,38 @@ class GrantKeywordAllFriendlyOfTribe:
     tribe: Any
 
 
-@dataclass(frozen=True)
-class BuffSelfFromFriendlyTribeCount:
-    """Shop end of turn: +stats per friendly minion of ``tribe``."""
+class CountSource(Enum):
+    """What :class:`BuffSelfPerCount` counts on the owner's board.
 
-    tribe: Any
+    Ordering is irrelevant to gameplay but each member is part of the effect's
+    observation identity (see ``_EFFECT_SIGNATURES`` in ``minibg.obs``), so
+    renaming a member is an obs change — add, don't rename.
+    """
+
+    FRIENDLY_OF_TRIBE = auto()
+    UNIQUE_TRIBES = auto()
+    GOLDEN_FRIENDLIES = auto()
+
+
+@dataclass(frozen=True)
+class BuffSelfPerCount:
+    """+stats on the listener, once per thing counted on its own board.
+
+    Composed replacement for what used to be three near-identical classes
+    (``BuffSelfFrom{FriendlyTribe,UniqueTribe,GoldenFriendly}Count``): they
+    shared this exact body and differed only in ``source``. ``tribe`` is read
+    only when ``source is FRIENDLY_OF_TRIBE``.
+
+    Field names are load-bearing beyond this module: ``attack_per`` /
+    ``health_per`` are read by name for golden doubling
+    (``triple_effects._GOLDEN_INT_FIELDS``) and for the v12 static card table
+    (``card_static.NUMBER_FIELDS``). Renaming them silently changes both.
+    """
+
+    source: CountSource
+    tribe: Any = None
     attack_per: int = 1
     health_per: int = 1
-    exclude_self: bool = True
-
-
-@dataclass(frozen=True)
-class BuffSelfFromUniqueTribeCount:
-    """Shop end of turn: +stats per distinct non-neutral tribe on board."""
-
-    attack_per: int = 1
-    health_per: int = 1
-    exclude_self: bool = True
-
-
-@dataclass(frozen=True)
-class BuffSelfFromGoldenFriendlyCount:
-    """Shop end of turn: +stats per friendly golden minion."""
-
-    attack_per: int = 2
-    health_per: int = 2
     exclude_self: bool = True
 
 
@@ -715,9 +722,7 @@ Effect = Union[
     AddFromLastOpponentBoardEffect,
     TransformIntoShopMinionEffect,
     GrantKeywordAllFriendlyOfTribe,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromUniqueTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
+    BuffSelfPerCount,
     AddRandomMinionToHandEffect,
     BuffAttackedMinionEffect,
     BuffAdjacentOnAttackedEffect,
@@ -808,9 +813,8 @@ __all__ = [
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
     "GrantKeywordAllFriendlyOfTribe",
-    "BuffSelfFromFriendlyTribeCount",
-    "BuffSelfFromUniqueTribeCount",
-    "BuffSelfFromGoldenFriendlyCount",
+    "BuffSelfPerCount",
+    "CountSource",
     "AddRandomMinionToHandEffect",
     "BuffAttackedMinionEffect",
     "BuffAdjacentOnAttackedEffect",

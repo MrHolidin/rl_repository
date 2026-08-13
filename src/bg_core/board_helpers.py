@@ -62,12 +62,53 @@ def count_golden_friendlies(
     )
 
 
+def count_for_source(
+    source: "CountSource",
+    board: Sequence[Minion],
+    *,
+    tribe: Any = None,
+    exclude: Optional[Minion] = None,
+) -> int:
+    """Dispatch a :class:`CountSource` onto the matching board count."""
+    from .effects import CountSource
+
+    if source is CountSource.FRIENDLY_OF_TRIBE:
+        return count_friendly_tribe(board, tribe, exclude=exclude)
+    if source is CountSource.UNIQUE_TRIBES:
+        return count_unique_tribes(board, exclude=exclude)
+    if source is CountSource.GOLDEN_FRIENDLIES:
+        return count_golden_friendlies(board, exclude=exclude)
+    raise ValueError(f"unhandled CountSource {source!r}")
+
+
+def apply_buff_self_per_count(
+    effect: "BuffSelfPerCount",
+    listener: Minion,
+    board: Sequence[Minion],
+) -> None:
+    """Apply ``BuffSelfPerCount`` to ``listener`` (its own board is ``board``).
+
+    Single implementation for what used to be three copies of this body, one
+    per counting class.
+    """
+    n = count_for_source(
+        effect.source,
+        board,
+        tribe=effect.tribe,
+        exclude=listener if effect.exclude_self else None,
+    )
+    listener.bonus_attack += effect.attack_per * n
+    listener.bonus_health += effect.health_per * n
+
+
 def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
     """Shallow-copy minions for ``PlayerState.last_opponent_board``."""
     return tuple(copy(m) for m in board)
 
 
 __all__ = [
+    "apply_buff_self_per_count",
+    "count_for_source",
     "count_unique_tribes",
     "minion_matches_tribe",
     "count_friendly_tribe",
