@@ -18,10 +18,8 @@ from src.bg_core.effects import (
     AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     AttackImmediatelyAfterSurvivingEffect,
-    BuffAllFriendlyMinions,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
-    BuffAllWithKeyword,
+    BuffMatching,
+    BuffTarget,
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
@@ -72,6 +70,7 @@ from .events import (
     ShieldLost,
 )
 from .state import BattleMinion, BattleSide, _CombatRuntime
+from src.bg_core.board_helpers import buff_matching_hits
 from .auras import (
     attack_value,
     _board_index,
@@ -543,7 +542,10 @@ def _fire_friendly_attack_listeners(
                 attacker.template.bonus_attack += eff.attack
                 attacker.template.bonus_health += eff.health
                 attacker.current_health += eff.health
-            elif isinstance(eff, BuffAllFriendlyMinions):
+            # ALL_FRIENDLY only: before the merge just ``BuffAllFriendlyMinions``
+            # reached this branch, so matching every BuffMatching variant here
+            # would newly fire the tribe/keyword ones on this trigger.
+            elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
                 for ally in side.minions:
                     if not ally.alive:
                         continue
@@ -832,9 +834,29 @@ def _dr_summon_copy_hand(
                 _queue_combat_hand_add_card(rt, side_idx, cid)
 
 
-def _dr_buff_all_friendly(
-    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllFriendlyMinions
+# Targets that had a ``_DEATHRATTLE_HANDLERS`` entry before the merge.
+#
+# ``OTHER_OF_TRIBE`` is deliberately absent: ``BuffAllOtherOfTribe`` was never
+# registered there, and ``_fire_deathrattle`` looks handlers up with
+# ``.get(type(effect))`` and silently skips a miss — so an ON_DEATH ability
+# carrying it did nothing (BGS_030 ships exactly that). Merging the classes
+# would have made that deathrattle start firing, which is a rules change, not
+# a refactor. Preserved as-is; whether the card *should* fire is a separate
+# decision.
+_DR_BUFF_MATCHING_TARGETS = frozenset(
+    {
+        BuffTarget.ALL_FRIENDLY,
+        BuffTarget.FRIENDLY_OF_TRIBE,
+        BuffTarget.FRIENDLY_WITH_KEYWORD,
+    }
+)
+
+
+def _dr_buff_matching(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffMatching
 ) -> None:
+    if effect.target not in _DR_BUFF_MATCHING_TARGETS:
+        return
     side = rt.side(side_idx)
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
@@ -842,41 +864,11 @@ def _dr_buff_all_friendly(
         for m in side.minions:
             if (not m.alive) or m is dead:
                 continue
-            m.template.bonus_attack += effect.attack
-            m.template.bonus_health += effect.health
-            m.current_health += effect.health
-    _sync_health_all(rt)
-
-
-def _dr_buff_all_of_tribe(
-    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllFriendlyOfTribe
-) -> None:
-    side = rt.side(side_idx)
-    rep_dr = 0
-    while rep_dr < _deathrattle_multiplier(side):
-        rep_dr += 1
-        for m in side.minions:
-            if (not m.alive) or m is dead:
-                continue
-            if not _matches_tribe_for_aura(m.template, effect.tribe):
-                continue
-            m.template.bonus_attack += effect.attack
-            m.template.bonus_health += effect.health
-            m.current_health += effect.health
-    _sync_health_all(rt)
-
-
-def _dr_buff_all_with_keyword(
-    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffAllWithKeyword
-) -> None:
-    side = rt.side(side_idx)
-    rep_dr = 0
-    while rep_dr < _deathrattle_multiplier(side):
-        rep_dr += 1
-        for m in side.minions:
-            if (not m.alive) or m is dead:
-                continue
-            if effect.keyword not in m.template.all_keywords:
+            # Source exclusion is the caller's job here (``m is dead`` above),
+            # so no ``source`` is passed. ``_matches_tribe_for_aura`` and
+            # ``minion_matches_tribe`` are the same predicate, verified
+            # line-for-line, so the shared helper is exact.
+            if not buff_matching_hits(effect, m.template):
                 continue
             m.template.bonus_attack += effect.attack
             m.template.bonus_health += effect.health
@@ -981,9 +973,7 @@ _DEATHRATTLE_HANDLERS = {
     DealDamageAllMinions: _dr_damage_all,
     TransferAttackToRandomFriendlyEffect: _dr_transfer_attack,
     SummonRandomAndCopyToHandEffect: _dr_summon_copy_hand,
-    BuffAllFriendlyMinions: _dr_buff_all_friendly,
-    BuffAllFriendlyOfTribe: _dr_buff_all_of_tribe,
-    BuffAllWithKeyword: _dr_buff_all_with_keyword,
+    BuffMatching: _dr_buff_matching,
     BuffRandomOtherFriendlyCombat: _dr_buff_random_other,
     SummonFirstDeadFriendlyMechsThisCombat: _dr_summon_dead_mechs,
     GrantKeywordRandomFriendly: _dr_grant_kw_random,
@@ -1058,7 +1048,9 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
                 e.excess_damage,
                 both_adjacent=eff.both_adjacent,
             )
-        elif isinstance(eff, BuffAllOtherOfTribe):
+        # OTHER_OF_TRIBE only, for the same reason as the ALL_FRIENDLY branch
+        # above: this used to be reachable by exactly one effect class.
+        elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE:
             side = rt.side(e.attacker_side_idx)
             for m in side.minions:
                 if not m.alive or m is att:

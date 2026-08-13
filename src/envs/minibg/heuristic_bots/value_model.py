@@ -12,7 +12,8 @@ from src.bg_core.effects import (
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
-    BuffAllOtherOfTribe,
+    BuffMatching,
+    BuffTarget,
     BuffTargetFriendlyBattlecry,
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
@@ -155,7 +156,7 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
             elif isinstance(eff, BuffTargetFriendlyBattlecry):
                 race_discount = 0.75 if eff.filter_race is not None else 1.0
                 add += (eff.attack + eff.health) * 1.6 * race_discount
-            elif isinstance(eff, BuffAllOtherOfTribe):
+            elif (isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE):
                 add += (eff.attack + eff.health) * 2.0
             else:
                 add += 2.2

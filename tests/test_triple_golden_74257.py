@@ -14,7 +14,8 @@ from src.bg_core.effects import (
     BuffSelfPerCount,
     CountSource,
     BuffSelfFromHeroDamageTaken,
-    BuffAllOtherOfTribe,
+    BuffMatching,
+    BuffTarget,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
     DiscoverMurlocEffect,
@@ -139,7 +140,8 @@ def test_forged_faceless_copy_golden(ctx_74257):
 
 def test_forged_seabreaker_authored_overkill(ctx_74257):
     eff = _forged("BGS_080", ctx_74257)[0].effect
-    assert isinstance(eff, BuffAllOtherOfTribe)
+    assert isinstance(eff, BuffMatching)
+    assert eff.target is BuffTarget.OTHER_OF_TRIBE
     assert eff.attack == 4 and eff.health == 4
 
 

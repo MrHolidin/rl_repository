@@ -63,10 +63,8 @@ from src.bg_core.effects import (
     AddRandomMinionToHandOnKillEffect,
     BuffAdjacentBattlecry,
     BuffAdjacentOnAttackedEffect,
-    BuffAllFriendlyMinions,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
-    BuffAllWithKeyword,
+    BuffMatching,
+    BuffTarget,
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
     BuffDeadMinionNeighborsEffect,
@@ -255,10 +253,12 @@ _EFFECT_CLASSES: Tuple[Any, ...] = (
     AddRandomMinionToHandOnKillEffect,
     BuffAdjacentBattlecry,
     BuffAdjacentOnAttackedEffect,
-    BuffAllFriendlyMinions,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
-    BuffAllWithKeyword,
+    # Once four classes, now one composed effect discriminated by BuffTarget.
+    # Each variant keeps the exact slot (obs id) its old class held.
+    (BuffMatching, BuffTarget.ALL_FRIENDLY),
+    (BuffMatching, BuffTarget.FRIENDLY_OF_TRIBE),
+    (BuffMatching, BuffTarget.OTHER_OF_TRIBE),
+    (BuffMatching, BuffTarget.FRIENDLY_WITH_KEYWORD),
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
     BuffDeadMinionNeighborsEffect,
@@ -301,6 +301,7 @@ EFFECT_INDEX: Dict[Any, int] = {sig: i for i, sig in enumerate(_EFFECT_CLASSES)}
 # Composed effects: which field discriminates the variant.
 _EFFECT_DISCRIMINATOR: Dict[type, str] = {
     BuffSelfPerCount: "source",
+    BuffMatching: "target",
 }
 
 

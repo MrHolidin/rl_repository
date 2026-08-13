@@ -55,7 +55,8 @@ from src.bg_catalog.cards import make_minion
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     BuffAdjacentBattlecry,
-    BuffAllOtherOfTribe,
+    BuffMatching,
+    BuffTarget,
     BuffTargetFriendlyBattlecry,
     DiscoverMurlocEffect,
     SummonEffect,
@@ -221,7 +222,7 @@ def _context_free_on_place(m: Minion) -> float:
             add += (eff.attack + eff.health) * 1.6 * (
                 0.75 if eff.filter_race is not None else 1.0
             )
-        elif isinstance(eff, BuffAllOtherOfTribe):
+        elif (isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE):
             add += (eff.attack + eff.health) * 2.0
         else:
             add += 2.2
@@ -328,7 +329,7 @@ class PlannerHeuristicBot(HeuristicBot):
             if ab.trigger != Trigger.ON_PLACE:
                 continue
             eff = ab.effect
-            if isinstance(eff, BuffAllOtherOfTribe):
+            if (isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE):
                 total += sum(
                     self._buff_delta(t, eff.attack, eff.health, bl, rl, rn)
                     for t in p.board

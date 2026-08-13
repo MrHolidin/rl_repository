@@ -62,6 +62,34 @@ def count_golden_friendlies(
     )
 
 
+def buff_matching_hits(
+    effect: "BuffMatching",
+    candidate: Minion,
+    source: Optional[Minion] = None,
+) -> bool:
+    """Does ``candidate`` match ``effect``'s target predicate?
+
+    Operates on the *template* level so shop (``Minion``) and combat
+    (``BattleMinion.template``) share one predicate. Aliveness and the
+    combat rule "a deathrattle never buffs its own corpse" stay at the call
+    sites, which is where they were before the merge.
+    """
+    from .effects import BuffTarget
+
+    t = effect.target
+    if t is BuffTarget.ALL_FRIENDLY:
+        return True
+    if t is BuffTarget.FRIENDLY_OF_TRIBE:
+        return minion_matches_tribe(candidate, effect.tribe)
+    if t is BuffTarget.OTHER_OF_TRIBE:
+        if source is not None and candidate is source:
+            return False
+        return minion_matches_tribe(candidate, effect.tribe)
+    if t is BuffTarget.FRIENDLY_WITH_KEYWORD:
+        return effect.keyword in candidate.all_keywords
+    raise ValueError(f"unhandled BuffTarget {t!r}")
+
+
 def count_for_source(
     source: "CountSource",
     board: Sequence[Minion],
@@ -108,6 +136,7 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 
 __all__ = [
     "apply_buff_self_per_count",
+    "buff_matching_hits",
     "count_for_source",
     "count_unique_tribes",
     "minion_matches_tribe",

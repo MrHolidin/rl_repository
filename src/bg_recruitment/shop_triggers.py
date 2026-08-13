@@ -21,10 +21,9 @@ from src.bg_core.effects import (
     TransformIntoShopMinionEffect,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
+    BuffMatching,
+    BuffTarget,
     BuffAllShopOffersEffect,
-    BuffAllWithKeyword,
     BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
@@ -55,6 +54,7 @@ from src.bg_core.effects import (
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
     apply_buff_self_per_count,
+    buff_matching_hits,
     count_friendly_tribe,
     count_golden_friendlies,
     count_unique_tribes,
@@ -216,32 +216,14 @@ class ShopTriggers:
             target.bonus_attack += effect.attack
             target.bonus_health += effect.health
 
-    def apply_buff_all_other_tribe(
+    def apply_buff_matching(
         self,
         player: PlayerState,
         source: Minion,
-        effect: BuffAllOtherOfTribe,
+        effect: BuffMatching,
     ) -> None:
         for m in player.board:
-            if m is source or not self.minion_matches_tribe(m, effect.tribe):
-                continue
-            m.bonus_attack += effect.attack
-            m.bonus_health += effect.health
-
-    def apply_buff_all_friendly_tribe(
-        self, player: PlayerState, effect: BuffAllFriendlyOfTribe
-    ) -> None:
-        for m in player.board:
-            if not self.minion_matches_tribe(m, effect.tribe):
-                continue
-            m.bonus_attack += effect.attack
-            m.bonus_health += effect.health
-
-    def apply_buff_all_keyword(
-        self, player: PlayerState, effect: BuffAllWithKeyword
-    ) -> None:
-        for m in player.board:
-            if effect.keyword not in m.all_keywords:
+            if not buff_matching_hits(effect, m, source):
                 continue
             m.bonus_attack += effect.attack
             m.bonus_health += effect.health
@@ -346,12 +328,8 @@ class ShopTriggers:
             source.bonus_health += (
                 player.hero_damage_taken_total * effect.health_per_damage
             )
-        elif isinstance(effect, BuffAllOtherOfTribe):
-            self.apply_buff_all_other_tribe(player, source, effect)
-        elif isinstance(effect, BuffAllFriendlyOfTribe):
-            self.apply_buff_all_friendly_tribe(player, effect)
-        elif isinstance(effect, BuffAllWithKeyword):
-            self.apply_buff_all_keyword(player, effect)
+        elif isinstance(effect, BuffMatching):
+            self.apply_buff_matching(player, source, effect)
         elif isinstance(effect, GrantKeywordRandomFriendly):
             self.apply_grant_keyword_random(player, source, effect)
         elif isinstance(effect, SummonEffect):
@@ -613,7 +591,13 @@ class ShopTriggers:
                     pick.bonus_attack += atk
                     pick.bonus_health += hp
                     continue
-                if isinstance(eff, BuffAllFriendlyOfTribe):
+                # Gate is specific to the FRIENDLY_OF_TRIBE target — before the
+                # merge only ``BuffAllFriendlyOfTribe`` reached this branch, so
+                # widening it to every BuffMatching variant would change them.
+                if (
+                    isinstance(eff, BuffMatching)
+                    and eff.target is BuffTarget.FRIENDLY_OF_TRIBE
+                ):
                     if not self._has_battlecry(placed):
                         continue
                 if isinstance(eff, IncrementShopTribeBonusEffect):

@@ -14,10 +14,8 @@ from src.bg_core.effects import (
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
-    BuffAllFriendlyMinions,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
-    BuffAllWithKeyword,
+    BuffMatching,
+    BuffTarget,
     BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
@@ -232,7 +230,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "GVG_048": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllOtherOfTribe(Race.MECHANICAL, attack=2, health=0),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MECHANICAL, attack=2, health=0),
         ),
     ),
     "KAR_095": (
@@ -243,7 +241,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "OG_256": (Ability(Trigger.ON_DEATH, BuffAllFriendlyMinions(attack=1, health=1)),),
+    "OG_256": (Ability(Trigger.ON_DEATH, BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=1)),),
     "OG_221": (
         Ability(
             Trigger.ON_DEATH,
@@ -262,7 +260,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "CFM_610": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllFriendlyOfTribe(Race.DEMON, attack=1, health=1),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=1, health=1),
         ),
     ),
     "DS1_070": (
@@ -280,7 +278,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "EX1_103": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllOtherOfTribe(Race.MURLOC, attack=0, health=2),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=0, health=2),
         ),
     ),
     "GVG_055": (
@@ -334,7 +332,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_018": (
         Ability(
             Trigger.ON_DEATH,
-            BuffAllFriendlyOfTribe(Race.BEAST, attack=4, health=4),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=4, health=4),
         ),
     ),
     "BOT_537": (Ability(Trigger.ON_DEATH, SummonEffect(token_id="BOT_537t", count=1)),),
@@ -342,7 +340,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.ON_DEATH, SummonEffect(token_id="EX1_534t", count=2)),
     ),
     "ICC_807": (
-        Ability(Trigger.ON_PLACE, BuffAllWithKeyword(Keyword.TAUNT, attack=2, health=2)),
+        Ability(Trigger.ON_PLACE, BuffMatching(BuffTarget.FRIENDLY_WITH_KEYWORD, keyword=Keyword.TAUNT, attack=2, health=2)),
     ),
     "TRL_232": (Ability(Trigger.ON_OVERKILL, SummonEffect(token_id="TRL_232t", count=1)),),
     "UNG_010": (
