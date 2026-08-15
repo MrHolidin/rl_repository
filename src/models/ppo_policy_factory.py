@@ -47,6 +47,7 @@ PPO_NETWORK_BGLIKE_STRUCTURED_V10 = "bglike_structured_v10"
 PPO_NETWORK_BGLIKE_STRUCTURED_V11 = "bglike_structured_v11"
 PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES = "bglike_structured_v11_heroes"
 PPO_NETWORK_BGLIKE_STRUCTURED_V12 = "bglike_structured_v12"
+PPO_NETWORK_BGLIKE_STRUCTURED_V13 = "bglike_structured_v13"
 PPO_NETWORK_FLAT_MLP = "flat_mlp"
 
 
@@ -372,6 +373,18 @@ def build_ppo_actor_critic(
             use_card_emb=bool(use_card_emb),
             num_pool_indices=num_pool_indices,
         )
+    if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V13:
+        from src.envs.bglike.obs_v7_pref import OBS_DIM_V7_PREF as _BG_OBS_DIM_V7
+        from .bglike_structured_v13 import BGLikeStructuredV13
+
+        if len(observation_shape) != 1 or int(observation_shape[0]) != _BG_OBS_DIM_V7:
+            raise ValueError(
+                f"network_type {nt!r} requires observation_shape [{_BG_OBS_DIM_V7}]"
+            )
+        return BGLikeStructuredV13(
+            slot_hidden=int(slot_hidden_channels),
+            num_pool_indices=num_pool_indices,
+        )
     if nt == PPO_NETWORK_BGLIKE_STRUCTURED_V12:
         from src.envs.bglike.obs_v6_heroes import OBS_DIM_V6_HEROES as _BG_OBS_DIM_V6
         from .bglike_structured_v12 import BGLikeStructuredV12
@@ -616,6 +629,26 @@ def _restore_structured_v12(
     return BGLikeStructuredV12(**kw)
 
 
+def _restore_structured_v13(
+    obs_shape: Tuple[int, ...], num_actions: int, kw: Dict[str, Any]
+) -> nn.Module:
+    from .bglike_structured_v13 import BGLikeStructuredV13
+
+    if not kw.get("num_pool_indices"):
+        raise ValueError("num_pool_indices is required to restore structured_v13 checkpoint")
+    return BGLikeStructuredV13(**kw)
+
+
+def _register_v13_lazy() -> None:
+    from .bglike_structured_v13 import BGLikeStructuredV13
+
+    register_ppo_network(
+        PPO_NETWORK_BGLIKE_STRUCTURED_V13,
+        BGLikeStructuredV13,
+        restore=_restore_structured_v13,
+    )
+
+
 def _register_v12_lazy() -> None:
     from .bglike_structured_v12 import BGLikeStructuredV12
 
@@ -799,6 +832,7 @@ _register_v10_lazy()
 _register_v11_lazy()
 _register_v11_heroes_lazy()
 _register_v12_lazy()
+_register_v13_lazy()
 
 
 __all__ = [

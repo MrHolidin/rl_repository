@@ -141,6 +141,16 @@ class PlayerState:
     # "≥4 of a tribe" lock indicator. Empty dict until first combat; frozen at
     # elimination so dead opponents still expose their final composition.
     last_round_tribe_counts: Dict[Race, int] = field(default_factory=dict)
+    # Cumulative count of minions this seat has BOUGHT, keyed by tribe. Pure
+    # bookkeeping for the tribe-preference shaping: the trainer pays on the
+    # delta, and a purchase is not otherwise recoverable from state (a bought
+    # minion may be played, tripled or sold before anything reads the board).
+    # Race.ALL is counted under ALL; a tribeless minion under None.
+    bought_tribe_counts: Dict[Optional[Race], int] = field(default_factory=dict)
+    # Per-seat tribe-preference vector, one component per tribe, drawn once at
+    # game start. Read by the observation and by the shaping term; never
+    # mutated during play.
+    tribe_pref: Tuple[float, ...] = ()
     # Snapshots of own + opp boards for this seat's most recent combat, in
     # own/opp orientation. Populated by ``resolve_combat_round``. The auxiliary
     # battle-prediction head consumes ``[0]`` (initial pre-combat snapshot);
@@ -173,7 +183,9 @@ def apply_hero_damage(player: PlayerState, damage: int) -> None:
 
 # Fields whose value is a mutable container: a copy must clone them, or two
 # states would share a list and mutating one would rewrite the other.
-_CONTAINER_FIELDS = frozenset({"board", "shop", "hand", "last_round_tribe_counts"})
+_CONTAINER_FIELDS = frozenset(
+    {"board", "shop", "hand", "last_round_tribe_counts", "bought_tribe_counts"}
+)
 
 # Fields the copy rebuilds rather than carries: the pending-placement pair
 # points AT board minions, so it has to be re-aimed at the clones.
@@ -233,6 +245,7 @@ def copy_player_state(p: PlayerState) -> PlayerState:
         # the generic copy.copy() dispatches correctly for both.
         "hand": [_shallow_copy(m) if m is not None else None for m in p.hand],
         "last_round_tribe_counts": dict(p.last_round_tribe_counts),
+        "bought_tribe_counts": dict(p.bought_tribe_counts),
         "pending_choice": (
             PendingChoice(
                 pc.kind,

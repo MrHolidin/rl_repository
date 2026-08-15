@@ -377,6 +377,16 @@ class BGLikeStructuredV11(nn.Module):
         nn.init.zeros_(self.critic_dist[-1].weight)
         nn.init.zeros_(self.critic_dist[-1].bias)
         self.register_buffer("placement_reward_vec", _placement_reward_vec())
+        # ---- Shaping critic ------------------------------------------------
+        # The placement head spans exactly the 8 placement rewards, so no amount
+        # of shaping can appear in its expectation. Without this second head the
+        # shaping half of the reward is never subtracted by a baseline and lands
+        # in the advantage at full size, scaling with steps-to-terminal rather
+        # than with the quality of the action. Zero-initialized: a run with no
+        # shaping is bit-identical to one without the head.
+        self.critic_shape = nn.Linear(self._state_summary_dim, 1)
+        nn.init.zeros_(self.critic_shape.weight)
+        nn.init.zeros_(self.critic_shape.bias)
 
         # ---- Action embedding + economy term + cross-attn ----------------
         self.type_emb = nn.Embedding(_NUM_STRUCT_TYPES, self.action_dim)
@@ -633,9 +643,17 @@ class BGLikeStructuredV11(nn.Module):
     def placement_logits(self, trunk: torch.Tensor) -> torch.Tensor:
         return self.critic_dist(trunk)
 
-    def value_from_trunk(self, trunk: torch.Tensor) -> torch.Tensor:
+    def placement_value(self, trunk: torch.Tensor) -> torch.Tensor:
+        """Expected placement reward — the part of V the CE head can express."""
         probs = torch.softmax(self.placement_logits(trunk), dim=-1)
         return (probs * self.placement_reward_vec).sum(dim=-1)
+
+    def shape_value(self, trunk: torch.Tensor) -> torch.Tensor:
+        """Expected remaining shaping reward; regressed, not CE-fitted."""
+        return self.critic_shape(trunk).squeeze(-1)
+
+    def value_from_trunk(self, trunk: torch.Tensor) -> torch.Tensor:
+        return self.placement_value(trunk) + self.shape_value(trunk)
 
     # ------------------------------------------------------------------
     # Action encoding (base + economy + cross-attn)

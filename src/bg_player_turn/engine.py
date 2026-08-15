@@ -185,6 +185,10 @@ class PlayerTurnEngine:
 
         if int(a.Action.BUY_SLOT_0) <= action_int < int(a.Action.BUY_SLOT_0) + a.MAX_SHOP_SLOTS:
             def _on_bought(m, p):
+                # Bookkeeping only (tribe-preference shaping reads the delta):
+                # fires on the buyer, before any trigger can move the card.
+                race = getattr(m, "race", None)
+                p.bought_tribe_counts[race] = p.bought_tribe_counts.get(race, 0) + 1
                 ctx.triggers.fire_on_buy(m, p)
                 hero_passives.apply_hero_on_bought(m, p)  # Kael'thas / Rat King
 

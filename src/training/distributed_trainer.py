@@ -101,6 +101,9 @@ class _PoolStatusAdapter:
     def get_status_file_data(self) -> Dict[str, Any]:
         return self._league.get_status_file_data()
 
+    def get_full_pool_data(self) -> Dict[str, Any]:
+        return self._league.get_full_pool_data()
+
 
 class _DistributedOpponentSamplerAdapter:
     """Makes DistributedTrainer.opponent_sampler compatible with CheckpointCallback / StatusFileCallback."""
@@ -550,7 +553,7 @@ def _load_dist_agent(
     deepcopy) stays compiled and correct.
     """
     patch_build = mg.get("patch_build")
-    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12"):
+    if mg.get("dvd_network_type") in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12", "bglike_structured_v13"):
         from src.agents.ppo_dvd_agent import PPODvDAgent
 
         agent = PPODvDAgent.load(
@@ -739,7 +742,7 @@ def _collect_until_steps_flat(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12", "bglike_structured_v13")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )
@@ -875,7 +878,7 @@ def _collect_until_steps_structured(
             ppo_opponent=ppo_opponent,
             learner_agent=agent
             if mg.get("dvd_network_type")
-            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12")
+            in ("bglike_structured_v7", "bglike_structured_v8", "bglike_structured_v9", "bglike_structured_v10", "bglike_structured_v11", "bglike_structured_v11_heroes", "bglike_structured_v12", "bglike_structured_v13")
             else None,
             dvd_num_identities=int(mg.get("dvd_num_identities", 0)),
         )

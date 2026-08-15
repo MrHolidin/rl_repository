@@ -18,14 +18,17 @@ def apply_bg_observation_defaults(
     For bglike, ``obs_kind`` picks the layout: the default obs, ``"bglike_v5"``
     (per-ability-token superset), ``"bglike_v5_heroes"`` (+ hero block), or
     ``"bglike_v6_heroes"`` (base + hero block, ability tail dropped — v12 reads
-    card facts from a frozen table instead of the observation).
+    card facts from a frozen table instead of the observation), or
+    ``"bglike_v7_pref"`` (v6 + the seat's own tribe-preference vector — v13).
     """
     gid = (game_id or "").strip().lower()
     if gid not in _BG_GAME_IDS:
         return
     if gid == "bglike":
         kind = (obs_kind or "bglike").strip().lower()
-        if kind == "bglike_v6_heroes":
+        if kind == "bglike_v7_pref":
+            from src.envs.bglike.obs_v7_pref import OBS_DIM_V7_PREF as OBS_DIM
+        elif kind == "bglike_v6_heroes":
             from src.envs.bglike.obs_v6_heroes import OBS_DIM_V6_HEROES as OBS_DIM
         elif kind == "bglike_v5_heroes":
             from src.envs.bglike.obs_v5_heroes import OBS_DIM_V5_HEROES as OBS_DIM

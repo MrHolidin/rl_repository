@@ -86,6 +86,13 @@ GROUP_COLUMNS: Dict[str, Tuple[str, ...]] = {
         "alive_baseline_ev",
         "ev_vs_alive_baseline",
         "alive_mean",
+        # Shaping half of the reward: what the second value head fits, and how
+        # much of it the policy actually collects. `shaping_per_game` is the
+        # one to read against |placement reward| <= 1.
+        "shape_value_loss",
+        "shaping_per_game",
+        "shaping_step_mean",
+        "shaping_frac_of_return",
     ),
     # Rollout / replay bookkeeping.
     "rollout": (

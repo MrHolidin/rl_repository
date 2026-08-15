@@ -14,9 +14,11 @@ from src.agents.base_agent import BaseAgent
 from src.envs.base import StepResult
 from src.envs.bglike.action_map import NUM_ENV_ACTIONS
 from src.envs.bglike.actions import NUM_PLAYERS
+from src.envs.bglike.board_shaping import parse_minions_shaping
 from src.envs.bglike.obs import OBS_DIM
 from src.envs.bglike.lobby_env import BGLobbyMultiCurrentEnv, make_bglike_training_env
 from src.envs.bglike.placement import placement_reward
+from src.envs.bglike.tribe_pref import pref_reward_for_counts, pref_stack_reward, pref_value
 from src.training.selfplay.game_record import (
     GameRecord,
     game_record_for_lobby_end,
@@ -61,6 +63,34 @@ def submit_game_records_to_sampler(
             pool.submit(record)  # type: ignore[operator]
 
 
+def _assert_minion_names_in_patch(base_env: Any, bonuses: Dict[str, float]) -> None:
+    """Fail loudly on a display name the patch does not contain.
+
+    A misspelled name pays nothing and reads exactly like "the shaping did
+    nothing", which is the hypothesis the run is testing. Same rule as
+    ``parse_tier_milestones``: an unusable spec is an error, not a silent zero.
+    """
+    # The lobby is built lazily on reset, so at construction time the patch is
+    # only reachable through the dir the env was configured with (the loader is
+    # lru_cached, so this costs nothing per worker).
+    known: set = set()
+    try:
+        known = {str(t.name) for t in base_env.lobby._game._patch.templates.values()}
+    except (AttributeError, AssertionError):
+        patch_dir = getattr(base_env, "_patch_dir", None)
+        if patch_dir is None:
+            return  # test fixtures without a real lobby: nothing to check against
+        from src.bg_catalog.patch_context import load_patch_context
+
+        known = {str(t.name) for t in load_patch_context(str(patch_dir)).templates.values()}
+    unknown = sorted(n for n in bonuses if n not in known)
+    if unknown:
+        raise ValueError(
+            f"minion_play_shaping names not in this patch: {unknown}. "
+            "Use the card's display name, e.g. 'Nomi, Kitchen Nightmare'."
+        )
+
+
 def parse_tier_milestones(raw: Any) -> Dict[int, Tuple[float, int]]:
     """YAML ``{5: {base: 0.2, target_round: 8}, ...}`` -> ``{5: (0.2, 8)}``.
 
@@ -102,6 +132,9 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         tier_milestone_decay: float = 0.8,
         elemental_shop_bonus_shaping: float = 0.0,
         elemental_shop_bonus_cap: int = 10,
+        minion_play_shaping: Optional[Any] = None,
+        tribe_pref_shaping: float = 0.0,
+        tribe_pref_board_shaping: float = 0.0,
     ) -> None:
         super().__init__(
             base_env,
@@ -137,6 +170,24 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._elem_bonus_cap = int(elemental_shop_bonus_cap)
         self._elem_bonus_seen: Dict[int, int] = {}
         self._elem_bonus_paid: Dict[int, int] = {}
+        # Play shaping: {minion display name: bonus}, paid once per copy the
+        # acting seat puts on its board. Not potential-based — same caveat as
+        # the two above.
+        self._play_shaping: Dict[str, float] = parse_minions_shaping(
+            minion_play_shaping
+        )
+        self._play_paid: Dict[int, Dict[str, int]] = {}
+        # Tribe-preference shaping: coef * v[tribe] per bought minion, where v
+        # is the seat's own vector drawn by the game at start. Not
+        # potential-based either — same caveat as the terms above.
+        self._tribe_pref_coef = float(tribe_pref_shaping or 0.0)
+        self._tribe_pref_seen: Dict[int, Dict[Any, int]] = {}
+        # Per-round board form of the same preference: paid for what stands at
+        # the end of every round, not for the act of buying.
+        self._tribe_pref_board_coef = float(tribe_pref_board_shaping or 0.0)
+        self._tribe_pref_round_paid: Dict[int, int] = {}
+        if self._play_shaping:
+            _assert_minion_names_in_patch(base_env, self._play_shaping)
 
     @property
     def supports_seat_segments(self) -> bool:
@@ -411,10 +462,148 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._elem_bonus_paid[seat] = paid + creditable
         return coef * float(creditable)
 
+    def _minion_play_reward(self, info: Dict[str, Any]) -> float:
+        """Pay once for each copy of a configured minion the acting seat PLAYS.
+
+        Board only: buying is not the step that matters. Paying on ownership
+        instead bought a card that then sat in hand — 23 of 26 seat-games at 3M
+        held Nomi without ever putting it down, and a Nomi in hand triggers
+        nothing. Counting board copies rather than intercepting the PLAY action
+        keeps the credit robust to the route (played, tripled, summoned), the
+        same rule the tier milestones use. The paid count is a high-water mark
+        per seat, so selling and replaying the same minion cannot farm it.
+        """
+        # getattr for the same reason as the other two shaping terms: an env
+        # built without __init__ (test fixtures) reads as "shaping disabled".
+        bonuses = getattr(self, "_play_shaping", None)
+        if not bonuses:
+            return 0.0
+        seat = info.get("acting_seat")
+        if seat is None:
+            return 0.0
+        seat = int(seat)
+        state = getattr(self._bg_base, "state", None)
+        if state is None:
+            return 0.0
+        try:
+            player = state.players[seat]
+        except (IndexError, AttributeError):
+            return 0.0
+        owned: Dict[str, int] = {}
+        for card in player.board:
+            name = getattr(card, "name", None)
+            if name in bonuses:
+                owned[name] = owned.get(name, 0) + 1
+        if not owned:
+            return 0.0
+        paid = self._play_paid.setdefault(seat, {})
+        total = 0.0
+        for name, count in owned.items():
+            new_copies = count - paid.get(name, 0)
+            if new_copies <= 0:
+                continue
+            paid[name] = count
+            total += float(bonuses[name]) * new_copies
+        return total
+
+    def _tribe_pref_reward(self, info: Dict[str, Any]) -> float:
+        """Pay ``coef * v[tribe]`` for every minion the acting seat has bought.
+
+        Reads the engine's cumulative per-tribe purchase counter and pays on the
+        delta, so a purchase is credited exactly once however the card is used
+        afterwards — played, tripled, or sold the same turn. Half the vector is
+        negative by construction, so this is a preference, not a buy-more bonus.
+        """
+        # getattr for the same reason as the other shaping terms: an env built
+        # without __init__ (test fixtures) reads as "shaping disabled".
+        coef = float(getattr(self, "_tribe_pref_coef", 0.0) or 0.0)
+        if not coef:
+            return 0.0
+        seat = info.get("acting_seat")
+        if seat is None:
+            return 0.0
+        seat = int(seat)
+        state = getattr(self._bg_base, "state", None)
+        if state is None:
+            return 0.0
+        try:
+            player = state.players[seat]
+        except (IndexError, AttributeError):
+            return 0.0
+        pref = getattr(player, "tribe_pref", ()) or ()
+        if not pref:
+            return 0.0
+        counts = dict(getattr(player, "bought_tribe_counts", {}) or {})
+        seen = self._tribe_pref_seen.setdefault(seat, {})
+        delta = {
+            race: n - seen.get(race, 0)
+            for race, n in counts.items()
+            if n - seen.get(race, 0) > 0
+        }
+        if not delta:
+            return 0.0
+        self._tribe_pref_seen[seat] = counts
+        return coef * pref_reward_for_counts(pref, delta)
+
+    def _tribe_pref_board_reward(self, info: Dict[str, Any]) -> float:
+        """Pay per round for the tribe composition standing at the round's end.
+
+        Score is ``sum_x min(5, n_x) ** 1.5 * v[x]`` over tribes, so the reward
+        is superlinear in how concentrated the board is: three of one tribe pay
+        5.20 where three separate tribes pay 3.00. The per-purchase form paid
+        once and then stopped caring (a seat could collect and immediately
+        sell); this pays for what is actually kept, every round it is kept.
+
+        Accrual is keyed on (seat, round) and checked on EVERY step, not on
+        ``combat_advanced``: a seat does not necessarily act on the step that
+        carries the combat flag, and binding to it paid only 4/6/3/1 of a
+        15-round lobby's rounds — a quarter of the intended coefficient, with
+        the rest silently skipped. Paying on the seat's first step of a new
+        round instead credits exactly the board it finished the previous round
+        with (combat does not alter the board) and fires once per round.
+
+        The seat's last round is not paid: the lobby ends or the seat is
+        eliminated before it acts again. One round in ~19.
+        """
+        coef = float(getattr(self, "_tribe_pref_board_coef", 0.0) or 0.0)
+        if not coef:
+            return 0.0
+        seat = info.get("acting_seat")
+        if seat is None:
+            return 0.0
+        seat = int(seat)
+        state = getattr(self._bg_base, "state", None)
+        if state is None:
+            return 0.0
+        rnd = int(getattr(state, "round_number", 0))
+        paid = getattr(self, "_tribe_pref_round_paid", None)
+        if paid is None:
+            return 0.0
+        if paid.get(seat) == rnd:
+            return 0.0
+        paid[seat] = rnd
+        try:
+            player = state.players[seat]
+        except (IndexError, AttributeError):
+            return 0.0
+        pref = getattr(player, "tribe_pref", ()) or ()
+        if not pref:
+            return 0.0
+        counts: Dict[Any, int] = {}
+        for minion in player.board:
+            if minion is None:
+                continue
+            race = getattr(minion, "race", None)
+            counts[race] = counts.get(race, 0) + 1
+        return coef * pref_stack_reward(pref, counts)
+
     def _reward_in_agent_perspective(self, step, agent_acted: bool) -> float:
         info = step.info if isinstance(step.info, dict) else {}
         reward = self._tier_milestone_reward(info)
         reward += self._elemental_bonus_reward(info)
+        reward += self._minion_play_reward(info)
+        reward += self._tribe_pref_reward(info)
+        reward += self._tribe_pref_board_reward(info)
         if info.get("combat_advanced"):
             reward += self._battle_shaping_for_acting_seat(info)
         return reward
@@ -428,6 +617,9 @@ class BGLikeAgentPerspectiveEnv(AgentPerspectiveEnv):
         self._tier_paid = {}
         self._elem_bonus_seen = {}
         self._elem_bonus_paid = {}
+        self._play_paid = {}
+        self._tribe_pref_seen = {}
+        self._tribe_pref_round_paid = {}
         learner = self._learner
         if learner is not None:
             hook = getattr(learner, "on_episode_boundary", None)
@@ -465,6 +657,9 @@ def make_bglike_agent_perspective_env(
     tier_milestone_decay: float = 0.8,
     elemental_shop_bonus_shaping: float = 0.0,
     elemental_shop_bonus_cap: int = 10,
+    minion_play_shaping: Optional[Any] = None,
+    tribe_pref_shaping: float = 0.0,
+    tribe_pref_board_shaping: float = 0.0,
     **lobby_kwargs: Any,
 ) -> BGLikeAgentPerspectiveEnv:
     # ``percent_high_game`` and the tier-milestone knobs are consumed by the
@@ -488,6 +683,9 @@ def make_bglike_agent_perspective_env(
         tier_milestone_decay=tier_milestone_decay,
         elemental_shop_bonus_shaping=elemental_shop_bonus_shaping,
         elemental_shop_bonus_cap=elemental_shop_bonus_cap,
+        minion_play_shaping=minion_play_shaping,
+        tribe_pref_shaping=tribe_pref_shaping,
+        tribe_pref_board_shaping=tribe_pref_board_shaping,
     )
 
 

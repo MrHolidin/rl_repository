@@ -27,6 +27,7 @@ from src.bg_catalog.cards import (
 from src.bg_catalog.patch_context import PatchContext, load_patch_context
 
 from . import actions as bglike_actions
+from .tribe_pref import draw_tribe_pref
 from .state import (
     BGLikeState,
     Minion,
@@ -60,6 +61,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         shop_full_tribes: bool = False,
         high_mode: bool = False,
         with_heroes: bool = False,
+        with_tribe_pref: bool = False,
         patch: Optional[PatchContext] = None,
         patch_dir: Optional[str] = None,
     ) -> None:
@@ -68,6 +70,10 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         # When set, each seat is assigned a random hero (passive power) at game
         # start. Off ⇒ classic no-hero seats (obs/actions unchanged).
         self._with_heroes = bool(with_heroes)
+        # When set, each seat draws a tribe-preference vector at game start.
+        # Off ⇒ every seat carries an empty vector, which every consumer reads
+        # as "no preference" (obs block absent, shaping term zero).
+        self._with_tribe_pref = bool(with_tribe_pref)
         # Deterministic flag: when set, ``initial_state`` builds a "high mode"
         # start (all players at tier 5 / 10 gold / round 8 with a random tier-5
         # + tier-6 board). The *decision* of which games are high mode belongs
@@ -309,6 +315,16 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             refresh_shop_fill_empty_slots=refresh_fill,
         )
 
+    def _assign_tribe_pref(self, player: PlayerState) -> None:
+        """Draw this seat's tribe-preference vector, once, at construction.
+
+        Drawn from the game RNG so a seeded game reproduces its preferences
+        along with everything else.
+        """
+        if not self._with_tribe_pref:
+            return
+        player.tribe_pref = draw_tribe_pref(self._rng)
+
     def _fresh_player(
         self,
         round_number: int,
@@ -332,6 +348,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             placed_minion_board_index=None,
             placed_minion_pending_after=None,
         )
+        self._assign_tribe_pref(player)
         if self._with_heroes:
             # Assign before the opening shop fill so Millificent/Ysera shape it.
             hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
@@ -409,6 +426,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             placed_minion_board_index=None,
             placed_minion_pending_after=None,
         )
+        self._assign_tribe_pref(player)
         if self._with_heroes:
             hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
         for seed_tier in (5, 6):

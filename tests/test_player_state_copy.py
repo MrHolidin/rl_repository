@@ -48,6 +48,10 @@ def _distinct_value(f: dataclasses.Field, patch):
         return [patch.make_minion("EX1_103"), None]
     if name == "last_round_tribe_counts":
         return {Race.MURLOC: 4}
+    if name == "bought_tribe_counts":
+        return {Race.MURLOC: 2, None: 1}
+    if name == "tribe_pref":
+        return (0.25, -0.5, 0.75, -1.0, 0.0, 0.125, -0.875)
     if name == "last_opponent_board":
         return (patch.make_minion("EX1_103"),)
     if name == "last_battle_snapshots":

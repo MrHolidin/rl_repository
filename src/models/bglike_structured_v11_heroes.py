@@ -96,6 +96,9 @@ class BGLikeStructuredV11Heroes(BGLikeStructuredV11):
         )
         nn.init.zeros_(self.critic_dist[-1].weight)
         nn.init.zeros_(self.critic_dist[-1].bias)
+        self.critic_shape = nn.Linear(self._state_summary_dim, 1)
+        nn.init.zeros_(self.critic_shape.weight)
+        nn.init.zeros_(self.critic_shape.bias)
 
     def get_constructor_kwargs(self) -> Dict[str, Any]:
         kw = super().get_constructor_kwargs()
