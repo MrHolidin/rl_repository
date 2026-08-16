@@ -284,6 +284,17 @@ assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS, (
     f"NUM_EFFECT_CHANNELS={NUM_EFFECT_CHANNELS}"
 )
 
+# Effects the engine implements and this observation vocabulary deliberately
+# does not encode. They read as the unknown id 0 in the ability tokens.
+#
+# The registry below is frozen because it sizes the embedding tables of every
+# v5-family network: appending to it invalidates existing checkpoints. Engine
+# work supporting a newer patch must therefore be able to add an effect without
+# touching it — that is what this set is for. Registering one properly is an
+# RL-side decision, taken together with a retrain, and moving a name out of here
+# into _EFFECT_CLASSES is exactly that decision.
+UNENCODED_EFFECTS: frozenset[str] = frozenset({"AvengeEffect"})
+
 # An entry is either a bare effect class (one class → one id, the common case)
 # or ``(class, discriminator)`` for a composed effect whose variants must keep
 # the distinct ids their pre-merge classes had. ``effect_signature`` turns an
@@ -339,7 +350,7 @@ def _assert_effect_registry_complete() -> None:
 
     import src.bg_core.effects as _effects_mod
 
-    _non_effect_dataclasses = {"Condition", "Ability"}
+    _non_effect_dataclasses = {"Condition", "Ability"} | set(UNENCODED_EFFECTS)
     # A composed effect is registered as ``(class, variant)`` entries; the class
     # counts as known once any of its variants is present. Whether *every*
     # variant is registered is checked separately below.

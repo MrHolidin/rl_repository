@@ -44,6 +44,7 @@ from src.envs.minibg.obs import (
     NUM_TRIGGER_CHANNELS,
     RACE_ONEHOT_DIM,
     TRIGGER_INDEX,
+    UNENCODED_EFFECTS,
     _RACE_ORDER,
     effect_signature,
 )
@@ -101,11 +102,20 @@ ABIL_OFF_SUMMON_TOKEN = 14  # dense card idx of the summoned token (card vocab)
 
 # Vocab sizes (incl. the padding/none id at index 0). +1 because the
 # in-obs id is stored as ``raw_index + 1`` so 0 stays free for padding.
+#
+# These size the embedding tables of every v5-family network, so they are part
+# of what a trained checkpoint is wired to — growing one silently invalidates
+# every checkpoint that has it. That is why NUM_KEYWORD_IDS is a literal rather
+# than ``len(Keyword) + 1``: the engine gains keywords as new patches are
+# supported (Venomous, and more to come), and an engine addition must not
+# resize a network. Anything past the frozen vocabulary encodes as the unknown
+# id 0; teaching the model to see it is an RL-side decision, made together with
+# a retrain.
 NUM_EFFECT_IDS = NUM_EFFECT_CHANNELS + 1
 NUM_TRIGGER_IDS = NUM_TRIGGER_CHANNELS + 1
 NUM_CONDITION_KIND_IDS = len(ConditionKind) + 1
 NUM_RACE_IDS = RACE_ONEHOT_DIM + 1  # _RACE_ORDER already includes None at 0
-NUM_KEYWORD_IDS = len(Keyword) + 1  # Keyword.value is 1..N (auto()), 0 = pad
+NUM_KEYWORD_IDS = 9  # TAUNT..REBORN (Keyword.value 1..8), 0 = pad
 
 # Region token counts (kept aligned with the structured net layout)
 _REGION_TOKEN_COUNTS = {
@@ -162,9 +172,12 @@ def _effect_id(effect_obj) -> int:
     guard in ``minibg.obs``."""
     idx = EFFECT_INDEX.get(effect_signature(effect_obj))
     if idx is None:
+        if type(effect_obj).__name__ in UNENCODED_EFFECTS:
+            return 0  # deliberately outside the frozen vocabulary
         raise KeyError(
             f"effect {type(effect_obj).__name__} not in EFFECT_INDEX; "
-            "add it to _EFFECT_CLASSES (minibg.obs)."
+            "add it to _EFFECT_CLASSES (minibg.obs), or to UNENCODED_EFFECTS "
+            "if the engine should support it without a retrain."
         )
     return idx + 1
 
@@ -185,13 +198,20 @@ def _condition_kind_id(kind: Optional[ConditionKind]) -> int:
 
 
 def _keyword_id(kw: Optional[Keyword]) -> int:
-    """``Keyword.value`` (auto() → 1..N) or 0 if absent. 0 = pad."""
+    """``Keyword.value`` (auto() → 1..N) or 0 if absent. 0 = pad.
+
+    A keyword past the frozen vocabulary (see ``NUM_KEYWORD_IDS``) also reads as
+    0: the engine supports it, this observation layout does not encode it. That
+    is a deliberate blind spot, not a bug — the alternative is resizing every
+    v5-family checkpoint's embedding table whenever the engine learns a keyword.
+    """
     if kw is None:
         return 0
     try:
-        return int(kw.value)
+        value = int(kw.value)
     except (TypeError, ValueError):
         return 0
+    return value if value < NUM_KEYWORD_IDS else 0
 
 
 # Effect-level race/tribe is stored under different attribute names across the

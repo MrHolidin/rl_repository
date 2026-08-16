@@ -14,6 +14,9 @@ class Keyword(Enum):
     CHARGE = auto()
     MAGNETIC = auto()
     REBORN = auto()
+    #: Poisonous that is used up by the kill it makes (modern builds print this
+    #: where older ones printed Poisonous). Appended, never inserted — see Race.
+    VENOMOUS = auto()
 
 
 class Trigger(Enum):
@@ -731,6 +734,24 @@ Effect = Union[
 
 
 @dataclass(frozen=True)
+class AvengeEffect:
+    """Avenge (N): fire ``effect`` once every ``count`` friendly deaths.
+
+    Carried by an ``Ability`` on ``Trigger.ON_FRIENDLY_MINION_DIED`` rather than
+    a trigger of its own: Avenge *is* that trigger with a counter in front of
+    it, and a new trigger id would resize the ability vocabulary every trained
+    network embeds (see ``NUM_TRIGGER_IDS``).
+
+    The count is per minion and lives on the combat copy, so it resets between
+    combats — a board that loses two minions each fight never accumulates its
+    way to an Avenge (3).
+    """
+
+    count: int
+    effect: Any
+
+
+@dataclass(frozen=True)
 class Ability:
     trigger: Trigger
     effect: Effect
@@ -747,6 +768,7 @@ __all__ = [
     "Trigger",
     "ConditionKind",
     "Condition",
+    "AvengeEffect",
     "SummonEffect",
     "SummonRandomMinionEffect",
     "BuffRandomFriendly",

@@ -34,6 +34,8 @@ def battle_copy(minion: Minion, instance_id: int) -> Minion:
     bm.has_shield = minion.has_shield and Keyword.SHIELD in minion.all_keywords
     bm.deathrattle_fired = False
     bm.reborn_consumed = False
+    bm.venom_spent = False
+    bm.avenge_progress = 0
     bm.aura_health = 0
     bm.death_pos = -1
     bm.death_announced = False

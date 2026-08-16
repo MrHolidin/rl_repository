@@ -81,6 +81,24 @@ def _slot_layout() -> Dict[str, Any]:
     }
 
 
+def _ability_token_vocabularies() -> Dict[str, Any]:
+    """Id-space sizes of the v5 ability tokens.
+
+    These size embedding tables inside the networks rather than the observation
+    vector, so they do not show up in any width — and an engine change that grew
+    one (``len(Keyword) + 1`` did exactly that) would invalidate every v5-family
+    checkpoint without moving a single number the rest of this snapshot pins.
+    """
+    return {
+        "NUM_EFFECT_IDS": int(obs_v5.NUM_EFFECT_IDS),
+        "NUM_TRIGGER_IDS": int(obs_v5.NUM_TRIGGER_IDS),
+        "NUM_CONDITION_KIND_IDS": int(obs_v5.NUM_CONDITION_KIND_IDS),
+        "NUM_RACE_IDS": int(obs_v5.NUM_RACE_IDS),
+        "NUM_KEYWORD_IDS": int(obs_v5.NUM_KEYWORD_IDS),
+        "unencoded_effects": sorted(minibg_obs.UNENCODED_EFFECTS),
+    }
+
+
 def _vocabularies() -> Dict[str, Any]:
     """Race / tier vocabularies — the first things a modern package widens."""
     return {
@@ -196,6 +214,7 @@ def build_snapshot() -> Dict[str, Any]:
     return {
         "slot_layout": _slot_layout(),
         "vocabularies": _vocabularies(),
+        "ability_token_vocabularies": _ability_token_vocabularies(),
         "action_layout": _action_layout(),
         "obs_dims": _obs_dims(),
         "packages": {p.name: _package_snapshot(p) for p in _packages()},

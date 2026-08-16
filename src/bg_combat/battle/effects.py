@@ -15,6 +15,7 @@ from typing import Any, List, Optional, Tuple
 from src.bg_catalog.cards import make_minion
 from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
+    AvengeEffect,
     BuffMatching,
     BuffTarget,
     BuffAdjacentOnAttackedEffect,
@@ -109,10 +110,21 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
         return
 
     hp_before = vic.current_health
-    poison = att is not None and Keyword.POISONOUS in att.all_keywords
+    att_kw = att.all_keywords if att is not None else frozenset()
+    # Venomous is Poisonous that the kill uses up. It is checked *after* the
+    # Divine Shield branch above returned, so a hit the shield ate does not
+    # spend it — the same rule that keeps Poisonous from being wasted on a
+    # shielded body.
+    poison = Keyword.POISONOUS in att_kw
+    venom = (
+        att is not None and not att.venom_spent and Keyword.VENOMOUS in att_kw
+    )
     vic.damage_taken += strike.amount
-    if poison:
+    if poison or venom:
         vic.damage_taken = vic.max_health + vic.aura_health
+        if venom:
+            att.venom_spent = True
+    poison = poison or venom
     lost = max(0, hp_before - max(vic.current_health, 0))
     trailing: List[BattleEvent] = [
         DamageDealt(
@@ -458,25 +470,44 @@ def _deal_excess_to_adjacent(
         _deal_damage_to_battle_minion(rt, victim_side_idx, target, amount)
 
 
+def _apply_friendly_death_effect(
+    rt: _CombatRuntime, listener: BattleMinion, eff, dead: BattleMinion, side_idx: int
+) -> None:
+    if isinstance(eff, BuffSelf):
+        listener.bonus_attack += eff.attack
+        listener.bonus_health += eff.health
+    elif isinstance(eff, DealDamageRandomEnemyMinion):
+        for _ in range(max(1, eff.repeats)):
+            _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
+    elif isinstance(eff, BuffDeadMinionNeighborsEffect):
+        _buff_neighbors_of_dead(
+            rt,
+            side_idx,
+            dead,
+            attack=eff.attack,
+            health=eff.health,
+        )
+    else:
+        raise NotImplementedError(
+            f"friendly-death listener {listener.card_id} carries an effect this "
+            f"trigger does not handle: {type(eff).__name__}"
+        )
+
+
 def _fire_friendly_minion_died_listeners(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int
 ) -> None:
     side = rt.side(side_idx)
     for listener, eff in side.listeners(Trigger.ON_FRIENDLY_MINION_DIED, dead):
-        if isinstance(eff, BuffSelf):
-            listener.bonus_attack += eff.attack
-            listener.bonus_health += eff.health
-        elif isinstance(eff, DealDamageRandomEnemyMinion):
-            for _ in range(max(1, eff.repeats)):
-                _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
-        elif isinstance(eff, BuffDeadMinionNeighborsEffect):
-            _buff_neighbors_of_dead(
-                rt,
-                side_idx,
-                dead,
-                attack=eff.attack,
-                health=eff.health,
-            )
+        if isinstance(eff, AvengeEffect):
+            # Count this death; fire and rearm only when the count is reached.
+            listener.avenge_progress += 1
+            if listener.avenge_progress < max(1, eff.count):
+                continue
+            listener.avenge_progress = 0
+            _apply_friendly_death_effect(rt, listener, eff.effect, dead, side_idx)
+            continue
+        _apply_friendly_death_effect(rt, listener, eff, dead, side_idx)
     _sync_health_all(rt)
 
 

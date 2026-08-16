@@ -99,6 +99,45 @@ def test_shipped_package_cards_fit_their_layout(patch_dir):
 
 
 # --------------------------------------------------------------------------- #
+# Engine additions must not resize what a checkpoint is wired to.
+# --------------------------------------------------------------------------- #
+
+
+def test_a_new_keyword_does_not_resize_the_ability_vocabulary():
+    from src.bg_core.effects import Keyword
+    from src.envs.bglike.obs_v5 import NUM_KEYWORD_IDS, _keyword_id
+
+    assert len(Keyword) + 1 > NUM_KEYWORD_IDS, (
+        "the engine should know keywords this frozen vocabulary does not encode; "
+        "if it does not, this test has stopped testing anything"
+    )
+    assert _keyword_id(Keyword.VENOMOUS) == 0, "outside the vocabulary → unknown id"
+    assert _keyword_id(Keyword.REBORN) == int(Keyword.REBORN.value)
+
+
+def test_a_new_effect_does_not_resize_the_ability_vocabulary():
+    from src.bg_core.effects import AvengeEffect, BuffSelf
+    from src.envs.bglike.obs_v5 import _effect_id
+
+    assert _effect_id(AvengeEffect(count=2, effect=BuffSelf(attack=1, health=1))) == 0
+    assert _effect_id(BuffSelf(attack=1, health=1)) > 0
+
+
+def test_an_unregistered_effect_is_still_loud():
+    """The blind spot is opt-in: forgetting to register one must still fail."""
+    from dataclasses import dataclass
+
+    from src.envs.bglike.obs_v5 import _effect_id
+
+    @dataclass(frozen=True)
+    class NotRegisteredEffect:
+        amount: int = 1
+
+    with pytest.raises(KeyError, match="NotRegisteredEffect"):
+        _effect_id(NotRegisteredEffect())
+
+
+# --------------------------------------------------------------------------- #
 # Parsing.
 # --------------------------------------------------------------------------- #
 

@@ -93,6 +93,12 @@ class Minion:
     aura_health: int = 0
     deathrattle_fired: bool = False
     reborn_consumed: bool = False
+    #: Venomous has made its kill and is used up for the rest of this combat.
+    #: Like a popped Divine Shield, it lives on the combat copy only, so the
+    #: minion comes back venomous next combat.
+    venom_spent: bool = False
+    #: Friendly deaths seen since this minion's Avenge last fired (combat only).
+    avenge_progress: int = 0
     #: board slot this minion vacated when it died, so its deathrattle can
     #: summon there and Reborn can return there
     death_pos: int = -1

@@ -1,4 +1,14 @@
 {
+  "ability_token_vocabularies": {
+    "NUM_CONDITION_KIND_IDS": 3,
+    "NUM_EFFECT_IDS": 74,
+    "NUM_KEYWORD_IDS": 9,
+    "NUM_RACE_IDS": 10,
+    "NUM_TRIGGER_IDS": 23,
+    "unencoded_effects": [
+      "AvengeEffect"
+    ]
+  },
   "action_layout": {
     "A_APPLY_EFFECT_SKIP": 113,
     "A_SWAP_BOARD_0": 107,

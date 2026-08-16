@@ -25,6 +25,7 @@ _MECHANIC_KEYWORDS: dict[str, Keyword] = {
     "CHARGE": Keyword.CHARGE,
     "POISONOUS": Keyword.POISONOUS,
     "REBORN": Keyword.REBORN,
+    "VENOMOUS": Keyword.VENOMOUS,
 }
 
 # How each mechanic tag is printed in card text, for the self-grant check below.
