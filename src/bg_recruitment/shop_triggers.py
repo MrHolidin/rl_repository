@@ -28,6 +28,9 @@ from src.bg_core.effects import (
     BuffRandomUniqueTribeFriendlies,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
+    BuffTargetFriendlyBattlecry,
+    BuffTargetFromPiratesBoughtBattlecry,
+    ConsumeFriendlyBattlecry,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
@@ -71,6 +74,40 @@ from src.bg_recruitment.shop import (
     buff_shop_minions_of_tribe,
 )
 from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
+
+
+class UnhandledShopEffect(RuntimeError):
+    """An effect reached the shop dispatcher and nothing knew what to do with it.
+
+    This used to be a silent fall-through, which made "does nothing in the
+    tavern, by design" and "nobody ever implemented this" look identical from
+    the outside -- including to the card that quietly stopped working.
+    """
+
+
+#: Effects that legitimately reach ``apply_shop_effect`` and must do nothing
+#: there, because something upstream already applied them. Each entry is a
+#: claim that can be checked, which is the point of writing them down.
+_HANDLED_ELSEWHERE = (
+    # Battlecries needing a target the player picked: applied by
+    # bg_recruitment/targeted_battlecry.py off the placement action.
+    BuffAdjacentBattlecry,
+    BuffTargetFriendlyBattlecry,
+    BuffTargetFromPiratesBoughtBattlecry,
+    ConsumeFriendlyBattlecry,
+    # fire_on_place applies these itself and then skips them here: they read
+    # and write per-turn counters that Brann must not multiply.
+    PogoHopperBattlecry,
+    AdaptSelfRandomEffect,
+    # fire_after_friendly_minion_placed handles these before it delegates.
+    BuffSelfPerCount,
+    BuffSelfWhenFriendlyBattlecryPlaced,
+    BuffSelfWhenFriendlyDeathrattlePlaced,
+    BuffRandomFriendlyFromPlacedTierEffect,
+    # Open a discover rather than resolve: fire_on_place sets pending_choice.
+    AdaptAllMurlocsEffect,
+    DiscoverMurlocEffect,
+)
 
 
 class ShopTriggers:
@@ -282,6 +319,8 @@ class ShopTriggers:
         shop_excluded_race: Optional[Race] = None,
         shared_pool=None,
     ) -> None:
+        if isinstance(effect, _HANDLED_ELSEWHERE):
+            return
         if isinstance(effect, BuffRandomFriendly):
             self.apply_buff_random(source, effect, player.board)
         elif isinstance(effect, BuffOnePerListedTribeFriendly):
@@ -375,6 +414,12 @@ class ShopTriggers:
                 shop_excluded_race,
                 rng=self._rng,
                 patch=self._patch,
+            )
+        else:
+            raise UnhandledShopEffect(
+                f"{type(effect).__name__} reached the shop dispatcher with no "
+                f"handler and is not listed in _HANDLED_ELSEWHERE. Either give "
+                f"it a branch or say where it is handled instead."
             )
 
     @staticmethod
@@ -581,8 +626,6 @@ class ShopTriggers:
                 ):
                     if not self._has_battlecry(placed):
                         continue
-                if isinstance(eff, IncrementShopTribeBonusEffect):
-                    pass
                 self.apply_shop_effect(player, m, ab.effect, placed)
 
     def fire_on_turn_end(self, player: PlayerState) -> None:
