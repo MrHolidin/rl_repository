@@ -227,6 +227,12 @@ def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
         emax = bm.template.max_health + b
         if bm.current_health > emax:
             bm.current_health = emax
+        if bm.current_health < 0:
+            # Losing a health aura can be lethal (Mal'Ganis dies, a damaged
+            # Demon goes with it) -- that is the rule. Stopping at 0 is what
+            # damage already does; letting it run negative left the body in a
+            # state no other death path produces.
+            bm.current_health = 0
 
 
 def _sync_health_all(rt: _CombatRuntime) -> None:
@@ -239,6 +245,13 @@ def _sync_health_all(rt: _CombatRuntime) -> None:
             continue
         _sync_health_aura_side(rt.side(side_idx), dr)
         rt.health_aura_dirty[side_idx] = False
+        # An aura that shrank may have just killed someone with no damage
+        # dealt, so this is a death site too. Not while a death is being
+        # resolved: the board is mid-flight there (a deathrattle is placing
+        # tokens around the body it just left), and sweeping again would pull
+        # bodies out from under it.
+        if not dr:
+            rt.side(side_idx).reap_dead()
 
 
 def attack_with_auras(minion: BattleMinion, side: BattleSide) -> int:

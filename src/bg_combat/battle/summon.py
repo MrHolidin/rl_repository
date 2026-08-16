@@ -32,6 +32,7 @@ def _summon_insert(
         side.minions.append(bm)
     else:
         side.minions.insert(at_idx, bm)
+        side.shift_graveyard_slots(at_idx, +1)
         # Inserting at or before the pointer shifts it, so the minion whose
         # turn it was keeps its turn and the newcomer waits for the next pass.
         # The exception is a token filling a slot its previous occupant just

@@ -200,3 +200,50 @@ def test_token_between_living_minions_waits_its_turn(ctx):
 
     assert side.cursor == 2, "pointer shifted so the waiting minion keeps its turn"
     assert _next_attacker(side, battle_field=rt.sides) is waiting
+
+
+def test_overkill_excess_lands_after_the_body_left_the_board(ctx):
+    """Overkill resolves once the victim is already in the graveyard.
+
+    The excess used to be located with ``side.minions.index(victim)``, which
+    raises once the body is off the board -- and the handler returned on that,
+    throwing the damage away silently. Wildfire Elemental became inert without
+    a single test noticing; the boards simply had more survivors.
+    """
+    import numpy as np
+
+    from src.bg_combat.battle.effects import _deal_damage_to_battle_minion
+    from src.bg_combat.battle.engine import _dispatch
+    from src.bg_combat.battle.events import Overkill
+
+    ctx74 = load_patch_context("data/bgcore/19_6_0_74257")
+    left = make_minion(TIDEHUNTER, patch=ctx74)
+    left.base_attack, left.base_health = 0, 20
+    right = make_minion(TIDEHUNTER, patch=ctx74)
+    right.base_attack, right.base_health = 0, 20
+    victim = make_minion("BGS_014", patch=ctx74)  # Imprisoner: deathrattle summons an Imp
+    wildfire = make_minion("BGS_126", patch=ctx74)  # Wildfire Elemental
+
+    rt = _runtime(ctx74, [left, victim, right])
+    rt.sides = (rt.side(0), _build_side([wildfire], rt))
+    side = rt.side(0)
+    body = side.minions[1]
+
+    rt.queue.append(Overkill(0, body.instance_id, 1, rt.side(1).minions[0].instance_id, 8))
+    _deal_damage_to_battle_minion(rt, 0, body, 9)
+    while rt.queue:
+        _dispatch(rt, rt.queue.popleft())
+
+    names = [m.template.name for m in side.minions]
+    assert "Imp" in names, "the deathrattle still summoned into the vacated slot"
+    neighbours = [m for m in side.minions if m.template.name == "Murloc Tidehunter"]
+    assert len(neighbours) == 2
+    damaged = [m for m in neighbours if m.current_health < 20]
+    assert len(damaged) == 1, "Wildfire hits one random neighbour, and it must hit one"
+    assert damaged[0].current_health == 12, "the full excess landed"
+
+    imp = next(m for m in side.minions if m.template.name == "Imp")
+    assert imp.current_health == imp.template.max_health, (
+        "the token that filled the slot is summoned after Overkill resolves and "
+        "must not soak the excess"
+    )

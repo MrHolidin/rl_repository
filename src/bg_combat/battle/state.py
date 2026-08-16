@@ -27,6 +27,10 @@ class BattleMinion:
     # deathrattle can summon into it and Reborn can come back there once the
     # body itself is out of ``BattleSide.minions``. -1 while alive.
     death_pos: int = -1
+    # MinionDied has been queued for this body. Removal from the board and the
+    # announcement are separate: the body leaves where it dies, the event is
+    # raised at the end of the exchange in a fixed side order.
+    death_announced: bool = False
 
     @property
     def alive(self) -> bool:
@@ -90,6 +94,11 @@ class BattleSide:
                 continue
             m.death_pos = i
             self.minions.pop(i)
+            # Bodies already waiting to summon sit at recorded slots; taking a
+            # body out from their left shifts those slots down. Without this
+            # the recorded position goes stale as soon as two minions die in
+            # the same exchange and are swept at different moments.
+            self.shift_graveyard_slots(i, -1)
             self.graveyard.append(m)
             taken.append(m)
             if self.cursor > i:
@@ -99,6 +108,15 @@ class BattleSide:
         else:
             self.cursor = 0
         return taken
+
+    def shift_graveyard_slots(self, at: int, delta: int) -> None:
+        """Keep recorded death slots valid as the board around them moves."""
+        # Strictly to the right: the slot ``at`` itself belongs to the body
+        # being removed from it, or to the body whose token is filling it, and
+        # in neither case does that body's own recorded slot move.
+        for bm in self.graveyard:
+            if bm.death_pos > at:
+                bm.death_pos += delta
 
     def alive_minions(self) -> List[BattleMinion]:
         return [m for m in self.minions if m.alive]

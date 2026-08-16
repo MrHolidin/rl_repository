@@ -155,6 +155,16 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
     for ev in reversed(trailing):
         rt.queue.appendleft(ev)
     _sync_health_all(rt)
+    # Take the body off the board here, where it died, rather than leaving it
+    # for the end of the swing: the DamageDealt / Overkill events queued just
+    # above are dispatched with the board already closed up, which is the
+    # board the game would show them.
+    #
+    # Both sides, always side 0 first: a trade kills attacker and defender at
+    # once, and the death order is the tie-break the death log has always
+    # used.
+    for sidx in (0, 1):
+        _reap_side(rt, sidx)
 
 
 def _handle_attack_completed(rt: _CombatRuntime, e: AttackCompleted) -> None:
@@ -174,6 +184,7 @@ def _handle_attack_completed(rt: _CombatRuntime, e: AttackCompleted) -> None:
     rt.swing_damage_survivors.clear()
     for sidx in (0, 1):
         _reap_side(rt, sidx)
+    _announce_deaths(rt)
 
 
 def _deal_random_enemy_minion_damage(
@@ -378,15 +389,37 @@ def _queue_random_combat_hand_add(
     rt.combat_hand_adds[side_idx].append(cid)
 
 
+def _reap_all(rt: _CombatRuntime) -> None:
+    """Sweep both sides. Losing a health aura kills without any damage being
+    dealt, so the aura recompute is a death site like any other -- it was the
+    one path that left a body on the board."""
+    for side_idx in (0, 1):
+        rt.side(side_idx).reap_dead()
+
+
 def _reap_side(rt: _CombatRuntime, side_idx: int) -> None:
-    """Clear a side's dead off the board and queue their death events.
+    """Take a side's dead off the board, without announcing them yet.
 
     Single choke point: a minion can die from a swing, from a spell-like
     effect, or from losing the aura that was holding its health up, and every
     one of those routes has to take the body off the board the same way.
     """
-    for bm in rt.side(side_idx).reap_dead():
-        rt.queue.append(MinionDied(side_idx, bm.instance_id))
+    rt.side(side_idx).reap_dead()
+
+
+def _announce_deaths(rt: _CombatRuntime) -> None:
+    """Raise MinionDied for bodies already off the board, side 0 first.
+
+    Kept separate from the sweep so the board is correct the moment a minion
+    dies while the *order* deathrattles resolve in stays what it was: a trade
+    kills both minions in the same exchange, and side 0's death has always
+    been announced first.
+    """
+    for side_idx in (0, 1):
+        for bm in rt.side(side_idx).graveyard:
+            if not bm.death_announced:
+                bm.death_announced = True
+                rt.queue.append(MinionDied(side_idx, bm.instance_id))
 
 
 def _deal_damage_to_battle_minion(
@@ -405,6 +438,7 @@ def _deal_damage_to_battle_minion(
     _sync_health_all(rt)
     if not bm.alive:
         _reap_side(rt, side_idx)
+        _announce_deaths(rt)
     elif amount > 0:
         rt.swing_damage_survivors.append((side_idx, bm.instance_id))
         # ON_SELF_DAMAGED fires on ANY damage taken while surviving (juggler /
@@ -427,12 +461,20 @@ def _deal_excess_to_adjacent(
     vic = rt.find_minion(victim_side_idx, victim_instance_id)
     if vic is None:
         return
-    try:
-        vi = side.minions.index(vic)
-    except ValueError:
+    vi = _board_index(side, vic)
+    if vi is not None:
+        slots = (vi - 1, vi + 1)
+    elif vic.death_pos >= 0:
+        # Overkill resolves after the body has left the board, so read the
+        # slot it vacated: the minion on its left kept its index, the one on
+        # its right slid into the vacated one. Looking the body up in
+        # ``minions`` and giving up when it is absent silently threw the
+        # excess damage away.
+        slots = (vic.death_pos - 1, vic.death_pos)
+    else:
         return
     adj: List[BattleMinion] = []
-    for j in (vi - 1, vi + 1):
+    for j in slots:
         if 0 <= j < len(side.minions):
             m = side.minions[j]
             if m.alive:
