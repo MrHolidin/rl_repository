@@ -2,6 +2,7 @@ import numpy as np
 
 from tests.minibg_helpers import PATCH_CTX, make_minion, simulate_battle
 from src.bg_combat.battle import (
+    battle_copy,
     _decide_first_side,
     _next_attacker,
     _pick_target,
@@ -56,7 +57,7 @@ def test_pick_target_respects_taunt():
     rng = _rng(0)
     for _ in range(100):
         target = _pick_target(side, rng)
-        assert target.template.card_id == "CS2_065"
+        assert target.card_id == "CS2_065"
 
 
 def test_pick_target_uniform_when_no_taunt():
@@ -64,7 +65,7 @@ def test_pick_target_uniform_when_no_taunt():
     rng = _rng(0)
     seen = set()
     for _ in range(100):
-        seen.add(_pick_target(side, rng).template.card_id)
+        seen.add(_pick_target(side, rng).card_id)
     assert seen == {"EX1_507", "EX1_162"}
 
 
@@ -304,7 +305,7 @@ def test_pick_target_zapp_prefers_minimum_attack_among_legal():
     def_side = build_battle_side(_board("bruiser", "toy_mech"), patch=PATCH_CTX)
     rng = _rng(0)
     for _ in range(80):
-        assert _pick_target(def_side, rng, zapp).template.card_id == "BOT_445"
+        assert _pick_target(def_side, rng, zapp).card_id == "BOT_445"
 
 
 def test_pick_target_zapp_respects_taunt_then_lowest_attack():
@@ -319,7 +320,7 @@ def test_pick_target_zapp_respects_taunt_then_lowest_attack():
     def_side = build_battle_side([make_minion("guard"), taunt_murl], patch=PATCH_CTX)
     rng = _rng(0)
     for _ in range(80):
-        assert _pick_target(def_side, rng, zapp).template.card_id == "CS2_065"
+        assert _pick_target(def_side, rng, zapp).card_id == "CS2_065"
 
 
 def test_windfury_zapp_kills_two_recruits_one_activation():
@@ -379,9 +380,9 @@ def test_tombstone_keeps_slots_dire_wolf_no_nearest_living_fallthrough():
     """BG combat: corpses occupy fixed slots; adjacency is index ±1 (not nearest living)."""
     from src.bg_combat.battle import BattleMinion, BattleSide, attack_with_auras
 
-    wolf = BattleMinion.from_minion(make_minion("dire_wolf_alpha"), 1)
-    rat = BattleMinion.from_minion(make_minion("pack_rat"), 2)
-    rec = BattleMinion.from_minion(make_minion("toy_mech"), 3)
+    wolf = battle_copy(make_minion("dire_wolf_alpha"), 1)
+    rat = battle_copy(make_minion("pack_rat"), 2)
+    rec = battle_copy(make_minion("toy_mech"), 3)
     side = BattleSide(minions=[wolf, rat, rec])
     assert attack_with_auras(rat, side) == rat.raw_attack + 1
     rat.current_health = 0
@@ -391,8 +392,8 @@ def test_tombstone_keeps_slots_dire_wolf_no_nearest_living_fallthrough():
 def test_malganis_health_bonus_drops_when_aura_source_dies():
     from src.bg_combat.battle import BattleMinion, BattleSide, _sync_health_aura_side, health_aura_bonus
 
-    mal = BattleMinion.from_minion(make_minion("mal_ganis"), 1)
-    imp = BattleMinion.from_minion(make_minion("imp_demon"), 2)
+    mal = battle_copy(make_minion("mal_ganis"), 1)
+    imp = battle_copy(make_minion("imp_demon"), 2)
     side = BattleSide(minions=[mal, imp])
     _sync_health_aura_side(side, False)
     assert imp.current_health == 3
@@ -405,8 +406,8 @@ def test_malganis_health_bonus_drops_when_aura_source_dies():
 def test_nonlethal_damage_skips_health_aura_resync_when_side_not_dirty(monkeypatch):
     import src.bg_combat.battle as battle
 
-    mal = battle.BattleMinion.from_minion(make_minion("mal_ganis"), 1)
-    imp = battle.BattleMinion.from_minion(make_minion("imp_demon"), 2)
+    mal = battle.battle_copy(make_minion("mal_ganis"), 1)
+    imp = battle.battle_copy(make_minion("imp_demon"), 2)
     rt = battle._CombatRuntime(
         sides=(battle.BattleSide(minions=[mal, imp]), battle.BattleSide()),
         rng=_rng(0),
@@ -435,8 +436,8 @@ def test_nonlethal_damage_skips_health_aura_resync_when_side_not_dirty(monkeypat
 def test_lethal_damage_marks_health_aura_side_dirty_and_resyncs(monkeypatch):
     import src.bg_combat.battle as battle
 
-    mal = battle.BattleMinion.from_minion(make_minion("mal_ganis"), 1)
-    imp = battle.BattleMinion.from_minion(make_minion("imp_demon"), 2)
+    mal = battle.battle_copy(make_minion("mal_ganis"), 1)
+    imp = battle.battle_copy(make_minion("imp_demon"), 2)
     rt = battle._CombatRuntime(
         sides=(battle.BattleSide(minions=[mal, imp]), battle.BattleSide()),
         rng=_rng(0),

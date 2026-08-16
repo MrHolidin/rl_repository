@@ -16,7 +16,6 @@ from .battle import (
     attack_with_auras,
     build_battle_side,
     health_aura_bonus,
-    persist_shop_board_from_side,
     simulate_battle,
 )
 
@@ -36,6 +35,5 @@ __all__ = [
     "attack_with_auras",
     "build_battle_side",
     "health_aura_bonus",
-    "persist_shop_board_from_side",
     "simulate_battle",
 ]

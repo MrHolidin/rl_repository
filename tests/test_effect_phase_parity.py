@@ -76,16 +76,15 @@ def test_shop_summon_multiplier_matches_the_combat_one(ctx):
     board = [make_minion(KHADGAR, patch=ctx), make_minion(KHADGAR, patch=ctx)]
     assert ShopTriggers.summon_multiplier(board) == 4  # product, not sum
 
-    class _FakeSide:
+    # A battle-side minion is just a Minion now, so the combat helper can be
+    # handed the same board the shop helper got.
+    class _Side:
         def __init__(self, minions):
             self.minions = minions
 
-    class _FakeBM:
-        def __init__(self, template):
-            self.template = template
-            self.alive = True
-
-    assert _summon_multiplier(_FakeSide([_FakeBM(m) for m in board])) == 4
+    for m in board:
+        m.current_health = m.max_health
+    assert _summon_multiplier(_Side(board)) == 4
     assert ShopTriggers.summon_multiplier([]) == 1
 
 

@@ -9,7 +9,7 @@ import numpy as np
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.minion import Minion, Race
 
-from .state import BattleMinion, BattleSide, _CombatRuntime
+from .state import BattleMinion, battle_copy, BattleSide, _CombatRuntime
 
 
 def _is_mech_template(m: Minion) -> bool:
@@ -20,7 +20,7 @@ def _build_side(board: List[Minion], rt: _CombatRuntime) -> BattleSide:
     out: List[BattleMinion] = []
     for m in board:
         bid = rt.alloc_id()
-        out.append(BattleMinion.from_minion(copy(m), bid))
+        out.append(battle_copy(m, bid))
     return BattleSide(minions=out)
 
 

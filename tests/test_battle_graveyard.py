@@ -148,7 +148,7 @@ def test_deathrattle_token_takes_the_vacated_slot(ctx):
 
     assert golem not in side.minions
     assert golem.death_pos == 1
-    assert side.minions[1].template.name == "Damaged Golem"
+    assert side.minions[1].name == "Damaged Golem"
 
 
 def test_token_in_a_vacated_slot_attacks_this_pass(ctx):
@@ -178,7 +178,7 @@ def test_token_in_a_vacated_slot_attacks_this_pass(ctx):
 
     assert golem not in side.minions
     token = side.minions[0]
-    assert token.template.name == "Damaged Golem"
+    assert token.name == "Damaged Golem"
     assert side.cursor == 0, "pointer stayed on the vacated slot"
     assert _next_attacker(side, battle_field=rt.sides) is token
 
@@ -234,16 +234,16 @@ def test_overkill_excess_lands_after_the_body_left_the_board(ctx):
     while rt.queue:
         _dispatch(rt, rt.queue.popleft())
 
-    names = [m.template.name for m in side.minions]
+    names = [m.name for m in side.minions]
     assert "Imp" in names, "the deathrattle still summoned into the vacated slot"
-    neighbours = [m for m in side.minions if m.template.name == "Murloc Tidehunter"]
+    neighbours = [m for m in side.minions if m.name == "Murloc Tidehunter"]
     assert len(neighbours) == 2
     damaged = [m for m in neighbours if m.current_health < 20]
     assert len(damaged) == 1, "Wildfire hits one random neighbour, and it must hit one"
     assert damaged[0].current_health == 12, "the full excess landed"
 
-    imp = next(m for m in side.minions if m.template.name == "Imp")
-    assert imp.current_health == imp.template.max_health, (
+    imp = next(m for m in side.minions if m.name == "Imp")
+    assert imp.current_health == imp.max_health, (
         "the token that filled the slot is summoned after Overkill resolves and "
         "must not soak the excess"
     )

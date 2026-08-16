@@ -15,7 +15,7 @@ from .events import (
     Overkill,
     ShieldLost,
 )
-from .state import BattleMinion, BattleSide, _CombatRuntime
+from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .auras import (
     attack_value,
     attack_with_auras,
@@ -34,13 +34,13 @@ from .engine import (
     _next_attacker,
     _run_single_swing,
 )
-from .result import BattleResult, RawBattleSnapshot, persist_shop_board_from_side
+from .result import BattleResult, RawBattleSnapshot
 from .simulate import simulate_battle
 
 __all__ = [
     "BattleMinion",
+    "battle_copy",
     "BattleSide",
-    "persist_shop_board_from_side",
     "BattleEvent",
     "BeginAttackExchange",
     "ShieldLost",

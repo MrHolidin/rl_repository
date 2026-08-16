@@ -8,6 +8,7 @@ from src.bg_combat.battle import (
     _fire_deathrattle,
     attack_with_auras,
 )
+from src.bg_combat.battle.state import battle_copy
 from src.bg_core.effects import (
     Ability,
     Keyword,
@@ -92,7 +93,7 @@ def test_two_mentors_both_fire():
 
 def test_summon_effect_on_death_appends_token():
     pack_rat = make_minion("pack_rat")
-    bm = BattleMinion.from_minion(pack_rat, 1)
+    bm = battle_copy(pack_rat, 1)
     bm.current_health = 0
     side = BattleSide(minions=[bm])
     rt = _CombatRuntime(
@@ -104,17 +105,17 @@ def test_summon_effect_on_death_appends_token():
     )
     _fire_deathrattle(rt, bm, 0)
     assert len(side.minions) == 3
-    rats = [m for m in side.minions if m.template.card_id == "CFM_316t"]
+    rats = [m for m in side.minions if m.card_id == "CFM_316t"]
     assert len(rats) == 2
     assert all(m.alive for m in rats)
 
 
 def test_summon_effect_skipped_when_alive_count_at_cap():
     pack_rat = make_minion("pack_rat")
-    bm = BattleMinion.from_minion(pack_rat, 1)
+    bm = battle_copy(pack_rat, 1)
     bm.current_health = 0
     extras = [
-        BattleMinion.from_minion(make_minion("recruit"), i)
+        battle_copy(make_minion("recruit"), i)
         for i in range(2, 9)
     ]
     side = BattleSide(minions=[bm, *extras])
@@ -126,12 +127,12 @@ def test_summon_effect_skipped_when_alive_count_at_cap():
         patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, bm, 0)
-    rat_summons = [m for m in side.minions if m.template.card_id == "CFM_316t"]
+    rat_summons = [m for m in side.minions if m.card_id == "CFM_316t"]
     assert rat_summons == []
 
 
 def test_the_beast_summons_finkle_on_opponent_side_during_dr():
-    beast = BattleMinion.from_minion(make_minion("the_beast"), 1)
+    beast = battle_copy(make_minion("the_beast"), 1)
     beast.current_health = 0
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=[])
@@ -144,13 +145,13 @@ def test_the_beast_summons_finkle_on_opponent_side_during_dr():
     )
     _fire_deathrattle(rt, beast, 0)
     assert len(side1.minions) == 1
-    assert side1.minions[0].template.card_id == "EX1_finkle"
+    assert side1.minions[0].card_id == "EX1_finkle"
 
 
 def test_opponent_summon_skipped_when_target_side_at_combat_cap():
-    beast = BattleMinion.from_minion(make_minion("the_beast"), 1)
+    beast = battle_copy(make_minion("the_beast"), 1)
     beast.current_health = 0
-    extras = [BattleMinion.from_minion(make_minion("recruit"), i) for i in range(2, 9)]
+    extras = [battle_copy(make_minion("recruit"), i) for i in range(2, 9)]
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=extras)
     rt = _CombatRuntime(
@@ -161,7 +162,7 @@ def test_opponent_summon_skipped_when_target_side_at_combat_cap():
         patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, beast, 0)
-    assert not any(m.template.card_id == "EX1_finkle" for m in side1.minions)
+    assert not any(m.card_id == "EX1_finkle" for m in side1.minions)
     assert side1.alive_count() == 7
 
 
@@ -169,8 +170,8 @@ def test_malganis_tribal_aura_buffs_other_demons_only():
     mal = make_minion("mal_ganis")
     imp = make_minion("imp_demon")
     side = BattleSide(minions=[
-        BattleMinion.from_minion(mal, 1),
-        BattleMinion.from_minion(imp, 2),
+        battle_copy(mal, 1),
+        battle_copy(imp, 2),
     ])
     mal_b, imp_b = side.minions
     assert attack_with_auras(imp_b, side) == imp.raw_attack + 2
@@ -182,9 +183,9 @@ def test_two_malganis_buff_each_other_and_stack_on_third_demon():
     m2 = make_minion("mal_ganis")
     imp = make_minion("imp_demon")
     side = BattleSide(minions=[
-        BattleMinion.from_minion(m1, 1),
-        BattleMinion.from_minion(m2, 2),
-        BattleMinion.from_minion(imp, 3),
+        battle_copy(m1, 1),
+        battle_copy(m2, 2),
+        battle_copy(imp, 3),
     ])
     a, b, im = side.minions
     assert attack_with_auras(a, side) == m1.raw_attack + 2
@@ -209,9 +210,9 @@ def test_defender_argus_buffs_adjacent_in_shop():
 
 def test_murloc_warleader_tribal_aura_in_combat():
     side = BattleSide(minions=[
-        BattleMinion.from_minion(make_minion("murloc_warleader"), 1),
-        BattleMinion.from_minion(make_minion("old_murk_eye"), 2),
-        BattleMinion.from_minion(make_minion("toy_mech"), 3),
+        battle_copy(make_minion("murloc_warleader"), 1),
+        battle_copy(make_minion("old_murk_eye"), 2),
+        battle_copy(make_minion("toy_mech"), 3),
     ])
     wl, mur, filler = side.minions
     assert attack_with_auras(mur, side) == mur.raw_attack + 2 + 1
@@ -221,9 +222,9 @@ def test_murloc_warleader_tribal_aura_in_combat():
 
 def test_phalanx_commander_taunt_keyword_aura():
     side = BattleSide(minions=[
-        BattleMinion.from_minion(make_minion("phalanx_commander"), 1),
-        BattleMinion.from_minion(make_minion("guard"), 2),
-        BattleMinion.from_minion(make_minion("toy_mech"), 3),
+        battle_copy(make_minion("phalanx_commander"), 1),
+        battle_copy(make_minion("guard"), 2),
+        battle_copy(make_minion("toy_mech"), 3),
     ])
     _, g, rec = side.minions
     assert attack_with_auras(g, side) == g.raw_attack + 2
@@ -234,8 +235,8 @@ def test_tribal_aura_drops_when_source_dies():
     mal = make_minion("mal_ganis")
     imp = make_minion("imp_demon")
     side = BattleSide(minions=[
-        BattleMinion.from_minion(mal, 1),
-        BattleMinion.from_minion(imp, 2),
+        battle_copy(mal, 1),
+        battle_copy(imp, 2),
     ])
     mal_b, imp_b = side.minions
     mal_b.current_health = 0
@@ -243,15 +244,15 @@ def test_tribal_aura_drops_when_source_dies():
 
 
 def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
-    m1 = BattleMinion.from_minion(make_minion("toy_mech"), 1)
+    m1 = battle_copy(make_minion("toy_mech"), 1)
     m1.current_health = 0
-    m2 = BattleMinion.from_minion(make_minion("shield_bot"), 2)
+    m2 = battle_copy(make_minion("shield_bot"), 2)
     m2.current_health = 0
     kang_tpl = make_minion("kangors_apprentice")
     kang_tpl.abilities = (
         Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
     )
-    kang = BattleMinion.from_minion(kang_tpl, 3)
+    kang = battle_copy(kang_tpl, 3)
     kang.current_health = 0
     side = BattleSide(minions=[m1, m2, kang])
     rt = _CombatRuntime(
@@ -265,16 +266,16 @@ def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
     # which is what "the first 2 friendly Mechs that died" means.
     side.reap_dead()
     _fire_deathrattle(rt, kang, 0)
-    alive_ids = [m.template.card_id for m in side.minions if m.alive]
+    alive_ids = [m.card_id for m in side.minions if m.alive]
     assert alive_ids.count("BOT_445") == 1
     assert alive_ids.count("GVG_058") == 1
 
 
 def test_golden_selfless_hero_grants_two_divine_shields():
     sh = make_minion("TB_BaconUps_014")
-    a = BattleMinion.from_minion(make_minion("recruit"), 1)
-    b = BattleMinion.from_minion(make_minion("recruit"), 2)
-    dead = BattleMinion.from_minion(sh, 3)
+    a = battle_copy(make_minion("recruit"), 1)
+    b = battle_copy(make_minion("recruit"), 2)
+    dead = battle_copy(sh, 3)
     dead.current_health = 0
     side = BattleSide(minions=[a, b, dead])
     rt = _CombatRuntime(
@@ -285,5 +286,5 @@ def test_golden_selfless_hero_grants_two_divine_shields():
         patch=PATCH_CTX,
     )
     _fire_deathrattle(rt, dead, 0)
-    assert Keyword.SHIELD in a.template.keywords and a.shield_armed
-    assert Keyword.SHIELD in b.template.keywords and b.shield_armed
+    assert Keyword.SHIELD in a.keywords and a.has_shield
+    assert Keyword.SHIELD in b.keywords and b.has_shield

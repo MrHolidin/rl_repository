@@ -261,11 +261,11 @@ def test_alakir_grants_leftmost_keywords(patch):
     rt.sides[0].start_combat_keywords = kws
     _fire_start_of_combat(rt)
     bm = rt.sides[0].minions[0]
-    assert bm.shield_armed
-    assert Keyword.WINDFURY in bm.template.all_keywords
-    assert Keyword.TAUNT in bm.template.all_keywords
+    assert bm.has_shield
+    assert Keyword.WINDFURY in bm.all_keywords
+    assert Keyword.TAUNT in bm.all_keywords
     # Non-leftmost is untouched.
-    assert not rt.sides[0].minions[1].shield_armed
+    assert not rt.sides[0].minions[1].has_shield
 
 
 # --------------------------------------------------------------------------- #

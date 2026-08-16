@@ -107,14 +107,14 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
     att = rt.find_minion(1 - strike.victim_side_idx, strike.attacker_instance_id)
     if vic is None or not vic.alive or strike.amount <= 0:
         return
-    v_kw = vic.template.all_keywords
-    if vic.shield_armed and Keyword.SHIELD in v_kw:
-        vic.shield_armed = False
+    v_kw = vic.all_keywords
+    if vic.has_shield and Keyword.SHIELD in v_kw:
+        vic.has_shield = False
         rt.queue.appendleft(ShieldLost(strike.victim_side_idx, strike.victim_instance_id))
         return
 
     hp_before = vic.current_health
-    poison = att is not None and Keyword.POISONOUS in att.template.all_keywords
+    poison = att is not None and Keyword.POISONOUS in att.all_keywords
     vic.current_health -= strike.amount
     if poison:
         vic.current_health = 0
@@ -240,8 +240,8 @@ def _buff_neighbors_of_dead(
             ally = side.minions[j]
             if not ally.alive:
                 continue
-            ally.template.bonus_attack += attack
-            ally.template.bonus_health += health
+            ally.bonus_attack += attack
+            ally.bonus_health += health
             ally.current_health += health
 
 
@@ -268,7 +268,7 @@ def _summon_attack_immediately_if_requested(
 def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     if not bm.alive:
         return
-    for ab in bm.template.abilities:
+    for ab in bm.abilities:
         if ab.trigger != Trigger.ON_SELF_DAMAGED:
             continue
         eff = ab.effect
@@ -326,22 +326,22 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     for listener in side.iter_living():
         if listener is summoned:
             continue
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_MINION_SUMMONED:
                 continue
             eff = ab.effect
             if isinstance(eff, BuffSummonedIfRace):
-                if _matches_tribe_for_aura(summoned.template, eff.tribe):
-                    summoned.template.bonus_attack += eff.attack
-                    summoned.template.bonus_health += eff.health
+                if _matches_tribe_for_aura(summoned, eff.tribe):
+                    summoned.bonus_attack += eff.attack
+                    summoned.bonus_health += eff.health
                     summoned.current_health += eff.health
             elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
-                if _matches_tribe_for_aura(summoned.template, eff.tribe):
+                if _matches_tribe_for_aura(summoned, eff.tribe):
                     _grant_keyword(rt, e.side_idx, listener, eff.keyword)
             elif isinstance(eff, BuffListenerIfSummonedMatches):
-                if _matches_tribe_for_aura(summoned.template, eff.tribe):
-                    listener.template.bonus_attack += eff.attack
-                    listener.template.bonus_health += eff.health
+                if _matches_tribe_for_aura(summoned, eff.tribe):
+                    listener.bonus_attack += eff.attack
+                    listener.bonus_health += eff.health
                     listener.current_health += eff.health
     _sync_health_all(rt)
 
@@ -352,10 +352,10 @@ def _fire_friendly_kill_listeners(
     killer = rt.find_minion(killer_side_idx, killer_instance_id)
     if killer is None:
         return
-    killer_tpl = killer.template
+    killer_tpl = killer
     side = rt.side(killer_side_idx)
     for listener in side.iter_living():
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_KILL:
                 continue
             if ab.filter_race is not None and not _matches_tribe_for_aura(
@@ -364,8 +364,8 @@ def _fire_friendly_kill_listeners(
                 continue
             eff = ab.effect
             if isinstance(eff, BuffSelf):
-                listener.template.bonus_attack += eff.attack
-                listener.template.bonus_health += eff.health
+                listener.bonus_attack += eff.attack
+                listener.bonus_health += eff.health
                 listener.current_health += eff.health
     _sync_health_all(rt)
 
@@ -419,8 +419,8 @@ def _deal_damage_to_battle_minion(
 ) -> None:
     if amount <= 0 or not bm.alive:
         return
-    if bm.shield_armed and Keyword.SHIELD in bm.template.all_keywords:
-        bm.shield_armed = False
+    if bm.has_shield and Keyword.SHIELD in bm.all_keywords:
+        bm.has_shield = False
         rt.queue.append(ShieldLost(side_idx, bm.instance_id))
         return
     bm.current_health -= amount
@@ -488,20 +488,20 @@ def _fire_friendly_minion_died_listeners(
     for listener in side.iter_living():
         if listener is dead:
             continue
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_MINION_DIED:
                 continue
             if ab.filter_race is not None and not _matches_tribe_for_aura(
-                dead.template, ab.filter_race
+                dead, ab.filter_race
             ):
                 continue
             if ab.filter_victim_keyword is not None:
-                if ab.filter_victim_keyword not in dead.template.all_keywords:
+                if ab.filter_victim_keyword not in dead.all_keywords:
                     continue
             eff = ab.effect
             if isinstance(eff, BuffSelf):
-                listener.template.bonus_attack += eff.attack
-                listener.template.bonus_health += eff.health
+                listener.bonus_attack += eff.attack
+                listener.bonus_health += eff.health
                 listener.current_health += eff.health
             elif isinstance(eff, DealDamageRandomEnemyMinion):
                 for _ in range(max(1, eff.repeats)):
@@ -518,7 +518,7 @@ def _fire_friendly_minion_died_listeners(
 
 
 def _minion_has_deathrattle(bm: BattleMinion) -> bool:
-    return any(ab.trigger == Trigger.ON_DEATH for ab in bm.template.abilities)
+    return any(ab.trigger == Trigger.ON_DEATH for ab in bm.abilities)
 
 
 def _trigger_random_friendly_deathrattle(
@@ -546,7 +546,7 @@ def _fire_after_attack(
 ) -> None:
     side = rt.side(side_idx)
     bf = (rt.side(0), rt.side(1))
-    for ab in attacker.template.abilities:
+    for ab in attacker.abilities:
         if ab.trigger != Trigger.ON_AFTER_ATTACK:
             continue
         eff = ab.effect
@@ -556,7 +556,7 @@ def _fire_after_attack(
             cur = attack_value(
                 attacker, side, death_resolution=False, battle_field=bf
             )
-            attacker.template.bonus_attack += cur * max(0, eff.factor - 1)
+            attacker.bonus_attack += cur * max(0, eff.factor - 1)
         elif isinstance(eff, AddRandomMinionToHandOnKillEffect):
             if rt.attacker_killed_this_swing:
                 for _ in range(max(1, eff.count)):
@@ -571,27 +571,27 @@ def _fire_friendly_attack_listeners(
     for listener in side.iter_living():
         if listener is attacker:
             continue
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_ATTACK:
                 continue
             if ab.filter_race is not None and not _matches_tribe_for_aura(
-                attacker.template, ab.filter_race
+                attacker, ab.filter_race
             ):
                 continue
             eff = ab.effect
             if isinstance(eff, BuffAttackerOnFriendlyAttackEffect):
-                if not _matches_tribe_for_aura(attacker.template, eff.tribe):
+                if not _matches_tribe_for_aura(attacker, eff.tribe):
                     continue
-                attacker.template.bonus_attack += eff.attack
-                attacker.template.bonus_health += eff.health
+                attacker.bonus_attack += eff.attack
+                attacker.bonus_health += eff.health
                 attacker.current_health += eff.health
             # ALL_FRIENDLY only: before the merge just ``BuffAllFriendlyMinions``
             # reached this branch, so matching every BuffMatching variant here
             # would newly fire the tribe/keyword ones on this trigger.
             elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
                 for ally in side.iter_living():
-                    ally.template.bonus_attack += eff.attack
-                    ally.template.bonus_health += eff.health
+                    ally.bonus_attack += eff.attack
+                    ally.bonus_health += eff.health
                     ally.current_health += eff.health
     _sync_health_all(rt)
 
@@ -604,7 +604,7 @@ def _fire_when_attacked(
     side = rt.side(victim_side_idx)
     idx_v = _board_index(side, victim)
 
-    for ab in victim.template.abilities:
+    for ab in victim.abilities:
         if ab.trigger != Trigger.ON_WHEN_ATTACKED:
             continue
         eff = ab.effect
@@ -614,27 +614,27 @@ def _fire_when_attacked(
                     ally = side.minions[j]
                     if not ally.alive:
                         continue
-                    ally.template.bonus_attack += eff.attack
-                    ally.template.bonus_health += eff.health
+                    ally.bonus_attack += eff.attack
+                    ally.bonus_health += eff.health
                     ally.current_health += eff.health
 
     for listener in side.iter_living():
         if listener is victim:
             continue
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_WHEN_ATTACKED:
                 continue
             if ab.filter_victim_keyword is not None:
-                if ab.filter_victim_keyword not in victim.template.all_keywords:
+                if ab.filter_victim_keyword not in victim.all_keywords:
                     continue
             eff = ab.effect
             if isinstance(eff, BuffSelf):
-                listener.template.bonus_attack += eff.attack
-                listener.template.bonus_health += eff.health
+                listener.bonus_attack += eff.attack
+                listener.bonus_health += eff.health
                 listener.current_health += eff.health
             elif isinstance(eff, BuffAttackedMinionEffect):
-                victim.template.bonus_attack += eff.attack
-                victim.template.bonus_health += eff.health
+                victim.bonus_attack += eff.attack
+                victim.bonus_health += eff.health
                 victim.current_health += eff.health
     _sync_health_all(rt)
 
@@ -644,7 +644,7 @@ def _fire_survived_attack_effects(
 ) -> None:
     if not bm.alive:
         return
-    for ab in bm.template.abilities:
+    for ab in bm.abilities:
         if ab.trigger != Trigger.ON_SURVIVED_ATTACK:
             continue
         if isinstance(ab.effect, AttackImmediatelyAfterSurvivingEffect):
@@ -664,13 +664,13 @@ def _fire_friendly_shield_lost_listeners(
     for listener in side.iter_living():
         if listener is victim:
             continue
-        for ab in listener.template.abilities:
+        for ab in listener.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_SHIELD_LOST:
                 continue
             eff = ab.effect
             if isinstance(eff, BuffSelf):
-                listener.template.bonus_attack += eff.attack
-                listener.template.bonus_health += eff.health
+                listener.bonus_attack += eff.attack
+                listener.bonus_health += eff.health
                 listener.current_health += eff.health
     _sync_health_all(rt)
 
@@ -753,7 +753,7 @@ def _dr_summon_random(
         effect.legendary_only,
         effect.require_deathrattle,
         race_hs,
-        dead.template.card_id if effect.exclude_source else None,
+        dead.card_id if effect.exclude_source else None,
         patch=rt.patch,
     )
     if not pool:
@@ -838,7 +838,7 @@ def _dr_transfer_attack(
         if not pool:
             continue
         tgt = pool[int(rt.rng.integers(0, len(pool)))]
-        tgt.template.bonus_attack += atk
+        tgt.bonus_attack += atk
     _sync_health_all(rt)
 
 
@@ -852,7 +852,7 @@ def _dr_summon_copy_hand(
         False,
         False,
         race_hs,
-        dead.template.card_id if effect.exclude_source else None,
+        dead.card_id if effect.exclude_source else None,
         patch=rt.patch,
     )
     if not pool:
@@ -893,10 +893,10 @@ def _dr_buff_matching(
             # so no ``source`` is passed. ``_matches_tribe_for_aura`` and
             # ``minion_matches_tribe`` are the same predicate, verified
             # line-for-line, so the shared helper is exact.
-            if not buff_matching_hits(effect, m.template):
+            if not buff_matching_hits(effect, m):
                 continue
-            m.template.bonus_attack += effect.attack
-            m.template.bonus_health += effect.health
+            m.bonus_attack += effect.attack
+            m.bonus_health += effect.health
             m.current_health += effect.health
     _sync_health_all(rt)
 
@@ -912,8 +912,8 @@ def _dr_buff_random_other(
         if not pool:
             continue
         t = pool[int(rt.rng.integers(0, len(pool)))]
-        t.template.bonus_attack += effect.attack
-        t.template.bonus_health += effect.health
+        t.bonus_attack += effect.attack
+        t.bonus_health += effect.health
         t.current_health += effect.health
     _sync_health_all(rt)
 
@@ -955,7 +955,7 @@ def _dr_grant_kw_random(
                 if m is dead:
                     continue
                 if effect.filter_race is not None and not _matches_tribe_for_aura(
-                    m.template, effect.filter_race
+                    m, effect.filter_race
                 ):
                     continue
                 pool.append(m)
@@ -975,7 +975,7 @@ def _dr_grant_kw_all_of_tribe(
         for m in side.minions:
             if m is dead:
                 continue
-            if not _matches_tribe_for_aura(m.template, effect.tribe):
+            if not _matches_tribe_for_aura(m, effect.tribe):
                 continue
             _grant_keyword(rt, side_idx, m, effect.keyword)
 
@@ -1011,7 +1011,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
     prev = rt.in_death_resolution
     rt.in_death_resolution = True
     try:
-        for ab in dead.template.abilities:
+        for ab in dead.abilities:
             if ab.trigger != Trigger.ON_DEATH:
                 continue
             handler = _DEATHRATTLE_HANDLERS.get(type(ab.effect))
@@ -1026,7 +1026,7 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
                 # this can never actually fire in a game or a training run.
                 raise KeyError(
                     f"no deathrattle handler for {type(ab.effect).__name__} "
-                    f"(card {dead.template.card_id!r}); register it in "
+                    f"(card {dead.card_id!r}); register it in "
                     "_DEATHRATTLE_HANDLERS"
                 )
             handler(rt, dead, side_idx, ab.effect)
@@ -1045,9 +1045,9 @@ def _dead_friendly_mech_templates_ordered(
     for m in side.graveyard:
         if m is dead:
             continue
-        if not _is_mech_template(m.template):
+        if not _is_mech_template(m):
             continue
-        out.append(copy(m.template))
+        out.append(copy(m))
     return out
 
 
@@ -1055,7 +1055,7 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
     att = rt.find_minion(e.attacker_side_idx, e.attacker_instance_id)
     if att is None or not att.alive or e.excess_damage <= 0:
         return
-    for ab in att.template.abilities:
+    for ab in att.abilities:
         if ab.trigger != Trigger.ON_OVERKILL:
             continue
         eff = ab.effect
@@ -1097,10 +1097,10 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
             for m in side.minions:
                 if m is att:
                     continue
-                if not _matches_tribe_for_aura(m.template, eff.tribe):
+                if not _matches_tribe_for_aura(m, eff.tribe):
                     continue
-                m.template.bonus_attack += eff.attack
-                m.template.bonus_health += eff.health
+                m.bonus_attack += eff.attack
+                m.bonus_health += eff.health
                 m.current_health += eff.health
             _sync_health_all(rt)
 
@@ -1111,9 +1111,9 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
         return
     bm.deathrattle_fired = True
     if rt.death_hook is not None:
-        rt.death_hook(e.side_idx, bm.template.card_id)
-    if rt.mech_hook is not None and _is_mech_template(bm.template):
-        rt.mech_hook(e.side_idx, copy(bm.template))
+        rt.death_hook(e.side_idx, bm.card_id)
+    if rt.mech_hook is not None and _is_mech_template(bm):
+        rt.mech_hook(e.side_idx, copy(bm))
 
     _fire_friendly_minion_died_listeners(rt, bm, e.side_idx)
     attr = rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
@@ -1126,13 +1126,16 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
 
 
 def _minion_has_reborn(bm: BattleMinion) -> bool:
-    return Keyword.REBORN in bm.template.all_keywords and not bm.reborn_consumed
+    return Keyword.REBORN in bm.all_keywords and not bm.reborn_consumed
 
 
 def _strip_reborn_keyword(bm: BattleMinion) -> None:
-    kws = frozenset(k for k in bm.template.keywords if k != Keyword.REBORN)
-    granted = frozenset(k for k in bm.template.granted_keywords if k != Keyword.REBORN)
-    bm.template = replace(bm.template, keywords=kws, granted_keywords=granted)
+    # In place: the minion *is* the entity now, so rebinding a local (which is
+    # what the mechanical de-wrapping turned this into) would drop the change.
+    bm.keywords = frozenset(k for k in bm.keywords if k != Keyword.REBORN)
+    bm.granted_keywords = frozenset(
+        k for k in bm.granted_keywords if k != Keyword.REBORN
+    )
 
 
 def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
@@ -1158,5 +1161,5 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
 
 def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:
     return sum(
-        1 for m in side.minions if _matches_tribe_for_aura(m.template, tribe)
+        1 for m in side.minions if _matches_tribe_for_aura(m, tribe)
     )

@@ -49,13 +49,13 @@ from .state import BattleMinion, BattleSide, _CombatRuntime
 def _deathrattle_multiplier(side: BattleSide) -> int:
     """Product of Baron-style auras (re-read at DR execution time)."""
     return multiplier_for(
-        (bm.template for bm in side.minions), MultiplierKind.DEATHRATTLE
+        (bm for bm in side.minions), MultiplierKind.DEATHRATTLE
     )
 
 
 def _summon_multiplier(side: BattleSide) -> int:
     """Product of Khadgar-style auras."""
-    return multiplier_for((bm.template for bm in side.minions), MultiplierKind.SUMMON)
+    return multiplier_for((bm for bm in side.minions), MultiplierKind.SUMMON)
 
 
 def _board_index(side: BattleSide, bm: BattleMinion) -> Optional[int]:
@@ -85,7 +85,7 @@ def _recipient_gets_stat_from_source(
     if not isinstance(eff, StatAura):
         return 0, 0
     if not buff_matching_hits(
-        eff, recipient.template, idx_candidate=idx_r, idx_source=idx_s
+        eff, recipient, idx_candidate=idx_r, idx_source=idx_s
     ):
         return 0, 0
     return eff.attack, eff.health
@@ -102,11 +102,11 @@ def _grant_keyword(
     minion: BattleMinion,
     keyword: Keyword,
 ) -> None:
-    if keyword not in minion.template.keywords:
-        minion.template.keywords = frozenset(minion.template.keywords | {keyword})
+    if keyword not in minion.keywords:
+        minion.keywords = frozenset(minion.keywords | {keyword})
         _mark_health_aura_dirty(rt, side_idx)
     if keyword == Keyword.SHIELD:
-        minion.shield_armed = True
+        minion.has_shield = True
 
 
 def _iter_stat_aura_contributions(
@@ -121,7 +121,7 @@ def _iter_stat_aura_contributions(
     if idx_r is None or idx_s is None:
         return 0, 0
     ta, th = 0, 0
-    for ab in source.template.abilities:
+    for ab in source.abilities:
         if ab.trigger != Trigger.AURA:
             continue
         a, h = _recipient_gets_stat_from_source(
@@ -141,7 +141,7 @@ def _self_aura_attack_bonus(
         battle_field if battle_field is not None else (own_side,)
     )
     bonus = 0
-    for ab in minion.template.abilities:
+    for ab in minion.abilities:
         if ab.trigger != Trigger.AURA:
             continue
         eff = ab.effect
@@ -150,7 +150,7 @@ def _self_aura_attack_bonus(
             for s in sides:
                 for m in s.iter_living():
                     if m is not minion:
-                        if m.template.race in (Race.MURLOC, Race.ALL):
+                        if m.race in (Race.MURLOC, Race.ALL):
                             n += 1
             bonus += eff.per_attack * n
     return bonus
@@ -165,7 +165,7 @@ def attack_value(
 ) -> int:
     """During death-resolution windows stat auras do not apply (BG-style snapshot)."""
     if death_resolution:
-        return minion.template.raw_attack
+        return minion.raw_attack
     bonus = 0
     for other in side.minions:
         a, _ = _iter_stat_aura_contributions(minion, other, side)
@@ -197,7 +197,7 @@ def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
         delta = b - prev
         bm.health_aura_snapshot = b
         bm.current_health += delta
-        emax = bm.template.max_health + b
+        emax = bm.max_health + b
         if bm.current_health > emax:
             bm.current_health = emax
         if bm.current_health < 0:

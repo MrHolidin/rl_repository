@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import deque
+from copy import copy
 from dataclasses import dataclass, field
 from typing import Callable, Deque, Iterator, List, Optional, Tuple
 
@@ -14,45 +15,29 @@ from src.bg_core.minion import Minion
 from .events import BattleEvent
 
 
-@dataclass
-class BattleMinion:
-    template: Minion
-    current_health: int
-    shield_armed: bool
-    deathrattle_fired: bool = False
-    reborn_consumed: bool = False
-    instance_id: int = 0
-    health_aura_snapshot: int = 0
-    # Board slot this minion occupied when it died, recorded at death so a
-    # deathrattle can summon into it and Reborn can come back there once the
-    # body itself is out of ``BattleSide.minions``. -1 while alive.
-    death_pos: int = -1
-    # MinionDied has been queued for this body. Removal from the board and the
-    # announcement are separate: the body leaves where it dies, the event is
-    # raised at the end of the exchange in a fixed side order.
-    death_announced: bool = False
+# A minion in a battle *is* a Minion -- there is no wrapper. Combat runs on a
+# copy of the board (see ``battle_copy``), so damage taken and shields popped
+# die with that copy and never reach the player's board. The alias is kept so
+# call sites and annotations still read as "this is a combat-side minion".
+BattleMinion = Minion
 
-    @property
-    def alive(self) -> bool:
-        return self.current_health > 0
 
-    @property
-    def raw_attack(self) -> int:
-        return self.template.raw_attack
+def battle_copy(minion: Minion, instance_id: int) -> Minion:
+    """A minion prepared to fight: a copy, at full health, shield re-armed.
 
-    @property
-    def tier(self) -> int:
-        return self.template.tier
-
-    @classmethod
-    def from_minion(cls, minion: Minion, instance_id: int) -> "BattleMinion":
-        armed = minion.has_shield and Keyword.SHIELD in minion.all_keywords
-        return cls(
-            template=minion,
-            current_health=minion.max_health,
-            shield_armed=armed,
-            instance_id=instance_id,
-        )
+    The copy is the isolation mechanism. Re-arming from the keyword is what
+    makes divine shields refresh between combats without anyone writing back.
+    """
+    bm = copy(minion)
+    bm.instance_id = instance_id
+    bm.current_health = minion.max_health
+    bm.has_shield = minion.has_shield and Keyword.SHIELD in minion.all_keywords
+    bm.deathrattle_fired = False
+    bm.reborn_consumed = False
+    bm.health_aura_snapshot = 0
+    bm.death_pos = -1
+    bm.death_announced = False
+    return bm
 
 
 @dataclass
@@ -140,7 +125,7 @@ class BattleSide:
         and the next death path that forgets to sweep would go back to being
         silently wrong instead of loudly.
         """
-        dead = [m.template.card_id for m in self.minions if not m.alive]
+        dead = [m.card_id for m in self.minions if not m.alive]
         assert not dead, f"dead minions left on the board: {dead}"
 
     def alive_minions(self) -> List[BattleMinion]:

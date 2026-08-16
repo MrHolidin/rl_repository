@@ -40,6 +40,31 @@ class Minion:
     dbf_id: Optional[int] = None
     sell_value: Optional[int] = None
 
+    # Identity. Assigned wherever a minion is created, so an event queued
+    # against a minion can still find it after the board has moved under it --
+    # object identity cannot answer "is it still on the board".
+    instance_id: int = 0
+
+    # --- combat lifecycle -------------------------------------------------
+    # Only meaningful while this minion is in Zone.COMBAT, which is always a
+    # *copy* of the board: a battle never writes back, so damage taken and
+    # shields popped die with the copy and the next battle starts from the
+    # untouched original. Outside combat these are simply not maintained.
+    current_health: int = 0
+    deathrattle_fired: bool = False
+    reborn_consumed: bool = False
+    health_aura_snapshot: int = 0
+    #: board slot this minion vacated when it died, so its deathrattle can
+    #: summon there and Reborn can return there
+    death_pos: int = -1
+    #: MinionDied has been queued for this body
+    death_announced: bool = False
+
+    @property
+    def alive(self) -> bool:
+        """Combat-only: a minion outside a battle has no current health."""
+        return self.current_health > 0
+
     def __copy__(self) -> "Minion":
         # Fast shallow clone: identical to copy.copy(self) but skips the generic
         # __reduce_ex__/_reconstruct machinery. All fields are immutable

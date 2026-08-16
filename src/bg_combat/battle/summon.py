@@ -6,7 +6,7 @@ from typing import Optional
 
 from src.bg_core.minion import Minion
 
-from .state import BattleMinion, BattleSide, _CombatRuntime
+from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .events import MinionSummoned
 from .auras import _board_index, _mark_health_aura_dirty, _sync_health_all
 
@@ -27,7 +27,7 @@ def _summon_insert(
     if side.alive_count() >= rt.combat_board_max:
         return None
     bid = rt.alloc_id()
-    bm = BattleMinion.from_minion(copy(template), bid)
+    bm = battle_copy(template, bid)
     if at_idx is None or at_idx >= len(side.minions):
         side.minions.append(bm)
     else:

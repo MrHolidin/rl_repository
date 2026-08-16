@@ -100,19 +100,6 @@ class BattleResult:
         return hash((self.damage_p0, self.damage_p1, self.raw_damage_p0, self.raw_damage_p1))
 
 
-def persist_shop_board_from_side(side: BattleSide, max_slots: int) -> List[Minion]:
-    """Alive combat minions in scan order, shallow-copied to shop ``Minion`` (shields re-arm)."""
-    out: List[Minion] = []
-    for bm in side.iter_living():
-        if len(out) >= max_slots:
-            break
-        m = copy(bm.template)
-        if Keyword.SHIELD in m.all_keywords:
-            m.has_shield = True
-        out.append(m)
-    return out
-
-
 def _emit_survivor_outputs(
     side0: BattleSide,
     side1: BattleSide,
@@ -125,16 +112,19 @@ def _emit_survivor_outputs(
 ) -> None:
     if p0_survivors_out is not None:
         p0_survivors_out.clear()
-        p0_survivors_out.extend(m.template.card_id for m in side0.minions)
+        p0_survivors_out.extend(m.card_id for m in side0.minions)
     if p1_survivors_out is not None:
         p1_survivors_out.clear()
-        p1_survivors_out.extend(m.template.card_id for m in side1.minions)
-    if p0_board_out is not None:
-        p0_board_out.clear()
-        p0_board_out.extend(persist_shop_board_from_side(side0, max_board_slots))
-    if p1_board_out is not None:
-        p1_board_out.clear()
-        p1_board_out.extend(persist_shop_board_from_side(side1, max_board_slots))
+        p1_survivors_out.extend(m.card_id for m in side1.minions)
+    # Observation hook only: nothing in the game reads these back onto a
+    # board, because a battle leaves no trace on it. Survivors are handed out
+    # as-is -- they are Minions already, and copying them here would only hide
+    # the state a test is trying to look at.
+    for out, side in ((p0_board_out, side0), (p1_board_out, side1)):
+        if out is None:
+            continue
+        out.clear()
+        out.extend(list(side.iter_living())[:max_board_slots])
 
 
 def _emit_combat_hand_adds(

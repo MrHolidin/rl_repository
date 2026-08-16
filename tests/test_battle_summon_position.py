@@ -56,7 +56,7 @@ def _drain(rt):
 
 
 def _alive_names(side):
-    return [m.template.name for m in side.minions if m.alive]
+    return [m.name for m in side.minions if m.alive]
 
 
 def test_deathrattle_token_spawns_in_dead_minions_slot():
@@ -77,7 +77,7 @@ def test_deathrattle_token_spawns_in_dead_minions_slot():
     assert golem not in side.minions
     assert side.graveyard == [golem]
     assert golem.death_pos == 1
-    assert side.minions[1].template.name == "Damaged Golem"
+    assert side.minions[1].name == "Damaged Golem"
 
 
 def test_multi_token_deathrattle_spawns_in_order_in_place():
@@ -174,4 +174,4 @@ def test_insert_before_cursor_shifts_cursor_no_skip_no_repeat():
     third = _next_attacker(side, battle_field=sides)
     assert third is side.minions[3]  # Dragonspawn Lieutenant (shifted right)
     fourth = _next_attacker(side, battle_field=sides)
-    assert fourth.template.card_id == tok.card_id
+    assert fourth.card_id == tok.card_id

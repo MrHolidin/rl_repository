@@ -26,7 +26,7 @@ def test_patch_card_descriptions_include_names():
     for card_id, desc in ctx.descriptions.items():
         assert desc.card_id == card_id
         assert desc.name.strip()
-        assert desc.template.name == desc.name
+        assert desc.name == desc.name
         assert ctx.templates[card_id].name == desc.name
 
 

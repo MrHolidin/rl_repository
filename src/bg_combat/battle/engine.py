@@ -53,7 +53,7 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
     pending: Tuple[List[Tuple[BattleMinion, object]], List[Tuple[BattleMinion, object]]] = ([], [])
     for side_idx in (0, 1):
         for bm in rt.side(side_idx).minions:
-            for ab in bm.template.abilities:
+            for ab in bm.abilities:
                 if ab.trigger == Trigger.ON_START_OF_COMBAT:
                     pending[side_idx].append((bm, ab.effect))
 
@@ -192,7 +192,7 @@ def _run_attacker_activation(
     battle_field = (rt.side(0), rt.side(1))
     if not _can_attack(attacker, attacker_side, battle_field=battle_field):
         return
-    kws = attacker.template.all_keywords
+    kws = attacker.all_keywords
     if Keyword.MEGA_WINDFURY in kws:
         n_swings = 4
     elif Keyword.WINDFURY in kws:

@@ -12,14 +12,14 @@ from .auras import attack_value
 
 
 def _attacker_has_zapp_targeting(attacker: BattleMinion) -> bool:
-    for ab in attacker.template.abilities:
+    for ab in attacker.abilities:
         if ab.trigger == Trigger.AURA and isinstance(ab.effect, ZappTargeting):
             return True
     return False
 
 
 def _attacker_has_cleave(attacker: BattleMinion) -> bool:
-    for ab in attacker.template.abilities:
+    for ab in attacker.abilities:
         if ab.trigger == Trigger.AURA and isinstance(ab.effect, CleaveOnAttack):
             return True
     return False
@@ -55,7 +55,7 @@ def _pick_target(
     alive = defender_side.alive_minions()
     if not alive:
         return None
-    taunts = [m for m in alive if Keyword.TAUNT in m.template.all_keywords]
+    taunts = [m for m in alive if Keyword.TAUNT in m.all_keywords]
     pool = taunts if taunts else alive
     if attacker is not None and _attacker_has_zapp_targeting(attacker):
         atk_vals = [
