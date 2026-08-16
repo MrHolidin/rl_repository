@@ -307,3 +307,42 @@ def test_a_vacated_slot_left_of_the_pointer_still_shifts_it(ctx):
 
     assert side.cursor == 2, "the token went in front of the waiting minion"
     assert _next_attacker(side, battle_field=rt.sides) is waiting
+
+
+def test_a_summoned_token_lands_by_the_minion_that_summoned_it(ctx):
+    """Two identical minions on a board must still be told apart.
+
+    ``apply_summon_from_place`` locates the summoner with
+    ``player.board.index(source)``, which returns the first *equal* entry. Two
+    Alleycats are equal in every printed respect, so playing the second one put
+    its Tabbycat next to the first -- and the same lookup misplaced the second
+    of three identical pirates summoned by one deathrattle in combat. A
+    per-entity instance_id, and copies minting a fresh one, make the lookup
+    mean "this minion" instead of "a minion like this".
+    """
+    import numpy as np
+
+    from src.bg_lobby.player import PlayerState
+    from src.bg_recruitment.place import place_from_hand
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ctx74 = load_patch_context("data/bgcore/19_6_0_74257")
+    triggers = ShopTriggers(np.random.default_rng(0), patch=ctx74)
+    first = make_minion("CFM_315", patch=ctx74)  # Alleycat: summon a Tabbycat
+    token = make_minion("CFM_315t", patch=ctx74)
+    played = make_minion("CFM_315", patch=ctx74)
+
+    player = PlayerState(
+        health=40, gold=10, tavern_tier=3, next_tier_up_cost=5,
+        board=[first, token], shop=[None] * 6,
+        hand=[played] + [None] * 4, phase=0, shop_actions_used=0,
+    )
+    place_from_hand(
+        player, 0, None, board_size=7, triggers=triggers, rng=np.random.default_rng(0)
+    )
+
+    ids = [m.card_id for m in player.board]
+    assert ids == ["CFM_315", "CFM_315t", "CFM_315", "CFM_315t"], (
+        "the new Tabbycat belongs after the Alleycat that summoned it"
+    )
+    assert player.board[2] is played

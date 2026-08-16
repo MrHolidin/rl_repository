@@ -83,6 +83,7 @@ class Minion:
         # sharing them in a shallow copy is safe — matches prior copy.copy use.
         new = object.__new__(Minion)
         new.__dict__ = self.__dict__.copy()
+        new.instance_id = next_instance_id()
         return new
 
     @property
