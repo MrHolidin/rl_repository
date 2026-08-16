@@ -107,35 +107,43 @@ def test_every_target_is_dispatched():
         buff_matching_hits(eff, cand, None)
 
 
-def test_other_of_tribe_deathrattle_stays_a_no_op():
-    """BGS_030's ON_DEATH must keep doing nothing in combat.
+def test_king_bagurgle_deathrattle_fires():
+    """BGS_030 = King Bagurgle, 'Battlecry **and Deathrattle**: +2/+2 to your
+    other Murlocs'. The deathrattle half used to be silently dropped (its
+    effect class had no ``_DEATHRATTLE_HANDLERS`` entry and the dispatch skipped
+    misses without a word), so half the card did nothing."""
+    import numpy as np
 
-    ``BuffAllOtherOfTribe`` had no ``_DEATHRATTLE_HANDLERS`` entry and
-    ``_fire_deathrattle`` skips unregistered effects, so that deathrattle never
-    fired. The merge gave all four targets one shared handler, which would have
-    started firing it — a rules change disguised as a refactor. The handler
-    filters the target back out; this pins that.
-    """
-    from src.bg_combat.battle.effects import _DR_BUFF_MATCHING_TARGETS
-
-    assert BuffTarget.OTHER_OF_TRIBE not in _DR_BUFF_MATCHING_TARGETS
-    assert BuffTarget.ALL_FRIENDLY in _DR_BUFF_MATCHING_TARGETS
-    assert BuffTarget.FRIENDLY_OF_TRIBE in _DR_BUFF_MATCHING_TARGETS
-    assert BuffTarget.FRIENDLY_WITH_KEYWORD in _DR_BUFF_MATCHING_TARGETS
-
-
-def test_bgs_030_still_has_an_inert_deathrattle():
-    """The card that makes the above concrete, read from the real patch."""
+    from src.bg_catalog.cards import make_minion
     from src.bg_catalog.patch_context import load_patch_context
-    from src.bg_core.effects import Trigger
+    from src.bg_combat.battle import simulate_battle
 
     ctx = load_patch_context("data/bgcore/19_6_0_74257")
-    abils = ctx.templates["BGS_030"].abilities
-    on_death = [a for a in abils if a.trigger is Trigger.ON_DEATH]
-    assert len(on_death) == 1
-    eff = on_death[0].effect
-    assert isinstance(eff, BuffMatching)
-    assert eff.target is BuffTarget.OTHER_OF_TRIBE
+    bagurgle = make_minion("BGS_030", patch=ctx)
+    bagurgle.base_health = 1  # dies to the first swing
+    allies = [make_minion("EX1_506", patch=ctx) for _ in range(2)]
+    for m in allies:
+        m.bonus_health += 60  # outlive the fight so the buff is observable
+    before = [(m.raw_attack, m.max_health) for m in allies]
+
+    enemy = [make_minion("EX1_506", patch=ctx)]
+    enemy[0].bonus_attack += 5  # kills Bagurgle, cannot kill the others
+
+    survivors: list = []
+    simulate_battle(
+        [bagurgle] + allies,
+        enemy,
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        combat_board_max=7,
+        damage_cap=15,
+        max_board_slots=7,
+        patch=ctx,
+        p0_board_out=survivors,
+    )
+
+    assert before == [(2, 61), (2, 61)]
+    assert [(m.raw_attack, m.max_health) for m in survivors] == [(4, 63), (4, 63)]
 
 
 def test_obs_ids_match_the_pre_merge_classes():

@@ -834,29 +834,9 @@ def _dr_summon_copy_hand(
                 _queue_combat_hand_add_card(rt, side_idx, cid)
 
 
-# Targets that had a ``_DEATHRATTLE_HANDLERS`` entry before the merge.
-#
-# ``OTHER_OF_TRIBE`` is deliberately absent: ``BuffAllOtherOfTribe`` was never
-# registered there, and ``_fire_deathrattle`` looks handlers up with
-# ``.get(type(effect))`` and silently skips a miss — so an ON_DEATH ability
-# carrying it did nothing (BGS_030 ships exactly that). Merging the classes
-# would have made that deathrattle start firing, which is a rules change, not
-# a refactor. Preserved as-is; whether the card *should* fire is a separate
-# decision.
-_DR_BUFF_MATCHING_TARGETS = frozenset(
-    {
-        BuffTarget.ALL_FRIENDLY,
-        BuffTarget.FRIENDLY_OF_TRIBE,
-        BuffTarget.FRIENDLY_WITH_KEYWORD,
-    }
-)
-
-
 def _dr_buff_matching(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffMatching
 ) -> None:
-    if effect.target not in _DR_BUFF_MATCHING_TARGETS:
-        return
     side = rt.side(side_idx)
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
@@ -990,8 +970,21 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
             if ab.trigger != Trigger.ON_DEATH:
                 continue
             handler = _DEATHRATTLE_HANDLERS.get(type(ab.effect))
-            if handler is not None:
-                handler(rt, dead, side_idx, ab.effect)
+            if handler is None:
+                # Deliberately loud. This table is the entire contract for what
+                # a deathrattle can do, so a miss means a card ships an
+                # ON_DEATH ability that nothing implements — half a card that
+                # silently does nothing. That is exactly how King Bagurgle's
+                # deathrattle stayed broken for the life of the package: the
+                # lookup returned None and the dispatch shrugged.
+                # ``test_deathrattle_coverage`` pins the shipped patches so
+                # this can never actually fire in a game or a training run.
+                raise KeyError(
+                    f"no deathrattle handler for {type(ab.effect).__name__} "
+                    f"(card {dead.template.card_id!r}); register it in "
+                    "_DEATHRATTLE_HANDLERS"
+                )
+            handler(rt, dead, side_idx, ab.effect)
     finally:
         rt.in_death_resolution = prev
 
