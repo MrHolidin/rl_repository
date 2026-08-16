@@ -12,19 +12,18 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.bg_catalog.patch_coverage import analyze_patch_coverage, format_report
-from src.bg_catalog.patch_context import DEFAULT_PATCH_DIR
 
 
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Validate data/bgcore/<patch>/ catalog + bindings coverage."
     )
+    # No default: the package to check is always named explicitly, the same way
+    # a PatchContext is never implicit (there is no "current" patch anymore).
     p.add_argument(
         "patch_dir",
-        nargs="?",
         type=Path,
-        default=DEFAULT_PATCH_DIR,
-        help=f"patch package directory (default: {DEFAULT_PATCH_DIR})",
+        help="patch package directory, e.g. data/bgcore/19_6_0_74257",
     )
     p.add_argument(
         "--fail-on-warning",
