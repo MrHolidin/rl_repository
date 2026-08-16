@@ -123,8 +123,27 @@ def test_races_parse_in_declared_order():
 
 
 def test_unknown_race_name_is_rejected():
+    with pytest.raises(LayoutValidationError, match="NOT_A_TRIBE"):
+        layout_from_meta({"races": ["BEAST", "NOT_A_TRIBE"]})
+
+
+def test_post_19_6_tribes_parse():
+    """Quilboar/Naga/Undead exist in the engine but in no shipped package."""
+    layout = layout_from_meta({"races": ["QUILBOAR", "NAGA", "UNDEAD"]})
+    assert layout.races == (Race.QUILBOAR, Race.NAGA, Race.UNDEAD)
+
+
+def test_new_tribes_are_absent_from_the_default_layout():
+    """Adding a tribe to Race must not widen what old packages encode."""
+    for race in (Race.QUILBOAR, Race.NAGA, Race.UNDEAD):
+        assert race not in DEFAULT_LAYOUT.races
+    assert DEFAULT_LAYOUT.race_onehot_dim == 9
+
+
+def test_default_layout_rejects_a_card_from_a_new_tribe():
+    """The guard that would catch a modern catalog loaded on a classic layout."""
     with pytest.raises(LayoutValidationError, match="QUILBOAR"):
-        layout_from_meta({"races": ["BEAST", "QUILBOAR"]})
+        _validate(DEFAULT_LAYOUT, card_races=[Race.BEAST, Race.QUILBOAR])
 
 
 # --------------------------------------------------------------------------- #

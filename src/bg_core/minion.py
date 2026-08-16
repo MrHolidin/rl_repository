@@ -21,6 +21,16 @@ def next_instance_id() -> int:
 
 
 class Race(Enum):
+    """Tribes, in the order they entered the game.
+
+    Members are appended, never inserted: ``auto()`` values are what a patch
+    package's layout and every serialised tribe reference resolve to, so
+    renumbering the existing ones would silently re-tag old data. Which of these
+    a given patch actually uses is the package's business (``meta.json`` rotation
+    and layout), not this enum's — a build that predates Quilboar simply never
+    names it.
+    """
+
     BEAST = auto()
     DEMON = auto()
     MECHANICAL = auto()
@@ -29,6 +39,10 @@ class Race(Enum):
     PIRATE = auto()
     ELEMENTAL = auto()
     ALL = auto()
+    # Post-19.6 tribes (Quilboar 20.0, Naga 23.2, Undead 25.0).
+    QUILBOAR = auto()
+    NAGA = auto()
+    UNDEAD = auto()
 
 
 @dataclass

@@ -12,18 +12,16 @@ from .state import Race
 
 
 def hs_race_string(race: Any) -> Optional[str]:
+    """HS race string for a tribe, or ``None`` for "no single tribe".
+
+    ``Race.ALL`` is an Amalgam, not a tribe, so it maps to ``None`` like a
+    raceless minion. Every other member spells its HS string exactly as its
+    enum name — derived rather than listed, so a tribe added to ``Race`` cannot
+    silently read as raceless here.
+    """
     if race is None or race is Race.ALL:
         return None
-    rev = {
-        Race.BEAST: "BEAST",
-        Race.DEMON: "DEMON",
-        Race.MECHANICAL: "MECHANICAL",
-        Race.MURLOC: "MURLOC",
-        Race.DRAGON: "DRAGON",
-        Race.PIRATE: "PIRATE",
-        Race.ELEMENTAL: "ELEMENTAL",
-    }
-    return rev.get(race)
+    return race.name if isinstance(race, Race) else None
 
 
 def _record_has_deathrattle(

@@ -200,6 +200,10 @@ def race_from_hs_string(value: Optional[str]):
         "PIRATE": Race.PIRATE,
         "ELEMENTAL": Race.ELEMENTAL,
         "ALL": Race.ALL,
+        # HSJSON spells these exactly like this on modern builds.
+        "QUILBOAR": Race.QUILBOAR,
+        "NAGA": Race.NAGA,
+        "UNDEAD": Race.UNDEAD,
     }
     if value not in mapping:
         raise KeyError(f"Unknown HS race {value!r}")
