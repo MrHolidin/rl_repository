@@ -83,6 +83,11 @@ def test_board_closes_up_so_neighbours_become_adjacent(ctx):
     assert x_attack() == 2, "X starts two slots from the wolf"
     y.damage_taken = y.max_health + y.aura_health
     side.reap_dead()
+    # Removing the body changed who is adjacent to whom, and attack reads a
+    # stored aura contribution, so the board has to be re-synced. In a battle
+    # the runtime does that on its own -- verified: over 400 random battles and
+    # 30 full lobbies, nothing ever read an attack that was out of date.
+    side.sync_auras()
     assert x_attack() == 3, "with the corpse gone X is adjacent and gets +1"
 
 

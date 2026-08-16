@@ -9,6 +9,7 @@ import numpy as np
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     Ability,
+    GrantKeywordRandomFriendly,
     Keyword,
     ReduceUpgradeCostEffect,
     StartOfCombatDamagePerFriendlyTribe,
@@ -1718,3 +1719,103 @@ def test_targeted_battlecry_with_no_eligible_tribe_opens_no_plan():
     p.board = [ctx.make_minion("EX1_531")]          # a Beast
     p.hand[0] = ctx.make_minion("DAL_077")          # Toxfin wants a Murloc
     assert open_rl_place_plan(p, 0) is None
+
+
+def test_macaw_triggered_deathrattle_buffs_its_own_living_source():
+    """Goldrinn is a Beast, so "give your Beasts +5/+5" includes Goldrinn.
+
+    Normally invisible -- a deathrattle fires from the graveyard, and a body
+    there is not "your Beasts" any more. Monstrous Macaw is the exception: it
+    fires a deathrattle while its owner is alive and on the board, and then
+    the source is a perfectly ordinary target. Only targets whose text says
+    "other" skip it.
+    """
+    ctx = PatchContext.load(PATCH_74257)
+    macaw = ctx.make_minion("BGS_078")
+    macaw.base_attack = 6
+    goldrinn = ctx.make_minion("BGS_018")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 0
+    enemy.base_health = 1
+    p0_out: list = []
+    simulate_battle(
+        [macaw, goldrinn],
+        [enemy],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    by_id = {m.card_id: m for m in p0_out}
+    gold = by_id["BGS_018"]
+    assert (gold.raw_attack, gold.max_health) == (9, 9)
+
+
+def test_macaw_triggered_selfless_hero_still_skips_itself():
+    """exclude_self is what decides, and Selfless Hero sets it.
+
+    Macaw fires the deathrattle while Selfless Hero is alive and standing on
+    the board, so it is an eligible target on paper -- "give a random friendly
+    minion Divine Shield" does not say "other". The flag on the effect is what
+    keeps it out, which is the only reason combat's old unconditional drop of
+    the source agreed with the shop's.
+    """
+    ctx = PatchContext.load(PATCH_74257)
+    macaw = ctx.make_minion("BGS_078")
+    macaw.base_attack = 6
+    hero = ctx.make_minion("OG_221")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 0
+    enemy.base_health = 1
+    p0_out: list = []
+    simulate_battle(
+        [macaw, hero],
+        [enemy],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    by_id = {m.card_id: m for m in p0_out}
+    assert Keyword.SHIELD not in by_id["OG_221"].all_keywords
+    assert Keyword.SHIELD in by_id["BGS_078"].all_keywords
+
+
+def test_combat_honours_exclude_self_false_on_a_keyword_grant():
+    """Combat used to drop the source no matter what the effect asked for.
+
+    No shipped card exposes it -- Selfless Hero and Toxfin both set
+    exclude_self -- so this builds the ability by hand. The source is the only
+    Murloc, so with the flag off it is the only eligible target and has to be
+    the one that ends up shielded; before, the pool came out empty and nothing
+    happened at all.
+    """
+    ctx = PatchContext.load(PATCH_74257)
+    macaw = ctx.make_minion("BGS_078")
+    macaw.base_attack = 6
+    src = ctx.make_minion("EX1_506")  # Alleycat body, re-abilitied below
+    src.race = Race.MURLOC
+    src.abilities = (
+        Ability(
+            Trigger.ON_DEATH,
+            GrantKeywordRandomFriendly(
+                keyword=Keyword.SHIELD,
+                filter_race=Race.MURLOC,
+                exclude_self=False,
+            ),
+        ),
+    )
+    enemy = make_minion("recruit")
+    enemy.base_attack = 0
+    enemy.base_health = 1
+    p0_out: list = []
+    simulate_battle(
+        [macaw, src],
+        [enemy],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    shielded = [m.card_id for m in p0_out if Keyword.SHIELD in m.all_keywords]
+    assert shielded == ["EX1_506"]

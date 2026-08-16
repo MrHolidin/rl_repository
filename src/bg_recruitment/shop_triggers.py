@@ -10,7 +10,6 @@ from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.conditions import ability_condition_met
 from src.bg_core.effects import (
-    Ability,
     AdaptAllMurlocsEffect,
     AdaptSelfRandomEffect,
     AddRandomMinionToShopEffect,
@@ -24,24 +23,23 @@ from src.bg_core.effects import (
     BuffMatching,
     BuffTarget,
     BuffAllShopOffersEffect,
-    BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffRandomUniqueTribeFriendlies,
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
+    BuffTargetFriendlyBattlecry,
+    BuffTargetFromPiratesBoughtBattlecry,
+    ConsumeFriendlyBattlecry,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
-    BuffSummonedIfRace,
-    BuffTargetFriendlyBattlecry,
     DealHeroDamage,
     DiscoverMurlocEffect,
     Effect,
     GainGoldThisTurnEffect,
     GrantKeywordRandomFriendly,
-    GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
     IncrementShopTribeBonusEffect,
     Keyword,
@@ -53,11 +51,12 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
+    apply_buff_matching,
+    apply_summoned_listener,
+    grant_keyword,
+    grant_keyword_random,
     apply_buff_self_per_count,
     multiplier_for,
-    buff_matching_hits,
-    count_friendly_tribe,
-    count_golden_friendlies,
     count_unique_tribes,
 )
 from src.bg_core.minion import Minion, Race
@@ -71,11 +70,44 @@ from src.bg_recruitment.discover_pool import (
 from src.bg_recruitment.shop import (
     add_random_minion_to_hand,
     add_random_minion_to_shop,
-    apply_shop_tribe_bonus_to_minion,
     buff_all_shop_offers,
     buff_shop_minions_of_tribe,
 )
 from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
+
+
+class UnhandledShopEffect(RuntimeError):
+    """An effect reached the shop dispatcher and nothing knew what to do with it.
+
+    This used to be a silent fall-through, which made "does nothing in the
+    tavern, by design" and "nobody ever implemented this" look identical from
+    the outside -- including to the card that quietly stopped working.
+    """
+
+
+#: Effects that legitimately reach ``apply_shop_effect`` and must do nothing
+#: there, because something upstream already applied them. Each entry is a
+#: claim that can be checked, which is the point of writing them down.
+_HANDLED_ELSEWHERE = (
+    # Battlecries needing a target the player picked: applied by
+    # bg_recruitment/targeted_battlecry.py off the placement action.
+    BuffAdjacentBattlecry,
+    BuffTargetFriendlyBattlecry,
+    BuffTargetFromPiratesBoughtBattlecry,
+    ConsumeFriendlyBattlecry,
+    # fire_on_place applies these itself and then skips them here: they read
+    # and write per-turn counters that Brann must not multiply.
+    PogoHopperBattlecry,
+    AdaptSelfRandomEffect,
+    # fire_after_friendly_minion_placed handles these before it delegates.
+    BuffSelfPerCount,
+    BuffSelfWhenFriendlyBattlecryPlaced,
+    BuffSelfWhenFriendlyDeathrattlePlaced,
+    BuffRandomFriendlyFromPlacedTierEffect,
+    # Open a discover rather than resolve: fire_on_place sets pending_choice.
+    AdaptAllMurlocsEffect,
+    DiscoverMurlocEffect,
+)
 
 
 class ShopTriggers:
@@ -223,11 +255,7 @@ class ShopTriggers:
         source: Minion,
         effect: BuffMatching,
     ) -> None:
-        for m in player.board:
-            if not buff_matching_hits(effect, m, source):
-                continue
-            m.bonus_attack += effect.attack
-            m.bonus_health += effect.health
+        apply_buff_matching(effect, player.board, source)
 
     def apply_grant_keyword_random(
         self,
@@ -235,18 +263,13 @@ class ShopTriggers:
         source: Minion,
         effect: GrantKeywordRandomFriendly,
     ) -> None:
-        pool = list(player.board)
-        if effect.exclude_self:
-            pool = [m for m in pool if m is not source]
-        if effect.filter_race is not None:
-            pool = [m for m in pool if self.minion_matches_tribe(m, effect.filter_race)]
-        for _ in range(max(1, effect.repeats)):
-            if not pool:
-                return
-            tgt = pool[int(self._rng.integers(0, len(pool)))]
-            tgt.keywords = frozenset(tgt.keywords | {effect.keyword})
-            if effect.keyword == Keyword.SHIELD:
-                tgt.has_shield = True
+        grant_keyword_random(
+            effect,
+            player.board,
+            source,
+            rng=self._rng,
+            grant=grant_keyword,
+        )
 
     def apply_summon_from_place(
         self, player: PlayerState, source: Minion, effect: SummonEffect
@@ -278,22 +301,13 @@ class ShopTriggers:
             for ab in m.abilities:
                 if ab.trigger != Trigger.ON_FRIENDLY_MINION_SUMMONED:
                     continue
+                # The one flag no other shop site honours, because BGS_071 is
+                # the only ability carrying it and this is its trigger.
                 if ab.combat_only:
                     continue
-                eff = ab.effect
-                if isinstance(eff, BuffSummonedIfRace):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        summoned.bonus_attack += eff.attack
-                        summoned.bonus_health += eff.health
-                elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        m.keywords = frozenset(m.keywords | {eff.keyword})
-                        if eff.keyword == Keyword.SHIELD:
-                            m.has_shield = True
-                elif isinstance(eff, BuffListenerIfSummonedMatches):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        m.bonus_attack += eff.attack
-                        m.bonus_health += eff.health
+                apply_summoned_listener(
+                    ab.effect, m, summoned, grant_keyword=grant_keyword
+                )
 
     def apply_shop_effect(
         self,
@@ -305,6 +319,8 @@ class ShopTriggers:
         shop_excluded_race: Optional[Race] = None,
         shared_pool=None,
     ) -> None:
+        if isinstance(effect, _HANDLED_ELSEWHERE):
+            return
         if isinstance(effect, BuffRandomFriendly):
             self.apply_buff_random(source, effect, player.board)
         elif isinstance(effect, BuffOnePerListedTribeFriendly):
@@ -398,6 +414,12 @@ class ShopTriggers:
                 shop_excluded_race,
                 rng=self._rng,
                 patch=self._patch,
+            )
+        else:
+            raise UnhandledShopEffect(
+                f"{type(effect).__name__} reached the shop dispatcher with no "
+                f"handler and is not listed in _HANDLED_ELSEWHERE. Either give "
+                f"it a branch or say where it is handled instead."
             )
 
     @staticmethod
@@ -604,8 +626,6 @@ class ShopTriggers:
                 ):
                     if not self._has_battlecry(placed):
                         continue
-                if isinstance(eff, IncrementShopTribeBonusEffect):
-                    pass
                 self.apply_shop_effect(player, m, ab.effect, placed)
 
     def fire_on_turn_end(self, player: PlayerState) -> None:

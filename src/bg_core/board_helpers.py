@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
 from copy import copy
 
@@ -117,6 +117,182 @@ def buff_matching_hits(
     raise ValueError(f"unhandled BuffTarget {t!r}")
 
 
+def index_of(minions: Sequence[Minion], minion: Minion) -> Optional[int]:
+    """Slot ``minion`` occupies, or ``None`` if it is not on this board.
+
+    By identity, not by value: two Alleycats are equal in every printed field,
+    and the slot is what adjacency and summon anchoring are decided by.
+    """
+    for i, m in enumerate(minions):
+        if m is minion:
+            return i
+    return None
+
+
+def stat_aura_bonus(
+    minions: Sequence[Minion],
+    recipient: Minion,
+    *,
+    live_only: bool = False,
+) -> Tuple[int, int]:
+    """Attack/health ``recipient`` is getting from its boardmates' auras.
+
+    Both phases ran this same loop: find the recipient's slot, walk every
+    other minion's AURA abilities, and sum the ``StatAura`` ones that reach it.
+    The slot matters because ADJACENT (Dire Wolf Alpha) is decided by it.
+
+    ``live_only`` is combat's, and it is load-bearing rather than defensive: a
+    minion that has died is not reaped until its death finishes resolving, so
+    it is briefly still in the list, and a corpse must not keep buffing. Nothing
+    outside combat maintains damage, so no shop minion is ever in that state.
+    """
+    from .effects import StatAura, Trigger  # circular at module scope
+
+    idx_r = index_of(minions, recipient)
+    if idx_r is None:
+        return 0, 0
+    atk = 0
+    hp = 0
+    for idx_s, source in enumerate(minions):
+        if source is recipient:
+            continue
+        if live_only and not source.alive:
+            continue
+        for ab in source.abilities:
+            if ab.trigger != Trigger.AURA or not isinstance(ab.effect, StatAura):
+                continue
+            if buff_matching_hits(
+                ab.effect, recipient, idx_candidate=idx_r, idx_source=idx_s
+            ):
+                atk += ab.effect.attack
+                hp += ab.effect.health
+    return atk, hp
+
+
+def grant_keyword(minion: Minion, keyword) -> bool:
+    """Give ``minion`` a keyword. Returns whether it did not already have it.
+
+    Divine Shield is two facts, not one: the keyword (which a golden copy
+    inherits) and ``has_shield`` (whether the shield is up right now, which is
+    all that popping it clears). Re-granting the keyword re-arms the shield --
+    that is why the second assignment is outside the "was it new" check.
+
+    The return value is combat's: only a keyword that is actually new can
+    change what the health auras compute, so only then is it worth marking
+    them dirty.
+    """
+    from .effects import Keyword
+
+    is_new = keyword not in minion.keywords
+    if is_new:
+        minion.keywords = frozenset(minion.keywords | {keyword})
+    if keyword == Keyword.SHIELD:
+        minion.has_shield = True
+    return is_new
+
+
+def grant_keyword_random(
+    effect,
+    minions: Sequence[Minion],
+    source: Optional[Minion],
+    *,
+    rng,
+    grant,
+) -> None:
+    """Give ``effect.keyword`` to a random eligible friendly, ``repeats`` times.
+
+    Selfless Hero in combat and Toxfin in the tavern. The shop honoured
+    ``exclude_self``; combat dropped the source unconditionally, which agreed
+    with the flag only because every card that exists sets it. Monstrous Macaw
+    is what makes the difference reachable at all -- it fires a deathrattle
+    while the source is alive and eligible -- so the flag decides now.
+
+    One pool for all repeats: nothing a keyword grant does can change who is
+    eligible, and rebuilding it per repeat only obscured that.
+    """
+    pool = [
+        m
+        for m in minions
+        if not (effect.exclude_self and m is source)
+        and (
+            effect.filter_race is None
+            or minion_matches_tribe(m, effect.filter_race)
+        )
+    ]
+    if not pool:
+        return
+    for _ in range(max(1, effect.repeats)):
+        grant(pool[int(rng.integers(0, len(pool)))], effect.keyword)
+
+
+def apply_summoned_listener(
+    effect,
+    listener: Minion,
+    summoned: Minion,
+    *,
+    grant_keyword,
+) -> None:
+    """One of the three "a friendly minion was summoned" effects.
+
+    All three gate on the newcomer's tribe and differ only in what happens
+    next: the newcomer gets stats, the listener gets stats, or the listener
+    gets a keyword. Both phases wrote out the same three-branch dispatch with
+    the same tribe check repeated inside each branch.
+
+    ``grant_keyword`` is the one part they cannot share: combat has to mark
+    its health auras dirty afterwards, and the shop has no auras to mark.
+    """
+    from .effects import (
+        BuffListenerIfSummonedMatches,
+        BuffSummonedIfRace,
+        GrantListenerKeywordIfSummonedMatches,
+    )
+
+    if not isinstance(
+        effect,
+        (
+            BuffSummonedIfRace,
+            GrantListenerKeywordIfSummonedMatches,
+            BuffListenerIfSummonedMatches,
+        ),
+    ):
+        return
+    if not minion_matches_tribe(summoned, effect.tribe):
+        return
+    if isinstance(effect, BuffSummonedIfRace):
+        summoned.bonus_attack += effect.attack
+        summoned.bonus_health += effect.health
+    elif isinstance(effect, GrantListenerKeywordIfSummonedMatches):
+        grant_keyword(listener, effect.keyword)
+    else:
+        listener.bonus_attack += effect.attack
+        listener.bonus_health += effect.health
+
+
+def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> None:
+    """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
+
+    One body for what the shop and combat each spelled out. Everything they
+    differed by is a parameter now: which minions (a board or a battle side),
+    who the source is, and how many times the trigger fires (Baron). Combat
+    settles its auras afterwards at the call site, which is the one thing that
+    genuinely has no shop equivalent.
+
+    ``source`` is passed through to the predicate, which excludes it only for
+    ``OTHER_OF_TRIBE`` -- the targets whose card text says "other". Combat used
+    to exclude the source unconditionally, which is invisible for a real death
+    (the body is in the graveyard) but wrong when Monstrous Macaw fires a
+    living minion's deathrattle: Goldrinn is a Beast and "give your Beasts"
+    includes it.
+    """
+    for _ in range(max(1, repeats)):
+        for m in minions:
+            if not buff_matching_hits(effect, m, source):
+                continue
+            m.bonus_attack += effect.attack
+            m.bonus_health += effect.health
+
+
 def count_for_source(
     source: "CountSource",
     board: Sequence[Minion],
@@ -163,6 +339,12 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 
 __all__ = [
     "apply_buff_self_per_count",
+    "apply_buff_matching",
+    "apply_summoned_listener",
+    "grant_keyword",
+    "grant_keyword_random",
+    "index_of",
+    "stat_aura_bonus",
     "buff_matching_hits",
     "count_for_source",
     "multiplier_for",

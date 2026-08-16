@@ -34,4 +34,9 @@ def build_battle_side(board: List[Minion], *, patch: PatchContext) -> BattleSide
         damage_cap=10**9,
         patch=ctx,
     )
-    return _build_side(board, rt)
+    side = _build_side(board, rt)
+    # Hand back a consistent side. Attack reads a stored aura contribution now,
+    # so a side that has never been synced reports everyone's printed attack --
+    # a quiet wrong answer for anything holding a Dire Wolf.
+    side.sync_auras()
+    return side

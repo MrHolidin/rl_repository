@@ -9,7 +9,7 @@ from typing import Callable, Deque, Iterator, List, Optional, Tuple
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext
-from src.bg_core.effects import Keyword
+from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion
 
 from .events import BattleEvent
@@ -103,6 +103,61 @@ class BattleSide:
         for bm in self.graveyard:
             if bm.death_pos > at:
                 bm.death_pos += delta
+
+    def listeners(
+        self,
+        trigger: Trigger,
+        subject: Optional[BattleMinion] = None,
+        *,
+        exclude_subject: bool = True,
+    ) -> Iterator[Tuple[BattleMinion, object]]:
+        """Every (listener, effect) on this side that ``trigger`` reaches.
+
+        ``subject`` is whom the event happened to: the minion that died, that
+        attacked, that lost its shield. An ability can narrow to the subject's
+        tribe (Scavenging Hyena wants a Beast) or to its keywords (Bolvar wants
+        a popped Divine Shield), and those are the same two ability fields
+        wherever this loop is written out. Six copies of it disagreed on which
+        of the two they bothered to check -- harmlessly, because no card in
+        either catalog pairs a filter with a trigger whose site ignored it, but
+        the next one to do so would have been silently ignored.
+
+        A listener does not hear an event about itself, except for
+        ON_FRIENDLY_KILL: the killer is a friendly minion and hears its own
+        kill. That is the one caller passing ``exclude_subject=False``.
+        """
+        from src.bg_core.board_helpers import minion_matches_tribe
+
+        for listener in self.iter_living():
+            if exclude_subject and listener is subject:
+                continue
+            for ab in listener.abilities:
+                if ab.trigger != trigger:
+                    continue
+                if subject is not None:
+                    if ab.filter_race is not None and not minion_matches_tribe(
+                        subject, ab.filter_race
+                    ):
+                        continue
+                    if (
+                        ab.filter_victim_keyword is not None
+                        and ab.filter_victim_keyword not in subject.all_keywords
+                    ):
+                        continue
+                yield listener, ab.effect
+
+    def sync_auras(self, *, death_resolution: bool = False) -> None:
+        """Recompute every minion's aura contribution from this side's board.
+
+        Attack now reads a stored ``aura_attack`` instead of re-deriving it on
+        every swing, so it has the same requirement health already had: after
+        the board changes, someone must sync. In a battle the runtime does it
+        (a board change marks the side dirty, ``_sync_health_all`` runs before
+        anything swings); a side assembled by hand has to say so.
+        """
+        from .auras import _sync_health_aura_side
+
+        _sync_health_aura_side(self, death_resolution)
 
     def iter_living(self) -> Iterator[BattleMinion]:
         """Walk the board, skipping anyone who dies while the walk is running.

@@ -96,6 +96,7 @@ def test_summon_effect_on_death_appends_token():
     bm = battle_copy(pack_rat, 1)
     bm.damage_taken = bm.max_health + bm.aura_health
     side = BattleSide(minions=[bm])
+    side.sync_auras()
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
         rng=np.random.default_rng(0),
@@ -119,6 +120,7 @@ def test_summon_effect_skipped_when_alive_count_at_cap():
         for i in range(2, 9)
     ]
     side = BattleSide(minions=[bm, *extras])
+    side.sync_auras()
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
         rng=np.random.default_rng(0),
@@ -135,7 +137,9 @@ def test_the_beast_summons_finkle_on_opponent_side_during_dr():
     beast = battle_copy(make_minion("the_beast"), 1)
     beast.damage_taken = beast.max_health + beast.aura_health
     side0 = BattleSide(minions=[beast])
+    side0.sync_auras()
     side1 = BattleSide(minions=[])
+    side1.sync_auras()
     rt = _CombatRuntime(
         sides=(side0, side1),
         rng=np.random.default_rng(0),
@@ -153,7 +157,9 @@ def test_opponent_summon_skipped_when_target_side_at_combat_cap():
     beast.damage_taken = beast.max_health + beast.aura_health
     extras = [battle_copy(make_minion("recruit"), i) for i in range(2, 9)]
     side0 = BattleSide(minions=[beast])
+    side0.sync_auras()
     side1 = BattleSide(minions=extras)
+    side1.sync_auras()
     rt = _CombatRuntime(
         sides=(side0, side1),
         rng=np.random.default_rng(0),
@@ -173,6 +179,7 @@ def test_malganis_tribal_aura_buffs_other_demons_only():
         battle_copy(mal, 1),
         battle_copy(imp, 2),
     ])
+    side.sync_auras()
     mal_b, imp_b = side.minions
     assert attack_with_auras(imp_b, side) == imp.raw_attack + 2
     assert attack_with_auras(mal_b, side) == mal.raw_attack
@@ -187,6 +194,7 @@ def test_two_malganis_buff_each_other_and_stack_on_third_demon():
         battle_copy(m2, 2),
         battle_copy(imp, 3),
     ])
+    side.sync_auras()
     a, b, im = side.minions
     assert attack_with_auras(a, side) == m1.raw_attack + 2
     assert attack_with_auras(b, side) == m2.raw_attack + 2
@@ -214,6 +222,7 @@ def test_murloc_warleader_tribal_aura_in_combat():
         battle_copy(make_minion("old_murk_eye"), 2),
         battle_copy(make_minion("toy_mech"), 3),
     ])
+    side.sync_auras()
     wl, mur, filler = side.minions
     assert attack_with_auras(mur, side) == mur.raw_attack + 2 + 1
     assert attack_with_auras(wl, side) == wl.raw_attack
@@ -226,6 +235,7 @@ def test_phalanx_commander_taunt_keyword_aura():
         battle_copy(make_minion("guard"), 2),
         battle_copy(make_minion("toy_mech"), 3),
     ])
+    side.sync_auras()
     _, g, rec = side.minions
     assert attack_with_auras(g, side) == g.raw_attack + 2
     assert attack_with_auras(rec, side) == rec.raw_attack
@@ -238,8 +248,10 @@ def test_tribal_aura_drops_when_source_dies():
         battle_copy(mal, 1),
         battle_copy(imp, 2),
     ])
+    side.sync_auras()
     mal_b, imp_b = side.minions
     mal_b.damage_taken = mal_b.max_health + mal_b.aura_health
+    side.sync_auras()   # the aura drops at the next sync, as it does for health
     assert attack_with_auras(imp_b, side) == imp.raw_attack
 
 
@@ -255,6 +267,7 @@ def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
     kang = battle_copy(kang_tpl, 3)
     kang.damage_taken = kang.max_health + kang.aura_health
     side = BattleSide(minions=[m1, m2, kang])
+    side.sync_auras()
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
         rng=np.random.default_rng(0),
@@ -278,6 +291,7 @@ def test_golden_selfless_hero_grants_two_divine_shields():
     dead = battle_copy(sh, 3)
     dead.damage_taken = dead.max_health + dead.aura_health
     side = BattleSide(minions=[a, b, dead])
+    side.sync_auras()
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
         rng=np.random.default_rng(1),

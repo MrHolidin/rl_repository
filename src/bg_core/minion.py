@@ -66,8 +66,16 @@ class Minion:
     #: is why no effect has to remember to raise two numbers. Fourteen of the
     #: twenty-three writes to the old absolute existed only to do that.
     damage_taken: int = 0
-    #: Health contributed by auras right now, as a value rather than as a delta
-    #: patched into an absolute. Recomputed when the board changes.
+    #: Attack and health contributed by continuous auras right now, as values
+    #: rather than as deltas patched into an absolute. Both are recomputed from
+    #: zero when the board changes, which is how the reference battlegrounds
+    #: simulators do it too -- there is no delta to get out of step.
+    #:
+    #: ``aura_attack`` covers the per-board auras only. Old Murk-Eye counts
+    #: murlocs on *both* boards and a hero can grant a side-wide bonus, and
+    #: neither can live on the minion without re-syncing it whenever the other
+    #: board moves; ``attack_value`` adds those two on top.
+    aura_attack: int = 0
     aura_health: int = 0
     deathrattle_fired: bool = False
     reborn_consumed: bool = False
