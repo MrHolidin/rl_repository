@@ -136,6 +136,17 @@ def _ruleset_dict(rs: Ruleset) -> Dict[str, Any]:
     }
 
 
+def _layout_dict(layout) -> Dict[str, Any]:
+    return {
+        "races": [r.name for r in layout.races],
+        "race_onehot_dim": int(layout.race_onehot_dim),
+        "num_tiers": int(layout.num_tiers),
+        "max_shop_slots": int(layout.max_shop_slots),
+        "shop_offers_by_tier": {str(k): int(v) for k, v in sorted(layout.shop_offers_by_tier.items())},
+        "discover_picks": int(layout.discover_picks),
+    }
+
+
 def _obs_fingerprints(patch_dir: Path) -> Dict[str, Any]:
     """Hash of each layout's observation vector on a fixed seed and seat.
 
@@ -176,6 +187,7 @@ def _package_snapshot(patch_dir: Path) -> Dict[str, Any]:
         "rotation_excluded_count": int(ctx.meta.rotation_excluded_count),
         "pool_copies_by_tier": {str(k): int(v) for k, v in sorted(ctx.meta.pool_copies_by_tier.items())},
         "ruleset": _ruleset_dict(ctx.meta.ruleset),
+        "layout": _layout_dict(ctx.meta.layout),
         "obs_fingerprints": _obs_fingerprints(patch_dir),
     }
 

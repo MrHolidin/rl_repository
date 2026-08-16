@@ -19,6 +19,7 @@ from src.bg_catalog.patch_catalog import (
     minion_from_tavern_record,
     race_from_hs_string,
 )
+from src.bg_catalog.layout import PatchLayout, layout_from_meta, validate_layout
 from src.bg_catalog.ruleset import Ruleset, ruleset_from_meta
 from src.bg_catalog.triple_effects import resolve_triple_forged_abilities
 from src.bg_core.effects import Ability
@@ -35,6 +36,7 @@ class PatchMeta:
     rotation_excluded_count: int
     pool_copies_by_tier: Mapping[int, int]
     ruleset: Ruleset = field(default_factory=Ruleset)
+    layout: PatchLayout = field(default_factory=PatchLayout)
 
     @property
     def cnt_active_shop_tribes(self) -> int:
@@ -131,6 +133,16 @@ class PatchContext:
         card_index_ids, card_id_to_dense = _build_card_index(
             templates, append_last=hero_token_ids
         )
+        # Every card this package can put in front of the encoder has to fit the
+        # layout it declares — checked once, here, rather than mis-encoded later.
+        validate_layout(
+            meta.layout,
+            max_tier=meta.ruleset.max_tier,
+            rotation_tribes=meta.rotation_tribes,
+            card_races=[m.race for m in templates.values()],
+            card_tiers=[m.tier for m in templates.values()],
+            package=root.name,
+        )
         return cls(
             patch_dir=root,
             build=int(catalog["build"]),
@@ -162,6 +174,7 @@ def _load_meta(path: Path) -> PatchMeta:
         rotation_excluded_count=int(raw["rotation_excluded_count"]),
         pool_copies_by_tier=copies,
         ruleset=ruleset_from_meta(raw.get("ruleset")),
+        layout=layout_from_meta(raw.get("layout")),
     )
 
 
