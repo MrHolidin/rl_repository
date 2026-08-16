@@ -31,14 +31,19 @@ def _summon_insert(
     if at_idx is None or at_idx >= len(side.minions):
         side.minions.append(bm)
     else:
-        side.minions.insert(at_idx, bm)
-        side.shift_graveyard_slots(at_idx, +1)
         # Inserting at or before the pointer shifts it, so the minion whose
         # turn it was keeps its turn and the newcomer waits for the next pass.
         # The exception is a token filling a slot its previous occupant just
         # vacated by dying: nobody is waiting on that slot, so the token
         # inherits its place in the rotation and swings this pass.
-        claims_slot = rt.in_death_resolution and at_idx == side.cursor
+        #
+        # Ask the graveyard directly rather than using "are we resolving a
+        # death" as a proxy. The proxy is wrong in both directions: Monstrous
+        # Macaw fires a *living* minion's deathrattle, and an on-damage summon
+        # (Security Rover) can fire while an unrelated deathrattle is running.
+        claims_slot = any(b.death_pos == at_idx for b in side.graveyard)
+        side.minions.insert(at_idx, bm)
+        side.shift_graveyard_slots(at_idx, +1)
         if at_idx <= side.cursor and not claims_slot:
             side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)

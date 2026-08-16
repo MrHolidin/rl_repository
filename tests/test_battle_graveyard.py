@@ -247,3 +247,28 @@ def test_overkill_excess_lands_after_the_body_left_the_board(ctx):
         "the token that filled the slot is summoned after Overkill resolves and "
         "must not soak the excess"
     )
+
+
+def test_a_summon_onto_the_pointer_only_claims_a_slot_something_vacated(ctx):
+    """The queue position belongs to whoever is waiting on it.
+
+    A token filling a slot a body just vacated inherits its place in the
+    rotation. A token appearing between two living minions does not, even when
+    a deathrattle happens to be resolving elsewhere on the board -- an
+    on-damage summon (Security Rover) fires that way, and "are we resolving a
+    death" was standing in for "was this slot vacated" until it did.
+    """
+    from src.bg_combat.battle.engine import _next_attacker
+    from src.bg_combat.battle.summon import _summon_insert
+
+    rt = _runtime(ctx, [_body(ctx), _body(ctx), _body(ctx)])
+    side = rt.side(0)
+    assert _next_attacker(side, battle_field=rt.sides) is side.minions[0]
+    assert side.cursor == 1
+    waiting = side.minions[1]
+
+    rt.in_death_resolution = True  # something else is dying elsewhere
+    _summon_insert(rt, 0, make_minion(TIDEHUNTER, patch=ctx), 1)
+
+    assert side.cursor == 2, "nobody vacated slot 1, so the waiting minion keeps it"
+    assert _next_attacker(side, battle_field=rt.sides) is waiting
