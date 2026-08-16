@@ -746,7 +746,11 @@ def _dr_damage_random(
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        _deal_random_enemy_minion_damage(rt, side_idx, effect.amount)
+        # ``repeats`` is the effect's own count (golden Kaboom Bot fires twice);
+        # the Baron loop above is orthogonal to it. The other two copies of this
+        # effect (overkill, friendly-died) always read it — this one used to not.
+        for _ in range(max(1, effect.repeats)):
+            _deal_random_enemy_minion_damage(rt, side_idx, effect.amount)
 
 
 def _dr_damage_leftmost(
