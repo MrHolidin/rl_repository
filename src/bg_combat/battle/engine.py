@@ -44,11 +44,11 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
         side = rt.side(side_idx)
         if not side.start_combat_keywords:
             continue
-        for bm in side.minions:
-            if bm.alive:
-                for kw in side.start_combat_keywords:
-                    _grant_keyword(rt, side_idx, bm, kw)
-                break
+        # Al'Akir grants to the left-most living minion only.
+        for bm in side.iter_living():
+            for kw in side.start_combat_keywords:
+                _grant_keyword(rt, side_idx, bm, kw)
+            break
     # Both sides' triggers in board order, left to right.
     pending: Tuple[List[Tuple[BattleMinion, object]], List[Tuple[BattleMinion, object]]] = ([], [])
     for side_idx in (0, 1):

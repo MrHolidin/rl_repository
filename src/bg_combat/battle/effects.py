@@ -218,9 +218,8 @@ def _deal_damage_all_minions(rt: _CombatRuntime, amount: int) -> None:
     if amount <= 0:
         return
     for side_idx in (0, 1):
-        for m in list(rt.side(side_idx).minions):
-            if m.alive:
-                _deal_damage_to_battle_minion(rt, side_idx, m, amount)
+        for m in rt.side(side_idx).iter_living():
+            _deal_damage_to_battle_minion(rt, side_idx, m, amount)
 
 
 def _buff_neighbors_of_dead(
@@ -329,8 +328,8 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     summoned = rt.find_minion(e.side_idx, e.instance_id)
     if summoned is None or not summoned.alive:
         return
-    for listener in list(side.minions):
-        if not listener.alive or listener is summoned:
+    for listener in side.iter_living():
+        if listener is summoned:
             continue
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_MINION_SUMMONED:
@@ -360,9 +359,7 @@ def _fire_friendly_kill_listeners(
         return
     killer_tpl = killer.template
     side = rt.side(killer_side_idx)
-    for listener in list(side.minions):
-        if not listener.alive:
-            continue
+    for listener in side.iter_living():
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_KILL:
                 continue
@@ -493,8 +490,8 @@ def _fire_friendly_minion_died_listeners(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int
 ) -> None:
     side = rt.side(side_idx)
-    for listener in list(side.minions):
-        if not listener.alive or listener is dead:
+    for listener in side.iter_living():
+        if listener is dead:
             continue
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_MINION_DIED:
@@ -538,9 +535,8 @@ def _trigger_random_friendly_deathrattle(
     side = rt.side(side_idx)
     pool = [
         m
-        for m in side.minions
-        if m.alive
-        and (not effect.exclude_self or m is not exclude)
+        for m in side.iter_living()
+        if (not effect.exclude_self or m is not exclude)
         and _minion_has_deathrattle(m)
     ]
     for _ in range(max(1, effect.repeats)):
@@ -577,8 +573,8 @@ def _fire_friendly_attack_listeners(
     rt: _CombatRuntime, attacker: BattleMinion, attacker_side_idx: int
 ) -> None:
     side = rt.side(attacker_side_idx)
-    for listener in list(side.minions):
-        if not listener.alive or listener is attacker:
+    for listener in side.iter_living():
+        if listener is attacker:
             continue
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_ATTACK:
@@ -598,9 +594,7 @@ def _fire_friendly_attack_listeners(
             # reached this branch, so matching every BuffMatching variant here
             # would newly fire the tribe/keyword ones on this trigger.
             elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
-                for ally in side.minions:
-                    if not ally.alive:
-                        continue
+                for ally in side.iter_living():
                     ally.template.bonus_attack += eff.attack
                     ally.template.bonus_health += eff.health
                     ally.current_health += eff.health
@@ -629,8 +623,8 @@ def _fire_when_attacked(
                     ally.template.bonus_health += eff.health
                     ally.current_health += eff.health
 
-    for listener in list(side.minions):
-        if not listener.alive or listener is victim:
+    for listener in side.iter_living():
+        if listener is victim:
             continue
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_WHEN_ATTACKED:
@@ -672,8 +666,8 @@ def _fire_friendly_shield_lost_listeners(
     rt: _CombatRuntime, victim_side_idx: int, victim: BattleMinion
 ) -> None:
     side = rt.side(victim_side_idx)
-    for listener in list(side.minions):
-        if not listener.alive or listener is victim:
+    for listener in side.iter_living():
+        if listener is victim:
             continue
         for ab in listener.template.abilities:
             if ab.trigger != Trigger.ON_FRIENDLY_SHIELD_LOST:
@@ -844,7 +838,7 @@ def _dr_transfer_attack(
         pool = [
             m
             for m in side.minions
-            if m.alive and (not effect.exclude_self or m is not dead)
+            if not effect.exclude_self or m is not dead
         ]
         if not pool:
             continue
@@ -898,7 +892,7 @@ def _dr_buff_matching(
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
         for m in side.minions:
-            if (not m.alive) or m is dead:
+            if m is dead:
                 continue
             # Source exclusion is the caller's job here (``m is dead`` above),
             # so no ``source`` is passed. ``_matches_tribe_for_aura`` and
@@ -919,7 +913,7 @@ def _dr_buff_random_other(
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        pool = [m for m in side.minions if m.alive and m is not dead]
+        pool = [m for m in side.minions if m is not dead]
         if not pool:
             continue
         t = pool[int(rt.rng.integers(0, len(pool)))]
@@ -963,7 +957,7 @@ def _dr_grant_kw_random(
         for _kw in range(max(1, effect.repeats)):
             pool = []
             for m in side.minions:
-                if not m.alive or m is dead:
+                if m is dead:
                     continue
                 if effect.filter_race is not None and not _matches_tribe_for_aura(
                     m.template, effect.filter_race
@@ -984,7 +978,7 @@ def _dr_grant_kw_all_of_tribe(
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
         for m in side.minions:
-            if (not m.alive) or m is dead:
+            if m is dead:
                 continue
             if not _matches_tribe_for_aura(m.template, effect.tribe):
                 continue
@@ -1106,7 +1100,7 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
         elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE:
             side = rt.side(e.attacker_side_idx)
             for m in side.minions:
-                if not m.alive or m is att:
+                if m is att:
                     continue
                 if not _matches_tribe_for_aura(m.template, eff.tribe):
                     continue

@@ -169,8 +169,8 @@ def _self_aura_attack_bonus(
         if isinstance(eff, AttackBonusPerOtherMurlocGlobal):
             n = 0
             for s in sides:
-                for m in s.minions:
-                    if m.alive and m is not minion:
+                for m in s.iter_living():
+                    if m is not minion:
                         if m.template.race in (Race.MURLOC, Race.ALL):
                             n += 1
             bonus += eff.per_attack * n
@@ -212,9 +212,7 @@ def health_aura_bonus(
 
 
 def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
-    for bm in side.minions:
-        if not bm.alive:
-            continue
+    for bm in side.iter_living():
         b = health_aura_bonus(bm, side, death_resolution=death_resolution)
         prev = bm.health_aura_snapshot
         delta = b - prev

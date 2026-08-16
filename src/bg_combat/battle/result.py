@@ -103,9 +103,7 @@ class BattleResult:
 def persist_shop_board_from_side(side: BattleSide, max_slots: int) -> List[Minion]:
     """Alive combat minions in scan order, shallow-copied to shop ``Minion`` (shields re-arm)."""
     out: List[Minion] = []
-    for bm in side.minions:
-        if not bm.alive:
-            continue
+    for bm in side.iter_living():
         if len(out) >= max_slots:
             break
         m = copy(bm.template)

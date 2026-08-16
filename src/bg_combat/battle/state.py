@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Callable, Deque, List, Optional, Tuple
+from typing import Callable, Deque, Iterator, List, Optional, Tuple
 
 import numpy as np
 
@@ -117,6 +117,20 @@ class BattleSide:
         for bm in self.graveyard:
             if bm.death_pos > at:
                 bm.death_pos += delta
+
+    def iter_living(self) -> Iterator[BattleMinion]:
+        """Walk the board, skipping anyone who dies while the walk is running.
+
+        ``minions`` only ever holds the living, but an effect fired inside one
+        of these loops can kill a minion further along it, and that death takes
+        the body out of the list mid-iteration. Snapshotting the board and
+        re-checking each entry as it comes up is what every such loop used to
+        spell out by hand -- seventeen copies of the same two lines, each one a
+        chance to forget. This is the reference simulator's ``for_each_alive``.
+        """
+        for m in list(self.minions):
+            if m.alive:
+                yield m
 
     def assert_no_corpses(self) -> None:
         """The invariant everything below leans on: ``minions`` is the living.
