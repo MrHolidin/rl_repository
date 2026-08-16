@@ -53,6 +53,7 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
+    apply_buff_matching,
     apply_buff_self_per_count,
     multiplier_for,
     buff_matching_hits,
@@ -223,11 +224,7 @@ class ShopTriggers:
         source: Minion,
         effect: BuffMatching,
     ) -> None:
-        for m in player.board:
-            if not buff_matching_hits(effect, m, source):
-                continue
-            m.bonus_attack += effect.attack
-            m.bonus_health += effect.health
+        apply_buff_matching(effect, player.board, source)
 
     def apply_grant_keyword_random(
         self,

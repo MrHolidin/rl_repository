@@ -1718,3 +1718,33 @@ def test_targeted_battlecry_with_no_eligible_tribe_opens_no_plan():
     p.board = [ctx.make_minion("EX1_531")]          # a Beast
     p.hand[0] = ctx.make_minion("DAL_077")          # Toxfin wants a Murloc
     assert open_rl_place_plan(p, 0) is None
+
+
+def test_macaw_triggered_deathrattle_buffs_its_own_living_source():
+    """Goldrinn is a Beast, so "give your Beasts +5/+5" includes Goldrinn.
+
+    Normally invisible -- a deathrattle fires from the graveyard, and a body
+    there is not "your Beasts" any more. Monstrous Macaw is the exception: it
+    fires a deathrattle while its owner is alive and on the board, and then
+    the source is a perfectly ordinary target. Only targets whose text says
+    "other" skip it.
+    """
+    ctx = PatchContext.load(PATCH_74257)
+    macaw = ctx.make_minion("BGS_078")
+    macaw.base_attack = 6
+    goldrinn = ctx.make_minion("BGS_018")
+    enemy = make_minion("recruit")
+    enemy.base_attack = 0
+    enemy.base_health = 1
+    p0_out: list = []
+    simulate_battle(
+        [macaw, goldrinn],
+        [enemy],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p0_board_out=p0_out,
+    )
+    by_id = {m.card_id: m for m in p0_out}
+    gold = by_id["BGS_018"]
+    assert (gold.raw_attack, gold.max_health) == (9, 9)

@@ -65,7 +65,7 @@ from .events import (
     ShieldLost,
 )
 from .state import BattleMinion, BattleSide, _CombatRuntime
-from src.bg_core.board_helpers import buff_matching_hits
+from src.bg_core.board_helpers import apply_buff_matching, buff_matching_hits
 from .auras import (
     attack_value,
     _board_index,
@@ -875,20 +875,9 @@ def _dr_buff_matching(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffMatching
 ) -> None:
     side = rt.side(side_idx)
-    rep_dr = 0
-    while rep_dr < _deathrattle_multiplier(side):
-        rep_dr += 1
-        for m in side.minions:
-            if m is dead:
-                continue
-            # Source exclusion is the caller's job here (``m is dead`` above),
-            # so no ``source`` is passed. ``_matches_tribe_for_aura`` and
-            # ``minion_matches_tribe`` are the same predicate, verified
-            # line-for-line, so the shared helper is exact.
-            if not buff_matching_hits(effect, m):
-                continue
-            m.bonus_attack += effect.attack
-            m.bonus_health += effect.health
+    apply_buff_matching(
+        effect, side.minions, dead, repeats=_deathrattle_multiplier(side)
+    )
     _sync_health_all(rt)
 
 
@@ -1083,14 +1072,7 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
         # OTHER_OF_TRIBE only, for the same reason as the ALL_FRIENDLY branch
         # above: this used to be reachable by exactly one effect class.
         elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE:
-            side = rt.side(e.attacker_side_idx)
-            for m in side.minions:
-                if m is att:
-                    continue
-                if not _matches_tribe_for_aura(m, eff.tribe):
-                    continue
-                m.bonus_attack += eff.attack
-                m.bonus_health += eff.health
+            apply_buff_matching(eff, rt.side(e.attacker_side_idx).minions, att)
             _sync_health_all(rt)
 
 

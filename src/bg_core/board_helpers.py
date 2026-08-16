@@ -117,6 +117,30 @@ def buff_matching_hits(
     raise ValueError(f"unhandled BuffTarget {t!r}")
 
 
+def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> None:
+    """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
+
+    One body for what the shop and combat each spelled out. Everything they
+    differed by is a parameter now: which minions (a board or a battle side),
+    who the source is, and how many times the trigger fires (Baron). Combat
+    settles its auras afterwards at the call site, which is the one thing that
+    genuinely has no shop equivalent.
+
+    ``source`` is passed through to the predicate, which excludes it only for
+    ``OTHER_OF_TRIBE`` -- the targets whose card text says "other". Combat used
+    to exclude the source unconditionally, which is invisible for a real death
+    (the body is in the graveyard) but wrong when Monstrous Macaw fires a
+    living minion's deathrattle: Goldrinn is a Beast and "give your Beasts"
+    includes it.
+    """
+    for _ in range(max(1, repeats)):
+        for m in minions:
+            if not buff_matching_hits(effect, m, source):
+                continue
+            m.bonus_attack += effect.attack
+            m.bonus_health += effect.health
+
+
 def count_for_source(
     source: "CountSource",
     board: Sequence[Minion],
@@ -163,6 +187,7 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 
 __all__ = [
     "apply_buff_self_per_count",
+    "apply_buff_matching",
     "buff_matching_hits",
     "count_for_source",
     "multiplier_for",
