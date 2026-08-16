@@ -1,0 +1,337 @@
+{
+  "action_layout": {
+    "A_APPLY_EFFECT_SKIP": 113,
+    "A_SWAP_BOARD_0": 107,
+    "BOARD_SIZE": 7,
+    "HAND_SIZE": 10,
+    "MAX_SHOP_SLOTS": 6,
+    "MAX_TIER": 6,
+    "NUM_ACTIONS": 107,
+    "NUM_ENV_ACTIONS": 114,
+    "SHOP_OFFERS_BY_TIER": {
+      "1": 3,
+      "2": 4,
+      "3": 4,
+      "4": 5,
+      "5": 5,
+      "6": 6
+    },
+    "game_actions_by_index": [
+      "BUY_SLOT_0",
+      "BUY_SLOT_1",
+      "BUY_SLOT_2",
+      "BUY_SLOT_3",
+      "BUY_SLOT_4",
+      "BUY_SLOT_5",
+      "SELL_BOARD_0",
+      "SELL_BOARD_1",
+      "SELL_BOARD_2",
+      "SELL_BOARD_3",
+      "SELL_BOARD_4",
+      "SELL_BOARD_5",
+      "SELL_BOARD_6",
+      "ROLL",
+      "LEVEL_UP",
+      "FINISH",
+      "PLAY_HAND_0",
+      "PLAY_HAND_1",
+      "PLAY_HAND_2",
+      "PLAY_HAND_3",
+      "PLAY_HAND_4",
+      "PLAY_HAND_5",
+      "PLAY_HAND_6",
+      "PLAY_HAND_7",
+      "PLAY_HAND_8",
+      "PLAY_HAND_9",
+      "MAGNET_HAND_0_BOARD_0",
+      "MAGNET_HAND_0_BOARD_1",
+      "MAGNET_HAND_0_BOARD_2",
+      "MAGNET_HAND_0_BOARD_3",
+      "MAGNET_HAND_0_BOARD_4",
+      "MAGNET_HAND_0_BOARD_5",
+      "MAGNET_HAND_0_BOARD_6",
+      "MAGNET_HAND_1_BOARD_0",
+      "MAGNET_HAND_1_BOARD_1",
+      "MAGNET_HAND_1_BOARD_2",
+      "MAGNET_HAND_1_BOARD_3",
+      "MAGNET_HAND_1_BOARD_4",
+      "MAGNET_HAND_1_BOARD_5",
+      "MAGNET_HAND_1_BOARD_6",
+      "MAGNET_HAND_2_BOARD_0",
+      "MAGNET_HAND_2_BOARD_1",
+      "MAGNET_HAND_2_BOARD_2",
+      "MAGNET_HAND_2_BOARD_3",
+      "MAGNET_HAND_2_BOARD_4",
+      "MAGNET_HAND_2_BOARD_5",
+      "MAGNET_HAND_2_BOARD_6",
+      "MAGNET_HAND_3_BOARD_0",
+      "MAGNET_HAND_3_BOARD_1",
+      "MAGNET_HAND_3_BOARD_2",
+      "MAGNET_HAND_3_BOARD_3",
+      "MAGNET_HAND_3_BOARD_4",
+      "MAGNET_HAND_3_BOARD_5",
+      "MAGNET_HAND_3_BOARD_6",
+      "MAGNET_HAND_4_BOARD_0",
+      "MAGNET_HAND_4_BOARD_1",
+      "MAGNET_HAND_4_BOARD_2",
+      "MAGNET_HAND_4_BOARD_3",
+      "MAGNET_HAND_4_BOARD_4",
+      "MAGNET_HAND_4_BOARD_5",
+      "MAGNET_HAND_4_BOARD_6",
+      "MAGNET_HAND_5_BOARD_0",
+      "MAGNET_HAND_5_BOARD_1",
+      "MAGNET_HAND_5_BOARD_2",
+      "MAGNET_HAND_5_BOARD_3",
+      "MAGNET_HAND_5_BOARD_4",
+      "MAGNET_HAND_5_BOARD_5",
+      "MAGNET_HAND_5_BOARD_6",
+      "MAGNET_HAND_6_BOARD_0",
+      "MAGNET_HAND_6_BOARD_1",
+      "MAGNET_HAND_6_BOARD_2",
+      "MAGNET_HAND_6_BOARD_3",
+      "MAGNET_HAND_6_BOARD_4",
+      "MAGNET_HAND_6_BOARD_5",
+      "MAGNET_HAND_6_BOARD_6",
+      "MAGNET_HAND_7_BOARD_0",
+      "MAGNET_HAND_7_BOARD_1",
+      "MAGNET_HAND_7_BOARD_2",
+      "MAGNET_HAND_7_BOARD_3",
+      "MAGNET_HAND_7_BOARD_4",
+      "MAGNET_HAND_7_BOARD_5",
+      "MAGNET_HAND_7_BOARD_6",
+      "MAGNET_HAND_8_BOARD_0",
+      "MAGNET_HAND_8_BOARD_1",
+      "MAGNET_HAND_8_BOARD_2",
+      "MAGNET_HAND_8_BOARD_3",
+      "MAGNET_HAND_8_BOARD_4",
+      "MAGNET_HAND_8_BOARD_5",
+      "MAGNET_HAND_8_BOARD_6",
+      "MAGNET_HAND_9_BOARD_0",
+      "MAGNET_HAND_9_BOARD_1",
+      "MAGNET_HAND_9_BOARD_2",
+      "MAGNET_HAND_9_BOARD_3",
+      "MAGNET_HAND_9_BOARD_4",
+      "MAGNET_HAND_9_BOARD_5",
+      "MAGNET_HAND_9_BOARD_6",
+      "DISCOVER_PICK_0",
+      "DISCOVER_PICK_1",
+      "DISCOVER_PICK_2",
+      "FINISH_FREEZE_SHOP",
+      "TARGET_BOARD_0",
+      "TARGET_BOARD_1",
+      "TARGET_BOARD_2",
+      "TARGET_BOARD_3",
+      "TARGET_BOARD_4",
+      "TARGET_BOARD_5",
+      "TARGET_BOARD_6"
+    ]
+  },
+  "obs_dims": {
+    "bglike": 976,
+    "bglike_v5": 2536,
+    "bglike_v5_heroes": 2683,
+    "bglike_v6_heroes": 1123,
+    "bglike_v7_pref": 1130,
+    "minibg": 952
+  },
+  "packages": {
+    "15_6_2_36393": {
+      "build": 36393,
+      "num_pool_ids": 81,
+      "num_pool_indices": 106,
+      "num_templates": 106,
+      "obs_fingerprints": {
+        "bglike": {
+          "sha256": "cecad771b8588fec2b9f4c486d98222e32f0a06e3be9b42ace69d29e1cbffba2",
+          "shape": 976
+        },
+        "bglike_v5": {
+          "sha256": "1208f939cffc863b1d4903a0e79404a95de20f4cb695efb2667b57eb9c65f15d",
+          "shape": 2536
+        },
+        "bglike_v5_heroes": {
+          "sha256": "ff9d4f9eaa5b7496fc2f13e739b5319d5e193801c25e6fd389d3b9ef182880e3",
+          "shape": 2683
+        },
+        "bglike_v6_heroes": {
+          "sha256": "088966ea205a80f5df6c7b3eb901992bd8742294e78a8106cc0eea5090b750ae",
+          "shape": 1123
+        },
+        "bglike_v7_pref": {
+          "sha256": "d87bbc9107ee49db514bba7b58744fadc85fec47ea930ed95ecbf10fec7e173c",
+          "shape": 1130
+        }
+      },
+      "patch": "15.6.2",
+      "pool_copies_by_tier": {
+        "1": 16,
+        "2": 15,
+        "3": 13,
+        "4": 11,
+        "5": 9,
+        "6": 7
+      },
+      "rotation_excluded_count": 1,
+      "rotation_tribes": [
+        "BEAST",
+        "DEMON",
+        "MECHANICAL",
+        "MURLOC"
+      ],
+      "ruleset": {
+        "buy_cost": 3,
+        "damage_cap_lifted_at_alive": 0,
+        "damage_cap_schedule": [
+          [
+            null,
+            15
+          ]
+        ],
+        "gold_cap": 10,
+        "gold_per_round": {
+          "1": 3,
+          "2": 4,
+          "3": 5,
+          "4": 6,
+          "5": 7,
+          "6": 8,
+          "7": 9,
+          "8": 10
+        },
+        "level_up_costs": {
+          "1": 5,
+          "2": 7,
+          "3": 8,
+          "4": 11,
+          "5": 11
+        },
+        "level_up_discount_per_round": 1,
+        "max_rounds": 50,
+        "max_tier": 6,
+        "roll_cost": 1,
+        "sell_reward": 1,
+        "starting_health": 40
+      }
+    },
+    "19_6_0_74257": {
+      "build": 74257,
+      "num_pool_ids": 127,
+      "num_pool_indices": 159,
+      "num_templates": 159,
+      "obs_fingerprints": {
+        "bglike": {
+          "sha256": "0e352b5dca39f51664282f885e5fe5c5998aeef3c96b7fd8c950e01e9c3b59ad",
+          "shape": 976
+        },
+        "bglike_v5": {
+          "sha256": "12bdbd5e596a774ba82606262bcf5703ae398f841fc581c47c2f7efa29874577",
+          "shape": 2536
+        },
+        "bglike_v5_heroes": {
+          "sha256": "a79bae3b890e38ed35ca22d6dfec96f7005fa023eb4af4212ee2fd0ea8d991ac",
+          "shape": 2683
+        },
+        "bglike_v6_heroes": {
+          "sha256": "3c81824758e7a763596887843051efe7933e78e6d400361da224ab5c2639cee5",
+          "shape": 1123
+        },
+        "bglike_v7_pref": {
+          "sha256": "3f8991fd909dd894235eb4dcd447527b59f64ace44f7ff200c47ffe0dadfcbc7",
+          "shape": 1130
+        }
+      },
+      "patch": "19.6.0",
+      "pool_copies_by_tier": {
+        "1": 16,
+        "2": 15,
+        "3": 13,
+        "4": 11,
+        "5": 9,
+        "6": 7
+      },
+      "rotation_excluded_count": 1,
+      "rotation_tribes": [
+        "BEAST",
+        "DEMON",
+        "MECHANICAL",
+        "MURLOC",
+        "DRAGON",
+        "PIRATE",
+        "ELEMENTAL"
+      ],
+      "ruleset": {
+        "buy_cost": 3,
+        "damage_cap_lifted_at_alive": 0,
+        "damage_cap_schedule": [
+          [
+            null,
+            15
+          ]
+        ],
+        "gold_cap": 10,
+        "gold_per_round": {
+          "1": 3,
+          "2": 4,
+          "3": 5,
+          "4": 6,
+          "5": 7,
+          "6": 8,
+          "7": 9,
+          "8": 10
+        },
+        "level_up_costs": {
+          "1": 5,
+          "2": 7,
+          "3": 8,
+          "4": 9,
+          "5": 11
+        },
+        "level_up_discount_per_round": 1,
+        "max_rounds": 50,
+        "max_tier": 6,
+        "roll_cost": 1,
+        "sell_reward": 1,
+        "starting_health": 40
+      }
+    }
+  },
+  "slot_layout": {
+    "CARD_IDX_OFFSET": 1,
+    "GOLDEN_OFFSET": 30,
+    "KEYWORD_OFFSET": 21,
+    "NUM_EFFECT_CHANNELS": 73,
+    "NUM_KEYWORD_CHANNELS": 8,
+    "NUM_TRIGGER_CHANNELS": 22,
+    "PRESENCE_OFFSET": 0,
+    "RACE_OFFSET": 12,
+    "SHIELD_OFFSET": 29,
+    "SLOT_DIM": 36,
+    "STATS_OFFSET": 8,
+    "TIER_OFFSET": 2
+  },
+  "vocabularies": {
+    "NUM_TIER_ONEHOT": 6,
+    "RACE_ONEHOT_DIM": 9,
+    "race_order": [
+      "NONE",
+      "BEAST",
+      "DEMON",
+      "MECHANICAL",
+      "MURLOC",
+      "DRAGON",
+      "PIRATE",
+      "ELEMENTAL",
+      "ALL"
+    ],
+    "tribe_pref_num_tribes": 7,
+    "tribe_pref_tribes": [
+      "BEAST",
+      "DEMON",
+      "MECHANICAL",
+      "MURLOC",
+      "DRAGON",
+      "PIRATE",
+      "ELEMENTAL"
+    ]
+  }
+}
