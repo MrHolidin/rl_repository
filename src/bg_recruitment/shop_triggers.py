@@ -51,6 +51,7 @@ from src.bg_core.board_helpers import (
     apply_buff_matching,
     apply_summoned_listener,
     grant_keyword,
+    grant_keyword_random,
     apply_buff_self_per_count,
     multiplier_for,
     count_unique_tribes,
@@ -225,16 +226,13 @@ class ShopTriggers:
         source: Minion,
         effect: GrantKeywordRandomFriendly,
     ) -> None:
-        pool = list(player.board)
-        if effect.exclude_self:
-            pool = [m for m in pool if m is not source]
-        if effect.filter_race is not None:
-            pool = [m for m in pool if self.minion_matches_tribe(m, effect.filter_race)]
-        for _ in range(max(1, effect.repeats)):
-            if not pool:
-                return
-            tgt = pool[int(self._rng.integers(0, len(pool)))]
-            grant_keyword(tgt, effect.keyword)
+        grant_keyword_random(
+            effect,
+            player.board,
+            source,
+            rng=self._rng,
+            grant=grant_keyword,
+        )
 
     def apply_summon_from_place(
         self, player: PlayerState, source: Minion, effect: SummonEffect

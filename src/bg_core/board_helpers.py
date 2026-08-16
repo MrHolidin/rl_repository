@@ -191,6 +191,40 @@ def grant_keyword(minion: Minion, keyword) -> bool:
     return is_new
 
 
+def grant_keyword_random(
+    effect,
+    minions: Sequence[Minion],
+    source: Optional[Minion],
+    *,
+    rng,
+    grant,
+) -> None:
+    """Give ``effect.keyword`` to a random eligible friendly, ``repeats`` times.
+
+    Selfless Hero in combat and Toxfin in the tavern. The shop honoured
+    ``exclude_self``; combat dropped the source unconditionally, which agreed
+    with the flag only because every card that exists sets it. Monstrous Macaw
+    is what makes the difference reachable at all -- it fires a deathrattle
+    while the source is alive and eligible -- so the flag decides now.
+
+    One pool for all repeats: nothing a keyword grant does can change who is
+    eligible, and rebuilding it per repeat only obscured that.
+    """
+    pool = [
+        m
+        for m in minions
+        if not (effect.exclude_self and m is source)
+        and (
+            effect.filter_race is None
+            or minion_matches_tribe(m, effect.filter_race)
+        )
+    ]
+    if not pool:
+        return
+    for _ in range(max(1, effect.repeats)):
+        grant(pool[int(rng.integers(0, len(pool)))], effect.keyword)
+
+
 def apply_summoned_listener(
     effect,
     listener: Minion,
@@ -308,6 +342,7 @@ __all__ = [
     "apply_buff_matching",
     "apply_summoned_listener",
     "grant_keyword",
+    "grant_keyword_random",
     "index_of",
     "stat_aura_bonus",
     "buff_matching_hits",

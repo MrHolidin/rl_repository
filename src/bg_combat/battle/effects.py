@@ -59,6 +59,7 @@ from .state import BattleMinion, BattleSide, _CombatRuntime
 from src.bg_core.board_helpers import (
     apply_buff_matching,
     apply_summoned_listener,
+    grant_keyword_random,
     index_of,
     minion_matches_tribe,
 )
@@ -865,23 +866,16 @@ def _dr_grant_kw_random(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: GrantKeywordRandomFriendly
 ) -> None:
     side = rt.side(side_idx)
+
+    def grant(minion: BattleMinion, keyword: Keyword) -> None:
+        _grant_keyword(rt, side_idx, minion, keyword)
+
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        for _kw in range(max(1, effect.repeats)):
-            pool = []
-            for m in side.minions:
-                if m is dead:
-                    continue
-                if effect.filter_race is not None and not minion_matches_tribe(
-                    m, effect.filter_race
-                ):
-                    continue
-                pool.append(m)
-            if not pool:
-                continue
-            t = pool[int(rt.rng.integers(0, len(pool)))]
-            _grant_keyword(rt, side_idx, t, effect.keyword)
+        grant_keyword_random(
+            effect, side.minions, dead, rng=rt.rng, grant=grant
+        )
 
 
 def _dr_grant_kw_all_of_tribe(
