@@ -3,7 +3,6 @@
 from .effects import (
     Ability,
     AdaptAllMurlocsEffect,
-    AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
@@ -27,7 +26,6 @@ from .effects import (
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
     Keyword,
-    KeywordStatAura,
     PogoHopperBattlecry,
     StatAura,
     SummonEffect,
@@ -36,7 +34,6 @@ from .effects import (
     SummonOnSelfDamaged,
     SummonRandomMinionEffect,
     Trigger,
-    TribalOtherStatAura,
     ZappTargeting,
 )
 from .minion import Minion, Race
@@ -44,7 +41,6 @@ from .minion import Minion, Race
 __all__ = [
     "Ability",
     "AdaptAllMurlocsEffect",
-    "AdjacentStatAura",
     "AttackBonusPerOtherMurlocGlobal",
     "BattlecryMultiplierAura",
     "BuffAdjacentBattlecry",
@@ -68,7 +64,6 @@ __all__ = [
     "GrantListenerKeywordIfSummonedMatches",
     "HeroImmuneAura",
     "Keyword",
-    "KeywordStatAura",
     "Minion",
     "PogoHopperBattlecry",
     "Race",
@@ -79,6 +74,5 @@ __all__ = [
     "SummonOnSelfDamaged",
     "SummonRandomMinionEffect",
     "Trigger",
-    "TribalOtherStatAura",
     "ZappTargeting",
 ]

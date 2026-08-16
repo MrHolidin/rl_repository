@@ -73,7 +73,12 @@ def _candidates():
     ]
 
 
-@pytest.mark.parametrize("target", list(BuffTarget))
+# ADJACENT is positional and belongs to the aura, not to this one-shot buff;
+# the split is declared in obs._EFFECT_VARIANTS.
+BUFF_TARGETS = [t for t in BuffTarget if t is not BuffTarget.ADJACENT]
+
+
+@pytest.mark.parametrize("target", BUFF_TARGETS)
 @pytest.mark.parametrize("cand_name,candidate", _candidates())
 @pytest.mark.parametrize("tribe", [Race.DRAGON, Race.MURLOC, Race.ALL])
 @pytest.mark.parametrize("keyword", [Keyword.TAUNT, Keyword.SHIELD])
@@ -86,6 +91,17 @@ def test_predicate_matches_pre_merge_reference(
     assert buff_matching_hits(eff, candidate, source) == _REFERENCE[target](
         eff, candidate, source
     )
+
+
+def test_adjacent_is_positional_and_needs_both_indices():
+    """The aura target: hits the slots either side, and only with positions."""
+    cand = _m("c", Race.DRAGON)
+    eff = BuffMatching(BuffTarget.ADJACENT)
+    assert buff_matching_hits(eff, cand, None, idx_candidate=1, idx_source=2)
+    assert buff_matching_hits(eff, cand, None, idx_candidate=3, idx_source=2)
+    assert not buff_matching_hits(eff, cand, None, idx_candidate=4, idx_source=2)
+    # No positions supplied: nothing is adjacent to an unknown slot.
+    assert not buff_matching_hits(eff, cand, None)
 
 
 def test_source_exclusion_only_applies_to_other_of_tribe():
@@ -102,7 +118,7 @@ def test_source_exclusion_only_applies_to_other_of_tribe():
 def test_every_target_is_dispatched():
     """A new BuffTarget member must not silently fall through."""
     cand = _m("c", Race.DRAGON, keywords={Keyword.TAUNT})
-    for target in BuffTarget:
+    for target in BUFF_TARGETS:
         eff = BuffMatching(target, tribe=Race.DRAGON, keyword=Keyword.TAUNT)
         buff_matching_hits(eff, cand, None)
 

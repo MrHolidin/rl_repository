@@ -63,9 +63,12 @@ def count_golden_friendlies(
 
 
 def buff_matching_hits(
-    effect: "BuffMatching",
+    effect: Any,
     candidate: Minion,
     source: Optional[Minion] = None,
+    *,
+    idx_candidate: Optional[int] = None,
+    idx_source: Optional[int] = None,
 ) -> bool:
     """Does ``candidate`` match ``effect``'s target predicate?
 
@@ -87,6 +90,11 @@ def buff_matching_hits(
         return minion_matches_tribe(candidate, effect.tribe)
     if t is BuffTarget.FRIENDLY_WITH_KEYWORD:
         return effect.keyword in candidate.all_keywords
+    if t is BuffTarget.ADJACENT:
+        # Positional, so the caller has to supply where the two stand.
+        if idx_candidate is None or idx_source is None:
+            return False
+        return idx_candidate in (idx_source - 1, idx_source + 1)
     raise ValueError(f"unhandled BuffTarget {t!r}")
 
 

@@ -9,7 +9,6 @@ from typing import Dict, FrozenSet, Tuple
 
 from src.bg_core.effects import (
     Ability,
-    AdjacentStatAura,
     AdaptAllMurlocsEffect,
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
@@ -34,15 +33,14 @@ from src.bg_core.effects import (
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
     Keyword,
-    KeywordStatAura,
     PogoHopperBattlecry,
+    StatAura,
     SummonEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
     SummonOnSelfDamaged,
     SummonRandomMinionEffect,
     Trigger,
-    TribalOtherStatAura,
     ZappTargeting,
 )
 from src.bg_core.minion import Race
@@ -80,30 +78,30 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
 )
 
 EFFECTS: Dict[str, Tuple[Ability, ...]] = {
-    "EX1_162": (Ability(Trigger.AURA, AdjacentStatAura(attack=1, health=0)),),
+    "EX1_162": (Ability(Trigger.AURA, StatAura(BuffTarget.ADJACENT, attack=1, health=0)),),
     "EX1_507": (
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.MURLOC, attack=2, health=0),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=0),
         ),
     ),
     "ULD_179": (
         Ability(
             Trigger.AURA,
-            KeywordStatAura(Keyword.TAUNT, attack=2, health=0),
+            StatAura(BuffTarget.FRIENDLY_WITH_KEYWORD, keyword=Keyword.TAUNT, attack=2, health=0),
         ),
     ),
     "EX1_185": (
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.DEMON, attack=1, health=0),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=1, health=0),
         ),
     ),
     "GVG_021": (
         Ability(Trigger.AURA, HeroImmuneAura()),
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.DEMON, attack=2, health=2),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=2, health=2),
         ),
     ),
     "BGS_027": (

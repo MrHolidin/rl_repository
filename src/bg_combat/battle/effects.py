@@ -15,7 +15,6 @@ from typing import Any, List, Optional, Tuple
 
 from src.bg_catalog.cards import make_minion
 from src.bg_core.effects import (
-    AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     AttackImmediatelyAfterSurvivingEffect,
     BuffMatching,
@@ -41,7 +40,6 @@ from src.bg_core.effects import (
     GrantKeywordAllFriendlyOfTribe,
     GrantListenerKeywordIfSummonedMatches,
     Keyword,
-    KeywordStatAura,
     DeathrattleMultiplierAura,
     MultiplySelfAttackEffect,
     StatAura,
@@ -53,7 +51,6 @@ from src.bg_core.effects import (
     SummonOnSelfDamaged,
     SummonRandomOnSelfDamagedEffect,
     TriggerRandomFriendlyDeathrattleEffect,
-    TribalOtherStatAura,
     Trigger,
     ZappTargeting,
 )

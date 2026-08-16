@@ -122,6 +122,8 @@ class BuffTarget(Enum):
     OTHER_OF_TRIBE = auto()
     #: friendlies carrying ``keyword``
     FRIENDLY_WITH_KEYWORD = auto()
+    #: the board slots either side of the source
+    ADJACENT = auto()
 
 
 @dataclass(frozen=True)
@@ -296,36 +298,23 @@ class PogoHopperBattlecry:
 
 @dataclass(frozen=True)
 class StatAura:
-    """Raid-leader style: every **other** living friendly (not `self`) gains these stats."""
+    """Continuous +stats to every other living friendly matching ``target``.
 
+    One class for what used to be four that differed only in the predicate --
+    plain (Raid Leader), by tribe ('your other Murlocs'), by keyword (Phalanx
+    Commander), and by board adjacency (Dire Wolf Alpha). The source never
+    buffs itself; that is the aura machinery's rule, not the target's.
+
+    Shares ``BuffTarget`` with :class:`BuffMatching` on purpose: "who does this
+    hit" is one vocabulary, whether the answer is applied once or recomputed
+    every step.
+    """
+
+    target: BuffTarget = BuffTarget.ALL_FRIENDLY
     attack: int = 0
     health: int = 0
-
-
-@dataclass(frozen=True)
-class TribalOtherStatAura:
-    """BG 'your other {tribe}' buff; recipient must match ``tribe`` (``Race.ALL`` matches any)."""
-
-    tribe: Any
-    attack: int = 0
-    health: int = 0
-
-
-@dataclass(frozen=True)
-class KeywordStatAura:
-    """Grants stats only to minions that have ``keyword`` (e.g. Phalanx Commander + Taunt)."""
-
-    keyword: Keyword
-    attack: int = 0
-    health: int = 0
-
-
-@dataclass(frozen=True)
-class AdjacentStatAura:
-    """Dire Wolf–style: living minions in the immediate board slots left/right of the source."""
-
-    attack: int = 0
-    health: int = 0
+    tribe: Any = None
+    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -697,9 +686,6 @@ Effect = Union[
     SummonOnSelfDamaged,
     PogoHopperBattlecry,
     StatAura,
-    TribalOtherStatAura,
-    KeywordStatAura,
-    AdjacentStatAura,
     BuffAdjacentBattlecry,
     BuffTargetFriendlyBattlecry,
     HeroImmuneAura,
@@ -779,9 +765,6 @@ __all__ = [
     "SummonOnSelfDamaged",
     "PogoHopperBattlecry",
     "StatAura",
-    "TribalOtherStatAura",
-    "KeywordStatAura",
-    "AdjacentStatAura",
     "BuffAdjacentBattlecry",
     "BuffTargetFriendlyBattlecry",
     "BuffTargetFromPiratesBoughtBattlecry",

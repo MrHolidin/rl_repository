@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Any, Optional, Tuple
 
 from src.bg_core.effects import (
-    AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     AttackImmediatelyAfterSurvivingEffect,
     BuffAdjacentOnAttackedEffect,
@@ -28,7 +27,6 @@ from src.bg_core.effects import (
     GrantKeywordAllFriendlyOfTribe,
     GrantListenerKeywordIfSummonedMatches,
     Keyword,
-    KeywordStatAura,
     DeathrattleMultiplierAura,
     MultiplySelfAttackEffect,
     StatAura,
@@ -40,10 +38,10 @@ from src.bg_core.effects import (
     SummonOnSelfDamaged,
     SummonRandomOnSelfDamagedEffect,
     TriggerRandomFriendlyDeathrattleEffect,
-    TribalOtherStatAura,
     Trigger,
     ZappTargeting,
 )
+from src.bg_core.board_helpers import buff_matching_hits
 from src.bg_core.minion import Minion, Race
 
 from .state import BattleMinion, BattleSide, _CombatRuntime
@@ -97,19 +95,13 @@ def _recipient_gets_stat_from_source(
     idx_r: int,
     idx_s: int,
 ) -> Tuple[int, int]:
-    atk, hp = 0, 0
-    if isinstance(eff, StatAura):
-        atk, hp = eff.attack, eff.health
-    elif isinstance(eff, TribalOtherStatAura):
-        if _matches_tribe_for_aura(recipient.template, eff.tribe):
-            atk, hp = eff.attack, eff.health
-    elif isinstance(eff, KeywordStatAura):
-        if eff.keyword in recipient.template.all_keywords:
-            atk, hp = eff.attack, eff.health
-    elif isinstance(eff, AdjacentStatAura):
-        if idx_r in (idx_s - 1, idx_s + 1):
-            atk, hp = eff.attack, eff.health
-    return atk, hp
+    if not isinstance(eff, StatAura):
+        return 0, 0
+    if not buff_matching_hits(
+        eff, recipient.template, idx_candidate=idx_r, idx_source=idx_s
+    ):
+        return 0, 0
+    return eff.attack, eff.health
 
 
 def _mark_health_aura_dirty(rt: "_CombatRuntime", *side_indices: int) -> None:

@@ -21,7 +21,6 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     AdaptSelfRandomEffect,
-    AdjacentStatAura,
     AddFromLastOpponentBoardEffect,
     AddRandomMinionToShopEffect,
     AddTokenToHandEffect,
@@ -46,7 +45,6 @@ from src.bg_core.effects import (
     HeroImmuneAura,
     IncrementShopTribeBonusEffect,
     Keyword,
-    KeywordStatAura,
     MultiplySelfAttackEffect,
     PogoHopperBattlecry,
     ReduceUpgradeCostEffect,
@@ -54,7 +52,6 @@ from src.bg_core.effects import (
     StartOfCombatDamagePerFriendlyTribe,
     SummonMultiplierAura,
     TransformIntoShopMinionEffect,
-    TribalOtherStatAura,
     Trigger,
     TriggerRandomFriendlyDeathrattleEffect,
     ZappTargeting,
@@ -205,9 +202,9 @@ _EFFECT_CLASSES: Tuple[Any, ...] = (
     HeroImmuneAura,
     CleaveOnAttack,
     ZappTargeting,
-    AdjacentStatAura,
-    TribalOtherStatAura,
-    KeywordStatAura,
+    (StatAura, BuffTarget.ADJACENT),
+    (StatAura, BuffTarget.FRIENDLY_OF_TRIBE),
+    (StatAura, BuffTarget.FRIENDLY_WITH_KEYWORD),
     AttackBonusPerOtherMurlocGlobal,
     BuffSummonedIfRace,
     PogoHopperBattlecry,
@@ -278,7 +275,7 @@ _EFFECT_CLASSES: Tuple[Any, ...] = (
     DealHeroDamage,
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
-    StatAura,
+    (StatAura, BuffTarget.ALL_FRIENDLY),
     SummonEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonOnSelfDamaged,
@@ -302,6 +299,27 @@ EFFECT_INDEX: Dict[Any, int] = {sig: i for i, sig in enumerate(_EFFECT_CLASSES)}
 _EFFECT_DISCRIMINATOR: Dict[type, str] = {
     BuffSelfPerCount: "source",
     BuffMatching: "target",
+    StatAura: "target",
+}
+
+# Which variants each composed effect can actually carry. ``BuffTarget`` is
+# shared between the one-shot buff and the aura on purpose -- "who does this
+# hit" is one vocabulary -- but the cross product is not meaningful: ADJACENT
+# is positional and only the aura machinery knows positions, OTHER_OF_TRIBE is
+# a one-shot exclusion the aura gets for free (a source never auras itself).
+_EFFECT_VARIANTS: Dict[type, Tuple[Any, ...]] = {
+    BuffMatching: (
+        BuffTarget.ALL_FRIENDLY,
+        BuffTarget.FRIENDLY_OF_TRIBE,
+        BuffTarget.OTHER_OF_TRIBE,
+        BuffTarget.FRIENDLY_WITH_KEYWORD,
+    ),
+    StatAura: (
+        BuffTarget.ALL_FRIENDLY,
+        BuffTarget.FRIENDLY_OF_TRIBE,
+        BuffTarget.FRIENDLY_WITH_KEYWORD,
+        BuffTarget.ADJACENT,
+    ),
 }
 
 
@@ -353,8 +371,9 @@ def _assert_effect_registry_complete() -> None:
             enum_cls = getattr(_effects_mod, enum_cls, None)
         if enum_cls is None or not hasattr(enum_cls, "__members__"):
             continue
+        supported = _EFFECT_VARIANTS.get(cls, tuple(enum_cls))
         unregistered = sorted(
-            v.name for v in enum_cls if (cls, v) not in EFFECT_INDEX
+            v.name for v in supported if (cls, v) not in EFFECT_INDEX
         )
         if unregistered:
             raise RuntimeError(

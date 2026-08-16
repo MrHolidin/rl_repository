@@ -8,7 +8,6 @@ from typing import Dict, Optional, Sequence, Tuple
 from ..actions import MAX_ROUNDS, MAX_TIER
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
-    AdjacentStatAura,
     AttackBonusPerOtherMurlocGlobal,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
@@ -18,12 +17,10 @@ from src.bg_core.effects import (
     DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     HeroImmuneAura,
-    KeywordStatAura,
     StatAura,
     SummonEffect,
     SummonMultiplierAura,
     SummonRandomMinionEffect,
-    TribalOtherStatAura,
     Trigger,
     ZappTargeting,
     Keyword,
@@ -162,13 +159,14 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
                 add += 2.2
         elif tr == Trigger.AURA:
             if isinstance(eff, StatAura):
-                add += (eff.attack + eff.health) * min(4, bl) * 0.38
-            elif isinstance(eff, TribalOtherStatAura):
-                add += (eff.attack + eff.health) * min(4, bl) * 0.28
-            elif isinstance(eff, AdjacentStatAura):
-                add += (eff.attack + eff.health) * 2.2
-            elif isinstance(eff, KeywordStatAura):
-                add += (eff.attack + eff.health) * 2.2
+                # Per-target weights, unchanged from when these were four
+                # separate effect classes.
+                if eff.target is BuffTarget.ALL_FRIENDLY:
+                    add += (eff.attack + eff.health) * min(4, bl) * 0.38
+                elif eff.target is BuffTarget.FRIENDLY_OF_TRIBE:
+                    add += (eff.attack + eff.health) * min(4, bl) * 0.28
+                else:  # ADJACENT / FRIENDLY_WITH_KEYWORD
+                    add += (eff.attack + eff.health) * 2.2
             elif isinstance(eff, BattlecryMultiplierAura):
                 add += 5.5 * float(max(0, eff.factor - 1))
             elif isinstance(eff, DeathrattleMultiplierAura):

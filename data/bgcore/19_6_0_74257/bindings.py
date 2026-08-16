@@ -11,7 +11,6 @@ from typing import Dict, FrozenSet, Tuple
 
 from src.bg_core.effects import (
     Ability,
-    AdjacentStatAura,
     AdaptAllMurlocsEffect,
     AdaptSelfRandomEffect,
     AttackBonusPerOtherMurlocGlobal,
@@ -55,9 +54,9 @@ from src.bg_core.effects import (
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
     Keyword,
-    KeywordStatAura,
     MultiplySelfAttackEffect,
     PogoHopperBattlecry,
+    StatAura,
     SummonEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonMultiplierAura,
@@ -82,7 +81,6 @@ from src.bg_core.effects import (
     SetNextRollCostEffect,
     Trigger,
     TriggerRandomFriendlyDeathrattleEffect,
-    TribalOtherStatAura,
     ZappTargeting,
 )
 from src.bg_core.minion import Race
@@ -193,7 +191,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
     ),
     "NEW1_027": (
-        Ability(Trigger.AURA, TribalOtherStatAura(Race.PIRATE, attack=1, health=1)),
+        Ability(Trigger.AURA, StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.PIRATE, attack=1, health=1)),
     ),
     "BGS_014": (Ability(Trigger.ON_DEATH, SummonEffect(token_id="BRM_006t", count=1)),),
     "BGS_017": (
@@ -351,14 +349,14 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "EX1_185": (
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.DEMON, attack=1, health=0),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=1, health=0),
         ),
     ),
     "EX1_506": (Ability(Trigger.ON_PLACE, SummonEffect(token_id="EX1_506a", count=1)),),
     "EX1_507": (
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.MURLOC, attack=2, health=0),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=0),
         ),
     ),
     "EX1_509": (
@@ -385,7 +383,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.AURA, HeroImmuneAura()),
         Ability(
             Trigger.AURA,
-            TribalOtherStatAura(Race.DEMON, attack=2, health=2),
+            StatAura(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=2, health=2),
         ),
     ),
     "GVG_027": (

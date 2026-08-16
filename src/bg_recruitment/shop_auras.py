@@ -13,12 +13,10 @@ from __future__ import annotations
 from typing import Any, List, Optional, Tuple
 
 from src.bg_core.effects import (
-    AdjacentStatAura,
-    KeywordStatAura,
     StatAura,
-    TribalOtherStatAura,
     Trigger,
 )
+from src.bg_core.board_helpers import buff_matching_hits
 from src.bg_core.minion import Minion, Race
 
 
@@ -34,18 +32,13 @@ def _matches_tribe_for_aura(recipient: Minion, required: Any) -> bool:
 def _contribution(
     recipient: Minion, effect: object, *, idx_r: int, idx_s: int
 ) -> Tuple[int, int]:
-    if isinstance(effect, StatAura):
-        return effect.attack, effect.health
-    if isinstance(effect, TribalOtherStatAura):
-        if _matches_tribe_for_aura(recipient, effect.tribe):
-            return effect.attack, effect.health
-    elif isinstance(effect, KeywordStatAura):
-        if effect.keyword in recipient.all_keywords:
-            return effect.attack, effect.health
-    elif isinstance(effect, AdjacentStatAura):
-        if idx_r in (idx_s - 1, idx_s + 1):
-            return effect.attack, effect.health
-    return 0, 0
+    if not isinstance(effect, StatAura):
+        return 0, 0
+    if not buff_matching_hits(
+        effect, recipient, idx_candidate=idx_r, idx_source=idx_s
+    ):
+        return 0, 0
+    return effect.attack, effect.health
 
 
 def shop_stat_aura_bonus(board: List[Minion], minion: Minion) -> Tuple[int, int]:
