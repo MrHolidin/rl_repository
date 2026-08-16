@@ -23,6 +23,10 @@ class BattleMinion:
     reborn_consumed: bool = False
     instance_id: int = 0
     health_aura_snapshot: int = 0
+    # Board slot this minion occupied when it died, recorded at death so a
+    # deathrattle can summon into it and Reborn can come back there once the
+    # body itself is out of ``BattleSide.minions``. -1 while alive.
+    death_pos: int = -1
 
     @property
     def alive(self) -> bool:
@@ -50,12 +54,51 @@ class BattleMinion:
 @dataclass
 class BattleSide:
     minions: List[BattleMinion] = field(default_factory=list)
+    # Bodies that have left the board, in death order. They are kept because
+    # events already in flight reference them by ``instance_id`` and because a
+    # deathrattle resolves after the body is gone; ``BattleMinion.death_pos``
+    # carries the slot it vacated.
+    graveyard: List[BattleMinion] = field(default_factory=list)
     cursor: int = 0
     # Flat Attack added to every minion on this side (Deathwing's global +Attack
     # aura; set equal on both sides since it buffs all minions in the combat).
     attack_aura_all: int = 0
     # Keywords granted to this side's left-most minion at Start of Combat (Al'Akir).
     start_combat_keywords: frozenset = field(default_factory=frozenset)
+
+    def reap_dead(self) -> List[BattleMinion]:
+        """Take dead bodies off the board; return them in board order.
+
+        The board closes up behind them, which is what makes adjacency correct:
+        two survivors that had a corpse between them become neighbours, exactly
+        as they do in the game. Each body records the slot it vacated in
+        ``death_pos`` so its deathrattle can summon there and Reborn can return
+        there, and moves to ``graveyard`` so in-flight events can still resolve
+        it by ``instance_id``.
+
+        ``cursor`` (the attack rotation pointer) is an index into ``minions``,
+        so it shifts with the removals: a body left of the pointer pulls it
+        left, and a body *at* the pointer leaves it pointing at whoever slid
+        into that slot — the next minion in rotation, not the one after it.
+        """
+        taken: List[BattleMinion] = []
+        i = 0
+        while i < len(self.minions):
+            m = self.minions[i]
+            if m.alive:
+                i += 1
+                continue
+            m.death_pos = i
+            self.minions.pop(i)
+            self.graveyard.append(m)
+            taken.append(m)
+            if self.cursor > i:
+                self.cursor -= 1
+        if self.minions:
+            self.cursor %= len(self.minions)
+        else:
+            self.cursor = 0
+        return taken
 
     def alive_minions(self) -> List[BattleMinion]:
         return [m for m in self.minions if m.alive]
@@ -99,7 +142,14 @@ class _CombatRuntime:
         return self.sides[idx]
 
     def find_minion(self, side_idx: int, instance_id: int) -> Optional[BattleMinion]:
-        for m in self.side(side_idx).minions:
+        side = self.side(side_idx)
+        for m in side.minions:
+            if m.instance_id == instance_id:
+                return m
+        # Events outlive the body: a MinionDied queued when health hit 0 is
+        # dispatched after the corpse has left the board, and the handler still
+        # needs it to fire the deathrattle.
+        for m in side.graveyard:
             if m.instance_id == instance_id:
                 return m
         return None

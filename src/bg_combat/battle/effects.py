@@ -172,14 +172,8 @@ def _handle_attack_completed(rt: _CombatRuntime, e: AttackCompleted) -> None:
         if bm is not None and bm.alive:
             _fire_survived_attack_effects(rt, side_idx, bm)
     rt.swing_damage_survivors.clear()
-    pending: List[Tuple[int, BattleMinion]] = []
     for sidx in (0, 1):
-        side = rt.side(sidx)
-        for m in side.minions:
-            if (not m.alive) and (not m.deathrattle_fired):
-                pending.append((sidx, m))
-    for sidx, m in pending:
-        rt.queue.append(MinionDied(sidx, m.instance_id))
+        _reap_side(rt, sidx)
 
 
 def _deal_random_enemy_minion_damage(
@@ -227,11 +221,16 @@ def _buff_neighbors_of_dead(
     health: int,
 ) -> None:
     side = rt.side(side_idx)
-    try:
-        idx = side.minions.index(dead)
-    except ValueError:
+    idx = _board_index(side, dead)
+    if idx is not None:
+        neighbours = (idx - 1, idx + 1)
+    elif dead.death_pos >= 0:
+        # The body is gone and the board closed up behind it: the minion on its
+        # left kept its slot, the one on its right slid into the vacated one.
+        neighbours = (dead.death_pos - 1, dead.death_pos)
+    else:
         return
-    for j in (idx - 1, idx + 1):
+    for j in neighbours:
         if 0 <= j < len(side.minions):
             ally = side.minions[j]
             if not ally.alive:
@@ -379,6 +378,17 @@ def _queue_random_combat_hand_add(
     rt.combat_hand_adds[side_idx].append(cid)
 
 
+def _reap_side(rt: _CombatRuntime, side_idx: int) -> None:
+    """Clear a side's dead off the board and queue their death events.
+
+    Single choke point: a minion can die from a swing, from a spell-like
+    effect, or from losing the aura that was holding its health up, and every
+    one of those routes has to take the body off the board the same way.
+    """
+    for bm in rt.side(side_idx).reap_dead():
+        rt.queue.append(MinionDied(side_idx, bm.instance_id))
+
+
 def _deal_damage_to_battle_minion(
     rt: _CombatRuntime, side_idx: int, bm: BattleMinion, amount: int
 ) -> None:
@@ -394,7 +404,7 @@ def _deal_damage_to_battle_minion(
         _mark_health_aura_dirty(rt, side_idx)
     _sync_health_all(rt)
     if not bm.alive:
-        rt.queue.append(MinionDied(side_idx, bm.instance_id))
+        _reap_side(rt, side_idx)
     elif amount > 0:
         rt.swing_damage_survivors.append((side_idx, bm.instance_id))
         # ON_SELF_DAMAGED fires on ANY damage taken while surviving (juggler /
@@ -1093,9 +1103,21 @@ def _strip_reborn_keyword(bm: BattleMinion) -> None:
 def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     if not _minion_has_reborn(bm):
         return
+    side = rt.side(side_idx)
+    if len(side.minions) >= rt.combat_board_max:
+        return  # no slot to come back to
     bm.reborn_consumed = True
     _strip_reborn_keyword(bm)
     bm.current_health = 1
+    # The body left the board when it died, so Reborn has to put it back --
+    # into the slot it vacated, ahead of whoever slid into it.
+    if bm in side.graveyard:
+        side.graveyard.remove(bm)
+    at = bm.death_pos if 0 <= bm.death_pos <= len(side.minions) else len(side.minions)
+    side.minions.insert(at, bm)
+    bm.death_pos = -1
+    if at <= side.cursor:
+        side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)
 
 

@@ -32,7 +32,13 @@ def _summon_insert(
         side.minions.append(bm)
     else:
         side.minions.insert(at_idx, bm)
-        if at_idx <= side.cursor:
+        # Inserting at or before the pointer shifts it, so the minion whose
+        # turn it was keeps its turn and the newcomer waits for the next pass.
+        # The exception is a token filling a slot its previous occupant just
+        # vacated by dying: nobody is waiting on that slot, so the token
+        # inherits its place in the rotation and swings this pass.
+        claims_slot = rt.in_death_resolution and at_idx == side.cursor
+        if at_idx <= side.cursor and not claims_slot:
             side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)
     rt.queue.append(MinionSummoned(side_idx, bid, template.card_id))
@@ -49,12 +55,18 @@ def _summon_append(
 
 
 def _insert_idx_after(side: BattleSide, anchor: Optional[BattleMinion]) -> Optional[int]:
-    """List index right after ``anchor``. Dead bodies stay in the minion list,
-    so a dead source is a valid anchor; ``None`` anchor → append at the end."""
+    """Slot a summon from ``anchor`` should take; ``None`` anchor → append.
+
+    A living anchor summons to its right. A dead one summons *into* the slot it
+    vacated, which is what ``death_pos`` records — the body itself is no longer
+    in ``side.minions`` to be indexed.
+    """
     if anchor is None:
         return None
     idx = _board_index(side, anchor)
-    return None if idx is None else idx + 1
+    if idx is not None:
+        return idx + 1
+    return anchor.death_pos if anchor.death_pos >= 0 else None
 
 
 def _summon_target_side(dead_side_idx: int, for_opponent: bool) -> int:

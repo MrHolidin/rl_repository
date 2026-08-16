@@ -73,9 +73,11 @@ def test_deathrattle_token_spawns_in_dead_minions_slot():
         "Damaged Golem",
         "Vulgar Homunculus",
     ]
-    # dead body stays in the list, token directly after it
-    assert side.minions[1] is golem and not golem.alive
-    assert side.minions[2].template.name == "Damaged Golem"
+    # The body leaves the board and the token takes the slot it vacated.
+    assert golem not in side.minions
+    assert side.graveyard == [golem]
+    assert golem.death_pos == 1
+    assert side.minions[1].template.name == "Damaged Golem"
 
 
 def test_multi_token_deathrattle_spawns_in_order_in_place():
