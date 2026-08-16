@@ -48,6 +48,8 @@ class StatusFileCallback(TrainerCallback):
         self.total_steps = total_steps
         self.status_path = self.run_dir / "status.json"
         self.self_play_frozen_path = self.run_dir / "self_play_frozen.json"
+        # Same rows plus the frozen slots the cap has already evicted.
+        self.full_pool_path = self.run_dir / "full_pool.json"
         self.stop_path = self.run_dir / "stop"
         self._start_time: Optional[str] = None
         self._device_info: Dict[str, Any] = {}
@@ -128,6 +130,19 @@ class StatusFileCallback(TrainerCallback):
         except Exception:
             return
         self._atomic_write(self.self_play_frozen_path, data)
+        self._write_full_pool(pool)
+
+    def _write_full_pool(self, pool: Any) -> None:
+        """Cumulative pool: live rows + every frozen slot the cap evicted."""
+        getter = getattr(pool, "get_full_pool_data", None)
+        if getter is None:
+            return
+        try:
+            data = getter()
+        except Exception:
+            return
+        if data:
+            self._atomic_write(self.full_pool_path, data)
 
     def _atomic_write(self, path: Path, data: Dict[str, Any]) -> None:
         """Write JSON atomically via tempfile + rename."""

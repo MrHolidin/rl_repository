@@ -407,6 +407,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         entropy_coef_max: float = 0.2,
         entropy_adapt_rate: float = 0.05,
         entropy_target_until_step: int = 0,
+        entropy_target_after: float = 0.0,
         order_entropy_coef: float = 0.0,
         order_entropy_target: float = 0.0,
         value_coef: float = 0.5,
@@ -420,6 +421,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         compute_detailed_metrics: bool = True,
         patch_build: Optional[int] = None,
         update_opt_mode: str = "compile",
+        shape_value_coef: float = 1.0,
     ) -> None:
         if not isinstance(network, StructuredActorCriticProtocol):
             raise TypeError(
@@ -468,6 +470,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         # host agent sees every update, and one rollout == one global round), which
         # avoids threading a step counter through the distributed trainer.
         self.entropy_target_until_step = int(entropy_target_until_step or 0)
+        # Second target, used after the cutoff instead of dropping the pressure
+        # entirely. 0 keeps the original snap-back-to-floor behaviour.
+        self.entropy_target_after = float(entropy_target_after or 0.0)
         self._trained_steps = 0
         # Weight on the ordering head's entropy inside the bonus. 1.0 = the
         # mathematically correct joint entropy; 0.0 (default) reproduces the
@@ -580,6 +585,21 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "distributional placement critic is not wired into the recurrent "
                 "(v4 BPTT) update path; use a non-recurrent network"
             )
+
+        # --- Shaping critic (v11+) -------------------------------------
+        # Second value head covering what the placement CE head structurally
+        # cannot: V = E[placement reward] + E[remaining shaping]. Without it the
+        # shaping half of the reward reaches the advantage unbaselined. Absent
+        # on v8-v10 nets, which then keep the old behaviour exactly.
+        self._has_shape_value: bool = self._distributional and hasattr(
+            self.policy_net, "shape_value"
+        )
+        self.shape_value_coef: float = float(shape_value_coef)
+        self._placement_reward_lut: Optional[np.ndarray] = (
+            self.policy_net.placement_reward_vec.detach().cpu().numpy().astype(np.float32)
+            if self._has_shape_value
+            else None
+        )
 
         # --- Battle-prediction-head hyperparameters --------------------
         # Mirror the values on the model (which carries them via constructor
@@ -940,17 +960,29 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         configured ``entropy_coef`` so this can only ever add exploration pressure
         relative to the fixed-coefficient baseline, never remove it. Disabled
         (bit-exact no-op) when ``entropy_target`` is 0.
+
+        Past ``entropy_target_until_step`` the behaviour depends on
+        ``entropy_target_after``: unset (the original behaviour) stops adapting
+        and snaps the coefficient back to the floor; set switches the controller
+        to that second target and keeps running, which is how a run holds a high
+        target early and a lower one for the rest.
         """
         if self.entropy_target <= 0.0:
             return
+        target = self.entropy_target
         if (
             self.entropy_target_until_step > 0
             and self._trained_steps > self.entropy_target_until_step
         ):
-            # Past the cutoff: stop adapting and snap back to the floor.
-            self.entropy_coef = self._entropy_coef_base
-            return
-        err = self.entropy_target - float(mean_entropy)
+            # getattr: fixtures build this controller without __init__, and an
+            # absent second target must read as "the original cutoff behaviour".
+            after = float(getattr(self, "entropy_target_after", 0.0) or 0.0)
+            if after <= 0.0:
+                # Past the cutoff: stop adapting and snap back to the floor.
+                self.entropy_coef = self._entropy_coef_base
+                return
+            target = after
+        err = target - float(mean_entropy)
         scaled = self.entropy_coef * math.exp(self.entropy_adapt_rate * err)
         if err > 0.0:
             self.entropy_coef = min(scaled, self.entropy_coef_max)
@@ -995,6 +1027,60 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         metrics = self._ppo_struct_update()
         self.rollout_buffer.clear()
         return metrics
+
+    def _shaping_returns(
+        self,
+        rewards: np.ndarray,
+        dones: np.ndarray,
+        seat_ids: np.ndarray,
+        placement_labels: List[int],
+    ) -> Tuple[Optional[np.ndarray], Dict[str, float]]:
+        """MC return of the SHAPING half of the reward, per seat segment.
+
+        The split needs no extra plumbing from the collector. The env reward is
+        terminal-only and ``close_rollout_segment`` *overwrites* the last row of
+        a segment, so:
+
+          terminal row -> placement_reward(label) + terminal board shaping
+          every other  -> per-step shaping only (tier / elemental / battle)
+
+        Subtracting the placement part therefore leaves exactly the component
+        the CE head cannot express. Targets are Monte-Carlo (lambda=1 against a
+        zero baseline) so fitting them costs no second value pass; with
+        discount_factor 1.0 and gae_lambda 0.99 this is the same target the
+        total-return GAE is already almost using.
+        """
+        if not self._has_shape_value:
+            return None, {}
+        labels = np.asarray(placement_labels, dtype=np.int64)
+        shaping = rewards.astype(np.float32, copy=True)
+        labeled = dones & (labels >= 1)
+        shaping[labeled] -= self._placement_reward_lut[labels[labeled] - 1]
+        # Terminal row with no placement label (segment cut at the buffer edge):
+        # the reward cannot be decomposed, so it contributes no target rather
+        # than handing the shaping head a placement reward to fit.
+        shaping[dones & (labels < 1)] = 0.0
+        _, shape_ret = compute_gae_advantages(
+            shaping,
+            np.zeros_like(shaping),
+            dones,
+            seat_ids,
+            discount_factor=self.discount_factor,
+            gae_lambda=1.0,
+        )
+        # How much shaping the policy actually collects. Per finished segment is
+        # the readable unit (one seat playing one lobby to its placement), and
+        # it is the number to compare against |placement reward| <= 1; the
+        # per-step mean says how thinly it is spread over the segment.
+        n_segments = int(dones.sum())
+        stats = {
+            "shaping_per_game": float(shaping.sum() / n_segments) if n_segments else 0.0,
+            "shaping_step_mean": float(shaping.mean()) if shaping.size else 0.0,
+            "shaping_frac_of_return": (
+                float(np.abs(shaping).sum() / max(float(np.abs(rewards).sum()), 1e-8))
+            ),
+        }
+        return shape_ret, stats
 
     def _value_only(self, obs_1: torch.Tensor) -> torch.Tensor:
         _, enc_cache = self.policy_net.encode_state(obs_1)
@@ -1062,6 +1148,14 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             discount_factor=self.discount_factor,
             gae_lambda=self.gae_lambda,
             last_next_value=last_bootstrap,
+        )
+        shape_ret_np, shaping_stats = self._shaping_returns(
+            rewards_arr, dones_arr, seat_ids_arr, buf.placement_label
+        )
+        shape_return_tensor = (
+            torch.as_tensor(shape_ret_np, dtype=torch.float32, device=device)
+            if shape_ret_np is not None
+            else None
         )
 
         advantages = torch.from_numpy(adv_np).to(device)
@@ -1186,6 +1280,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         acc_policy, acc_value, acc_entropy = _zeros(), _zeros(), _zeros()
         acc_kl, acc_clip, acc_place = _zeros(), _zeros(), _zeros()
         acc_ent_order = _zeros()
+        acc_shape = _zeros()
 
         indices = np.arange(N, dtype=np.int64)
         _epochs = range(self.ppo_epochs)
@@ -1199,10 +1294,16 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 tgt_region_kinds_all, tgt_region_slots_all, mask_all,
                 actions_tensor, advantages, log_probs_old_tensor,
                 complete_tensor, occupied_tensor, picks_tensor, placement_tensor,
+                (
+                    shape_return_tensor
+                    if shape_return_tensor is not None
+                    else torch.zeros(N, dtype=torch.float32, device=device)
+                ),
             )
             acc_policy.copy_(self._cap_acc["policy"]); acc_value.copy_(self._cap_acc["value"])
             acc_entropy.copy_(self._cap_acc["entropy"]); acc_kl.copy_(self._cap_acc["kl"])
             acc_clip.copy_(self._cap_acc["clip"]); acc_place.copy_(self._cap_acc["place"])
+            acc_shape.copy_(self._cap_acc["shape"])
             grad_norm = self._cap_gn
             total_batches = n_tot
             total_placement_batches = n_tot
@@ -1332,8 +1433,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 values_old_flat = values_old_mb.reshape(-1)
                 returns_flat = returns_mb.reshape(-1)
                 if self._distributional:
-                    # CE on final placement replaces the value regression; the
-                    # scalar V (its expectation) still feeds GAE unchanged.
+                    # CE on final placement replaces the value regression for the
+                    # placement half of V; the shaping half is regressed below.
                     # Value clipping is a regression concept — not applied.
                     place_mb = placement_tensor[mb_idx_t]
                     place_valid = place_mb >= 1
@@ -1358,6 +1459,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                         ).sum() / n_valid
                     acc_place += correct
                     total_placement_batches += 1
+                    if shape_return_tensor is not None:
+                        shape_pred = self.policy_net.shape_value(cache["trunk"])
+                        shape_loss_mb = 0.5 * (
+                            shape_pred - shape_return_tensor[mb_idx_t]
+                        ).pow(2).mean()
+                        value_loss = value_loss + self.shape_value_coef * shape_loss_mb
+                        acc_shape += shape_loss_mb.detach()
                 elif self.clip_value_loss:
                     eps_v = (
                         float(self.value_clip_eps)
@@ -1557,6 +1665,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         total_approx_kl = float(acc_kl.item())
         total_clip_frac = float(acc_clip.item())
         total_placement_acc = float(acc_place.item())
+        total_shape_loss = float(acc_shape.item())
 
         gn = float(grad_norm.item()) if isinstance(grad_norm, torch.Tensor) else float(grad_norm)
         mean_entropy = total_entropy / total_batches
@@ -1584,6 +1693,9 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "advantage_std": adv_std,
             "explained_variance": explained_variance,
         }
+        if shape_return_tensor is not None:
+            out_metrics["shape_value_loss"] = total_shape_loss / max(total_batches, 1)
+        out_metrics.update(shaping_stats)
         out_metrics.update(_acthead_metrics(acthead_acc))
         out_metrics.update(baseline_metrics)
         if total_battle_batches > 0:
@@ -1610,7 +1722,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
     # ------------------------------------------------------------------
     _CAP_KEYS = (
         "obs", "t", "r", "sk", "ss", "tk", "ts", "mask", "act", "adv",
-        "logp_old", "complete", "occ", "pk", "place",
+        "logp_old", "complete", "occ", "pk", "place", "shape_ret",
     )
 
     def _mb_step(self, b: Dict[str, torch.Tensor]) -> None:
@@ -1644,6 +1756,13 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         n_valid = valid_f.sum().clamp(min=1.0)
         ce_all = F.cross_entropy(pl_logits, (b["place"] - 1).clamp(min=0), reduction="none")
         value_loss = (ce_all * valid_f).sum() / n_valid
+        # Static attribute, not a data-dependent branch: resolved once at trace
+        # time, so the captured graph stays sync-free either way.
+        if self._has_shape_value:
+            shape_loss = 0.5 * (net.shape_value(cache["trunk"]) - b["shape_ret"]).pow(2).mean()
+            value_loss = value_loss + self.shape_value_coef * shape_loss
+        else:
+            shape_loss = None
         with torch.no_grad():
             correct = (
                 (pl_logits.argmax(dim=-1) + 1 == b["place"]).to(pl_logits.dtype) * valid_f
@@ -1657,6 +1776,8 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         a = self._cap_acc
         a["policy"] += policy_loss.detach()
         a["value"] += value_loss.detach()
+        if shape_loss is not None:
+            a["shape"] += shape_loss.detach()
         a["entropy"] += entropy_mb.detach()
         a["kl"] += approx_kl.detach()
         a["clip"] += clip_frac_t.detach()
@@ -1690,7 +1811,7 @@ class MiniBGPPOStructuredAgent(BaseAgent):
         if self._cap_acc is None:
             self._cap_acc = {
                 k: torch.zeros((), device=device)
-                for k in ("policy", "value", "entropy", "kl", "clip", "place", "gn")
+                for k in ("policy", "value", "entropy", "kl", "clip", "place", "shape", "gn")
             }
         # Capture the bucket BEFORE the metric loop so warmup pollution does not
         # land in the accumulators (we zero them right after).
@@ -2102,9 +2223,12 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             # controller is off (base == live).
             "entropy_coef": self._entropy_coef_base,
             "entropy_target": self.entropy_target,
+            "entropy_target_until_step": self.entropy_target_until_step,
+            "entropy_target_after": self.entropy_target_after,
             "entropy_coef_max": self.entropy_coef_max,
             "entropy_adapt_rate": self.entropy_adapt_rate,
             "value_coef": self.value_coef,
+            "shape_value_coef": self.shape_value_coef,
             "max_grad_norm": self.max_grad_norm,
             "rollout_steps": self.rollout_steps,
             "ppo_epochs": self.ppo_epochs,
@@ -2148,7 +2272,18 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 f"checkpoint network type {type(policy_net).__name__} is not "
                 "StructuredActorCriticProtocol-compatible"
             )
-        policy_net.load_state_dict(checkpoint["policy_state_dict"])
+        # strict=False only to admit checkpoints written before the shaping
+        # critic existed; its head is zero-initialized, so those nets keep the
+        # value they were trained with. Any OTHER missing/unexpected key is
+        # still a real mismatch and must fail.
+        missing, unexpected = policy_net.load_state_dict(
+            checkpoint["policy_state_dict"], strict=False
+        )
+        stale = [k for k in missing if not k.startswith("critic_shape.")]
+        if stale or unexpected:
+            raise RuntimeError(
+                f"checkpoint state_dict mismatch: missing={stale} unexpected={list(unexpected)}"
+            )
 
         base_kw: Dict[str, Any] = {
             "observation_shape": observation_shape,
@@ -2165,9 +2300,12 @@ class MiniBGPPOStructuredAgent(BaseAgent):
             "value_clip_eps": checkpoint.get("value_clip_eps"),
             "entropy_coef": checkpoint.get("entropy_coef", 0.01),
             "entropy_target": checkpoint.get("entropy_target", 0.0),
+            "entropy_target_until_step": checkpoint.get("entropy_target_until_step", 0),
+            "entropy_target_after": checkpoint.get("entropy_target_after", 0.0),
             "entropy_coef_max": checkpoint.get("entropy_coef_max", 0.2),
             "entropy_adapt_rate": checkpoint.get("entropy_adapt_rate", 0.05),
             "value_coef": checkpoint.get("value_coef", 0.5),
+            "shape_value_coef": checkpoint.get("shape_value_coef", 1.0),
             "max_grad_norm": checkpoint.get("max_grad_norm", 1.0),
             "rollout_steps": checkpoint.get("rollout_steps", 1024),
             "ppo_epochs": checkpoint.get("ppo_epochs", 4),
@@ -2186,9 +2324,12 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 "value_clip_eps",
                 "entropy_coef",
                 "entropy_target",
+                "entropy_target_until_step",
+                "entropy_target_after",
                 "entropy_coef_max",
                 "entropy_adapt_rate",
                 "value_coef",
+                "shape_value_coef",
                 "max_grad_norm",
                 "rollout_steps",
                 "ppo_epochs",
@@ -2205,7 +2346,24 @@ class MiniBGPPOStructuredAgent(BaseAgent):
                 base_kw[k] = v
 
         agent = cls(**base_kw)
-        agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        try:
+            agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        except ValueError as exc:
+            # The net gained (or lost) parameters since the checkpoint was
+            # written — the shaping critic did exactly this to every v11-family
+            # net. Adam moments for the parameters that DO match cannot be
+            # restored piecewise (the state is indexed by position in one flat
+            # group), and moments for parameters that did not exist are
+            # meaningless, so the optimizer starts fresh. Loud, because on a
+            # training resume it means losing the moment estimates.
+            n_ck = len(checkpoint["optimizer_state_dict"]["param_groups"][0]["params"])
+            n_now = len(agent.optimizer.state_dict()["param_groups"][0]["params"])
+            print(
+                f"[load] optimizer state not restored ({exc}): checkpoint has "
+                f"{n_ck} params, this network has {n_now}. Inference is "
+                f"unaffected; a training resume restarts Adam's moments.",
+                flush=True,
+            )
         agent.step_count = checkpoint.get("step_count", 0)
         agent.epsilon = checkpoint.get("epsilon", 0.0)
         return agent

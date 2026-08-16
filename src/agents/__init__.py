@@ -28,6 +28,7 @@ from ..models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     PPO_NETWORK_BGLIKE_STRUCTURED_V12,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V13,
     PPO_NETWORK_MINIBG_SLOT,
     PPO_NETWORK_MINIBG_STRUCTURED,
     build_ppo_actor_critic,
@@ -55,9 +56,11 @@ _PPO_AGENT_KWARGS = frozenset(
         "entropy_coef_max",
         "entropy_adapt_rate",
         "entropy_target_until_step",
+        "entropy_target_after",
         "order_entropy_coef",
         "order_entropy_target",
         "value_coef",
+        "shape_value_coef",
         "max_grad_norm",
         "rollout_steps",
         "ppo_epochs",
@@ -273,6 +276,9 @@ if "ppo" not in list_agents():
         # v12 = v11_heroes on the v6 obs: the ability tail is gone and card
         # facts come from a frozen text+numbers table instead.
         is_bglike_structured_v12 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V12
+        # v13 = v12 on the v7 obs: the seat's tribe-preference vector rides in
+        # the observation and conditions the net on both paths.
+        is_bglike_structured_v13 = network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V13
         is_bglike_structured_v7 = (
             network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V7
             or is_bglike_structured_v8
@@ -281,6 +287,7 @@ if "ppo" not in list_agents():
             or is_bglike_structured_v11
             or is_bglike_structured_v11_heroes
             or is_bglike_structured_v12
+            or is_bglike_structured_v13
         )
         # v7 shares v6's obs_v5 layout (the env emits OBS_DIM_V5; the DvD agent
         # appends the identity tail before feeding the net).
@@ -354,7 +361,14 @@ if "ppo" not in list_agents():
                     f"PPO network_type {network_type!r} requires num_actions and "
                     "a 1-D observation vector (inferred at train startup for Battlegrounds)."
                 )
-            if is_bglike_structured_v12:
+            if is_bglike_structured_v13:
+                from src.envs.bglike.obs_v7_pref import OBS_DIM_V7_PREF as _expected_obs
+
+                if tuple(obs_shape) != (_expected_obs,):
+                    raise ValueError(
+                        f"PPO network_type {network_type!r} requires observation_shape [{_expected_obs}]"
+                    )
+            elif is_bglike_structured_v12:
                 from src.envs.bglike.obs_v6_heroes import OBS_DIM_V6_HEROES as _expected_obs
 
                 if tuple(obs_shape) != (_expected_obs,):
@@ -513,6 +527,7 @@ if "ppo" not in list_agents():
                             BGLikeStructuredV11Heroes,
                         )
                         from ..models.bglike_structured_v12 import BGLikeStructuredV12
+                        from ..models.bglike_structured_v13 import BGLikeStructuredV13
 
                         ability_emb_dim = int(kwargs.pop("ability_emb_dim", 8))
                         # Agent-level DvD knobs (not net constructor args except
@@ -534,6 +549,7 @@ if "ppo" not in list_agents():
                             is_bglike_structured_v11
                             or is_bglike_structured_v11_heroes
                             or is_bglike_structured_v12
+                            or is_bglike_structured_v13
                         ):
                             extra_net_kwargs = dict(
                                 summary_queries=int(kwargs.pop("summary_queries", 2)),
@@ -550,11 +566,19 @@ if "ppo" not in list_agents():
                                 # path and is NOT consulted when building fresh.
                                 use_card_emb=bool(kwargs.pop("use_card_emb", True)),
                             )
-                            if is_bglike_structured_v11_heroes or is_bglike_structured_v12:
+                            if (
+                                is_bglike_structured_v11_heroes
+                                or is_bglike_structured_v12
+                                or is_bglike_structured_v13
+                            ):
                                 extra_net_kwargs["hero_hidden"] = int(kwargs.pop("hero_hidden", 48))
                                 extra_net_kwargs["hero_out"] = int(kwargs.pop("hero_out", 24))
-                            if is_bglike_structured_v12:
-                                net_cls = BGLikeStructuredV12
+                            if is_bglike_structured_v12 or is_bglike_structured_v13:
+                                net_cls = (
+                                    BGLikeStructuredV13
+                                    if is_bglike_structured_v13
+                                    else BGLikeStructuredV12
+                                )
                                 # The frozen card table is built from the patch
                                 # package; card_patch_dir is set on agent params
                                 # by apply_patch_to_agent_params.
@@ -574,6 +598,17 @@ if "ppo" not in list_agents():
                                     kwargs.pop("strength_pred", None)
                                 )
                                 kwargs.pop("critic_queries", None)  # retired knob
+                                if is_bglike_structured_v13:
+                                    # v13 pins the identity slot to the tribe
+                                    # count; a config value would be a silent
+                                    # mismatch with the obs tail.
+                                    dvd_num_identities = None
+                                    extra_net_kwargs["pref_hidden"] = int(
+                                        kwargs.pop("pref_hidden", 32)
+                                    )
+                                    extra_net_kwargs["pref_out"] = int(
+                                        kwargs.pop("pref_out", 16)
+                                    )
                             elif is_bglike_structured_v11_heroes:
                                 net_cls = BGLikeStructuredV11Heroes
                             else:
@@ -586,9 +621,10 @@ if "ppo" not in list_agents():
                             net_cls = BGLikeStructuredV8
                         else:
                             net_cls = BGLikeStructuredV7
+                        if dvd_num_identities is not None:
+                            extra_net_kwargs["num_identities"] = dvd_num_identities
                         net = net_cls(
                             ability_emb_dim=ability_emb_dim,
-                            num_identities=dvd_num_identities,
                             **extra_net_kwargs,
                             **v3_v4_kwargs,
                         )
@@ -637,7 +673,14 @@ if "ppo" not in list_agents():
             if patch_build is not None:
                 kwargs["patch_build"] = patch_build
             kwargs.pop("action_space", None)
-            if is_bglike_structured_v7:
+            # v13 shares v7's structured surface but is NOT a DvD arm: its
+            # identity slot carries the tribe-preference vector, which the ENV
+            # already writes into the observation. PPODvDAgent would append a
+            # one-hot on top of it (1130 -> 1137) and the net rejects that
+            # width. Collect workers already build the plain agent (v13 is not
+            # in run_distributed's dvd tuple); this keeps the host on the same
+            # class instead of relying on the host never calling act().
+            if is_bglike_structured_v7 and not is_bglike_structured_v13:
                 return PPODvDAgent(
                     num_identities=dvd_num_identities,
                     diversity_coef=dvd_diversity_coef,

@@ -24,6 +24,7 @@ from src.models.ppo_policy_factory import (
     PPO_NETWORK_BGLIKE_STRUCTURED_V11,
     PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
     PPO_NETWORK_BGLIKE_STRUCTURED_V12,
+    PPO_NETWORK_BGLIKE_STRUCTURED_V13,
     PPO_NETWORK_MINIBG_STRUCTURED,
 )
 from src.training.bg_network_policy import (
@@ -112,6 +113,7 @@ def prepare_bg_network_params(
         PPO_NETWORK_BGLIKE_STRUCTURED_V11,
         PPO_NETWORK_BGLIKE_STRUCTURED_V11_HEROES,
         PPO_NETWORK_BGLIKE_STRUCTURED_V12,
+        PPO_NETWORK_BGLIKE_STRUCTURED_V13,
     )
     game_params["use_structured"] = use_structured
     # DvD/v7: thread the population knobs through to workers (mg) so each worker
@@ -194,6 +196,21 @@ def prepare_bg_network_params(
             )
         game_params["obs_kind"] = OBS_KIND_BGLIKE_V6_HEROES
         game_params.setdefault("with_heroes", True)
+
+    # v13 reads the v7 obs: v6 + the seat's own tribe-preference vector, and the
+    # vector has to actually be drawn or the block is all zeros.
+    if network_type == PPO_NETWORK_BGLIKE_STRUCTURED_V13 and game_id == "bglike":
+        from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V7_PREF
+
+        existing = game_params.get("obs_kind")
+        if existing is not None and existing != OBS_KIND_BGLIKE_V7_PREF:
+            raise ValueError(
+                f"network_type={network_type!r} requires obs_kind={OBS_KIND_BGLIKE_V7_PREF!r}, "
+                f"got {existing!r}"
+            )
+        game_params["obs_kind"] = OBS_KIND_BGLIKE_V7_PREF
+        game_params.setdefault("with_heroes", True)
+        game_params.setdefault("with_tribe_pref", True)
 
     # Reject a heroes/network mismatch (e.g. with_heroes=true on a non-hero net).
     validate_heroes_consistency(game_id, network_type, game_params)

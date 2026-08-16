@@ -440,6 +440,17 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         h = F.relu(self.slot_proj(torch.cat([cont, card], dim=-1)))
         return h + pos_emb.weight[: h.shape[1]].unsqueeze(0)
 
+    def _trunk_extra(self, id_tail: Optional[torch.Tensor]) -> Tuple[torch.Tensor, ...]:
+        """Extra features to concatenate into the trunk. Empty here.
+
+        Extension point for subclasses whose obs tail must reach the critic and
+        the action head, not only the per-slot gate: appending here is the only
+        way into ``state_summary``, and a subclass that uses it has to rebuild
+        the trunk-sized layers for the wider input (as v11_heroes does for the
+        hero block).
+        """
+        return ()
+
     # ------------------------------------------------------------------
     # State encoder (v11_heroes body, ability block removed)
     # ------------------------------------------------------------------
@@ -523,7 +534,10 @@ class BGLikeStructuredV12(BGLikeStructuredV11Heroes):
         E_pending = E_all[:, idx : idx + self.pending_len]; idx += self.pending_len
         E_opp = E_all[:, idx : idx + self._max_opps]
 
-        trunk_in = torch.cat([summary, econ_emb, combat_emb, pctx_emb, hero_emb], dim=-1)
+        trunk_in = torch.cat(
+            [summary, econ_emb, combat_emb, pctx_emb, hero_emb, *self._trunk_extra(id_onehot)],
+            dim=-1,
+        )
         state_summary_n = self.state_summary_ln(trunk_in)
         trunk = self.thinking_core(state_summary_n)
         state_emb = self.state_proj(trunk)

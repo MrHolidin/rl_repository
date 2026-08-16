@@ -80,6 +80,9 @@ class LeagueController:
         )
         self._slots: Dict[int, LeagueSlot] = {}
         self._epoch = 0
+        # Status rows of frozen slots the cap has evicted, oldest first. Kept for
+        # the full-pool dump; never read back into sampling.
+        self._evicted_rows: List[Dict[str, Any]] = []
         self._slot_id_to_scripted_key: Dict[int, str] = {}
         self._rating_kind = rating_kind
         self._placement_ema = PlacementEmaTracker(window=20)
@@ -153,10 +156,36 @@ class LeagueController:
         return slot_id
 
     def remove_slot(self, slot_id: int) -> None:
+        # Archive the row before the slot's rating/EMA are dropped: once removed
+        # there is no way to reconstruct what an evicted snapshot was worth, and
+        # the live pool file then only ever shows the survivors — which reads as
+        # "the pool was always these 15" instead of "these 15 out of N".
+        self._archive_evicted(int(slot_id))
         self._registry.remove(slot_id)
         self._rating.remove(slot_id)
         self._placement_ema.remove(slot_id)
         self._slots.pop(int(slot_id), None)
+
+    def _archive_evicted(self, slot_id: int) -> None:
+        slot = self._slots.get(slot_id)
+        if slot is None and self._registry.get(slot_id) is None:
+            return
+        try:
+            # Same builder the live file uses, so an evicted row and a live one
+            # carry the same fields (mu/sigma only exist on the trueskill one).
+            build = (
+                self._trueskill_status_row
+                if self._uses_trueskill_status()
+                else self._status_row
+            )
+            row = build(slot_id, kind="frozen", slot=slot)
+        except Exception:
+            # Bookkeeping must never take an eviction (or a run) down with it.
+            return
+        row["evicted"] = True
+        row["evicted_at_epoch"] = int(self._epoch)
+        row["evicted_seq"] = len(self._evicted_rows)
+        self._evicted_rows.append(row)
 
     def submit(self, record: GameRecord) -> None:
         if self._rating.update(record):
@@ -237,6 +266,27 @@ class LeagueController:
         if self._uses_trueskill_status():
             return {"rating_system": "trueskill", "agents": rows}
         return {"frozen_agents": rows}
+
+    def get_full_pool_data(self, *, pfsp_eps: float = 1e-2) -> Dict[str, Any]:
+        """Live pool plus every frozen slot the cap has evicted.
+
+        ``self_play_frozen.json`` is a snapshot of who is sampled right now, so
+        it silently loses the run's history at ``max_frozen_agents``. This is the
+        cumulative view: live rows exactly as that file has them, evicted rows as
+        they stood the moment they were dropped.
+        """
+        live = self.get_pool_stats_for_status(pfsp_eps=pfsp_eps)
+        live_frozen = sum(1 for r in live if r.get("kind") == "frozen")
+        return {
+            "rating_system": "trueskill" if self._uses_trueskill_status() else "ema",
+            "agents": live,
+            "evicted": list(self._evicted_rows),
+            "counts": {
+                "live_frozen": live_frozen,
+                "evicted": len(self._evicted_rows),
+                "frozen_ever": live_frozen + len(self._evicted_rows),
+            },
+        }
 
     def get_pool_stats_for_status(self, *, pfsp_eps: float = 1e-2) -> List[Dict[str, Any]]:
         if self._uses_trueskill_status():

@@ -21,6 +21,7 @@ torch.set_num_threads(1)  # batch=1 forwards are faster single-threaded
 
 import src.envs  # noqa: F401
 from src.envs.bglike.lobby_env import BGLobbyEnv
+from src.envs.bglike.lobby_env import OBS_KIND_BGLIKE_V7_PREF
 from src.envs.bglike.placement import placement_for_seat
 from src.envs.bglike.seat_config import lobby_from_learned_seats
 from src.evaluation.eval_checkpoints import find_checkpoints, load_training_agent_checkpoint
@@ -63,6 +64,7 @@ def run_head_to_head(
     patch_dir: str | None = None,
     obs_kind: str | None = None,
     with_heroes: bool | None = None,
+    zero_tribe_pref: bool = False,
 ) -> List[dict]:
     # Each checkpoint declares the observation it reads, so the two teams need
     # not share one: the lobby builds a per-seat layout. The observation is a
@@ -101,6 +103,11 @@ def run_head_to_head(
         obs_kind=lobby_kind,
         obs_kind_by_seat=obs_kind_by_seat,
         with_heroes=with_heroes,
+        # A seat reading the preference layout needs the block to exist; seats on
+        # older layouts never see it, so turning it on is free for them.
+        with_tribe_pref=any(
+            k == OBS_KIND_BGLIKE_V7_PREF for k in obs_kind_by_seat.values()
+        ),
     )
     games: List[dict] = []
     import time as _time
@@ -108,6 +115,14 @@ def run_head_to_head(
     for g in range(num_games):
         _t0 = _time.perf_counter()
         env.reset(seed=seed + g)
+        if zero_tribe_pref:
+            # Score the identity-trained net on strength alone: every seat gets
+            # an all-zero preference vector, so the block carries no signal and
+            # no purchase is worth more than another. Vectors are drawn once at
+            # reset, so overwriting them here holds for the whole game.
+            for p in env.state.players:
+                if getattr(p, "tribe_pref", None) is not None:
+                    p.tribe_pref = tuple(0.0 for _ in p.tribe_pref)
         env.drain_until_lobby_done(deterministic=True)
         print(
             f"  game {g + 1}/{num_games}: {_time.perf_counter() - _t0:.1f}s",
@@ -226,6 +241,10 @@ def main() -> None:
              "detected from its network type and applied per seat",
     )
     ap.add_argument(
+        "--zero-tribe-pref", action="store_true",
+        help="force every seat's tribe-preference vector to zero (identity off)",
+    )
+    ap.add_argument(
         "--with-heroes", dest="with_heroes", action="store_true", default=None,
         help="force heroes on (auto-enabled when either net reads a hero obs)",
     )
@@ -252,6 +271,7 @@ def main() -> None:
         patch_dir=args.patch_dir,
         obs_kind=args.obs_kind,
         with_heroes=args.with_heroes,
+        zero_tribe_pref=bool(args.zero_tribe_pref),
     )
     all_a = [float(p) for g in games for p in g["team_a_placements"]]
     all_b = [float(p) for g in games for p in g["team_b_placements"]]

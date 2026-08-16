@@ -1,0 +1,175 @@
+# ppo_v12_lr25_20m.yaml plus the per-seat tribe preference. Identical to that
+# baseline in every training knob — lr 2.5e-4, standard widths, no other
+# shaping — so the pair isolates what the preference vector does.
+#
+# Per-seat tribe preference, stacked board form: every round, each tribe x on
+# the seat's board pays tribe_pref_board_shaping * min(5, n_x) ** 1.5 * v[x].
+#
+# Superlinear in the count, so concentration is what pays: three of one tribe
+# score 5.20 where one each of three score 3.00, and 5+2 scores 14.0 against
+# 3+2+2's 10.9. The cap is a guard, not a constraint — measured on real boards
+# the biggest single-tribe stack averages 2.6 and tops out at 6.
+#
+# Coefficient matched to the linear form it replaces (0.025/minion/round) by
+# equalising the spread of the per-game payout under a random vector: measured
+# on 320 seat-games the stacked weight is 1.65x the linear one, so 0.025/1.65 =
+# 0.015 would be the like-for-like value; 0.02 is deliberately a third above it.
+#
+# Predecessors: ppo_v13_tribepref_20m.yaml pays per PURCHASE (coef 0.1), and
+# the linear board form ran as v13_prefboard_linear_killed7m.
+#
+seed: 13
+
+game:
+  id: bglike
+  params:
+    seed: 13
+    battle_damage_shaping: 0.0
+    num_current_seats: 4
+    patch_dir: data/bgcore/19_6_0_74257
+    shop_excluded_count: 1
+    obs_kind: bglike_v7_pref
+    with_tribe_pref: true
+    with_heroes: true
+    percent_high_game: 0.0
+    # Nomi shaping at half the previous arm's strength: 0.1 once per Nomi the
+    # seat PLAYS onto its board, and 0.025 per point of tavern elemental buff it
+    # adds, for the first 5. Halved so the tribe vector is the loudest shaping
+    # term rather than competing with a card-specific one.
+    # Neither is potential-based, so both do move the optimum — the run is the
+    # shaped arm, and ppo_v12_lr50_20m.yaml is its unshaped control.
+    #
+    # Both are baselined: the shaping critic (agent.params.shape_value_coef)
+    # gives V a term for expected remaining shaping, which the placement CE head
+    # structurally cannot carry. `shaping_per_game` in metrics_critic.csv is how
+    # much of it the policy actually collects — read against |placement| <= 1.
+    elemental_shop_bonus_shaping: 0.0
+    elemental_shop_bonus_cap: 0
+    # Per bought minion, times that tribe's component of the seat's vector.
+    # 0.02 was measured too quiet to steer a purchase: with ~4 cards in the shop
+    # the choice was worth 0.018 while every action's advantage carried the whole
+    # game's return (sd 0.67) — a 2.7% signal, and the policy bought liked and
+    # disliked tribes at 8.58 vs 8.57 per game. At 0.1 the per-decision spread is
+    # ~0.09 against the same noise. Note this also makes the term large in total:
+    # ~24 buys * 0.1 * E|v| ≈ 1.1 a game against |placement| <= 1, so it is now a
+    # first-class objective rather than a nudge.
+    tribe_pref_shaping: 0.0
+    tribe_pref_board_shaping: 0.02
+
+agent:
+  id: ppo
+  params:
+    network_type: bglike_structured_v13
+    observation_type: vector
+    update_opt_mode: compile
+    # No DvD: v13 pins the identity slot to the 7 tribe components, and the
+    # reward for them is the hand-written term above, not a population objective.
+    diversity_coef: 0.0
+    # --- frozen card table ---
+    card_text_mode: text      # "random" in the control arm
+    card_text_dim: 32         # must match the artifact's --pca-dim
+    card_static_seed: 0       # only used by card_text_mode=random
+    # --- v11 architecture, unchanged ---
+    slot_hidden_channels: 64
+    entity_attention_layers: 2
+    entity_attention_heads: 4
+    entity_attention_ff_mult: 4
+    entity_attention_init_scale: 0.1
+    action_cross_attn_heads: 4
+    action_cross_attn_ff_mult: 2
+    action_cross_attn_init_scale: 0.1
+    state_dim: 128
+    action_dim: 64
+    order_hidden: 64
+    order_pos_dim: 16
+    summary_queries: 2
+    thinking_blocks: 1
+    thinking_hidden: 256
+    economy_hidden: 64
+    economy_out: 32
+    combat_out: 16
+    pending_ctx_out: 16
+    hero_hidden: 48
+    hero_out: 24
+    # 5x the 1e-4 the whole v12 line has used, i.e. 2x the lr25 arm. The mb8k
+    # run moved very little
+    # per update at 1e-4 (per-minibatch KL 0.002-0.005, clip_frac 0.01-0.06) and
+    # its effective feature rank still fell 35 -> 21, so the step size is being
+    # tested here rather than the batch. approx_kl_rollout is the column to
+    # watch: it now reports the whole update's drift, not a per-minibatch mean.
+    learning_rate: 0.00025
+    discount_factor: 1.0
+    gae_lambda: 0.99
+    ppo_clip_eps: 0.2
+    clip_value_loss: false
+    value_clip_eps: null
+    entropy_coef: 0.02
+    # One-sided floor on exploration: entropy_coef is only ever raised (up to
+    # entropy_coef_max) while measured entropy sits under the target, never
+    # lowered. v12_text_40w fell 2.17 -> 0.81 and spent its last third there,
+    # so 1.0 is set just above where that run flattened out.
+    entropy_target: 1.0
+    value_coef: 0.05
+    max_grad_norm: 3.0
+    rollout_steps: 32768
+    ppo_epochs: 4
+    # 8x the sibling arm's 1024. Everything else identical, learning rate
+    # included, so the only thing that moved is gradient steps per update:
+    # 32768 / 8192 * 4 epochs = 16, down from 128.
+    minibatch_size: 8192
+    device: cuda
+
+train:
+  max_episodes: 20000000
+  total_steps: 20000000
+  deterministic: false
+  track_timings: false
+  start_policy: random
+  opponent_sampler:
+    type: pool
+    params:
+      seed: 103
+      self_play:
+        start_episode: 0
+        max_frozen_agents: 15
+        save_every: 1000
+      scripted:
+        mode: bglike
+        distribution:
+          t1_random: 1
+          t_up_random: 1
+          structured: 1
+          planner: 1
+          random: 1
+      league:
+        rating:
+          kind: trueskill
+          trueskill:
+            mu: 25.0
+            sigma: 8.333
+            beta: 4.167
+            tau: 0.083
+            draw_probability: 0.01
+        sampler:
+          kind: trueskill_quality
+          current_self_fraction: 0.0
+  callbacks:
+    - type: checkpoint
+      params:
+        # 500k over 20M steps: 40 files, ~225 MB, instead of the 100 that 200k
+        # would leave. Saves land on update boundaries, so each is within a
+        # rollout (~33k steps) of the round number.
+        interval: 500000
+        prefix: dist_bglike_ppo_v13_prefstack_lr25
+    - type: metrics_file
+      params:
+        interval: 1
+
+eval:
+  enabled: false
+  num_episodes: 100
+  deterministic: true
+
+distributed:
+  workers: 40
+  worker_device: cpu

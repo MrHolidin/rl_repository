@@ -111,7 +111,17 @@ def load_training_agent_checkpoint(
         # The checkpoint carries no DvD marker, so detect it structurally: the
         # identity_* parameters exist only when num_identities > 0.
         state = ckpt.get("policy_state_dict") or {}
-        if any(str(k).startswith("identity_") for k in state):
+        # v13 owns the identity_* projection for a different purpose: it feeds
+        # the per-seat tribe-preference vector, which the env already puts in
+        # the observation. Loading it as DvD appends a one-hot on top and the
+        # net rejects the width, so the structural test has to defer to the
+        # declared network type.
+        net_type = str(ckpt.get("ppo_network_type") or "").strip().lower()
+        is_dvd = (
+            any(str(k).startswith("identity_") for k in state)
+            and net_type != "bglike_structured_v13"
+        )
+        if is_dvd:
             from src.agents.ppo_dvd_agent import PPODvDAgent
 
             agent = PPODvDAgent.load(path_str, device=device, seed=seed)

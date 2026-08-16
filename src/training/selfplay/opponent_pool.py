@@ -413,3 +413,6 @@ class OpponentPool:
 
     def get_status_file_data(self) -> Dict[str, Any]:
         return self._league.get_status_file_data()
+
+    def get_full_pool_data(self) -> Dict[str, Any]:
+        return self._league.get_full_pool_data()

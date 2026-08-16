@@ -27,7 +27,7 @@ def reject_flat_bg_network(
 
 
 _HERO_NETWORK_TYPES = frozenset(
-    {"bglike_structured_v11_heroes", "bglike_structured_v12"}
+    {"bglike_structured_v11_heroes", "bglike_structured_v12", "bglike_structured_v13"}
 )
 
 
@@ -80,6 +80,7 @@ NETWORK_OBS_KIND: dict[str, str] = {
     "bglike_structured_v11": "bglike_v5",
     "bglike_structured_v11_heroes": "bglike_v5_heroes",
     "bglike_structured_v12": "bglike_v6_heroes",
+    "bglike_structured_v13": "bglike_v7_pref",
 }
 
 # Networks that additionally require heroes to be dealt.
