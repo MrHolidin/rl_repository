@@ -13,7 +13,7 @@ from .state import BattleSide, _CombatRuntime
 
 def _winner_damage_raw(side: BattleSide, winner_tavern_tier: int) -> int:
     """Uncapped winner damage formula INCLUDING tavern tier (used for HP)."""
-    return int(winner_tavern_tier) + sum(m.tier for m in side.minions if m.alive)
+    return int(winner_tavern_tier) + sum(m.tier for m in side.minions)
 
 
 def _winner_damage_board_only(side: BattleSide) -> int:
@@ -26,7 +26,7 @@ def _winner_damage_board_only(side: BattleSide) -> int:
     Keeping the target board-derived makes the prediction depend only on the
     minions that actually fought.
     """
-    return sum(m.tier for m in side.minions if m.alive)
+    return sum(m.tier for m in side.minions)
 
 
 def _winner_damage(side: BattleSide, winner_tavern_tier: int, damage_cap: int) -> int:
@@ -127,10 +127,10 @@ def _emit_survivor_outputs(
 ) -> None:
     if p0_survivors_out is not None:
         p0_survivors_out.clear()
-        p0_survivors_out.extend(m.template.card_id for m in side0.minions if m.alive)
+        p0_survivors_out.extend(m.template.card_id for m in side0.minions)
     if p1_survivors_out is not None:
         p1_survivors_out.clear()
-        p1_survivors_out.extend(m.template.card_id for m in side1.minions if m.alive)
+        p1_survivors_out.extend(m.template.card_id for m in side1.minions)
     if p0_board_out is not None:
         p0_board_out.clear()
         p0_board_out.extend(persist_shop_board_from_side(side0, max_board_slots))

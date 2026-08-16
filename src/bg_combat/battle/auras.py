@@ -53,8 +53,6 @@ def _deathrattle_multiplier(side: BattleSide) -> int:
     """Product of Baron-style auras on living minions (re-read at DR execution time)."""
     p = 1
     for bm in side.minions:
-        if not bm.alive:
-            continue
         for ab in bm.template.abilities:
             if ab.trigger == Trigger.AURA and isinstance(
                 ab.effect, DeathrattleMultiplierAura
@@ -67,8 +65,6 @@ def _summon_multiplier(side: BattleSide) -> int:
     """Product of Khadgar-style auras on living minions."""
     p = 1
     for bm in side.minions:
-        if not bm.alive:
-            continue
         for ab in bm.template.abilities:
             if ab.trigger == Trigger.AURA and isinstance(
                 ab.effect, SummonMultiplierAura

@@ -118,14 +118,25 @@ class BattleSide:
             if bm.death_pos > at:
                 bm.death_pos += delta
 
+    def assert_no_corpses(self) -> None:
+        """The invariant everything below leans on: ``minions`` is the living.
+
+        Dead bodies are swept into ``graveyard`` at every death site. Without
+        this check the guarantee would be an observation rather than a rule,
+        and the next death path that forgets to sweep would go back to being
+        silently wrong instead of loudly.
+        """
+        dead = [m.template.card_id for m in self.minions if not m.alive]
+        assert not dead, f"dead minions left on the board: {dead}"
+
     def alive_minions(self) -> List[BattleMinion]:
-        return [m for m in self.minions if m.alive]
+        return list(self.minions)
 
     def alive_count(self) -> int:
-        return sum(1 for m in self.minions if m.alive)
+        return len(self.minions)
 
     def has_alive(self) -> bool:
-        return any(m.alive for m in self.minions)
+        return bool(self.minions)
 
 
 @dataclass

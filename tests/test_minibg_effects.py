@@ -261,6 +261,9 @@ def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
         damage_cap=DAMAGE_CAP,
         patch=PATCH_CTX,
     )
+    # Bodies reach the deathrattle through the graveyard, in death order --
+    # which is what "the first 2 friendly Mechs that died" means.
+    side.reap_dead()
     _fire_deathrattle(rt, kang, 0)
     alive_ids = [m.template.card_id for m in side.minions if m.alive]
     assert alive_ids.count("BOT_445") == 1

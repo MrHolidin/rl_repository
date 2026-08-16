@@ -42,6 +42,7 @@ def test_cleave_splashes_across_a_corpse():
     side = _side(rt, 4)
     a, corpse, target, c = side.minions
     corpse.current_health = 0
+    side.reap_dead()  # bodies leave the board where they die
 
     ids = _cleave_victim_ids_at_swing_start(side, target)
 

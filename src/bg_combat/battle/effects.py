@@ -194,7 +194,7 @@ def _deal_random_enemy_minion_damage(
         return
     enemy_side = 1 - from_side_idx
     es = rt.side(enemy_side)
-    victims = [m for m in es.minions if m.alive]
+    victims = list(es.minions)
     if not victims:
         return
     vic = victims[int(rt.rng.integers(0, len(victims)))]
@@ -208,7 +208,7 @@ def _deal_leftmost_enemy_minion_damage(
         return
     enemy_side = 1 - from_side_idx
     es = rt.side(enemy_side)
-    victims = [m for m in es.minions if m.alive]
+    victims = list(es.minions)
     if not victims:
         return
     _deal_damage_to_battle_minion(rt, enemy_side, victims[0], amount)
@@ -1049,8 +1049,12 @@ def _dead_friendly_mech_templates_ordered(
     side: BattleSide, dead: BattleMinion
 ) -> List[Minion]:
     out: List[Minion] = []
-    for m in side.minions:
-        if m.alive or m is dead:
+    # The dead live in the graveyard, in death order -- which is exactly the
+    # order this card asks for ("the first 2 friendly Mechs that died"). It
+    # used to scan ``minions`` for bodies, and once bodies stopped being left
+    # there it silently found none: Kangor's Apprentice resummoned nothing.
+    for m in side.graveyard:
+        if m is dead:
             continue
         if not _is_mech_template(m.template):
             continue
@@ -1165,5 +1169,5 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
 
 def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:
     return sum(
-        1 for m in side.minions if m.alive and _matches_tribe_for_aura(m.template, tribe)
+        1 for m in side.minions if _matches_tribe_for_aura(m.template, tribe)
     )
