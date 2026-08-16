@@ -146,6 +146,19 @@ class BattleSide:
                         continue
                 yield listener, ab.effect
 
+    def sync_auras(self, *, death_resolution: bool = False) -> None:
+        """Recompute every minion's aura contribution from this side's board.
+
+        Attack now reads a stored ``aura_attack`` instead of re-deriving it on
+        every swing, so it has the same requirement health already had: after
+        the board changes, someone must sync. In a battle the runtime does it
+        (a board change marks the side dirty, ``_sync_health_all`` runs before
+        anything swings); a side assembled by hand has to say so.
+        """
+        from .auras import _sync_health_aura_side
+
+        _sync_health_aura_side(self, death_resolution)
+
     def iter_living(self) -> Iterator[BattleMinion]:
         """Walk the board, skipping anyone who dies while the walk is running.
 

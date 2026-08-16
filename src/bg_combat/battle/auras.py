@@ -80,9 +80,11 @@ def attack_value(
     """During death-resolution windows stat auras do not apply (BG-style snapshot)."""
     if death_resolution:
         return minion.raw_attack
-    bonus, _ = stat_aura_bonus(side.minions, minion, live_only=True)
-    return minion.raw_attack + bonus + side.attack_aura_all + _self_aura_attack_bonus(
-        minion, battle_field, side
+    return (
+        minion.raw_attack
+        + minion.aura_attack
+        + side.attack_aura_all
+        + _self_aura_attack_bonus(minion, battle_field, side)
     )
 
 
@@ -99,14 +101,21 @@ def health_aura_bonus(
 
 
 def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
+    """Recompute both aura contributions from zero for everyone on ``side``.
+
+    One ``stat_aura_bonus`` call answers both stats -- the attack half used to
+    be computed and thrown away here, then computed again on every read of
+    ``attack_value``.
+
+    The two stats part ways on one point only: during a death-resolution
+    window health auras are snapshotted off and attack auras are not. That is
+    not a simplification -- every caller of ``attack_value`` passes
+    ``death_resolution=False``, so attack auras have always applied there.
+    """
     for bm in side.iter_living():
-        # Store the contribution, not a delta to patch into an absolute. A
-        # shrinking aura lowers the derived health on its own -- lethally if
-        # the minion was damaged (Mal'Ganis dies, a hurt Demon goes with it),
-        # which is the rule -- so there is nothing to add, clamp or remember.
-        bm.aura_health = health_aura_bonus(
-            bm, side, death_resolution=death_resolution
-        )
+        atk, hp = stat_aura_bonus(side.minions, bm, live_only=True)
+        bm.aura_attack = atk
+        bm.aura_health = 0 if death_resolution else hp
 
 
 def _sync_health_all(rt: _CombatRuntime) -> None:
@@ -129,5 +138,11 @@ def _sync_health_all(rt: _CombatRuntime) -> None:
 
 
 def attack_with_auras(minion: BattleMinion, side: BattleSide) -> int:
-    """Attack during the combat strike phase (auras from living neighbors apply)."""
+    """Attack during the combat strike phase (auras from living neighbors apply).
+
+    Reads the synced ``aura_attack``, so the side must have been synced since
+    it last changed -- which in a battle it always has, because every board
+    change marks the side dirty and ``_sync_health_all`` runs before anything
+    swings.
+    """
     return attack_value(minion, side, death_resolution=False)

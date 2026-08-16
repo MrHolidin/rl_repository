@@ -366,6 +366,7 @@ def test_attack_during_death_resolution_ignores_stat_aura():
     assert attack_value(imp_bm, side, death_resolution=False) == 3
     assert attack_value(imp_bm, side, death_resolution=True) == 1
     mal_bm.damage_taken = mal_bm.max_health + mal_bm.aura_health
+    side.sync_auras()
     assert attack_value(imp_bm, side, death_resolution=False) == 1
 
 
@@ -384,6 +385,7 @@ def test_tombstone_keeps_slots_dire_wolf_no_nearest_living_fallthrough():
     rat = battle_copy(make_minion("pack_rat"), 2)
     rec = battle_copy(make_minion("toy_mech"), 3)
     side = BattleSide(minions=[wolf, rat, rec])
+    side.sync_auras()
     assert attack_with_auras(rat, side) == rat.raw_attack + 1
     rat.damage_taken = rat.max_health + rat.aura_health
     assert attack_with_auras(rec, side) == rec.raw_attack
@@ -395,6 +397,7 @@ def test_malganis_health_bonus_drops_when_aura_source_dies():
     mal = battle_copy(make_minion("mal_ganis"), 1)
     imp = battle_copy(make_minion("imp_demon"), 2)
     side = BattleSide(minions=[mal, imp])
+    side.sync_auras()
     _sync_health_aura_side(side, False)
     assert imp.current_health == 3
     mal.damage_taken = mal.max_health + mal.aura_health
