@@ -192,20 +192,13 @@ def health_aura_bonus(
 
 def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
     for bm in side.iter_living():
-        b = health_aura_bonus(bm, side, death_resolution=death_resolution)
-        prev = bm.health_aura_snapshot
-        delta = b - prev
-        bm.health_aura_snapshot = b
-        bm.current_health += delta
-        emax = bm.max_health + b
-        if bm.current_health > emax:
-            bm.current_health = emax
-        if bm.current_health < 0:
-            # Losing a health aura can be lethal (Mal'Ganis dies, a damaged
-            # Demon goes with it) -- that is the rule. Stopping at 0 is what
-            # damage already does; letting it run negative left the body in a
-            # state no other death path produces.
-            bm.current_health = 0
+        # Store the contribution, not a delta to patch into an absolute. A
+        # shrinking aura lowers the derived health on its own -- lethally if
+        # the minion was damaged (Mal'Ganis dies, a hurt Demon goes with it),
+        # which is the rule -- so there is nothing to add, clamp or remember.
+        bm.aura_health = health_aura_bonus(
+            bm, side, death_resolution=death_resolution
+        )
 
 
 def _sync_health_all(rt: _CombatRuntime) -> None:

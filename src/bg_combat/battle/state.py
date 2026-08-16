@@ -30,11 +30,11 @@ def battle_copy(minion: Minion, instance_id: int) -> Minion:
     """
     bm = copy(minion)
     bm.instance_id = instance_id
-    bm.current_health = minion.max_health
+    bm.damage_taken = 0
     bm.has_shield = minion.has_shield and Keyword.SHIELD in minion.all_keywords
     bm.deathrattle_fired = False
     bm.reborn_consumed = False
-    bm.health_aura_snapshot = 0
+    bm.aura_health = 0
     bm.death_pos = -1
     bm.death_announced = False
     return bm

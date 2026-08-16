@@ -94,7 +94,7 @@ def test_two_mentors_both_fire():
 def test_summon_effect_on_death_appends_token():
     pack_rat = make_minion("pack_rat")
     bm = battle_copy(pack_rat, 1)
-    bm.current_health = 0
+    bm.damage_taken = bm.max_health + bm.aura_health
     side = BattleSide(minions=[bm])
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
@@ -113,7 +113,7 @@ def test_summon_effect_on_death_appends_token():
 def test_summon_effect_skipped_when_alive_count_at_cap():
     pack_rat = make_minion("pack_rat")
     bm = battle_copy(pack_rat, 1)
-    bm.current_health = 0
+    bm.damage_taken = bm.max_health + bm.aura_health
     extras = [
         battle_copy(make_minion("recruit"), i)
         for i in range(2, 9)
@@ -133,7 +133,7 @@ def test_summon_effect_skipped_when_alive_count_at_cap():
 
 def test_the_beast_summons_finkle_on_opponent_side_during_dr():
     beast = battle_copy(make_minion("the_beast"), 1)
-    beast.current_health = 0
+    beast.damage_taken = beast.max_health + beast.aura_health
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=[])
     rt = _CombatRuntime(
@@ -150,7 +150,7 @@ def test_the_beast_summons_finkle_on_opponent_side_during_dr():
 
 def test_opponent_summon_skipped_when_target_side_at_combat_cap():
     beast = battle_copy(make_minion("the_beast"), 1)
-    beast.current_health = 0
+    beast.damage_taken = beast.max_health + beast.aura_health
     extras = [battle_copy(make_minion("recruit"), i) for i in range(2, 9)]
     side0 = BattleSide(minions=[beast])
     side1 = BattleSide(minions=extras)
@@ -239,21 +239,21 @@ def test_tribal_aura_drops_when_source_dies():
         battle_copy(imp, 2),
     ])
     mal_b, imp_b = side.minions
-    mal_b.current_health = 0
+    mal_b.damage_taken = mal_b.max_health + mal_b.aura_health
     assert attack_with_auras(imp_b, side) == imp.raw_attack
 
 
 def test_kangor_deathrattle_uses_dead_mech_corpses_left_to_right():
     m1 = battle_copy(make_minion("toy_mech"), 1)
-    m1.current_health = 0
+    m1.damage_taken = m1.max_health + m1.aura_health
     m2 = battle_copy(make_minion("shield_bot"), 2)
-    m2.current_health = 0
+    m2.damage_taken = m2.max_health + m2.aura_health
     kang_tpl = make_minion("kangors_apprentice")
     kang_tpl.abilities = (
         Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
     )
     kang = battle_copy(kang_tpl, 3)
-    kang.current_health = 0
+    kang.damage_taken = kang.max_health + kang.aura_health
     side = BattleSide(minions=[m1, m2, kang])
     rt = _CombatRuntime(
         sides=(side, BattleSide()),
@@ -276,7 +276,7 @@ def test_golden_selfless_hero_grants_two_divine_shields():
     a = battle_copy(make_minion("recruit"), 1)
     b = battle_copy(make_minion("recruit"), 2)
     dead = battle_copy(sh, 3)
-    dead.current_health = 0
+    dead.damage_taken = dead.max_health + dead.aura_health
     side = BattleSide(minions=[a, b, dead])
     rt = _CombatRuntime(
         sides=(side, BattleSide()),

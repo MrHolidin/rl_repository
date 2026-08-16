@@ -115,9 +115,9 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
 
     hp_before = vic.current_health
     poison = att is not None and Keyword.POISONOUS in att.all_keywords
-    vic.current_health -= strike.amount
+    vic.damage_taken += strike.amount
     if poison:
-        vic.current_health = 0
+        vic.damage_taken = vic.max_health + vic.aura_health
     lost = max(0, hp_before - max(vic.current_health, 0))
     trailing: List[BattleEvent] = [
         DamageDealt(
@@ -242,7 +242,6 @@ def _buff_neighbors_of_dead(
                 continue
             ally.bonus_attack += attack
             ally.bonus_health += health
-            ally.current_health += health
 
 
 def _queue_combat_hand_add_card(
@@ -334,7 +333,6 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
                 if _matches_tribe_for_aura(summoned, eff.tribe):
                     summoned.bonus_attack += eff.attack
                     summoned.bonus_health += eff.health
-                    summoned.current_health += eff.health
             elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
                 if _matches_tribe_for_aura(summoned, eff.tribe):
                     _grant_keyword(rt, e.side_idx, listener, eff.keyword)
@@ -342,7 +340,6 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
                 if _matches_tribe_for_aura(summoned, eff.tribe):
                     listener.bonus_attack += eff.attack
                     listener.bonus_health += eff.health
-                    listener.current_health += eff.health
     _sync_health_all(rt)
 
 
@@ -366,7 +363,6 @@ def _fire_friendly_kill_listeners(
             if isinstance(eff, BuffSelf):
                 listener.bonus_attack += eff.attack
                 listener.bonus_health += eff.health
-                listener.current_health += eff.health
     _sync_health_all(rt)
 
 
@@ -423,9 +419,12 @@ def _deal_damage_to_battle_minion(
         bm.has_shield = False
         rt.queue.append(ShieldLost(side_idx, bm.instance_id))
         return
-    bm.current_health -= amount
-    if bm.current_health <= 0:
-        bm.current_health = 0
+    bm.damage_taken += amount
+    if not bm.alive:
+        # Cap the damage at lethal so health reads 0 rather than negative --
+        # the same shape the absolute had -- and tell the auras this side lost
+        # a body, which is what a dying aura source means for everyone else.
+        bm.damage_taken = bm.max_health + bm.aura_health
         _mark_health_aura_dirty(rt, side_idx)
     _sync_health_all(rt)
     if not bm.alive:
@@ -502,7 +501,6 @@ def _fire_friendly_minion_died_listeners(
             if isinstance(eff, BuffSelf):
                 listener.bonus_attack += eff.attack
                 listener.bonus_health += eff.health
-                listener.current_health += eff.health
             elif isinstance(eff, DealDamageRandomEnemyMinion):
                 for _ in range(max(1, eff.repeats)):
                     _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
@@ -584,7 +582,6 @@ def _fire_friendly_attack_listeners(
                     continue
                 attacker.bonus_attack += eff.attack
                 attacker.bonus_health += eff.health
-                attacker.current_health += eff.health
             # ALL_FRIENDLY only: before the merge just ``BuffAllFriendlyMinions``
             # reached this branch, so matching every BuffMatching variant here
             # would newly fire the tribe/keyword ones on this trigger.
@@ -592,7 +589,6 @@ def _fire_friendly_attack_listeners(
                 for ally in side.iter_living():
                     ally.bonus_attack += eff.attack
                     ally.bonus_health += eff.health
-                    ally.current_health += eff.health
     _sync_health_all(rt)
 
 
@@ -616,7 +612,6 @@ def _fire_when_attacked(
                         continue
                     ally.bonus_attack += eff.attack
                     ally.bonus_health += eff.health
-                    ally.current_health += eff.health
 
     for listener in side.iter_living():
         if listener is victim:
@@ -631,11 +626,9 @@ def _fire_when_attacked(
             if isinstance(eff, BuffSelf):
                 listener.bonus_attack += eff.attack
                 listener.bonus_health += eff.health
-                listener.current_health += eff.health
             elif isinstance(eff, BuffAttackedMinionEffect):
                 victim.bonus_attack += eff.attack
                 victim.bonus_health += eff.health
-                victim.current_health += eff.health
     _sync_health_all(rt)
 
 
@@ -671,7 +664,6 @@ def _fire_friendly_shield_lost_listeners(
             if isinstance(eff, BuffSelf):
                 listener.bonus_attack += eff.attack
                 listener.bonus_health += eff.health
-                listener.current_health += eff.health
     _sync_health_all(rt)
 
 
@@ -897,7 +889,6 @@ def _dr_buff_matching(
                 continue
             m.bonus_attack += effect.attack
             m.bonus_health += effect.health
-            m.current_health += effect.health
     _sync_health_all(rt)
 
 
@@ -914,7 +905,6 @@ def _dr_buff_random_other(
         t = pool[int(rt.rng.integers(0, len(pool)))]
         t.bonus_attack += effect.attack
         t.bonus_health += effect.health
-        t.current_health += effect.health
     _sync_health_all(rt)
 
 
@@ -1101,7 +1091,6 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
                     continue
                 m.bonus_attack += eff.attack
                 m.bonus_health += eff.health
-                m.current_health += eff.health
             _sync_health_all(rt)
 
 
@@ -1146,7 +1135,7 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
         return  # no slot to come back to
     bm.reborn_consumed = True
     _strip_reborn_keyword(bm)
-    bm.current_health = 1
+    bm.damage_taken = bm.max_health + bm.aura_health - 1
     # The body left the board when it died, so Reborn has to put it back --
     # into the slot it vacated, ahead of whoever slid into it.
     if bm in side.graveyard:

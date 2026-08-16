@@ -83,7 +83,7 @@ def test_shop_summon_multiplier_matches_the_combat_one(ctx):
             self.minions = minions
 
     for m in board:
-        m.current_health = m.max_health
+        m.damage_taken = 0
     assert _summon_multiplier(_Side(board)) == 4
     assert ShopTriggers.summon_multiplier([]) == 1
 

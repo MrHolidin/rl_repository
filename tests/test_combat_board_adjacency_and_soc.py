@@ -41,7 +41,7 @@ def test_cleave_splashes_across_a_corpse():
     rt = _runtime()
     side = _side(rt, 4)
     a, corpse, target, c = side.minions
-    corpse.current_health = 0
+    corpse.damage_taken = corpse.max_health + corpse.aura_health
     side.reap_dead()  # bodies leave the board where they die
 
     ids = _cleave_victim_ids_at_swing_start(side, target)
@@ -60,7 +60,7 @@ def test_cleave_splashes_left_of_a_deathrattle_token():
     rt = _runtime()
     side = _side(rt, 3)
     a, summoner, c = side.minions
-    summoner.current_health = 0
+    summoner.damage_taken = summoner.max_health + summoner.aura_health
     token = _summon_insert(
         rt, 0, make_minion(BODY, patch=PATCH), _insert_idx_after(side, summoner)
     )
@@ -74,7 +74,7 @@ def test_cleave_counts_a_summoned_token_as_a_neighbour():
     rt = _runtime()
     side = _side(rt, 3)
     _a, summoner, c = side.minions
-    summoner.current_health = 0
+    summoner.damage_taken = summoner.max_health + summoner.aura_health
     token = _summon_insert(
         rt, 0, make_minion(BODY, patch=PATCH), _insert_idx_after(side, summoner)
     )

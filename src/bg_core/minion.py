@@ -61,10 +61,16 @@ class Minion:
     # *copy* of the board: a battle never writes back, so damage taken and
     # shields popped die with the copy and the next battle starts from the
     # untouched original. Outside combat these are simply not maintained.
-    current_health: int = 0
+    #: Damage this minion has taken. Health is derived, not stored: a buff
+    #: raises ``bonus_health`` and the current health follows on its own, which
+    #: is why no effect has to remember to raise two numbers. Fourteen of the
+    #: twenty-three writes to the old absolute existed only to do that.
+    damage_taken: int = 0
+    #: Health contributed by auras right now, as a value rather than as a delta
+    #: patched into an absolute. Recomputed when the board changes.
+    aura_health: int = 0
     deathrattle_fired: bool = False
     reborn_consumed: bool = False
-    health_aura_snapshot: int = 0
     #: board slot this minion vacated when it died, so its deathrattle can
     #: summon there and Reborn can return there
     death_pos: int = -1
@@ -72,8 +78,13 @@ class Minion:
     death_announced: bool = False
 
     @property
+    def current_health(self) -> int:
+        """Health right now: printed + buffs + auras, less damage taken."""
+        return self.max_health + self.aura_health - self.damage_taken
+
+    @property
     def alive(self) -> bool:
-        """Combat-only: a minion outside a battle has no current health."""
+        """Combat-only: outside a battle nothing maintains damage or auras."""
         return self.current_health > 0
 
     def __copy__(self) -> "Minion":

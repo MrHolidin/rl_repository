@@ -61,7 +61,7 @@ def test_reap_removes_the_body_and_records_its_slot(ctx):
     side = rt.side(0)
     victim = side.minions[1]
 
-    victim.current_health = 0
+    victim.damage_taken = victim.max_health + victim.aura_health
     taken = side.reap_dead()
 
     assert taken == [victim]
@@ -81,7 +81,7 @@ def test_board_closes_up_so_neighbours_become_adjacent(ctx):
         return attack_value(x, side, death_resolution=False, battle_field=rt.sides)
 
     assert x_attack() == 2, "X starts two slots from the wolf"
-    y.current_health = 0
+    y.damage_taken = y.max_health + y.aura_health
     side.reap_dead()
     assert x_attack() == 3, "with the corpse gone X is adjacent and gets +1"
 
@@ -93,7 +93,7 @@ def test_cursor_follows_the_removals(ctx):
 
     # A body left of the pointer pulls it left.
     side.cursor = 3
-    side.minions[0].current_health = 0
+    side.minions[0].damage_taken = side.minions[0].max_health + side.minions[0].aura_health
     side.reap_dead()
     assert side.cursor == 2
 
@@ -102,7 +102,7 @@ def test_cursor_follows_the_removals(ctx):
     side2 = rt2.side(0)
     side2.cursor = 1
     survivor_after = side2.minions[2]
-    side2.minions[1].current_health = 0
+    side2.minions[1].damage_taken = side2.minions[1].max_health + side2.minions[1].aura_health
     side2.reap_dead()
     assert side2.minions[side2.cursor] is survivor_after
 
@@ -112,7 +112,7 @@ def test_cursor_stays_in_range_when_the_board_empties(ctx):
     side = rt.side(0)
     side.cursor = 1
     for m in side.minions:
-        m.current_health = 0
+        m.damage_taken = m.max_health + m.aura_health
     side.reap_dead()
     assert side.minions == []
     assert side.cursor == 0
@@ -125,7 +125,7 @@ def test_find_minion_still_resolves_a_body_in_the_graveyard(ctx):
     victim = side.minions[0]
     vid = victim.instance_id
 
-    victim.current_health = 0
+    victim.damage_taken = victim.max_health + victim.aura_health
     side.reap_dead()
 
     assert rt.find_minion(0, vid) is victim
@@ -297,7 +297,7 @@ def test_a_vacated_slot_left_of_the_pointer_still_shifts_it(ctx):
     assert second is side.minions[1] and side.cursor == 2
     waiting = side.minions[2]
 
-    first.current_health = 0
+    first.damage_taken = first.max_health + first.aura_health
     side.reap_dead()
     assert first.death_pos == 0
     assert side.cursor == 1 and side.minions[side.cursor] is waiting
