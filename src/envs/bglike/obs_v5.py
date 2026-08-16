@@ -45,6 +45,7 @@ from src.envs.minibg.obs import (
     RACE_ONEHOT_DIM,
     TRIGGER_INDEX,
     _RACE_ORDER,
+    effect_signature,
 )
 
 from .actions import BOARD_SIZE, HAND_SIZE, MAX_SHOP_SLOTS
@@ -150,13 +151,16 @@ def _race_id(race: Optional[Race]) -> int:
 
 
 def _effect_id(effect_obj) -> int:
-    """``EFFECT_INDEX[type(eff)] + 1`` (1-based; 0 reserved for padding).
+    """``EFFECT_INDEX[signature(eff)] + 1`` (1-based; 0 reserved for padding).
 
-    Raises if the effect class isn't registered — an unregistered effect would
+    The signature is the effect's class, or ``(class, variant)`` for a composed
+    effect whose variants carry distinct ids (see ``effect_signature``).
+
+    Raises if the signature isn't registered — an unregistered effect would
     collapse to the padding id and be silently masked out of attention, so we
     fail loudly instead. ``_EFFECT_CLASSES`` is kept complete by the import-time
     guard in ``minibg.obs``."""
-    idx = EFFECT_INDEX.get(type(effect_obj))
+    idx = EFFECT_INDEX.get(effect_signature(effect_obj))
     if idx is None:
         raise KeyError(
             f"effect {type(effect_obj).__name__} not in EFFECT_INDEX; "

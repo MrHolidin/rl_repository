@@ -62,12 +62,82 @@ def count_golden_friendlies(
     )
 
 
+def buff_matching_hits(
+    effect: "BuffMatching",
+    candidate: Minion,
+    source: Optional[Minion] = None,
+) -> bool:
+    """Does ``candidate`` match ``effect``'s target predicate?
+
+    Operates on the *template* level so shop (``Minion``) and combat
+    (``BattleMinion.template``) share one predicate. Aliveness and the
+    combat rule "a deathrattle never buffs its own corpse" stay at the call
+    sites, which is where they were before the merge.
+    """
+    from .effects import BuffTarget
+
+    t = effect.target
+    if t is BuffTarget.ALL_FRIENDLY:
+        return True
+    if t is BuffTarget.FRIENDLY_OF_TRIBE:
+        return minion_matches_tribe(candidate, effect.tribe)
+    if t is BuffTarget.OTHER_OF_TRIBE:
+        if source is not None and candidate is source:
+            return False
+        return minion_matches_tribe(candidate, effect.tribe)
+    if t is BuffTarget.FRIENDLY_WITH_KEYWORD:
+        return effect.keyword in candidate.all_keywords
+    raise ValueError(f"unhandled BuffTarget {t!r}")
+
+
+def count_for_source(
+    source: "CountSource",
+    board: Sequence[Minion],
+    *,
+    tribe: Any = None,
+    exclude: Optional[Minion] = None,
+) -> int:
+    """Dispatch a :class:`CountSource` onto the matching board count."""
+    from .effects import CountSource
+
+    if source is CountSource.FRIENDLY_OF_TRIBE:
+        return count_friendly_tribe(board, tribe, exclude=exclude)
+    if source is CountSource.UNIQUE_TRIBES:
+        return count_unique_tribes(board, exclude=exclude)
+    if source is CountSource.GOLDEN_FRIENDLIES:
+        return count_golden_friendlies(board, exclude=exclude)
+    raise ValueError(f"unhandled CountSource {source!r}")
+
+
+def apply_buff_self_per_count(
+    effect: "BuffSelfPerCount",
+    listener: Minion,
+    board: Sequence[Minion],
+) -> None:
+    """Apply ``BuffSelfPerCount`` to ``listener`` (its own board is ``board``).
+
+    Single implementation for what used to be three copies of this body, one
+    per counting class.
+    """
+    n = count_for_source(
+        effect.source,
+        board,
+        tribe=effect.tribe,
+        exclude=listener if effect.exclude_self else None,
+    )
+    listener.bonus_attack += effect.attack_per * n
+    listener.bonus_health += effect.health_per * n
+
+
 def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
     """Shallow-copy minions for ``PlayerState.last_opponent_board``."""
     return tuple(copy(m) for m in board)
 
 
 __all__ = [
+    "apply_buff_self_per_count",
+    "buff_matching_hits",
+    "count_for_source",
     "count_unique_tribes",
     "minion_matches_tribe",
     "count_friendly_tribe",

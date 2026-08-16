@@ -105,31 +105,46 @@ class BuffOnePerListedTribeFriendly:
     exclude_self: bool = True
 
 
-@dataclass(frozen=True)
-class BuffAllOtherOfTribe:
-    """One-shot shop battlecry: buff every other friendly minion of ``tribe`` (``Race.ALL`` matches any)."""
+class BuffTarget(Enum):
+    """Which friendlies a :class:`BuffMatching` hits.
 
-    tribe: Any
+    Each member is part of the effect's observation identity (see
+    ``_EFFECT_SIGNATURES`` in ``minibg.obs``), so renaming one is an obs
+    change — add, don't rename.
+    """
+
+    #: every friendly (no filter); the source is included where the call site
+    #: includes it — combat deathrattles always skip the dead source.
+    ALL_FRIENDLY = auto()
+    #: friendlies matching ``tribe``, source included if it matches
+    FRIENDLY_OF_TRIBE = auto()
+    #: friendlies matching ``tribe``, source always excluded
+    OTHER_OF_TRIBE = auto()
+    #: friendlies carrying ``keyword``
+    FRIENDLY_WITH_KEYWORD = auto()
+
+
+@dataclass(frozen=True)
+class BuffMatching:
+    """+``attack``/+``health`` to every friendly matching ``target``.
+
+    Composed replacement for four classes that shared this body and differed
+    only in the predicate: ``BuffAllFriendlyMinions``, ``BuffAllFriendlyOfTribe``,
+    ``BuffAllOtherOfTribe`` and ``BuffAllWithKeyword``. ``tribe`` is read only
+    for the two ``*_OF_TRIBE`` targets, ``keyword`` only for
+    ``FRIENDLY_WITH_KEYWORD``.
+
+    Field names are load-bearing beyond this module: ``attack`` / ``health``
+    are read by name for golden doubling (``triple_effects._GOLDEN_INT_FIELDS``)
+    and the v12 static table (``card_static.NUMBER_FIELDS``); ``tribe`` and
+    ``keyword`` are probed by name by the v5 ability-token encoder.
+    """
+
+    target: BuffTarget
     attack: int = 0
     health: int = 0
-
-
-@dataclass(frozen=True)
-class BuffAllFriendlyOfTribe:
-    """One-shot: all friendly minions matching ``tribe`` (including self if it matches)."""
-
-    tribe: Any
-    attack: int = 0
-    health: int = 0
-
-
-@dataclass(frozen=True)
-class BuffAllWithKeyword:
-    """All friendly minions that have ``keyword`` (shop battlecry or combat deathrattle)."""
-
-    keyword: Keyword
-    attack: int = 0
-    health: int = 0
+    tribe: Any = None
+    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -153,14 +168,6 @@ class BuffSelfWhenFriendlyDeathrattlePlaced:
 @dataclass(frozen=True)
 class BuffSelfWhenFriendlyBattlecryPlaced:
     """Shop: source gains stats after another friendly with an ``ON_PLACE`` ability is placed."""
-
-    attack: int = 0
-    health: int = 0
-
-
-@dataclass(frozen=True)
-class BuffAllFriendlyMinions:
-    """Combat deathrattle: buff every surviving friendly (e.g. Spawn of N'Zoth)."""
 
     attack: int = 0
     health: int = 0
@@ -562,31 +569,38 @@ class GrantKeywordAllFriendlyOfTribe:
     tribe: Any
 
 
-@dataclass(frozen=True)
-class BuffSelfFromFriendlyTribeCount:
-    """Shop end of turn: +stats per friendly minion of ``tribe``."""
+class CountSource(Enum):
+    """What :class:`BuffSelfPerCount` counts on the owner's board.
 
-    tribe: Any
+    Ordering is irrelevant to gameplay but each member is part of the effect's
+    observation identity (see ``_EFFECT_SIGNATURES`` in ``minibg.obs``), so
+    renaming a member is an obs change — add, don't rename.
+    """
+
+    FRIENDLY_OF_TRIBE = auto()
+    UNIQUE_TRIBES = auto()
+    GOLDEN_FRIENDLIES = auto()
+
+
+@dataclass(frozen=True)
+class BuffSelfPerCount:
+    """+stats on the listener, once per thing counted on its own board.
+
+    Composed replacement for what used to be three near-identical classes
+    (``BuffSelfFrom{FriendlyTribe,UniqueTribe,GoldenFriendly}Count``): they
+    shared this exact body and differed only in ``source``. ``tribe`` is read
+    only when ``source is FRIENDLY_OF_TRIBE``.
+
+    Field names are load-bearing beyond this module: ``attack_per`` /
+    ``health_per`` are read by name for golden doubling
+    (``triple_effects._GOLDEN_INT_FIELDS``) and for the v12 static card table
+    (``card_static.NUMBER_FIELDS``). Renaming them silently changes both.
+    """
+
+    source: CountSource
+    tribe: Any = None
     attack_per: int = 1
     health_per: int = 1
-    exclude_self: bool = True
-
-
-@dataclass(frozen=True)
-class BuffSelfFromUniqueTribeCount:
-    """Shop end of turn: +stats per distinct non-neutral tribe on board."""
-
-    attack_per: int = 1
-    health_per: int = 1
-    exclude_self: bool = True
-
-
-@dataclass(frozen=True)
-class BuffSelfFromGoldenFriendlyCount:
-    """Shop end of turn: +stats per friendly golden minion."""
-
-    attack_per: int = 2
-    health_per: int = 2
     exclude_self: bool = True
 
 
@@ -658,9 +672,7 @@ Effect = Union[
     SummonRandomMinionEffect,
     BuffRandomFriendly,
     BuffOnePerListedTribeFriendly,
-    BuffAllOtherOfTribe,
-    BuffAllFriendlyOfTribe,
-    BuffAllWithKeyword,
+    BuffMatching,
     GrantKeywordRandomFriendly,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffSelfWhenFriendlyBattlecryPlaced,
@@ -670,7 +682,6 @@ Effect = Union[
     BuffRandomFriendlyFromPlacedTierEffect,
     DealExcessDamageToAdjacentEffect,
     AddRandomMinionToHandOnKillEffect,
-    BuffAllFriendlyMinions,
     BuffRandomOtherFriendlyCombat,
     DealDamageRandomEnemyMinion,
     DealDamageLeftmostEnemyMinion,
@@ -715,9 +726,7 @@ Effect = Union[
     AddFromLastOpponentBoardEffect,
     TransformIntoShopMinionEffect,
     GrantKeywordAllFriendlyOfTribe,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromUniqueTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
+    BuffSelfPerCount,
     AddRandomMinionToHandEffect,
     BuffAttackedMinionEffect,
     BuffAdjacentOnAttackedEffect,
@@ -751,12 +760,10 @@ __all__ = [
     "SummonRandomMinionEffect",
     "BuffRandomFriendly",
     "BuffOnePerListedTribeFriendly",
-    "BuffAllOtherOfTribe",
-    "BuffAllFriendlyOfTribe",
-    "BuffAllWithKeyword",
+    "BuffMatching",
+    "BuffTarget",
     "GrantKeywordRandomFriendly",
     "BuffSelfWhenFriendlyBattlecryPlaced",
-    "BuffAllFriendlyMinions",
     "BuffRandomOtherFriendlyCombat",
     "DealDamageRandomEnemyMinion",
     "DealDamageLeftmostEnemyMinion",
@@ -808,9 +815,8 @@ __all__ = [
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
     "GrantKeywordAllFriendlyOfTribe",
-    "BuffSelfFromFriendlyTribeCount",
-    "BuffSelfFromUniqueTribeCount",
-    "BuffSelfFromGoldenFriendlyCount",
+    "BuffSelfPerCount",
+    "CountSource",
     "AddRandomMinionToHandEffect",
     "BuffAttackedMinionEffect",
     "BuffAdjacentOnAttackedEffect",

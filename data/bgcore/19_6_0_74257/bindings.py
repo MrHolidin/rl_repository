@@ -18,11 +18,9 @@ from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
     BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
-    BuffAllFriendlyMinions,
-    BuffAllFriendlyOfTribe,
-    BuffAllOtherOfTribe,
+    BuffMatching,
+    BuffTarget,
     BuffAllShopOffersEffect,
-    BuffAllWithKeyword,
     BuffAttackerOnFriendlyAttackEffect,
     BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
@@ -74,9 +72,8 @@ from src.bg_core.effects import (
     AddTokenToHandEffect,
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
-    BuffSelfFromFriendlyTribeCount,
-    BuffSelfFromGoldenFriendlyCount,
-    BuffSelfFromUniqueTribeCount,
+    BuffSelfPerCount,
+    CountSource,
     ConsumeFriendlyBattlecry,
     GrantKeywordAllFriendlyOfTribe,
     TransformIntoShopMinionEffect,
@@ -208,7 +205,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_018": (
         Ability(
             Trigger.ON_DEATH,
-            BuffAllFriendlyOfTribe(Race.BEAST, attack=5, health=5),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=5, health=5),
         ),
     ),
     "BGS_020": (
@@ -242,8 +239,8 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(Trigger.ON_TURN_START, BuffSelf(attack=1, health=0)),
     ),
     "BGS_030": (
-        Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.MURLOC, attack=2, health=2)),
-        Ability(Trigger.ON_DEATH, BuffAllOtherOfTribe(Race.MURLOC, attack=2, health=2)),
+        Ability(Trigger.ON_PLACE, BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=2)),
+        Ability(Trigger.ON_DEATH, BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=2)),
     ),
     "BGS_032": (Ability(Trigger.ON_OVERKILL, DealDamageLeftmostEnemyMinion(amount=3)),),
     "BGS_036": (
@@ -251,8 +248,12 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_TURN_END,
             # "for each Dragon you have" counted Razorgore himself until 28.2.0
             # reworded it to "each other friendly Dragon" — at 19.6 he is in the count.
-            BuffSelfFromFriendlyTribeCount(
-                Race.DRAGON, attack_per=1, health_per=1, exclude_self=False
+            BuffSelfPerCount(
+                CountSource.FRIENDLY_OF_TRIBE,
+                Race.DRAGON,
+                attack_per=1,
+                health_per=1,
+                exclude_self=False,
             ),
         ),
     ),
@@ -302,7 +303,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "CFM_610": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllFriendlyOfTribe(Race.DEMON, attack=1, health=1),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=1, health=1),
         ),
     ),
     "CFM_816": (
@@ -344,7 +345,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "EX1_103": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllOtherOfTribe(Race.MURLOC, attack=0, health=2),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=0, health=2),
         ),
     ),
     "EX1_185": (
@@ -398,7 +399,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "GVG_048": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllOtherOfTribe(Race.MECHANICAL, attack=2, health=0),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MECHANICAL, attack=2, health=0),
         ),
     ),
     "GVG_055": (
@@ -424,7 +425,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "ICC_807": (
-        Ability(Trigger.ON_PLACE, BuffAllWithKeyword(Keyword.TAUNT, attack=2, health=2)),
+        Ability(Trigger.ON_PLACE, BuffMatching(BuffTarget.FRIENDLY_WITH_KEYWORD, keyword=Keyword.TAUNT, attack=2, health=2)),
     ),
     "ICC_858": (
         Ability(Trigger.ON_FRIENDLY_SHIELD_LOST, BuffSelf(attack=2, health=0)),
@@ -447,7 +448,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             GrantKeywordRandomFriendly(Keyword.SHIELD, exclude_self=True, repeats=1),
         ),
     ),
-    "OG_256": (Ability(Trigger.ON_DEATH, BuffAllFriendlyMinions(attack=1, health=1)),),
+    "OG_256": (Ability(Trigger.ON_DEATH, BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=1)),),
     "TRL_232": (Ability(Trigger.ON_OVERKILL, SummonEffect(token_id="TRL_232t", count=1)),),
     "ULD_217": (
         Ability(
@@ -480,7 +481,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_041": (
         Ability(
             Trigger.AFTER_FRIENDLY_MINION_PLACED,
-            BuffAllFriendlyOfTribe(Race.DRAGON, attack=1, health=1),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1),
         ),
     ),
     "BGS_044": (
@@ -630,7 +631,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_047": (
         Ability(
             Trigger.ON_FRIENDLY_ATTACK,
-            BuffAllFriendlyMinions(attack=2, health=1),
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=2, health=1),
             filter_race=Race.PIRATE,
         ),
     ),
@@ -643,7 +644,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BGS_053": (
-        Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.PIRATE, attack=3, health=0)),
+        Ability(Trigger.ON_PLACE, BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.PIRATE, attack=3, health=0)),
     ),
     "BGS_061": (
         Ability(
@@ -654,7 +655,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_066": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffSelfFromGoldenFriendlyCount(attack_per=2, health_per=2),
+            BuffSelfPerCount(
+                CountSource.GOLDEN_FRIENDLIES, attack_per=2, health_per=2
+            ),
         ),
     ),
     "BGS_079": (
@@ -666,7 +669,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_080": (
         Ability(
             Trigger.ON_OVERKILL,
-            BuffAllOtherOfTribe(Race.PIRATE, attack=2, health=2),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.PIRATE, attack=2, health=2),
         ),
     ),
     "BGS_081": (
@@ -704,14 +707,18 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_128": (
         Ability(
             Trigger.ON_PLACE,
-            BuffAllOtherOfTribe(Race.ELEMENTAL, attack=1, health=1),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.ELEMENTAL, attack=1, health=1),
         ),
     ),
     "BGS_124": (
         Ability(
             Trigger.AFTER_FRIENDLY_MINION_PLACED,
-            BuffSelfFromFriendlyTribeCount(
-                Race.ELEMENTAL, attack_per=0, health_per=1, exclude_self=False
+            BuffSelfPerCount(
+                CountSource.FRIENDLY_OF_TRIBE,
+                Race.ELEMENTAL,
+                attack_per=0,
+                health_per=1,
+                exclude_self=False,
             ),
             filter_race=Race.ELEMENTAL,
         ),
@@ -722,7 +729,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_202": (
         Ability(
             Trigger.ON_TURN_END,
-            BuffSelfFromUniqueTribeCount(attack_per=1, health_per=2),
+            BuffSelfPerCount(
+                CountSource.UNIQUE_TRIBES, attack_per=1, health_per=2
+            ),
         ),
     ),
     "BGS_204": (
@@ -734,7 +743,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "FP1_024": (Ability(Trigger.ON_DEATH, DealDamageAllMinions(amount=1)),),
     "YOD_026": (Ability(Trigger.ON_DEATH, TransferAttackToRandomFriendlyEffect()),),
     "BT_010": (
-        Ability(Trigger.ON_PLACE, BuffAllOtherOfTribe(Race.MURLOC, attack=1, health=1)),
+        Ability(Trigger.ON_PLACE, BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=1, health=1)),
     ),
     "DMF_533": (
         Ability(Trigger.ON_DEATH, SummonEffect(token_id="DMF_533t", count=2)),
@@ -748,7 +757,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "TB_BaconUps_142": (
         Ability(
             Trigger.ON_OVERKILL,
-            BuffAllOtherOfTribe(Race.PIRATE, attack=4, health=4),
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.PIRATE, attack=4, health=4),
         ),
     ),
     "TB_BaconUps_166": (
