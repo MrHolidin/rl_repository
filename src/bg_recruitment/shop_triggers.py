@@ -10,7 +10,6 @@ from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.conditions import ability_condition_met
 from src.bg_core.effects import (
-    Ability,
     AdaptAllMurlocsEffect,
     AdaptSelfRandomEffect,
     AddRandomMinionToShopEffect,
@@ -24,7 +23,6 @@ from src.bg_core.effects import (
     BuffMatching,
     BuffTarget,
     BuffAllShopOffersEffect,
-    BuffListenerIfSummonedMatches,
     BuffOnePerListedTribeFriendly,
     BuffRandomFriendly,
     BuffRandomUniqueTribeFriendlies,
@@ -34,14 +32,11 @@ from src.bg_core.effects import (
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
-    BuffSummonedIfRace,
-    BuffTargetFriendlyBattlecry,
     DealHeroDamage,
     DiscoverMurlocEffect,
     Effect,
     GainGoldThisTurnEffect,
     GrantKeywordRandomFriendly,
-    GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
     IncrementShopTribeBonusEffect,
     Keyword,
@@ -54,11 +49,10 @@ from src.bg_core.effects import (
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
     apply_buff_matching,
+    apply_summoned_listener,
+    grant_keyword,
     apply_buff_self_per_count,
     multiplier_for,
-    buff_matching_hits,
-    count_friendly_tribe,
-    count_golden_friendlies,
     count_unique_tribes,
 )
 from src.bg_core.minion import Minion, Race
@@ -72,7 +66,6 @@ from src.bg_recruitment.discover_pool import (
 from src.bg_recruitment.shop import (
     add_random_minion_to_hand,
     add_random_minion_to_shop,
-    apply_shop_tribe_bonus_to_minion,
     buff_all_shop_offers,
     buff_shop_minions_of_tribe,
 )
@@ -241,9 +234,7 @@ class ShopTriggers:
             if not pool:
                 return
             tgt = pool[int(self._rng.integers(0, len(pool)))]
-            tgt.keywords = frozenset(tgt.keywords | {effect.keyword})
-            if effect.keyword == Keyword.SHIELD:
-                tgt.has_shield = True
+            grant_keyword(tgt, effect.keyword)
 
     def apply_summon_from_place(
         self, player: PlayerState, source: Minion, effect: SummonEffect
@@ -275,22 +266,13 @@ class ShopTriggers:
             for ab in m.abilities:
                 if ab.trigger != Trigger.ON_FRIENDLY_MINION_SUMMONED:
                     continue
+                # The one flag no other shop site honours, because BGS_071 is
+                # the only ability carrying it and this is its trigger.
                 if ab.combat_only:
                     continue
-                eff = ab.effect
-                if isinstance(eff, BuffSummonedIfRace):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        summoned.bonus_attack += eff.attack
-                        summoned.bonus_health += eff.health
-                elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        m.keywords = frozenset(m.keywords | {eff.keyword})
-                        if eff.keyword == Keyword.SHIELD:
-                            m.has_shield = True
-                elif isinstance(eff, BuffListenerIfSummonedMatches):
-                    if self.minion_matches_tribe(summoned, eff.tribe):
-                        m.bonus_attack += eff.attack
-                        m.bonus_health += eff.health
+                apply_summoned_listener(
+                    ab.effect, m, summoned, grant_keyword=grant_keyword
+                )
 
     def apply_shop_effect(
         self,

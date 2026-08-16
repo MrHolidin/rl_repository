@@ -20,11 +20,9 @@ from src.bg_core.effects import (
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
-    BuffListenerIfSummonedMatches,
     BuffRandomOtherFriendlyCombat,
     AddRandomMinionToHandOnKillEffect,
     BuffSelf,
-    BuffSummonedIfRace,
     BuffDeadMinionNeighborsEffect,
     DealDamageRandomEnemyMinion,
     DealDamageLeftmostEnemyMinion,
@@ -35,7 +33,6 @@ from src.bg_core.effects import (
     GainGoldOnDeathEffect,
     GrantKeywordRandomFriendly,
     GrantKeywordAllFriendlyOfTribe,
-    GrantListenerKeywordIfSummonedMatches,
     Keyword,
     MultiplySelfAttackEffect,
     SummonEffect,
@@ -61,6 +58,7 @@ from .events import (
 from .state import BattleMinion, BattleSide, _CombatRuntime
 from src.bg_core.board_helpers import (
     apply_buff_matching,
+    apply_summoned_listener,
     index_of,
     minion_matches_tribe,
 )
@@ -318,20 +316,13 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     summoned = rt.find_minion(e.side_idx, e.instance_id)
     if summoned is None or not summoned.alive:
         return
+    def grant(minion: BattleMinion, keyword: Keyword) -> None:
+        _grant_keyword(rt, e.side_idx, minion, keyword)
+
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):
-        if isinstance(eff, BuffSummonedIfRace):
-            if minion_matches_tribe(summoned, eff.tribe):
-                summoned.bonus_attack += eff.attack
-                summoned.bonus_health += eff.health
-        elif isinstance(eff, GrantListenerKeywordIfSummonedMatches):
-            if minion_matches_tribe(summoned, eff.tribe):
-                _grant_keyword(rt, e.side_idx, listener, eff.keyword)
-        elif isinstance(eff, BuffListenerIfSummonedMatches):
-            if minion_matches_tribe(summoned, eff.tribe):
-                listener.bonus_attack += eff.attack
-                listener.bonus_health += eff.health
+        apply_summoned_listener(eff, listener, summoned, grant_keyword=grant)
     _sync_health_all(rt)
 
 

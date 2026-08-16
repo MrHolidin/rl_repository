@@ -9,7 +9,11 @@ from src.bg_core.effects import (
     MultiplierKind,
     Trigger,
 )
-from src.bg_core.board_helpers import multiplier_for, stat_aura_bonus
+from src.bg_core.board_helpers import (
+    grant_keyword,
+    multiplier_for,
+    stat_aura_bonus,
+)
 from src.bg_core.minion import Race
 
 from .state import BattleMinion, BattleSide, _CombatRuntime
@@ -38,11 +42,8 @@ def _grant_keyword(
     minion: BattleMinion,
     keyword: Keyword,
 ) -> None:
-    if keyword not in minion.keywords:
-        minion.keywords = frozenset(minion.keywords | {keyword})
+    if grant_keyword(minion, keyword):
         _mark_health_aura_dirty(rt, side_idx)
-    if keyword == Keyword.SHIELD:
-        minion.has_shield = True
 
 
 def _self_aura_attack_bonus(

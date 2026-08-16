@@ -169,6 +169,72 @@ def stat_aura_bonus(
     return atk, hp
 
 
+def grant_keyword(minion: Minion, keyword) -> bool:
+    """Give ``minion`` a keyword. Returns whether it did not already have it.
+
+    Divine Shield is two facts, not one: the keyword (which a golden copy
+    inherits) and ``has_shield`` (whether the shield is up right now, which is
+    all that popping it clears). Re-granting the keyword re-arms the shield --
+    that is why the second assignment is outside the "was it new" check.
+
+    The return value is combat's: only a keyword that is actually new can
+    change what the health auras compute, so only then is it worth marking
+    them dirty.
+    """
+    from .effects import Keyword
+
+    is_new = keyword not in minion.keywords
+    if is_new:
+        minion.keywords = frozenset(minion.keywords | {keyword})
+    if keyword == Keyword.SHIELD:
+        minion.has_shield = True
+    return is_new
+
+
+def apply_summoned_listener(
+    effect,
+    listener: Minion,
+    summoned: Minion,
+    *,
+    grant_keyword,
+) -> None:
+    """One of the three "a friendly minion was summoned" effects.
+
+    All three gate on the newcomer's tribe and differ only in what happens
+    next: the newcomer gets stats, the listener gets stats, or the listener
+    gets a keyword. Both phases wrote out the same three-branch dispatch with
+    the same tribe check repeated inside each branch.
+
+    ``grant_keyword`` is the one part they cannot share: combat has to mark
+    its health auras dirty afterwards, and the shop has no auras to mark.
+    """
+    from .effects import (
+        BuffListenerIfSummonedMatches,
+        BuffSummonedIfRace,
+        GrantListenerKeywordIfSummonedMatches,
+    )
+
+    if not isinstance(
+        effect,
+        (
+            BuffSummonedIfRace,
+            GrantListenerKeywordIfSummonedMatches,
+            BuffListenerIfSummonedMatches,
+        ),
+    ):
+        return
+    if not minion_matches_tribe(summoned, effect.tribe):
+        return
+    if isinstance(effect, BuffSummonedIfRace):
+        summoned.bonus_attack += effect.attack
+        summoned.bonus_health += effect.health
+    elif isinstance(effect, GrantListenerKeywordIfSummonedMatches):
+        grant_keyword(listener, effect.keyword)
+    else:
+        listener.bonus_attack += effect.attack
+        listener.bonus_health += effect.health
+
+
 def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> None:
     """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
 
@@ -240,6 +306,8 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
+    "apply_summoned_listener",
+    "grant_keyword",
     "index_of",
     "stat_aura_bonus",
     "buff_matching_hits",
