@@ -62,6 +62,25 @@ def count_golden_friendlies(
     )
 
 
+def multiplier_for(minions, kind) -> int:
+    """Product of the ``kind`` multiplier auras standing on a board.
+
+    One scan for what used to be four near-identical copies: Brann in the shop,
+    Baron and Khadgar in combat, and Khadgar again in the shop once the tavern
+    half of his text was implemented. Takes plain ``Minion`` templates so both
+    phases can call it -- combat passes ``bm.template``.
+    """
+    from .effects import Multiplier, Trigger
+
+    p = 1
+    for m in minions:
+        for ab in m.abilities:
+            if ab.trigger == Trigger.AURA and isinstance(ab.effect, Multiplier):
+                if ab.effect.kind is kind:
+                    p *= ab.effect.factor
+    return p
+
+
 def buff_matching_hits(
     effect: Any,
     candidate: Minion,
@@ -146,6 +165,7 @@ __all__ = [
     "apply_buff_self_per_count",
     "buff_matching_hits",
     "count_for_source",
+    "multiplier_for",
     "count_unique_tribes",
     "minion_matches_tribe",
     "count_friendly_tribe",

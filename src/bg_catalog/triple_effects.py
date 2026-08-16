@@ -8,15 +8,13 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
 from src.bg_core.effects import (
     Ability,
-    BattlecryMultiplierAura,
     BuffSelfFromHeroDamageTaken,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
-    DeathrattleMultiplierAura,
     Effect,
+    Multiplier,
     MultiplySelfAttackEffect,
     StartOfCombatDamagePerFriendlyTribe,
-    SummonMultiplierAura,
     ZappTargeting,
 )
 from src.bg_catalog.golden_catalog import golden_hints_for_card
@@ -50,9 +48,7 @@ _NO_GENERIC_SCALE: Tuple[Type[Effect], ...] = (
 
 
 def _scale_factor(effect: Effect, value: int, hints: Dict[str, Any]) -> int:
-    if isinstance(
-        effect, (BattlecryMultiplierAura, DeathrattleMultiplierAura, SummonMultiplierAura)
-    ):
+    if isinstance(effect, Multiplier):
         return 3 if value == 2 else value
     if isinstance(effect, MultiplySelfAttackEffect):
         if hints.get("triple_factor") and value == 2:

@@ -27,48 +27,35 @@ from src.bg_core.effects import (
     GrantKeywordAllFriendlyOfTribe,
     GrantListenerKeywordIfSummonedMatches,
     Keyword,
-    DeathrattleMultiplierAura,
+    MultiplierKind,
     MultiplySelfAttackEffect,
     StatAura,
     StartOfCombatDamagePerFriendlyTribe,
     SummonEffect,
     SummonRandomMinionEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
-    SummonMultiplierAura,
     SummonOnSelfDamaged,
     SummonRandomOnSelfDamagedEffect,
     TriggerRandomFriendlyDeathrattleEffect,
     Trigger,
     ZappTargeting,
 )
-from src.bg_core.board_helpers import buff_matching_hits
+from src.bg_core.board_helpers import buff_matching_hits, multiplier_for
 from src.bg_core.minion import Minion, Race
 
 from .state import BattleMinion, BattleSide, _CombatRuntime
 
 
 def _deathrattle_multiplier(side: BattleSide) -> int:
-    """Product of Baron-style auras on living minions (re-read at DR execution time)."""
-    p = 1
-    for bm in side.minions:
-        for ab in bm.template.abilities:
-            if ab.trigger == Trigger.AURA and isinstance(
-                ab.effect, DeathrattleMultiplierAura
-            ):
-                p *= ab.effect.factor
-    return p
+    """Product of Baron-style auras (re-read at DR execution time)."""
+    return multiplier_for(
+        (bm.template for bm in side.minions), MultiplierKind.DEATHRATTLE
+    )
 
 
 def _summon_multiplier(side: BattleSide) -> int:
-    """Product of Khadgar-style auras on living minions."""
-    p = 1
-    for bm in side.minions:
-        for ab in bm.template.abilities:
-            if ab.trigger == Trigger.AURA and isinstance(
-                ab.effect, SummonMultiplierAura
-            ):
-                p *= ab.effect.factor
-    return p
+    """Product of Khadgar-style auras."""
+    return multiplier_for((bm.template for bm in side.minions), MultiplierKind.SUMMON)
 
 
 def _board_index(side: BattleSide, bm: BattleMinion) -> Optional[int]:

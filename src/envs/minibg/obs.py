@@ -26,10 +26,11 @@ from src.bg_core.effects import (
     AddTokenToHandEffect,
     AttackBonusPerOtherMurlocGlobal,
     AttackImmediatelyAfterSurvivingEffect,
-    BattlecryMultiplierAura,
     BuffAllShopOffersEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
     BuffSelfPerCount,
+    Multiplier,
+    MultiplierKind,
     CountSource,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffSummonedIfRace,
@@ -37,7 +38,6 @@ from src.bg_core.effects import (
     CleaveOnAttack,
     ConsumeFriendlyBattlecry,
     DealExcessDamageToAdjacentEffect,
-    DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     GainGoldOnDeathEffect,
     GainGoldThisTurnEffect,
@@ -50,7 +50,6 @@ from src.bg_core.effects import (
     ReduceUpgradeCostEffect,
     SetNextRollCostEffect,
     StartOfCombatDamagePerFriendlyTribe,
-    SummonMultiplierAura,
     TransformIntoShopMinionEffect,
     Trigger,
     TriggerRandomFriendlyDeathrattleEffect,
@@ -196,9 +195,9 @@ if _missing_triggers:
 # beyond the trigger fan-out (Brann/Khadgar/Baron etc. all share AURA trigger but differ wildly).
 _EFFECT_CLASSES: Tuple[Any, ...] = (
     # --- original 15 (preserved in order for checkpoint compat on minibg) ---
-    BattlecryMultiplierAura,
-    DeathrattleMultiplierAura,
-    SummonMultiplierAura,
+    (Multiplier, MultiplierKind.BATTLECRY),
+    (Multiplier, MultiplierKind.DEATHRATTLE),
+    (Multiplier, MultiplierKind.SUMMON),
     HeroImmuneAura,
     CleaveOnAttack,
     ZappTargeting,
@@ -300,6 +299,7 @@ _EFFECT_DISCRIMINATOR: Dict[type, str] = {
     BuffSelfPerCount: "source",
     BuffMatching: "target",
     StatAura: "target",
+    Multiplier: "kind",
 }
 
 # Which variants each composed effect can actually carry. ``BuffTarget`` is
@@ -320,6 +320,7 @@ _EFFECT_VARIANTS: Dict[type, Tuple[Any, ...]] = {
         BuffTarget.FRIENDLY_WITH_KEYWORD,
         BuffTarget.ADJACENT,
     ),
+    Multiplier: tuple(MultiplierKind),
 }
 
 

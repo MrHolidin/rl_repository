@@ -19,7 +19,7 @@ from src.bg_core.effects import (
     AddTokenToHandEffect,
     BuffSelfPerCount,
     TransformIntoShopMinionEffect,
-    BattlecryMultiplierAura,
+    MultiplierKind,
     BuffAdjacentBattlecry,
     BuffMatching,
     BuffTarget,
@@ -49,12 +49,12 @@ from src.bg_core.effects import (
     ReduceUpgradeCostEffect,
     SetNextRollCostEffect,
     SummonEffect,
-    SummonMultiplierAura,
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_core.board_helpers import (
     apply_buff_self_per_count,
+    multiplier_for,
     buff_matching_hits,
     count_friendly_tribe,
     count_golden_friendlies,
@@ -431,32 +431,14 @@ class ShopTriggers:
 
     @staticmethod
     def battlecry_multiplier(board: List[Minion]) -> int:
-        p = 1
-        for m in board:
-            for ab in m.abilities:
-                if ab.trigger == Trigger.AURA and isinstance(
-                    ab.effect, BattlecryMultiplierAura
-                ):
-                    p *= ab.effect.factor
-        return p
+        return multiplier_for(board, MultiplierKind.BATTLECRY)
 
     @staticmethod
     def summon_multiplier(board: List[Minion]) -> int:
-        """Product of Khadgar-style auras on the shop board.
-
-        Mirrors ``bg_combat.battle.auras._summon_multiplier``. Khadgar reads
-        "your cards that summon minions summon twice as many" — no phase
-        qualifier — so a battlecry summon in the tavern is doubled exactly like
-        a deathrattle summon in combat.
-        """
-        p = 1
-        for m in board:
-            for ab in m.abilities:
-                if ab.trigger == Trigger.AURA and isinstance(
-                    ab.effect, SummonMultiplierAura
-                ):
-                    p *= ab.effect.factor
-        return p
+        """Khadgar reads "your cards that summon minions summon twice as many"
+        -- no phase qualifier -- so a tavern battlecry summon doubles exactly
+        like a deathrattle summon in combat."""
+        return multiplier_for(board, MultiplierKind.SUMMON)
 
     def fire_on_buy(self, minion: Minion, player: PlayerState) -> None:
         for ab in minion.abilities:

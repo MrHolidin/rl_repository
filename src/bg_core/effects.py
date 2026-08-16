@@ -378,25 +378,33 @@ class SummonFirstDeadFriendlyMechsThisCombat:
     count: int = 2
 
 
+class MultiplierKind(Enum):
+    """What a :class:`Multiplier` scales.
+
+    Each kind has a scope that follows from the card text, not from the code:
+    battlecries only fire on play, deathrattles only in combat, and Khadgar's
+    "your cards that summon minions" has no phase clause at all -- which is
+    why the summon multiplier applies in both phases and the other two do not.
+    """
+
+    #: Brann: ON_PLACE (battlecry) executions, shop only
+    BATTLECRY = auto()
+    #: Baron: ON_DEATH execution count, combat only
+    DEATHRATTLE = auto()
+    #: Khadgar: summon iterations, both phases
+    SUMMON = auto()
+
+
 @dataclass(frozen=True)
-class BattlecryMultiplierAura:
-    """BG Brann-style: product of factors on board multiplies ON_PLACE (battlecry) executions."""
+class Multiplier:
+    """Aura that multiplies how many times something resolves.
 
-    factor: int
+    One class for what used to be three that differed only in which event they
+    scaled, each with its own near-identical board scan.
+    """
 
-
-@dataclass(frozen=True)
-class DeathrattleMultiplierAura:
-    """BG Baron-style: product multiplies each ON_DEATH execution count in combat."""
-
-    factor: int
-
-
-@dataclass(frozen=True)
-class SummonMultiplierAura:
-    """BG Khadgar-style: product multiplies each summon iteration from summon effects."""
-
-    factor: int
+    kind: MultiplierKind
+    factor: int = 1
 
 
 @dataclass(frozen=True)
@@ -693,9 +701,6 @@ Effect = Union[
     BuffSelf,
     BuffSelfFromHeroDamageTaken,
     SummonFirstDeadFriendlyMechsThisCombat,
-    BattlecryMultiplierAura,
-    DeathrattleMultiplierAura,
-    SummonMultiplierAura,
     ZappTargeting,
     CleaveOnAttack,
     DiscoverMurlocEffect,
@@ -748,6 +753,8 @@ __all__ = [
     "BuffOnePerListedTribeFriendly",
     "BuffMatching",
     "BuffTarget",
+    "Multiplier",
+    "MultiplierKind",
     "GrantKeywordRandomFriendly",
     "BuffSelfWhenFriendlyBattlecryPlaced",
     "BuffRandomOtherFriendlyCombat",
@@ -779,9 +786,6 @@ __all__ = [
     "BuffSelf",
     "BuffSelfFromHeroDamageTaken",
     "SummonFirstDeadFriendlyMechsThisCombat",
-    "BattlecryMultiplierAura",
-    "DeathrattleMultiplierAura",
-    "SummonMultiplierAura",
     "ZappTargeting",
     "CleaveOnAttack",
     "DiscoverMurlocEffect",

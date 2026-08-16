@@ -15,7 +15,6 @@ from src.bg_core.effects import (
     AdaptSelfRandomEffect,
     AttackBonusPerOtherMurlocGlobal,
     AttackImmediatelyAfterSurvivingEffect,
-    BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
     BuffMatching,
     BuffTarget,
@@ -48,7 +47,6 @@ from src.bg_core.effects import (
     TransferAttackToRandomFriendlyEffect,
     SummonRandomAndCopyToHandEffect,
     DealHeroDamage,
-    DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
@@ -56,10 +54,11 @@ from src.bg_core.effects import (
     Keyword,
     MultiplySelfAttackEffect,
     PogoHopperBattlecry,
+    Multiplier,
+    MultiplierKind,
     StatAura,
     SummonEffect,
     SummonFirstDeadFriendlyMechsThisCombat,
-    SummonMultiplierAura,
     SummonOnSelfDamaged,
     SummonRandomMinionEffect,
     StartOfCombatDamagePerFriendlyTribe,
@@ -321,7 +320,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "DAL_575": (Ability(Trigger.AURA, SummonMultiplierAura(factor=2)),),
+    "DAL_575": (Ability(Trigger.AURA, Multiplier(MultiplierKind.SUMMON, factor=2)),),
     "DS1_070": (
         Ability(
             Trigger.ON_PLACE,
@@ -378,7 +377,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "EX1_556": (
         Ability(Trigger.ON_DEATH, SummonEffect(token_id="skele21", count=1)),
     ),
-    "FP1_031": (Ability(Trigger.AURA, DeathrattleMultiplierAura(factor=2)),),
+    "FP1_031": (Ability(Trigger.AURA, Multiplier(MultiplierKind.DEATHRATTLE, factor=2)),),
     "GVG_021": (
         Ability(Trigger.AURA, HeroImmuneAura()),
         Ability(
@@ -431,7 +430,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "KAR_005": (
         Ability(Trigger.ON_DEATH, SummonEffect(token_id="KAR_005a", count=1)),
     ),
-    "LOE_077": (Ability(Trigger.AURA, BattlecryMultiplierAura(factor=2)),),
+    "LOE_077": (Ability(Trigger.AURA, Multiplier(MultiplierKind.BATTLECRY, factor=2)),),
     "LOOT_013": (Ability(Trigger.ON_PLACE, DealHeroDamage(2)),),
     "LOOT_078": (Ability(Trigger.AURA, CleaveOnAttack()),),
     "LOOT_368": (

@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 from src.bg_catalog.cards import triple_merge_golden_abilities
-from src.bg_core.effects import SummonEffect, SummonMultiplierAura
+from src.bg_core.effects import Multiplier, MultiplierKind, SummonEffect
 from src.bg_recruitment.triples import merge_three_non_golden_into_golden
 from src.envs.minibg.state import Minion
 from tests.conftest import PATCH_CTX
@@ -60,5 +60,6 @@ def test_merge_three_summon_multiplier_is_singleton_golden_three():
     c = replace(a)
     g = merge_three_non_golden_into_golden("DAL_575", a, b, c, patch=_PATCH)
     assert len(g.abilities) == 1
-    assert isinstance(g.abilities[0].effect, SummonMultiplierAura)
+    assert isinstance(g.abilities[0].effect, Multiplier)
+    assert g.abilities[0].effect.kind is MultiplierKind.SUMMON
     assert g.abilities[0].effect.factor == 3

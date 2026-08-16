@@ -9,17 +9,16 @@ from ..actions import MAX_ROUNDS, MAX_TIER
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     AttackBonusPerOtherMurlocGlobal,
-    BattlecryMultiplierAura,
     BuffAdjacentBattlecry,
     BuffMatching,
     BuffTarget,
     BuffTargetFriendlyBattlecry,
-    DeathrattleMultiplierAura,
     DiscoverMurlocEffect,
     HeroImmuneAura,
     StatAura,
     SummonEffect,
-    SummonMultiplierAura,
+    Multiplier,
+    MultiplierKind,
     SummonRandomMinionEffect,
     Trigger,
     ZappTargeting,
@@ -167,12 +166,14 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
                     add += (eff.attack + eff.health) * min(4, bl) * 0.28
                 else:  # ADJACENT / FRIENDLY_WITH_KEYWORD
                     add += (eff.attack + eff.health) * 2.2
-            elif isinstance(eff, BattlecryMultiplierAura):
-                add += 5.5 * float(max(0, eff.factor - 1))
-            elif isinstance(eff, DeathrattleMultiplierAura):
-                add += 4.5 * float(max(0, eff.factor - 1))
-            elif isinstance(eff, SummonMultiplierAura):
-                add += 4.5 * float(max(0, eff.factor - 1))
+            elif isinstance(eff, Multiplier):
+                # Per-kind weights, unchanged from when these were three classes.
+                weight = {
+                    MultiplierKind.BATTLECRY: 5.5,
+                    MultiplierKind.DEATHRATTLE: 4.5,
+                    MultiplierKind.SUMMON: 4.5,
+                }[eff.kind]
+                add += weight * float(max(0, eff.factor - 1))
             elif isinstance(eff, HeroImmuneAura):
                 add += 14.0
             elif isinstance(eff, AttackBonusPerOtherMurlocGlobal):

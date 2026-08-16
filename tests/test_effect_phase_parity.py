@@ -26,7 +26,7 @@ from src.bg_combat.battle import simulate_battle
 from src.bg_core.effects import (
     Ability,
     DealDamageRandomEnemyMinion,
-    SummonMultiplierAura,
+    MultiplierKind,
     Trigger,
 )
 from src.bg_lobby.player import PlayerState
@@ -153,10 +153,8 @@ def test_summon_multiplier_aura_is_consulted_in_both_phases():
         for r in roots:
             for path in (root / r).rglob("*.py"):
                 for node in ast.walk(ast.parse(path.read_text())):
-                    if isinstance(node, ast.Name) and node.id in (
-                        "SummonMultiplierAura",
-                    ):
+                    if isinstance(node, ast.Attribute) and node.attr == "SUMMON":
                         found = True
         seen[phase] = found
-    assert seen["shop"], "shop never references SummonMultiplierAura"
-    assert seen["combat"], "combat never references SummonMultiplierAura"
+    assert seen["shop"], "shop never references MultiplierKind.SUMMON"
+    assert seen["combat"], "combat never references MultiplierKind.SUMMON"
