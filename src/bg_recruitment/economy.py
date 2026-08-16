@@ -148,7 +148,14 @@ def level_up_tavern(
     old_tier = player.tavern_tier
     player.tavern_tier += 1
     if player.tavern_tier < MAX_TIER:
-        player.next_tier_up_cost = LEVEL_UP_COSTS[player.tavern_tier]
+        # From the patch, not the module-level table: the game hands out the
+        # FIRST cost from ``ruleset.level_up_cost`` (game.py), so reading the
+        # hardcoded one here meant every cost after an upgrade silently reverted
+        # to the default ruleset. On 19.6.0 that charged 11 to reach tier 5 where
+        # the package says 9 — the number 727c86b put in meta.json never reached
+        # play. Costs for tiers 2-4 and 6 agree between the two, so only that
+        # one step was visibly wrong.
+        player.next_tier_up_cost = patch.meta.ruleset.level_up_cost(player.tavern_tier)
     extra = player.hero.extra_shop_slots() if player.hero is not None else 0
     old_n = min(MAX_SHOP_SLOTS, shop_offers_count(old_tier) + extra)
     new_n = min(MAX_SHOP_SLOTS, shop_offers_count(player.tavern_tier) + extra)
