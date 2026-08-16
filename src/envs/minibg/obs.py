@@ -17,6 +17,7 @@ from .actions import (
     gold_for_round,
 )
 from src.bg_catalog.cards import normalize_shop_excluded_races
+from src.bg_catalog.layout import DEFAULT_LAYOUT
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
@@ -115,20 +116,15 @@ def _resolve_card_id_to_dense(
 
 CARD_INDEX_EMPTY = 0
 
-NUM_TIER_ONEHOT = 6
+# Race and tier vocabularies now have one definition, in the patch layout
+# (src/bg_catalog/layout.py); these constants are the default layout's view of
+# it — what every package shipped today declares. They stay as constants because
+# the slot offsets below, the nets and a good deal of test code read them
+# directly; encoding a *package's own* layout instead is the next step.
+NUM_TIER_ONEHOT = DEFAULT_LAYOUT.num_tiers
 
-_RACE_ORDER: Tuple[Optional[Race], ...] = (
-    None,
-    Race.BEAST,
-    Race.DEMON,
-    Race.MECHANICAL,
-    Race.MURLOC,
-    Race.DRAGON,
-    Race.PIRATE,
-    Race.ELEMENTAL,
-    Race.ALL,
-)
-RACE_ONEHOT_DIM = len(_RACE_ORDER)
+_RACE_ORDER: Tuple[Optional[Race], ...] = DEFAULT_LAYOUT.race_order
+RACE_ONEHOT_DIM = DEFAULT_LAYOUT.race_onehot_dim
 
 NUM_KEYWORD_CHANNELS = 8  # TAUNT, SHIELD, WINDFURY, POISONOUS, CHARGE, MAGNETIC, REBORN, MEGA_WINDFURY
 NUM_TRIGGER_CHANNELS = 22  # see TRIGGER_INDEX below

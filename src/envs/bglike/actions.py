@@ -6,18 +6,19 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Dict
 
-MAX_SHOP_SLOTS = 6
+from src.bg_catalog.layout import DEFAULT_LAYOUT
+from src.bg_catalog.ruleset import DEFAULT_RULESET
+
+# Shop shape comes from the patch layout (src/bg_catalog/layout.py); these are
+# the default layout's numbers, which is what every package shipped today
+# declares. The flat action-space layout below is built from them.
+MAX_SHOP_SLOTS = DEFAULT_LAYOUT.max_shop_slots
 BOARD_SIZE = 7
 HAND_SIZE = 10
 
-SHOP_OFFERS_BY_TIER: dict[int, int] = {
-    1: 3,
-    2: 4,
-    3: 4,
-    4: 5,
-    5: 5,
-    6: 6,
-}
+SHOP_OFFERS_BY_TIER: dict[int, int] = dict(DEFAULT_LAYOUT.shop_offers_by_tier)
+
+NUM_DISCOVER_PICKS = DEFAULT_LAYOUT.discover_picks
 
 
 def shop_offers_count(tavern_tier: int) -> int:
@@ -46,7 +47,7 @@ def _build_action_enum() -> type[IntEnum]:
         for b in range(BOARD_SIZE):
             members[f"MAGNET_HAND_{h}_BOARD_{b}"] = n
             n += 1
-    for i in range(3):
+    for i in range(NUM_DISCOVER_PICKS):
         members[f"DISCOVER_PICK_{i}"] = n
         n += 1
     members["FINISH_FREEZE_SHOP"] = n
@@ -72,7 +73,9 @@ MAX_SHOP_ACTIONS = 30
 NUM_PLAYERS = 8
 STARTING_HEALTH = 40
 STARTING_TIER = 1
-MAX_TIER = 6
+# Tavern tier ceiling — the default ruleset's value (a patch package raises it
+# via meta.json["ruleset"]["max_tier"], which is how tier 7 arrives).
+MAX_TIER = DEFAULT_RULESET.max_tier
 MAX_ROUNDS = 50
 
 BUY_COST = 3
@@ -117,8 +120,12 @@ def magnet_game_action(hand: int, board_pos: int) -> Action:
     return _MAGNET_ACTIONS[hand * BOARD_SIZE + board_pos]
 
 
+DISCOVER_PICK_BASE = int(Action.DISCOVER_PICK_0)
+DISCOVER_PICK_LAST = DISCOVER_PICK_BASE + NUM_DISCOVER_PICKS - 1
+
+
 def is_discover_pick_game_action(action_int: int) -> bool:
-    return int(Action.DISCOVER_PICK_0) <= action_int <= int(Action.DISCOVER_PICK_2)
+    return DISCOVER_PICK_BASE <= action_int <= DISCOVER_PICK_LAST
 
 
 def discover_pick_index(action_int: int) -> int:

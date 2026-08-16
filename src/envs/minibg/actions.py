@@ -2,20 +2,17 @@ from __future__ import annotations
 
 from enum import IntEnum
 
-# BG-style: max visible shop slots (tier 6); lower tiers use fewer (see ``shop_offers_count``).
-MAX_SHOP_SLOTS = 6
+from src.bg_catalog.layout import DEFAULT_LAYOUT
+
+# BG-style: max visible shop slots (tier 6); lower tiers use fewer (see
+# ``shop_offers_count``). Both come from the default patch layout — minibg's
+# hand-numbered Action enum below is frozen, so this env stays on that layout.
+MAX_SHOP_SLOTS = DEFAULT_LAYOUT.max_shop_slots
 BOARD_SIZE = 7
 HAND_SIZE = 5
 
 # Minions offered per refresh by tavern tier (Hearthstone Battlegrounds).
-SHOP_OFFERS_BY_TIER: dict[int, int] = {
-    1: 3,
-    2: 4,
-    3: 4,
-    4: 5,
-    5: 5,
-    6: 6,
-}
+SHOP_OFFERS_BY_TIER: dict[int, int] = dict(DEFAULT_LAYOUT.shop_offers_by_tier)
 
 
 def shop_offers_count(tavern_tier: int) -> int:
