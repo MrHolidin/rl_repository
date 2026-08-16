@@ -58,8 +58,8 @@ def simulate_battle(
     # Snapshot the input boards (deep-ish copy by tuple) BEFORE any combat
     # mutation. This is the initial (step=0) snapshot fed to the battle
     # prediction head. ``p0_board`` / ``p1_board`` are passed by reference and
-    # ``_build_side`` constructs ``BattleSide`` objects from them — the original
-    # Minion templates remain unchanged, so a tuple suffices.
+    # ``_build_side`` copies each minion into the battle, so the caller's own
+    # objects are never touched and a tuple of references suffices.
     _initial_snapshot = RawBattleSnapshot(
         side0_board=tuple(p0_board),
         side1_board=tuple(p1_board),

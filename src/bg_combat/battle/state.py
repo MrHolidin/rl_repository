@@ -45,7 +45,7 @@ class BattleSide:
     minions: List[BattleMinion] = field(default_factory=list)
     # Bodies that have left the board, in death order. They are kept because
     # events already in flight reference them by ``instance_id`` and because a
-    # deathrattle resolves after the body is gone; ``BattleMinion.death_pos``
+    # deathrattle resolves after the body is gone; ``Minion.death_pos``
     # carries the slot it vacated.
     graveyard: List[BattleMinion] = field(default_factory=list)
     cursor: int = 0
@@ -92,6 +92,7 @@ class BattleSide:
             self.cursor %= len(self.minions)
         else:
             self.cursor = 0
+        self.assert_no_corpses()
         return taken
 
     def shift_graveyard_slots(self, at: int, delta: int) -> None:
@@ -118,12 +119,16 @@ class BattleSide:
                 yield m
 
     def assert_no_corpses(self) -> None:
-        """The invariant everything below leans on: ``minions`` is the living.
+        """``minions`` holds the living. Called from ``reap_dead`` so the
+        guarantee is checked rather than merely intended -- a death path that
+        forgets to sweep fails here instead of quietly buffing a corpse.
 
-        Dead bodies are swept into ``graveyard`` at every death site. Without
-        this check the guarantee would be an observation rather than a rule,
-        and the next death path that forgets to sweep would go back to being
-        silently wrong instead of loudly.
+        Runs under ``-O`` as a no-op, so the hot loop pays nothing in
+        production runs while tests and dev runs keep the check.
+
+        Combat sides only. ``alive`` reads ``current_health``, which is
+        maintained inside a battle and nowhere else, so every minion on a shop
+        board reads as dead and this would fire on all of them.
         """
         dead = [m.card_id for m in self.minions if not m.alive]
         assert not dead, f"dead minions left on the board: {dead}"

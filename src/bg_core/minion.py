@@ -4,7 +4,20 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional, Tuple
 
+from itertools import count as _count
+
 from .effects import Ability, Keyword
+
+# Entity identity, handed out wherever a minion comes into existence. Events
+# queued against a minion outlive the board moving under it, and object
+# identity cannot answer "is this one still on the board" -- an id can, via
+# ``_CombatRuntime.find_minion``. Process-wide and never serialised: no
+# observation, replay or golden-trace digest reads it.
+_INSTANCE_IDS = _count(1)
+
+
+def next_instance_id() -> int:
+    return next(_INSTANCE_IDS)
 
 
 class Race(Enum):
@@ -40,10 +53,8 @@ class Minion:
     dbf_id: Optional[int] = None
     sell_value: Optional[int] = None
 
-    # Identity. Assigned wherever a minion is created, so an event queued
-    # against a minion can still find it after the board has moved under it --
-    # object identity cannot answer "is it still on the board".
-    instance_id: int = 0
+    #: entity identity; see ``next_instance_id``
+    instance_id: int = field(default_factory=next_instance_id)
 
     # --- combat lifecycle -------------------------------------------------
     # Only meaningful while this minion is in Zone.COMBAT, which is always a
