@@ -272,3 +272,38 @@ def test_a_summon_onto_the_pointer_only_claims_a_slot_something_vacated(ctx):
 
     assert side.cursor == 2, "nobody vacated slot 1, so the waiting minion keeps it"
     assert _next_attacker(side, battle_field=rt.sides) is waiting
+
+
+def test_a_vacated_slot_left_of_the_pointer_still_shifts_it(ctx):
+    """Inheriting a slot is about the pointer's slot, not any vacated one.
+
+    A body dies at slot 0 while the pointer is on slot 1. The board closes up,
+    the pointer follows, and the deathrattle token fills slot 0 -- in front of
+    the minion that is waiting. It does not get to jump that queue: the token
+    is an insertion to the left, so the pointer moves along with the minion it
+    was on. Without this half of the condition the pointer stayed put and
+    landed on a minion that had already swung this pass, while the one waiting
+    was skipped.
+    """
+    from src.bg_combat.battle.engine import _next_attacker
+    from src.bg_combat.battle.summon import _summon_insert
+
+    rt = _runtime(ctx, [_body(ctx), _body(ctx), _body(ctx)])
+    side = rt.side(0)
+
+    first = _next_attacker(side, battle_field=rt.sides)
+    assert first is side.minions[0] and side.cursor == 1
+    second = _next_attacker(side, battle_field=rt.sides)
+    assert second is side.minions[1] and side.cursor == 2
+    waiting = side.minions[2]
+
+    first.current_health = 0
+    side.reap_dead()
+    assert first.death_pos == 0
+    assert side.cursor == 1 and side.minions[side.cursor] is waiting
+
+    rt.in_death_resolution = True
+    _summon_insert(rt, 0, make_minion(TIDEHUNTER, patch=ctx), 0)
+
+    assert side.cursor == 2, "the token went in front of the waiting minion"
+    assert _next_attacker(side, battle_field=rt.sides) is waiting

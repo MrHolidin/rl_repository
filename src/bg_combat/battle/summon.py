@@ -37,11 +37,18 @@ def _summon_insert(
         # vacated by dying: nobody is waiting on that slot, so the token
         # inherits its place in the rotation and swings this pass.
         #
-        # Ask the graveyard directly rather than using "are we resolving a
-        # death" as a proxy. The proxy is wrong in both directions: Monstrous
-        # Macaw fires a *living* minion's deathrattle, and an on-damage summon
-        # (Security Rover) can fire while an unrelated deathrattle is running.
-        claims_slot = any(b.death_pos == at_idx for b in side.graveyard)
+        # Both halves are required. The slot has to be one a body vacated --
+        # asked of the graveyard directly, because "are we resolving a death"
+        # is a bad proxy in both directions (Monstrous Macaw fires a *living*
+        # minion's deathrattle; an on-damage summon fires while an unrelated
+        # deathrattle runs). And it has to be the slot the pointer is on: a
+        # token dropped into a vacated slot to the *left* of the pointer is
+        # still an insertion in front of whoever is waiting, so it shifts them
+        # along. Dropping that half let a minion that had already swung this
+        # pass take a second turn while the one waiting was skipped.
+        claims_slot = at_idx == side.cursor and any(
+            b.death_pos == at_idx for b in side.graveyard
+        )
         side.minions.insert(at_idx, bm)
         side.shift_graveyard_slots(at_idx, +1)
         if at_idx <= side.cursor and not claims_slot:
