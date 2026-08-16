@@ -703,7 +703,7 @@ def test_faceless_modal_picks_shop_slot():
         triggers=triggers,
         patch=ctx,
     )
-    legal = engine.legal_actions(p)
+    legal = engine.legal_actions(p, ctx.meta.ruleset)
     assert int(Action.BUY_SLOT_0) in legal
     assert int(Action.BUY_SLOT_1) in legal
     engine.apply(p, int(Action.BUY_SLOT_1), turn_ctx)

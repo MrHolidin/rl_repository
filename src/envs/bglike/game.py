@@ -183,7 +183,7 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
                     raise RuntimeError(
                         "hand discover with full hand (legal mask bug)"
                     )
-        return self._player_turn.legal_actions(player)
+        return self._player_turn.legal_actions(player, self._patch.meta.ruleset)
 
     def apply_action(self, state: BGLikeState, action: ActionType) -> BGLikeState:
         if state.done:

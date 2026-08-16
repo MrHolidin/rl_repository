@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import ModuleType
 from typing import List, Optional, Sequence
 
+from src.bg_catalog.ruleset import Ruleset
 from src.bg_core.minion import Race
 from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment import economy as recruitment_economy
@@ -35,7 +36,13 @@ class PlayerTurnEngine:
     def is_finished(self, player: PlayerState) -> bool:
         return player.phase == PlayerPhase.DONE
 
-    def legal_actions(self, player: PlayerState) -> Sequence[int]:
+    def legal_actions(self, player: PlayerState, ruleset: Ruleset) -> Sequence[int]:
+        """Legal shop actions for ``player`` under the active patch's ``ruleset``.
+
+        The ruleset is required rather than defaulted: the tier ceiling below is
+        exactly the kind of number a patch changes (tier 7), and a default would
+        silently keep the old one.
+        """
         a = self._a
         if player.phase == PlayerPhase.DONE:
             return []
@@ -106,7 +113,7 @@ class PlayerTurnEngine:
                 actions.append(int(a.Action.ROLL))
 
             if (
-                player.tavern_tier < a.MAX_TIER
+                player.tavern_tier < ruleset.max_tier
                 and player.gold >= recruitment_economy.effective_level_up_cost(player)
             ):
                 actions.append(int(a.Action.LEVEL_UP))

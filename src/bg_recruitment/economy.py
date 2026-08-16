@@ -11,9 +11,7 @@ from src.bg_core.minion import Minion, Race
 
 from src.envs.minibg.actions import (
     BUY_COST,
-    LEVEL_UP_COSTS,
     MAX_SHOP_SLOTS,
-    MAX_TIER,
     ROLL_COST,
     SELL_REWARD,
     shop_offers_count,
@@ -147,15 +145,17 @@ def level_up_tavern(
     player.hero_upgrade_discount = 0  # Chenvaala: discount consumed by the upgrade
     old_tier = player.tavern_tier
     player.tavern_tier += 1
-    if player.tavern_tier < MAX_TIER:
-        # From the patch, not the module-level table: the game hands out the
-        # FIRST cost from ``ruleset.level_up_cost`` (game.py), so reading the
-        # hardcoded one here meant every cost after an upgrade silently reverted
-        # to the default ruleset. On 19.6.0 that charged 11 to reach tier 5 where
-        # the package says 9 — the number 727c86b put in meta.json never reached
-        # play. Costs for tiers 2-4 and 6 agree between the two, so only that
-        # one step was visibly wrong.
-        player.next_tier_up_cost = patch.meta.ruleset.level_up_cost(player.tavern_tier)
+    # Both numbers come from the patch. The game hands out the FIRST cost from
+    # ``ruleset.level_up_cost`` (game.py), so reading the module table here made
+    # every cost after an upgrade revert to the default ruleset: on 19.6.0 that
+    # charged 11 to reach tier 5 where the package says 9, and the number
+    # 727c86b put in meta.json never reached play. Costs for tiers 2-4 and 6
+    # agree between the two tables, so only that one step was visibly wrong.
+    # The ceiling is the same story one step later: a package that raises
+    # ``max_tier`` would still stop at the module's six.
+    ruleset = patch.meta.ruleset
+    if player.tavern_tier < ruleset.max_tier:
+        player.next_tier_up_cost = ruleset.level_up_cost(player.tavern_tier)
     extra = player.hero.extra_shop_slots() if player.hero is not None else 0
     old_n = min(MAX_SHOP_SLOTS, shop_offers_count(old_tier) + extra)
     new_n = min(MAX_SHOP_SLOTS, shop_offers_count(player.tavern_tier) + extra)

@@ -72,6 +72,22 @@ class Ruleset:
     damage_cap_lifted_at_alive: int = 0
     max_rounds: int = 50
 
+    def __post_init__(self) -> None:
+        # An upgrade out of every tier below the ceiling needs a price. Without
+        # this check, raising max_tier to 7 and forgetting the tier-6 entry makes
+        # the upgrade to tier 7 free — level_up_cost falls back to 0 and nothing
+        # else complains.
+        missing = [
+            tier
+            for tier in range(1, int(self.max_tier))
+            if int(tier) not in self.level_up_costs
+        ]
+        if missing:
+            raise ValueError(
+                f"ruleset.level_up_costs has no price for tiers {missing} "
+                f"(max_tier={self.max_tier}); an unpriced upgrade would be free"
+            )
+
     def gold_for_round(self, round_number: int) -> int:
         return self.gold_per_round.get(int(round_number), self.gold_cap)
 

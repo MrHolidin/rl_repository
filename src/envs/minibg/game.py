@@ -166,7 +166,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                         [],
                         where="game.legal_actions.hand_discover_full_hand",
                     )
-        return self._player_turn.legal_actions(player)
+        return self._player_turn.legal_actions(player, self._patch.meta.ruleset)
 
     def apply_action(self, state: MiniBGState, action: ActionType) -> MiniBGState:
         if state.done:

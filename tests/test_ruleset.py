@@ -2,6 +2,8 @@
 constants exactly, and meta.json parsing must round-trip both a missing
 "ruleset" key (existing patch packages) and a partial/full override."""
 
+import pytest
+
 from src.bg_catalog.ruleset import DamageCapStep, DEFAULT_RULESET, Ruleset, ruleset_from_meta
 from src.envs.bglike import actions as bglike_actions
 
@@ -46,12 +48,29 @@ def test_ruleset_from_meta_none_or_missing_key_is_default():
 
 
 def test_ruleset_from_meta_partial_override():
-    r = ruleset_from_meta({"starting_health": 30, "max_tier": 7})
+    r = ruleset_from_meta({"starting_health": 30, "roll_cost": 2})
     assert r.starting_health == 30
-    assert r.max_tier == 7
+    assert r.roll_cost == 2
     # Untouched fields still fall back to the same defaults.
     assert r.gold_cap == DEFAULT_RULESET.gold_cap
     assert dict(r.level_up_costs) == dict(DEFAULT_RULESET.level_up_costs)
+
+
+def test_raising_max_tier_without_pricing_the_new_upgrade_is_rejected():
+    """The tier-7 trap: level_up_cost falls back to 0, so the upgrade is free."""
+    with pytest.raises(ValueError, match=r"no price for tiers \[6\]"):
+        ruleset_from_meta({"max_tier": 7})
+
+
+def test_raising_max_tier_with_the_new_price_is_accepted():
+    r = ruleset_from_meta(
+        {
+            "max_tier": 7,
+            "level_up_costs": {"1": 5, "2": 7, "3": 8, "4": 9, "5": 10, "6": 11},
+        }
+    )
+    assert r.max_tier == 7
+    assert r.level_up_cost(6) == 11
 
 
 def test_ruleset_from_meta_damage_cap_schedule_and_lift():
