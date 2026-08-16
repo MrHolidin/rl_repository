@@ -49,6 +49,7 @@ from src.bg_core.effects import (
     ReduceUpgradeCostEffect,
     SetNextRollCostEffect,
     SummonEffect,
+    SummonMultiplierAura,
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
@@ -257,7 +258,10 @@ class ShopTriggers:
         except ValueError:
             return
         insert_at = idx + 1
-        for _ in range(max(0, effect.count)):
+        # Khadgar multiplies every summon, in the tavern as well as in combat
+        # (combat does the same via auras._summon_multiplier).
+        n_sum = self.summon_multiplier(player.board)
+        for _ in range(max(0, effect.count) * n_sum):
             if len(player.board) >= BOARD_SIZE:
                 break
             tok = make_minion(effect.token_id, patch=self._patch)
@@ -432,6 +436,24 @@ class ShopTriggers:
             for ab in m.abilities:
                 if ab.trigger == Trigger.AURA and isinstance(
                     ab.effect, BattlecryMultiplierAura
+                ):
+                    p *= ab.effect.factor
+        return p
+
+    @staticmethod
+    def summon_multiplier(board: List[Minion]) -> int:
+        """Product of Khadgar-style auras on the shop board.
+
+        Mirrors ``bg_combat.battle.auras._summon_multiplier``. Khadgar reads
+        "your cards that summon minions summon twice as many" — no phase
+        qualifier — so a battlecry summon in the tavern is doubled exactly like
+        a deathrattle summon in combat.
+        """
+        p = 1
+        for m in board:
+            for ab in m.abilities:
+                if ab.trigger == Trigger.AURA and isinstance(
+                    ab.effect, SummonMultiplierAura
                 ):
                     p *= ab.effect.factor
         return p
