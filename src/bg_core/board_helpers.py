@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
 from copy import copy
 
@@ -117,6 +117,58 @@ def buff_matching_hits(
     raise ValueError(f"unhandled BuffTarget {t!r}")
 
 
+def index_of(minions: Sequence[Minion], minion: Minion) -> Optional[int]:
+    """Slot ``minion`` occupies, or ``None`` if it is not on this board.
+
+    By identity, not by value: two Alleycats are equal in every printed field,
+    and the slot is what adjacency and summon anchoring are decided by.
+    """
+    for i, m in enumerate(minions):
+        if m is minion:
+            return i
+    return None
+
+
+def stat_aura_bonus(
+    minions: Sequence[Minion],
+    recipient: Minion,
+    *,
+    live_only: bool = False,
+) -> Tuple[int, int]:
+    """Attack/health ``recipient`` is getting from its boardmates' auras.
+
+    Both phases ran this same loop: find the recipient's slot, walk every
+    other minion's AURA abilities, and sum the ``StatAura`` ones that reach it.
+    The slot matters because ADJACENT (Dire Wolf Alpha) is decided by it.
+
+    ``live_only`` is combat's, and it is load-bearing rather than defensive: a
+    minion that has died is not reaped until its death finishes resolving, so
+    it is briefly still in the list, and a corpse must not keep buffing. Nothing
+    outside combat maintains damage, so no shop minion is ever in that state.
+    """
+    from .effects import StatAura, Trigger  # circular at module scope
+
+    idx_r = index_of(minions, recipient)
+    if idx_r is None:
+        return 0, 0
+    atk = 0
+    hp = 0
+    for idx_s, source in enumerate(minions):
+        if source is recipient:
+            continue
+        if live_only and not source.alive:
+            continue
+        for ab in source.abilities:
+            if ab.trigger != Trigger.AURA or not isinstance(ab.effect, StatAura):
+                continue
+            if buff_matching_hits(
+                ab.effect, recipient, idx_candidate=idx_r, idx_source=idx_s
+            ):
+                atk += ab.effect.attack
+                hp += ab.effect.health
+    return atk, hp
+
+
 def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> None:
     """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
 
@@ -188,6 +240,8 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
+    "index_of",
+    "stat_aura_bonus",
     "buff_matching_hits",
     "count_for_source",
     "multiplier_for",

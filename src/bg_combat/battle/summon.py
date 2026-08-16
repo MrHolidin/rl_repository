@@ -1,14 +1,15 @@
 """Summon helpers: insert/append tokens, resolve summon target side."""
 from __future__ import annotations
 
-from copy import copy
 from typing import Optional
 
 from src.bg_core.minion import Minion
 
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .events import MinionSummoned
-from .auras import _board_index, _mark_health_aura_dirty, _sync_health_all
+from src.bg_core.board_helpers import index_of
+
+from .auras import _mark_health_aura_dirty, _sync_health_all
 
 
 def _summon_insert(
@@ -76,7 +77,7 @@ def _insert_idx_after(side: BattleSide, anchor: Optional[BattleMinion]) -> Optio
     """
     if anchor is None:
         return None
-    idx = _board_index(side, anchor)
+    idx = index_of(side.minions, anchor)
     if idx is not None:
         return idx + 1
     return anchor.death_pos if anchor.death_pos >= 0 else None
