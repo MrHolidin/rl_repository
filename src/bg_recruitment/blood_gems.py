@@ -110,6 +110,8 @@ def play_blood_gem_on(
     quilboar_keyword: Optional[Keyword] = None,
 ) -> None:
     """Play ``count`` Gems onto one minion (from hand or from a card's effect)."""
+    if target.cannot_gain_stats:
+        return
     attack, health = blood_gem_value(player)
     for _ in range(max(0, int(count))):
         target.bonus_attack += attack

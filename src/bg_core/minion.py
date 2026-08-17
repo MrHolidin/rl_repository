@@ -110,6 +110,11 @@ class Minion:
     venom_spent: bool = False
     #: Friendly deaths seen since this minion's Avenge last fired (combat only).
     avenge_progress: int = 0
+    #: "This can't gain stats" — Fishbait, the 0/1 the tavern puts up to be
+    #: killed. Honoured by the buff paths that can reach a card sitting in the
+    #: tavern; a general funnel for every buff site is the right home for it
+    #: once a second card needs the flag.
+    cannot_gain_stats: bool = False
     # --- "until next turn" ------------------------------------------------
     #: Stats and keywords that expire at the start of the owner's next recruit
     #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").

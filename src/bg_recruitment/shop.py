@@ -66,7 +66,7 @@ def buff_shop_minions_of_tribe(
     for m in player.shop:
         if m is None:
             continue
-        if not minion_matches_tribe(m, tribe):
+        if not minion_matches_tribe(m, tribe) or m.cannot_gain_stats:
             continue
         m.bonus_attack += attack
         m.bonus_health += health
@@ -74,7 +74,7 @@ def buff_shop_minions_of_tribe(
 
 def buff_all_shop_offers(player: PlayerState, *, attack: int, health: int) -> None:
     for m in player.shop:
-        if m is None:
+        if m is None or m.cannot_gain_stats:
             continue
         m.bonus_attack += attack
         m.bonus_health += health
