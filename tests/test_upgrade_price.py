@@ -187,3 +187,21 @@ def test_levers_never_make_the_price_negative(patch):
     ruleset = patch.meta.ruleset
     p = _player(ruleset, tier=1, upgrade_cost_delta=-99)
     assert economy.effective_level_up_cost(p) == 0
+
+
+def test_the_ceiling_costs_nothing_because_there_is_nothing_to_buy(patch):
+    """Both observation blocks must agree there is no next tier to price.
+
+    They did not: the base observation zeroes the cost at the ceiling
+    (``obs.py``), while the hero block asks ``effective_level_up_cost``
+    unguarded (``obs_v5_heroes.py``). While the price was a stored field, the
+    ceiling left it holding the price of the upgrade already bought — frozen,
+    because the upgrade skipped the write at max tier — so the hero block
+    reported a seat could buy a seventh tier for 9 gold. Deriving the price
+    settled it at 0 and the two blocks now agree, which the golden trace caught
+    as three diverged lobbies.
+    """
+    ruleset = patch.meta.ruleset
+    p = _player(ruleset, tier=ruleset.max_tier, gold=50)
+    assert ruleset.level_up_cost(ruleset.max_tier) == 0, "no price is declared past the top"
+    assert economy.effective_level_up_cost(p) == 0
