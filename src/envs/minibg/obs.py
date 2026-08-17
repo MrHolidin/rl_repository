@@ -185,7 +185,7 @@ assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS, (
 # reason: TRIGGER_INDEX sizes the v5 trigger embedding, so appending to it
 # invalidates every checkpoint that has one. An ability on such a trigger reads
 # as the unknown id 0.
-UNENCODED_TRIGGERS: frozenset[str] = frozenset({"ON_ATTACK"})
+UNENCODED_TRIGGERS: frozenset[str] = frozenset({"ON_ATTACK", "ON_ACTIVATE"})
 
 _missing_triggers = [
     t.name for t in Trigger if t not in TRIGGER_INDEX and t.name not in UNENCODED_TRIGGERS

@@ -53,6 +53,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.activate import reset_activations
 from src.bg_recruitment.blood_gems import (
     blood_gem_targets,
     give_blood_gems,
@@ -672,6 +673,7 @@ class ShopTriggers:
         """After round increment, before shop reroll: board L→R, then hand slots."""
         player.pirates_bought_this_turn = 0
         player.elementals_played = 0
+        reset_activations(player)
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_START:

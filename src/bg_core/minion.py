@@ -74,6 +74,9 @@ class Minion:
     # dissolved into the total.
     blood_gem_attack: int = 0
     blood_gem_health: int = 0
+    #: An Activate ability is spent for the turn once fired. Board state, not
+    #: combat state: it is cleared at the start of the seat's turn.
+    activate_used_this_turn: bool = False
 
     #: entity identity; see ``next_instance_id``
     instance_id: int = field(default_factory=next_instance_id)

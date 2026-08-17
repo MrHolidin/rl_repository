@@ -12,6 +12,7 @@
       "PlayBloodGemsEffect"
     ],
     "unencoded_triggers": [
+      "ON_ACTIVATE",
       "ON_ATTACK"
     ]
   },

@@ -51,6 +51,12 @@ class Trigger(Enum):
     #: ON_AFTER_ATTACK, which lands once the swing is over: a Rally that strips
     #: the target's Reborn has to run while the target is still standing.
     ON_ATTACK = auto()
+    #: shop: the **Activate** keyword — the seat spends gold to fire this
+    #: minion's ability, once per turn. Alone among the triggers it is not an
+    #: event the engine raises but a move the player makes, so nothing fires it
+    #: on its own; see ``src/bg_recruitment/activate.py``. The gold it costs
+    #: lives on the ability (``Ability.activate_cost``).
+    ON_ACTIVATE = auto()
 
 
 class ConditionKind(Enum):
@@ -818,6 +824,9 @@ class Ability:
     condition: Optional[Condition] = None
     filter_victim_keyword: Optional[Keyword] = None
     combat_only: bool = False
+    #: Gold an ``ON_ACTIVATE`` ability costs to fire. Every printing charges 1
+    #: or 2; on any other trigger it is meaningless and stays 0.
+    activate_cost: int = 0
 
 
 __all__ = [
