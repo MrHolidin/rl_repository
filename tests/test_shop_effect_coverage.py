@@ -80,9 +80,16 @@ def test_every_shop_effect_is_handled_or_declared_inert(patch_dir):
     )
 
 
+#: Entries that no *shipped* package reaches yet because the engine learned the
+#: mechanic before a package that prints it exists. Distinct from a stale entry,
+#: which used to be reachable and no longer is — that is what the test below is
+#: for. A name leaves this set when a package starts using it.
+AHEAD_OF_THE_PACKAGES = {"ChooseOneEffect"}
+
+
 def test_handled_elsewhere_entries_are_all_still_reachable():
     """An entry that no card can produce any more is a stale excuse."""
-    reachable = set()
+    reachable = set(AHEAD_OF_THE_PACKAGES)
     for patch_dir in PATCH_DIRS:
         ctx = load_patch_context(patch_dir)
         for tpl in ctx.templates.values():

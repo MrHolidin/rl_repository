@@ -51,6 +51,10 @@ class Trigger(Enum):
     #: ON_AFTER_ATTACK, which lands once the swing is over: a Rally that strips
     #: the target's Reborn has to run while the target is still standing.
     ON_ATTACK = auto()
+    #: shop: the seat played a card with Choose One, after the option resolved
+    #: (Turbo Hogrider: "After you play Choose One card, this plays a Blood Gem
+    #: on all your other Quilboar").
+    ON_CHOOSE_ONE_PLAYED = auto()
     #: shop: the **Activate** keyword — the seat spends gold to fire this
     #: minion's ability, once per turn. Alone among the triggers it is not an
     #: event the engine raises but a move the player makes, so nothing fires it
@@ -630,6 +634,21 @@ class IncreaseBloodGemBonusEffect:
 
     attack: int = 0
     health: int = 0
+
+
+@dataclass(frozen=True)
+class ChooseOneEffect:
+    """Two effects printed on one card; the player takes one.
+
+    Always exactly two on every live printing ("Choose One - Get 2 Blood Gems;
+    or Get a Gem Day"), so the pair is named rather than a list of unknown
+    length. Both halves are ordinary effects, which is what lets Thorned
+    Trailblazer and Fandral's Fortune hand out *both* without a second code
+    path: the resolver applies one option, or two.
+    """
+
+    first: Any
+    second: Any
 
 
 @dataclass(frozen=True)

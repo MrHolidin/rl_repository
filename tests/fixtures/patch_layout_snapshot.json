@@ -7,6 +7,7 @@
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
       "AvengeEffect",
+      "ChooseOneEffect",
       "CreateSpellcraftSpellEffect",
       "GainBloodGemsEffect",
       "GrantTemporaryBuffEffect",
@@ -15,7 +16,8 @@
     ],
     "unencoded_triggers": [
       "ON_ACTIVATE",
-      "ON_ATTACK"
+      "ON_ATTACK",
+      "ON_CHOOSE_ONE_PLAYED"
     ]
   },
   "action_layout": {

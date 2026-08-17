@@ -35,6 +35,7 @@ from src.bg_core.effects import (
     BuffSelfFromHeroDamageTaken,
     BuffTargetFriendlyBattlecry,
     BuffTargetFromPiratesBoughtBattlecry,
+    ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
@@ -55,6 +56,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.spellcraft import (
     discard_spellcraft_spells,
     expire_temporary_buffs,
@@ -110,6 +112,7 @@ _HANDLED_ELSEWHERE = (
     BuffAdjacentBattlecry,
     BuffTargetFriendlyBattlecry,
     BuffTargetFromPiratesBoughtBattlecry,
+    ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     # fire_on_place applies these itself and then skips them here: they read
     # and write per-turn counters that Brann must not multiply.
@@ -536,6 +539,11 @@ class ShopTriggers:
                     shared_pool=shared_pool,
                 ):
                     return
+                return
+            if isinstance(e, ChooseOneEffect):
+                # Parks the two options and stops here; the pick applies them,
+                # multiplied battlecries included (Brann re-opens the choice).
+                open_choose_one(player, e, source=placed)
                 return
             if isinstance(e, AdaptAllMurlocsEffect):
                 total = mult * e.repeats

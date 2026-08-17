@@ -61,17 +61,30 @@ class PendingChoiceKind(IntEnum):
     ADAPT = 1
     TRIPLE_REWARD_DISCOVER = 2
     TRANSFORM_SHOP_MINION = 3
+    #: Choose One — two effects, not three cards. See ``PendingChoice.effects``.
+    CHOOSE_ONE = 4
 
 
 @dataclass
 class PendingChoice:
-    """Player must pick one of ``options`` (three card_ids or three adapt keys)."""
+    """Player must pick one of ``options``.
+
+    For the discover-shaped kinds those are three card_ids or three adapt keys.
+    Choose One breaks both halves of that: it offers **two** options and they
+    are effects rather than cards, so it carries them in ``effects`` and leaves
+    ``options`` as display labels. Everything that walks ``options`` already
+    stops at three and tolerates fewer.
+    """
 
     kind: PendingChoiceKind
-    options: Tuple[str, str, str]
+    options: Tuple[str, ...]
     extra_modals_after: int
     options_pool_reserved: bool = False
     transform_board_idx: Optional[int] = None
+    #: Choose One only: the effect behind each option, same order as ``options``.
+    effects: Tuple[object, ...] = ()
+    #: Choose One only: the board minion whose ability opened this.
+    source_board_idx: Optional[int] = None
 
 
 class CasterKind(IntEnum):
@@ -140,6 +153,10 @@ class PlayerState:
     hero_elementals_progress: int = 0  # Chenvaala: Elementals toward next discount
     hero_free_roll_pending: bool = False  # Nozdormu: first refresh this turn is free
     hero_upgrade_discount: int = 0  # Chenvaala: accumulated next-upgrade discount
+    #: Choose One cards that take BOTH options instead of one, this turn
+    #: (Thorned Trailblazer: "One Choose One card each turn has both effects
+    #: combined"). Spent by the card that uses it.
+    choose_one_combined_charges: int = 0
     pending_choice: Optional["PendingChoice"] = None
     placed_minion_board_index: Optional[int] = None
     placed_minion_pending_after: Optional["Minion"] = None
