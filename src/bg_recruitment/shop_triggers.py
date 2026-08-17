@@ -57,6 +57,7 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.choose_one import open_choose_one
+from src.bg_recruitment.lockbox import tick_lockboxes
 from src.bg_recruitment.spellcraft import (
     discard_spellcraft_spells,
     expire_temporary_buffs,
@@ -698,6 +699,10 @@ class ShopTriggers:
         # Last turn's "until next turn" buffs end here — after the combat they
         # were cast for, before the seat acts again.
         expire_temporary_buffs(player)
+        # A Lockbox counts down in the seat's own turns. It only draws from the
+        # generator on the turn it opens, and no shipped package can make one,
+        # so the random stream on 36393 / 74257 is untouched.
+        tick_lockboxes(player, rng=self._rng, patch=self._patch)
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_START:

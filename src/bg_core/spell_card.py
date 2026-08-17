@@ -52,6 +52,9 @@ class SpellCard:
     is_blood_gem: bool = False
     #: Blood Gem printings that also grant a keyword, but only to a Quilboar.
     blood_gem_quilboar_keyword: Optional[Keyword] = None
+    #: A Lockbox: unplayable, counts down a turn at a time and opens into a
+    #: random Golden minion at zero. 0 on every other card.
+    turns_until_open: int = 0
 
 
 __all__ = ["SpellCard"]
