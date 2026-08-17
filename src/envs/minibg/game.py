@@ -324,7 +324,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             hero_damage_taken_total=0,
             gold=ruleset.gold_for_round(round_number),
             tavern_tier=STARTING_TIER,
-            next_tier_up_cost=ruleset.level_up_cost(STARTING_TIER),
+            ruleset=ruleset,
             board=[],
             shop=[None for _ in range(MAX_SHOP_SLOTS)],
             hand=[None for _ in range(HAND_SIZE)],

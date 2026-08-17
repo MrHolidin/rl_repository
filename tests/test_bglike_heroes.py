@@ -48,7 +48,6 @@ def _player(patch, hero=None, *, tier=1, gold=10, board=None, shop=None):
         health=40,
         gold=gold,
         tavern_tier=tier,
-        next_tier_up_cost=A.LEVEL_UP_COSTS.get(tier, 0),
         board=board if board is not None else [],
         shop=shop if shop is not None else [None] * A.MAX_SHOP_SLOTS,
         hand=[None] * A.HAND_SIZE,

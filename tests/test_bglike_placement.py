@@ -21,7 +21,6 @@ def _player() -> PlayerState:
         hero_damage_taken_total=0,
         gold=0,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=[None] * 10,

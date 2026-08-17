@@ -338,8 +338,7 @@ def test_a_summoned_token_lands_by_the_minion_that_summoned_it(ctx):
     played = make_minion("CFM_315", patch=ctx74)
 
     player = PlayerState(
-        health=40, gold=10, tavern_tier=3, next_tier_up_cost=5,
-        board=[first, token], shop=[None] * 6,
+        health=40, gold=10, tavern_tier=3,         board=[first, token], shop=[None] * 6,
         hand=[played] + [None] * 4, phase=0, shop_actions_used=0,
     )
     place_from_hand(

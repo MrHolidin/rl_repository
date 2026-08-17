@@ -111,7 +111,6 @@ def test_dispatch_raises_instead_of_falling_through():
         hero_damage_taken_total=0,
         gold=0,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[source],
         shop=[None] * 6,
         hand=[None] * 10,

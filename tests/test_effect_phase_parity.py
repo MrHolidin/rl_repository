@@ -50,7 +50,6 @@ def _play_tidehunter(ctx, board_extra):
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=list(board_extra),
         shop=[None] * 6,
         hand=[make_minion(TIDEHUNTER, patch=ctx)] + [None] * 4,

@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, fields as _dataclass_fields
 from enum import IntEnum
 from typing import Dict, List, Optional, Tuple, Union
 
+from src.bg_catalog.ruleset import DEFAULT_RULESET, Ruleset
 from src.bg_core.hero import Hero
 from src.bg_core.minion import Minion, Race
 from src.bg_core.tavern_spell import TavernSpell
@@ -94,7 +95,6 @@ class PlayerState:
     health: int
     gold: int
     tavern_tier: int
-    next_tier_up_cost: int
     board: List[Minion]
     shop: List[Optional[Minion]]
     hand: List[Optional[HandCard]]
@@ -104,6 +104,13 @@ class PlayerState:
     # ``Hero.start_armor``; 0 on classic/no-armor patches — see
     # ``apply_hero_damage``).
     armor: int = 0
+    # The patch's numeric rules. Held here so the price of the next tier can be
+    # derived rather than stored (see ``next_tier_up_cost`` below); shared and
+    # immutable, so copying a player copies a reference, not a table.
+    ruleset: Ruleset = DEFAULT_RULESET
+    #: Rounds' worth of standing discount banked toward the next upgrade. Reset
+    #: by the upgrade that spends it; the *price* is never written.
+    upgrade_discount_accrued: int = 0
     shop_freeze_next_round: bool = False
     shop_frozen: Tuple[bool, ...] = (False,) * MAX_SHOP_SLOTS
     upgrade_cost_delta: int = 0
@@ -165,6 +172,24 @@ class PlayerState:
     @property
     def shopping_finished(self) -> bool:
         return self.phase == PlayerPhase.DONE
+
+    @property
+    def next_tier_up_cost(self) -> int:
+        """What the next tavern tier costs before one-shot levers and heroes.
+
+        Derived, not stored. It used to be a field, which meant four places
+        wrote it and two of them disagreed about where the base price came
+        from: the package's table or the module-level default. On 19.6.0 that
+        charged 11 for the step to tier 5 where the package says 9, and the
+        number in meta.json never reached play. With the price computed there
+        is no second source to disagree with, and nothing to keep in step.
+
+        The floor at zero belongs here rather than in
+        ``effective_level_up_cost``: the standing discount cannot go below
+        free, but a hero surcharge on top of a free upgrade is still paid.
+        """
+        base = self.ruleset.level_up_cost(self.tavern_tier)
+        return max(0, base - self.upgrade_discount_accrued)
 
 
 def apply_hero_damage(player: PlayerState, damage: int) -> None:

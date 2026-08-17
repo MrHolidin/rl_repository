@@ -85,6 +85,9 @@ def test_a_seventh_tier_is_reachable_when_the_ruleset_declares_one():
     game = BGLikeGame(seed=0, patch_dir=_PATCH_74257)
     state = game.initial_state()
     player = state.players[0]
+    # A seat plays under the rules it was dealt: the price of its next tier is
+    # derived from this, so a synthetic package has to reach the seat too.
+    player.ruleset = tier7
     rng = np.random.default_rng(0)
     while player.tavern_tier < 6:
         player.gold = 50

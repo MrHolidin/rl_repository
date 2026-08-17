@@ -15,6 +15,7 @@ from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
 from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment import hero_passives
+from src.bg_recruitment.economy import accrue_upgrade_discount
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
 
@@ -372,10 +373,7 @@ def resolve_combat_round(
     state.round_number += 1
     for seat in state.alive:
         p = state.players[seat]
-        if p.tavern_tier < ruleset.max_tier:
-            p.next_tier_up_cost = max(
-                0, p.next_tier_up_cost - ruleset.level_up_discount_per_round
-            )
+        accrue_upgrade_discount(p)
         p.gold = ruleset.gold_for_round(state.round_number)
         p.phase = PlayerPhase.SHOP
         p.shop_actions_used = 0

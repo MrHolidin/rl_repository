@@ -79,8 +79,7 @@ def _distinct_value(f: dataclasses.Field, patch):
 
 def test_every_field_survives_a_copy(patch):
     base = PlayerState(
-        health=40, gold=3, tavern_tier=1, next_tier_up_cost=5,
-        board=[], shop=[], hand=[], phase=PlayerPhase.SHOP, shop_actions_used=0,
+        health=40, gold=3, tavern_tier=1,         board=[], shop=[], hand=[], phase=PlayerPhase.SHOP, shop_actions_used=0,
     )
     fields = dataclasses.fields(PlayerState)
     for f in fields:
@@ -107,8 +106,7 @@ def test_every_field_survives_a_copy(patch):
 
 def test_copy_is_isolated_from_the_original(patch):
     base = PlayerState(
-        health=40, gold=3, tavern_tier=1, next_tier_up_cost=5,
-        board=[patch.make_minion("EX1_103")], shop=[], hand=[],
+        health=40, gold=3, tavern_tier=1,         board=[patch.make_minion("EX1_103")], shop=[], hand=[],
         phase=PlayerPhase.SHOP, shop_actions_used=0,
         last_round_tribe_counts={Race.MURLOC: 1},
     )

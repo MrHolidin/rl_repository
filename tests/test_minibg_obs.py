@@ -114,7 +114,6 @@ def test_build_observation_hand_encodes_triple_reward_spell():
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * MAX_SHOP_SLOTS,
         hand=[spell, None, None, None, None],
@@ -125,7 +124,6 @@ def test_build_observation_hand_encodes_triple_reward_spell():
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * MAX_SHOP_SLOTS,
         hand=[None] * HAND_SIZE,
@@ -265,7 +263,8 @@ def test_build_observation_globals_match_state():
     s.players[1].health = 7
     s.players[0].gold = 5
     s.players[0].tavern_tier = 2
-    s.players[0].next_tier_up_cost = 4
+    # Tier 2 costs 7, less three rounds of standing discount → 4.
+    s.players[0].upgrade_discount_accrued = 3
     s.players[1].tavern_tier = 3
     s.players[0].shop_actions_used = 4
     s.players[0].board = [make_minion("recruit"), make_minion("guard")]
@@ -396,8 +395,7 @@ def test_tier_up_cost_channel_follows_the_effective_cost():
     ctx = g._patch
     s = g.initial_state()
     me = s.players[0]
-    me.tavern_tier = 1
-    me.next_tier_up_cost = 5
+    me.tavern_tier = 1  # the patch prices the step to tier 2 at 5
     assert build_observation(s, 0, 0.0, [])[idx] * LEVEL_UP_COST_MAX == 5.0
 
     swabbie = ctx.make_minion("BGS_055")

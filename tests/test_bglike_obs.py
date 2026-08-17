@@ -196,8 +196,7 @@ def test_tier_up_cost_channel_follows_the_effective_cost():
     game = BGLikeGame(seed=0, patch_dir="data/bgcore/19_6_0_74257")
     state = game.initial_state()
     me = state.players[0]
-    me.tavern_tier = 1
-    me.next_tier_up_cost = 5
+    me.tavern_tier = 1  # the patch prices the step to tier 2 at 5
 
     obs = _obs_globals_for(state, game)
     assert obs[_TIER_UP_COST_IDX] * LEVEL_UP_COST_MAX == 5.0

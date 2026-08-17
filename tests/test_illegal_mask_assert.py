@@ -17,7 +17,6 @@ def _shop_state() -> MiniBGState:
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=[make_minion("recruit")],
         shop=[make_minion("recruit")] * 6,
         hand=[None] * 5,

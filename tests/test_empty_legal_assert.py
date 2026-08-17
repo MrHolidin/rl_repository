@@ -22,7 +22,6 @@ def _shop_state(*, pending: bool, hand_full: bool) -> MiniBGState:
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=hand,

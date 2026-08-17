@@ -192,7 +192,6 @@ def test_effective_shop_cost_overrides():
         health=40,
         gold=10,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=[None] * 5,
@@ -222,7 +221,6 @@ def test_shop_frozen_slot_survives_roll():
         health=40,
         gold=10,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=[None] * 5,
@@ -252,7 +250,6 @@ def _shop_player(**kwargs):
         health=40,
         gold=10,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=[None] * 5,
@@ -359,7 +356,6 @@ def test_last_combat_won_flag_after_battle():
         health=40,
         gold=0,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[winner],
         shop=[None] * 6,
         hand=[None] * 5,
@@ -370,7 +366,6 @@ def test_last_combat_won_flag_after_battle():
         health=40,
         gold=0,
         tavern_tier=1,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * 6,
         hand=[None] * 5,
@@ -497,7 +492,7 @@ def test_deck_swabbie_reduces_level_up_cost():
     from src.bg_recruitment.shop_triggers import ShopTriggers
 
     ctx = PatchContext.load(PATCH_74257)
-    p = _shop_player(gold=10, next_tier_up_cost=5)
+    p = _shop_player(gold=10)
     swabbie = ctx.make_minion("BGS_055")
     triggers = ShopTriggers(patch=ctx, rng=np.random.default_rng(0))
     triggers.fire_on_place(swabbie, p, None)

@@ -29,8 +29,7 @@ def patch():
 
 def _player(**kw):
     base = dict(
-        health=40, gold=10, tavern_tier=1, next_tier_up_cost=5,
-        board=[], shop=[None] * 3, hand=[None] * 10,
+        health=40, gold=10, tavern_tier=1,         board=[], shop=[None] * 3, hand=[None] * 10,
         phase=PlayerPhase.SHOP, shop_actions_used=0,
     )
     base.update(kw)

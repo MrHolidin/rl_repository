@@ -21,7 +21,6 @@ def _empty_player(*, tier: int = 1) -> PlayerState:
         health=30,
         gold=10,
         tavern_tier=tier,
-        next_tier_up_cost=5,
         board=[],
         shop=[None] * MAX_SHOP_SLOTS,
         hand=[None] * HAND_SIZE,

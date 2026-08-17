@@ -26,7 +26,6 @@ def _player(board=None, gold=10, tier=1):
         health=20,
         gold=gold,
         tavern_tier=tier,
-        next_tier_up_cost=LEVEL_UP_COSTS[tier],
         board=list(board or []),
         shop=[None, None, None],
         hand=[None for _ in range(HAND_SIZE)],

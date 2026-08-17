@@ -17,7 +17,6 @@ def test_discover_pending_stays_legal_when_triple_would_fill_hand():
         health=40,
         gold=10,
         tavern_tier=3,
-        next_tier_up_cost=5,
         board=[make_minion("recruit"), make_minion("recruit"), make_minion("recruit")],
         shop=[None] * 6,
         hand=[rec, rec, disc, make_minion("target_buffer"), make_minion("target_buffer")],
