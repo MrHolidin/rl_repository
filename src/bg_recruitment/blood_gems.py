@@ -35,6 +35,7 @@ from .hand_slots import first_free_hand_slot
 __all__ = [
     "BLOOD_GEM_CARD_ID",
     "blood_gem_targets",
+    "can_play_blood_gem",
     "blood_gem_value",
     "make_blood_gem",
     "give_blood_gems",
@@ -82,9 +83,14 @@ def give_blood_gems(
 ) -> int:
     """Put ``count`` Gems in hand; return how many actually fit.
 
-    A hand with no free slot simply loses the Gem, the way a full hand loses any
-    other card the game tries to hand you. (Retail behaviour on overflow is
-    worth confirming against the client before a package leans on it.)
+    A hand with no free slot loses the Gem, the way a full hand loses any other
+    card the game tries to hand you.
+
+    Unverified against the client, and the two halves of the question are
+    different: that Gems *occupy* hand slots and sit there unplayable when the
+    board is empty is documented behaviour (see ``can_play_blood_gem``); what
+    the client does with a Gem it cannot fit is not, and no source found so far
+    states it. A package that leans on overflow should confirm it first.
     """
     made = 0
     for _ in range(max(0, int(count))):
@@ -112,6 +118,18 @@ def play_blood_gem_on(
         target.blood_gem_health += health
         if quilboar_keyword is not None and target.race is Race.QUILBOAR:
             target.granted_keywords = target.granted_keywords | {quilboar_keyword}
+
+
+def can_play_blood_gem(player: PlayerState) -> bool:
+    """Whether a Gem in hand can be played at all — i.e. is there a target.
+
+    A Gem with no minion to land on is not discarded and does not fizzle: it
+    stays in hand, unplayable, and keeps taking up the slot. That is a real
+    Battlegrounds state, reported often enough to have its own bug threads — a
+    hand full of Gems and an empty board leaves a seat with nothing it can do.
+    Legality belongs here rather than in the play call, which raises.
+    """
+    return bool(player.board)
 
 
 def play_blood_gem_from_hand(

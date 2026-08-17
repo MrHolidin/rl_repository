@@ -152,6 +152,22 @@ def test_a_keyword_spell_lands_only_on_the_right_tribe():
     assert beast.raw_attack == 3 and beast.max_health == 3, "stats land on both"
 
 
+def test_a_spell_with_nowhere_to_land_waits_in_hand(triggers):
+    """An empty board makes the spell unplayable, not gone.
+
+    It keeps its hand slot until end of turn like any unspent Spellcraft spell.
+    The Blood Gem version of this state is a known Battlegrounds soft-lock: a
+    hand full of Gems and no minion to spend them on.
+    """
+    player = _player([])
+    player.board.append(_naga())
+    triggers.fire_on_turn_start(player)
+    player.board.clear()
+
+    assert spellcraft.can_play_spellcraft_spell(player) is False
+    assert len(_spells_in_hand(player)) == 1, "still in hand, just unplayable"
+
+
 def test_casting_on_an_empty_slot_is_rejected(triggers):
     player = _player([_naga()])
     triggers.fire_on_turn_start(player)

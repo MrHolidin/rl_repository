@@ -175,10 +175,31 @@ def test_a_card_hands_gems_to_the_hand(patch):
 
 
 def test_gems_that_do_not_fit_the_hand_are_lost(patch):
+    """What a Gem with no free slot does is UNVERIFIED against the client.
+
+    Every source found says only that Gems occupy hand slots; none says what
+    happens to one that cannot fit. This pins the engine's current choice so a
+    future correction is a deliberate edit rather than a silent drift.
+    """
     player = _player([_minion("geomancer")], hand_slots=1)
     made = blood_gems.give_blood_gems(player, 3)
     assert made == 1
     assert sum(1 for c in player.hand if blood_gems.is_blood_gem(c)) == 1
+
+
+def test_a_gem_with_no_minion_to_land_on_waits_in_hand(patch):
+    """The documented Battlegrounds state: Gems in hand, empty board, stuck.
+
+    The Gem is neither discarded nor spent — it is simply unplayable, which is
+    what makes the soft-lock possible in the first place.
+    """
+    player = _player([])
+    blood_gems.give_blood_gems(player, 2)
+    assert blood_gems.can_play_blood_gem(player) is False
+    assert sum(1 for c in player.hand if blood_gems.is_blood_gem(c)) == 2
+
+    player.board.append(_minion("boar"))
+    assert blood_gems.can_play_blood_gem(player) is True
 
 
 @pytest.mark.parametrize(

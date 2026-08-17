@@ -32,6 +32,7 @@ from src.bg_lobby.player import PlayerState
 from .hand_slots import first_free_hand_slot
 
 __all__ = [
+    "can_play_spellcraft_spell",
     "is_spellcraft_spell",
     "make_spellcraft_spell",
     "give_spellcraft_spell",
@@ -66,6 +67,16 @@ def give_spellcraft_spell(
         return False
     player.hand[slot] = make_spellcraft_spell(effect)
     return True
+
+
+def can_play_spellcraft_spell(player: PlayerState) -> bool:
+    """Whether a Spellcraft spell in hand has anything to land on.
+
+    With an empty board the spell is not discarded early and does not fizzle —
+    it stays in hand, unplayable, until end of turn takes it like any other
+    unspent Spellcraft spell. Same rule as a Blood Gem with nowhere to go.
+    """
+    return bool(player.board)
 
 
 def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None:
