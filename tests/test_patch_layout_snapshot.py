@@ -96,6 +96,7 @@ def _ability_token_vocabularies() -> Dict[str, Any]:
         "NUM_RACE_IDS": int(obs_v5.NUM_RACE_IDS),
         "NUM_KEYWORD_IDS": int(obs_v5.NUM_KEYWORD_IDS),
         "unencoded_effects": sorted(minibg_obs.UNENCODED_EFFECTS),
+        "unencoded_triggers": sorted(minibg_obs.UNENCODED_TRIGGERS),
     }
 
 

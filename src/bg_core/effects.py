@@ -46,6 +46,11 @@ class Trigger(Enum):
     ON_WHEN_ATTACKED = auto()  # combat: this minion is targeted by an attack swing
     ON_FRIENDLY_WHEN_ATTACKED = auto()  # combat: another friendly is targeted by an attack
     ON_FRIENDLY_KILL = auto()  # combat: a friendly minion killed an enemy minion
+    #: combat: this minion is attacking, target chosen, before any damage —
+    #: the modern **Rally** keyword ("Whenever this attacks"). Distinct from
+    #: ON_AFTER_ATTACK, which lands once the swing is over: a Rally that strips
+    #: the target's Reborn has to run while the target is still standing.
+    ON_ATTACK = auto()
 
 
 class ConditionKind(Enum):

@@ -22,6 +22,7 @@ from src.bg_core.effects import (
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
     BuffRandomOtherFriendlyCombat,
+    AddRandomMinionToHandEffect,
     AddRandomMinionToHandOnKillEffect,
     BuffSelf,
     BuffDeadMinionNeighborsEffect,
@@ -575,6 +576,54 @@ def _fire_friendly_attack_listeners(
             for ally in side.iter_living():
                 ally.bonus_attack += eff.attack
                 ally.bonus_health += eff.health
+    _sync_health_all(rt)
+
+
+def _fire_rally(
+    rt: _CombatRuntime,
+    attacker: BattleMinion,
+    attacker_side_idx: int,
+    target: BattleMinion,
+) -> None:
+    """Rally: "Whenever this attacks", with the target already chosen.
+
+    Fires before either combatant's damage is measured, so a Rally that buffs
+    the attacker is felt by the swing that triggered it, and one that strips the
+    target's keywords still finds the target alive. ``ON_AFTER_ATTACK`` is the
+    other end of the same swing and stays where it is.
+
+    Effects reaching here are the ones a Rally can be written from today; a card
+    that needs "the target" specifically (removing its Reborn, splashing damage
+    onto it and a neighbour) needs an effect that takes one, which is why the
+    target is threaded in rather than left to the call site to forget later.
+    """
+    side = rt.side(attacker_side_idx)
+    for ab in attacker.abilities:
+        if ab.trigger != Trigger.ON_ATTACK:
+            continue
+        eff = ab.effect
+        if isinstance(eff, BuffSelf):
+            attacker.bonus_attack += eff.attack
+            attacker.bonus_health += eff.health
+        elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
+            # ALL_FRIENDLY includes the source here, as it does at every other
+            # site. A card that buffs its *other* minions says so through its
+            # binding, not by this trigger quietly meaning something else.
+            for ally in side.iter_living():
+                ally.bonus_attack += eff.attack
+                ally.bonus_health += eff.health
+        elif isinstance(eff, DealDamageRandomEnemyMinion):
+            for _ in range(max(1, eff.repeats)):
+                _deal_random_enemy_minion_damage(rt, attacker_side_idx, eff.amount)
+        elif isinstance(eff, AddRandomMinionToHandEffect):
+            # "Rally: Get a random Beast" — the card lands in hand after combat,
+            # through the same queue a Deathrattle hand-add uses.
+            _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
+        else:
+            raise NotImplementedError(
+                f"Rally effect {type(eff).__name__} has no combat handler "
+                f"(minion {attacker.card_id})"
+            )
     _sync_health_all(rt)
 
 

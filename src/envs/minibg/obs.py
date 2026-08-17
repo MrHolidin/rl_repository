@@ -180,11 +180,21 @@ assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS, (
     f"TRIGGER_INDEX has {len(TRIGGER_INDEX)} entries but "
     f"NUM_TRIGGER_CHANNELS={NUM_TRIGGER_CHANNELS}"
 )
-_missing_triggers = [t.name for t in Trigger if t not in TRIGGER_INDEX]
+# Triggers the engine fires and this observation vocabulary deliberately does
+# not encode — the same arrangement as UNENCODED_EFFECTS below, for the same
+# reason: TRIGGER_INDEX sizes the v5 trigger embedding, so appending to it
+# invalidates every checkpoint that has one. An ability on such a trigger reads
+# as the unknown id 0.
+UNENCODED_TRIGGERS: frozenset[str] = frozenset({"ON_ATTACK"})
+
+_missing_triggers = [
+    t.name for t in Trigger if t not in TRIGGER_INDEX and t.name not in UNENCODED_TRIGGERS
+]
 if _missing_triggers:
     raise RuntimeError(
         f"TRIGGER_INDEX is missing Trigger members: {_missing_triggers}. "
-        "Add them (and bump NUM_TRIGGER_CHANNELS) — changes obs dim, needs retrain."
+        "Add them (and bump NUM_TRIGGER_CHANNELS) — changes obs dim, needs retrain; "
+        "or list them in UNENCODED_TRIGGERS to leave them out on purpose."
     )
 
 # Effect markers — high-impact aura/multiplier/listener types the network should distinguish

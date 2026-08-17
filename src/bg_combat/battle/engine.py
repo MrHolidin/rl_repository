@@ -27,6 +27,7 @@ from .effects import (
     _count_friendlies_of_tribe,
     _deal_random_enemy_minion_damage,
     _enqueue_strike_events,
+    _fire_rally,
     _fire_when_attacked,
     _handle_attack_completed,
     _handle_damage_dealt,
@@ -140,6 +141,17 @@ def _run_single_swing(
     if not attacker.alive or not target.alive:
         return
     _fire_when_attacked(rt, defender_side_idx, target)
+    # Rally reads the board the attack was declared on: after the target is
+    # locked in and the defender's own on-attacked triggers have run, but before
+    # either side's damage is measured below.
+    _fire_rally(rt, attacker, attacker_side_idx, target)
+    # A Rally that deals damage can empty the slot it was aiming at, and the
+    # deaths it caused are sitting in the queue: drain them here, or they are
+    # announced late (or not at all, if this swing turns out to be the last).
+    while rt.queue:
+        _dispatch(rt, rt.queue.popleft())
+    if not attacker.alive or not target.alive:
+        return
     bf = (rt.side(0), rt.side(1))
     a_dmg = attack_value(attacker, atk_side, death_resolution=False, battle_field=bf)
     d_dmg = attack_value(target, def_side, death_resolution=False, battle_field=bf)

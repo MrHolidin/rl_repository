@@ -45,6 +45,7 @@ from src.envs.minibg.obs import (
     RACE_ONEHOT_DIM,
     TRIGGER_INDEX,
     UNENCODED_EFFECTS,
+    UNENCODED_TRIGGERS,
     _RACE_ORDER,
     effect_signature,
 )
@@ -185,6 +186,8 @@ def _effect_id(effect_obj) -> int:
 def _trigger_id(trigger: Trigger) -> int:
     idx = TRIGGER_INDEX.get(trigger)
     if idx is None:
+        if trigger.name in UNENCODED_TRIGGERS:
+            return 0  # deliberately outside the frozen vocabulary
         raise KeyError(
             f"trigger {trigger!r} not in TRIGGER_INDEX; add it to the registry."
         )
