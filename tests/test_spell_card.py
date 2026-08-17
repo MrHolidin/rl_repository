@@ -1,10 +1,10 @@
-"""TavernSpell: construction, PatchContext loading, migrated triple-reward dispatch."""
+"""SpellCard: construction, PatchContext loading, migrated triple-reward dispatch."""
 
 from dataclasses import replace
 
 from tests.conftest import PATCH_CTX
 
-from src.bg_core.tavern_spell import TavernSpell
+from src.bg_core.spell_card import SpellCard
 from src.bg_recruitment.triples import (
     TRIPLE_REWARD_SPELL_CARD_ID,
     is_triple_reward_discover_spell,
@@ -15,7 +15,7 @@ from src.bg_recruitment.triples import (
 def test_tavern_spell_is_not_a_minion():
     from src.bg_core.minion import Minion
 
-    spell = TavernSpell(card_id="x", name="X")
+    spell = SpellCard(card_id="x", name="X")
     assert not isinstance(spell, Minion)
     assert not hasattr(spell, "is_triple_reward_spell")
     assert not hasattr(spell, "base_attack")
@@ -23,7 +23,7 @@ def test_tavern_spell_is_not_a_minion():
 
 def test_patch_context_carries_the_triple_reward_spell():
     spell = PATCH_CTX.tavern_spells[TRIPLE_REWARD_SPELL_CARD_ID]
-    assert isinstance(spell, TavernSpell)
+    assert isinstance(spell, SpellCard)
     assert spell.card_id == TRIPLE_REWARD_SPELL_CARD_ID
     assert spell.triple_discover_tier == 0
 
@@ -40,7 +40,7 @@ def test_triple_reward_placeholder_minion_still_occupies_its_dense_index():
 
 def test_make_triple_reward_discover_spell_builds_a_tavern_spell():
     spell = make_triple_reward_discover_spell(discover_tier=3, patch=PATCH_CTX)
-    assert isinstance(spell, TavernSpell)
+    assert isinstance(spell, SpellCard)
     assert spell.card_id == TRIPLE_REWARD_SPELL_CARD_ID
     assert spell.triple_discover_tier == 3
     assert is_triple_reward_discover_spell(spell)

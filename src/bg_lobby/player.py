@@ -10,13 +10,13 @@ from typing import Dict, List, Optional, Tuple, Union
 from src.bg_catalog.ruleset import DEFAULT_RULESET, Ruleset
 from src.bg_core.hero import Hero
 from src.bg_core.minion import Minion, Race
-from src.bg_core.tavern_spell import TavernSpell
+from src.bg_core.spell_card import SpellCard
 from src.envs.minibg.actions import MAX_SHOP_SLOTS
 
 # What a hand slot can hold. `board`/`shop` stay Minion-only — only minions
 # are ever placed or offered in the minion shop; a bought tavern spell sits
 # in `hand` until PLAY consumes it (see src/bg_recruitment/triples.py).
-HandCard = Union[Minion, TavernSpell]
+HandCard = Union[Minion, SpellCard]
 
 # History length for obs-side last-N-battles features. Length = 3 matches
 # what real-BG shows on the opponent panel; bumping requires re-training.
@@ -266,7 +266,7 @@ def copy_player_state(p: PlayerState) -> PlayerState:
     values = {
         "board": new_board,
         "shop": [m.__copy__() if m is not None else None for m in p.shop],
-        # hand can hold a TavernSpell (no custom __copy__) alongside Minion —
+        # hand can hold a SpellCard (no custom __copy__) alongside Minion —
         # the generic copy.copy() dispatches correctly for both.
         "hand": [_shallow_copy(m) if m is not None else None for m in p.hand],
         "last_round_tribe_counts": dict(p.last_round_tribe_counts),

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, TextIO, Union
 
 from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_core.effects import Ability, Effect, Keyword
-from src.bg_core.tavern_spell import TavernSpell
+from src.bg_core.spell_card import SpellCard
 from .state import HandCard, MiniBGState, PlayerState
 
 
@@ -47,7 +47,7 @@ def _ability_dict(ab: Ability) -> Dict[str, Any]:
 
 
 def minion_to_dict(m: HandCard) -> Dict[str, Any]:
-    if isinstance(m, TavernSpell):
+    if isinstance(m, SpellCard):
         # Same shape as a Minion dict, reproducing exactly what the old
         # is_triple_reward_spell-hacked Minion used to serialize for this
         # card: zero-stat, tokened, no race/keywords, the two spell fields set.

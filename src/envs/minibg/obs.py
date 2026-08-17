@@ -92,7 +92,7 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment import economy as bg_economy
 from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL
-from src.bg_core.tavern_spell import TavernSpell
+from src.bg_core.spell_card import SpellCard
 from .state import (
     HandCard,
     MiniBGState,
@@ -581,7 +581,7 @@ def _count_non_golden_same_card_hand(
             continue
         if exclude_hand_idx is not None and i == exclude_hand_idx:
             continue
-        # TavernSpell has no is_golden — never golden, so treat as False.
+        # SpellCard has no is_golden — never golden, so treat as False.
         if not getattr(hm, "is_golden", False) and hm.card_id == card_id:
             n += 1
     return n
@@ -630,7 +630,7 @@ def encode_minion(
     # Unknown card_ids (e.g. test fixtures outside patch templates) collapse to 0.
     v[CARD_IDX_OFFSET] = float(dense.get(minion.card_id, CARD_INDEX_EMPTY))
 
-    if isinstance(minion, TavernSpell):
+    if isinstance(minion, SpellCard):
         # Reproduces exactly what the old is_triple_reward_spell-hacked,
         # zero-stat Minion used to encode for this card: no tier one-hot (its
         # tier is 0), no stats, race one-hot's "no race" bit (index 0, same
@@ -683,7 +683,7 @@ def encode_minion(
         BOARD_SIZE
     )
     # TRIPLE_REWARD_SPELL_OFFSET/TRIPLE_DISCOVER_TIER_OFFSET are set in the
-    # TavernSpell branch above and stay 0 here — a real Minion is never that
+    # SpellCard branch above and stay 0 here — a real Minion is never that
     # card anymore (see the early-return branch).
     v[FROZEN_OFFSET] = 1.0 if is_frozen else 0.0
     return v

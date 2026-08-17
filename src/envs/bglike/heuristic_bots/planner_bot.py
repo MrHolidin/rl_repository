@@ -64,7 +64,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_core.minion import Minion, Race
-from src.bg_core.tavern_spell import TavernSpell
+from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PendingChoiceKind, PlayerState
 from src.bg_recruitment.economy import (
     effective_buy_cost,
@@ -275,7 +275,7 @@ class PlannerHeuristicBot(HeuristicBot):
 
         for i in range(min(HAND_SIZE, len(p.hand))):
             m = p.hand[i]
-            if m is None or isinstance(m, TavernSpell):
+            if m is None or isinstance(m, SpellCard):
                 continue
             v = self._v(m, board_len=bl + 1, dominant=dom, rl=rl, rn=rn)
             v += triple_progress_place_bonus(p, m.card_id, i)
@@ -613,7 +613,7 @@ class PlannerHeuristicBot(HeuristicBot):
         # A triple reward spell is free value and does not cost a board slot.
         for i in range(min(HAND_SIZE, len(p.hand))):
             hm = p.hand[i]
-            if hm is not None and isinstance(hm, TavernSpell) and bool(mask[A_PLAY_BASE + i]):
+            if hm is not None and isinstance(hm, SpellCard) and bool(mask[A_PLAY_BASE + i]):
                 return A_PLAY_BASE + i
 
         magnets = [a for a in legal if is_magnet(a)]

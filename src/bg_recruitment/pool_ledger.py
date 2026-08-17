@@ -91,7 +91,7 @@ def on_eliminate_player(pool: Optional[SharedCardPool], player: PlayerState) -> 
     for m in player.board:
         pool.release_minion(m)
     for m in player.hand:
-        # A TavernSpell in hand (e.g. the un-played triple-reward discover
+        # A SpellCard in hand (e.g. the un-played triple-reward discover
         # spell) was never reserved from the shared pool — nothing to release.
         if isinstance(m, Minion):
             pool.release_minion(m)

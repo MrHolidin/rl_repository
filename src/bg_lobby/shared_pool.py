@@ -84,7 +84,7 @@ def copies_for_minion(m: Minion) -> int:
     """Copies one minion instance represents in the shared pool.
 
     Tavern spells never reach here — they don't go through minion pool
-    bookkeeping at all (see triples.py) — so there's no TavernSpell case to
+    bookkeeping at all (see triples.py) — so there's no SpellCard case to
     handle, unlike the other ``Minion``-filtering call sites in this module.
     """
     if m.is_golden:

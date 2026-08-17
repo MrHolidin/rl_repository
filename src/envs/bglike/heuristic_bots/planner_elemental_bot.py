@@ -75,7 +75,7 @@ def _has_nomi(p: PlayerState) -> bool:
 
 
 def _is_elemental(m) -> bool:
-    # m may be a TavernSpell (no race attribute) if it's sitting in hand.
+    # m may be a SpellCard (no race attribute) if it's sitting in hand.
     return getattr(m, "race", None) == Race.ELEMENTAL
 
 

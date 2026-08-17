@@ -120,11 +120,11 @@ class _BotView:
 def _minion_digest(m) -> tuple:
     if m is None:
         return ()
-    from src.bg_core.tavern_spell import TavernSpell
+    from src.bg_core.spell_card import SpellCard
 
-    if isinstance(m, TavernSpell):
+    if isinstance(m, SpellCard):
         # Reproduces the digest of the zero-stat, tokened Minion this card
-        # used to be represented as before the TavernSpell migration.
+        # used to be represented as before the SpellCard migration.
         return (m.card_id, 0, 0, 0, 0, False, False, (), len(m.abilities or ()))
     return (
         m.card_id,
