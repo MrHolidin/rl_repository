@@ -574,6 +574,58 @@ class GrantKeywordAllFriendlyOfTribe:
     tribe: Any
 
 
+class BloodGemTarget(Enum):
+    """Who a card's own Blood Gems land on.
+
+    Every shape printed on a live Quilboar card: "on itself", "on adjacent
+    minions", "on all your other minions", "on all your Quilboar". Members are
+    part of the effect's identity — add, never rename.
+    """
+
+    SELF = auto()
+    ADJACENT = auto()
+    ALL_FRIENDLY = auto()
+    ALL_OTHER_FRIENDLY = auto()
+    ALL_FRIENDLY_QUILBOAR = auto()
+
+
+@dataclass(frozen=True)
+class GainBloodGemsEffect:
+    """Put ``count`` Blood Gems in hand ("Battlecry: Get 2 Blood Gems").
+
+    ``quilboar_keyword`` covers the printings that hand out a Gem which also
+    gives a Quilboar Taunt / Reborn / Divine Shield.
+    """
+
+    count: int = 1
+    quilboar_keyword: Optional[Keyword] = None
+
+
+@dataclass(frozen=True)
+class PlayBloodGemsEffect:
+    """The source plays ``count`` Gems itself, on ``target``.
+
+    Distinct from :class:`GainBloodGemsEffect`: nothing reaches hand and the
+    seat makes no choice — the card names who gets them.
+    """
+
+    target: BloodGemTarget
+    count: int = 1
+
+
+@dataclass(frozen=True)
+class IncreaseBloodGemBonusEffect:
+    """"Your Blood Gems give an extra +1/+1 this game."
+
+    Raises the value of every *future* Gem for this seat; Gems already played
+    keep the stats they gave. Attack and Health move independently because Gem
+    Day grants one or the other.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
 class CountSource(Enum):
     """What :class:`BuffSelfPerCount` counts on the owner's board.
 
@@ -829,6 +881,10 @@ __all__ = [
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
     "GrantKeywordAllFriendlyOfTribe",
+    "BloodGemTarget",
+    "GainBloodGemsEffect",
+    "PlayBloodGemsEffect",
+    "IncreaseBloodGemBonusEffect",
     "BuffSelfPerCount",
     "CountSource",
     "AddRandomMinionToHandEffect",

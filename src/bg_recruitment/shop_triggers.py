@@ -15,6 +15,9 @@ from src.bg_core.effects import (
     AddRandomMinionToShopEffect,
     AddFromLastOpponentBoardEffect,
     AddRandomMinionToHandEffect,
+    GainBloodGemsEffect,
+    IncreaseBloodGemBonusEffect,
+    PlayBloodGemsEffect,
     AddTokenToHandEffect,
     BuffSelfPerCount,
     TransformIntoShopMinionEffect,
@@ -50,6 +53,11 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.blood_gems import (
+    blood_gem_targets,
+    give_blood_gems,
+    play_blood_gem_on,
+)
 from src.bg_core.board_helpers import (
     apply_buff_matching,
     apply_summoned_listener,
@@ -415,6 +423,16 @@ class ShopTriggers:
                 rng=self._rng,
                 patch=self._patch,
             )
+        elif isinstance(effect, GainBloodGemsEffect):
+            give_blood_gems(
+                player, effect.count, quilboar_keyword=effect.quilboar_keyword
+            )
+        elif isinstance(effect, PlayBloodGemsEffect):
+            for target in blood_gem_targets(player, source, effect.target):
+                play_blood_gem_on(player, target, count=effect.count)
+        elif isinstance(effect, IncreaseBloodGemBonusEffect):
+            player.blood_gem_bonus_attack += effect.attack
+            player.blood_gem_bonus_health += effect.health
         else:
             raise UnhandledShopEffect(
                 f"{type(effect).__name__} reached the shop dispatcher with no "

@@ -303,7 +303,14 @@ assert len(_EFFECT_CLASSES) == NUM_EFFECT_CHANNELS, (
 # touching it — that is what this set is for. Registering one properly is an
 # RL-side decision, taken together with a retrain, and moving a name out of here
 # into _EFFECT_CLASSES is exactly that decision.
-UNENCODED_EFFECTS: frozenset[str] = frozenset({"AvengeEffect"})
+UNENCODED_EFFECTS: frozenset[str] = frozenset(
+    {
+        "AvengeEffect",
+        "GainBloodGemsEffect",
+        "PlayBloodGemsEffect",
+        "IncreaseBloodGemBonusEffect",
+    }
+)
 
 # An entry is either a bare effect class (one class → one id, the common case)
 # or ``(class, discriminator)`` for a composed effect whose variants must keep

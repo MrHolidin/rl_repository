@@ -6,7 +6,10 @@
     "NUM_RACE_IDS": 10,
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
-      "AvengeEffect"
+      "AvengeEffect",
+      "GainBloodGemsEffect",
+      "IncreaseBloodGemBonusEffect",
+      "PlayBloodGemsEffect"
     ],
     "unencoded_triggers": [
       "ON_ATTACK"

@@ -66,6 +66,14 @@ class Minion:
     from_triple_merge: bool = False
     dbf_id: Optional[int] = None
     sell_value: Optional[int] = None
+    # Stats this minion has taken from Blood Gems, kept alongside the buff they
+    # already applied to ``bonus_*``. Recorded rather than merged because cards
+    # read it back: Jailbird Juggernaut summons a Golem "with stats equal to
+    # this minion's Blood Gems", and Gem Confiscation "steals all Blood Gems
+    # from its neighbors" — neither can be expressed if a Gem is just +1/+1
+    # dissolved into the total.
+    blood_gem_attack: int = 0
+    blood_gem_health: int = 0
 
     #: entity identity; see ``next_instance_id``
     instance_id: int = field(default_factory=next_instance_id)

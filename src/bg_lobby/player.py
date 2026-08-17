@@ -119,6 +119,11 @@ class PlayerState:
     last_combat_won: bool = False
     last_opponent_board: Tuple[Minion, ...] = ()
     shop_elemental_bonus: int = 0
+    # Extra stats every Blood Gem this seat plays gives, on top of the printed
+    # +1/+1, for the rest of the game ("Your Blood Gems give an extra +1/+1 this
+    # game"). Two numbers, not one: Gem Day grants Attack or Health alone.
+    blood_gem_bonus_attack: int = 0
+    blood_gem_bonus_health: int = 0
     elementals_played: int = 0
     pirates_bought_this_turn: int = 0
     hero_damage_taken_total: int = 0
