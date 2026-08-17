@@ -632,6 +632,37 @@ class IncreaseBloodGemBonusEffect:
     health: int = 0
 
 
+@dataclass(frozen=True)
+class GrantTemporaryBuffEffect:
+    """Stats and/or a keyword on one minion, gone by the owner's next turn.
+
+    What every Spellcraft spell does ("Give a minion +2/+6 and Taunt until next
+    turn"). ``keyword_if_race`` covers Waverider, whose spell gives +2/+2 to
+    anyone but Windfury only to a Naga.
+    """
+
+    attack: int = 0
+    health: int = 0
+    keyword: Optional[Keyword] = None
+    keyword_if_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class CreateSpellcraftSpellEffect:
+    """Put this minion's Spellcraft spell in hand.
+
+    The spell is described here rather than looked up, because that is how the
+    card reads: the Naga's text *is* the spell's text. It is handed out when
+    the minion is played and again at the start of every turn, and it is
+    discarded unused at end of turn. A golden Naga makes a golden spell with
+    double the effect, which is the ``buff``'s doubled stats.
+    """
+
+    buff: GrantTemporaryBuffEffect
+    card_id: str = ""
+    name: str = ""
+
+
 class CountSource(Enum):
     """What :class:`BuffSelfPerCount` counts on the owner's board.
 

@@ -7,7 +7,9 @@
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
       "AvengeEffect",
+      "CreateSpellcraftSpellEffect",
       "GainBloodGemsEffect",
+      "GrantTemporaryBuffEffect",
       "IncreaseBloodGemBonusEffect",
       "PlayBloodGemsEffect"
     ],

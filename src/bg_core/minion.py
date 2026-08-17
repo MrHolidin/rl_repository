@@ -110,6 +110,16 @@ class Minion:
     venom_spent: bool = False
     #: Friendly deaths seen since this minion's Avenge last fired (combat only).
     avenge_progress: int = 0
+    # --- "until next turn" ------------------------------------------------
+    #: Stats and keywords that expire at the start of the owner's next recruit
+    #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").
+    #: Separate from ``bonus_*`` because they are removed again, and separate
+    #: from the combat-only fields above because they must survive the combat
+    #: they were cast for: cast in recruit N, felt in combat N, gone by recruit
+    #: N+1. ``expire_temporary_buffs`` is the only thing that clears them.
+    temp_attack: int = 0
+    temp_health: int = 0
+    temp_keywords: frozenset[Keyword] = field(default_factory=frozenset)
     #: board slot this minion vacated when it died, so its deathrattle can
     #: summon there and Reborn can return there
     death_pos: int = -1
@@ -138,15 +148,15 @@ class Minion:
 
     @property
     def all_keywords(self) -> frozenset[Keyword]:
-        return self.keywords | self.granted_keywords
+        return self.keywords | self.granted_keywords | self.temp_keywords
 
     @property
     def max_health(self) -> int:
-        return self.base_health + self.bonus_health
+        return self.base_health + self.bonus_health + self.temp_health
 
     @property
     def raw_attack(self) -> int:
-        return self.base_attack + self.bonus_attack
+        return self.base_attack + self.bonus_attack + self.temp_attack
 
 
 __all__ = ["Race", "Minion"]

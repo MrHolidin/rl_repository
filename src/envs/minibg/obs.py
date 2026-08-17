@@ -309,6 +309,8 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "GainBloodGemsEffect",
         "PlayBloodGemsEffect",
         "IncreaseBloodGemBonusEffect",
+        "CreateSpellcraftSpellEffect",
+        "GrantTemporaryBuffEffect",
     }
 )
 

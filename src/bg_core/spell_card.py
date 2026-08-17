@@ -39,6 +39,12 @@ class SpellCard:
     #: tier its Discover offers). Real spell content is expected to leave this
     #: at 0 and drive behavior through ``abilities`` instead.
     triple_discover_tier: int = 0
+    #: Made by a Naga's Spellcraft rather than bought. Its own school in the
+    #: card data (``spellSchool=SPELLCRAFT``, next to TAVERN), and cards read
+    #: it back: "the first Spellcraft spell played on this each turn is
+    #: permanent", "when a Spellcraft spell is played on this, get a copy".
+    #: Such a spell is discarded at end of turn if unused.
+    is_spellcraft: bool = False
     #: A Blood Gem: +1/+1 (plus the seat's accumulated Gem bonus) onto one
     #: friendly minion. Its own flag rather than a card_id comparison because
     #: four printings exist — the plain Gem and three that also hand a Quilboar

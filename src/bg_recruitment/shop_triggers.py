@@ -15,7 +15,9 @@ from src.bg_core.effects import (
     AddRandomMinionToShopEffect,
     AddFromLastOpponentBoardEffect,
     AddRandomMinionToHandEffect,
+    CreateSpellcraftSpellEffect,
     GainBloodGemsEffect,
+    GrantTemporaryBuffEffect,
     IncreaseBloodGemBonusEffect,
     PlayBloodGemsEffect,
     AddTokenToHandEffect,
@@ -53,6 +55,11 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.spellcraft import (
+    discard_spellcraft_spells,
+    expire_temporary_buffs,
+    give_spellcraft_spell,
+)
 from src.bg_recruitment.activate import reset_activations
 from src.bg_recruitment.blood_gems import (
     blood_gem_targets,
@@ -416,6 +423,10 @@ class ShopTriggers:
             apply_transform_into_shop_minion(
                 player, idx, pick, patch=self._patch, copy_golden=effect.copy_golden
             )
+        elif isinstance(effect, CreateSpellcraftSpellEffect):
+            # Playing the Naga hands you its spell straight away; the start of
+            # every later turn hands you another (fire_on_turn_start).
+            give_spellcraft_spell(player, effect)
         elif isinstance(effect, AddRandomMinionToHandEffect):
             add_random_minion_to_hand(
                 player,
@@ -648,6 +659,8 @@ class ShopTriggers:
                 self.apply_shop_effect(player, m, ab.effect, placed)
 
     def fire_on_turn_end(self, player: PlayerState) -> None:
+        # A Spellcraft spell is worth exactly the turn it was made for.
+        discard_spellcraft_spells(player)
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_END:
@@ -674,6 +687,9 @@ class ShopTriggers:
         player.pirates_bought_this_turn = 0
         player.elementals_played = 0
         reset_activations(player)
+        # Last turn's "until next turn" buffs end here — after the combat they
+        # were cast for, before the seat acts again.
+        expire_temporary_buffs(player)
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_START:
@@ -687,6 +703,8 @@ class ShopTriggers:
                     self.apply_buff_one_per_listed_tribe(source, e, player.board)
                 elif isinstance(e, BuffSelf):
                     self.apply_shop_effect(player, source, e, None)
+                elif isinstance(e, CreateSpellcraftSpellEffect):
+                    give_spellcraft_spell(player, e)
         for source in list(player.hand):
             if source is None:
                 continue
