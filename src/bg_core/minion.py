@@ -144,6 +144,9 @@ class Minion:
     #: The next Magnetization onto this body lands twice (Drone Duplicator).
     #: Spent by that Magnetization, and cleared at the start of the turn.
     magnet_doubles_next: bool = False
+    #: Hero damage this body has watched, for the cards that answer every Nth
+    #: point rather than every hit ("after your hero takes 4 damage").
+    hero_damage_seen: int = 0
     #: Damage this body has dealt in combat, across every fight it has been in
     #: ("once this deals 40 damage…"). Per body and not per printing: two
     #: copies count separately, and a golden made from three starts over,

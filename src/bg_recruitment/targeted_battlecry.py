@@ -103,16 +103,21 @@ def consume_tavern_minion(
     eater: Minion,
     *,
     rng: np.random.Generator,
+    highest_health: bool = False,
 ) -> Optional[Minion]:
-    """``eater`` eats a random minion off the counter and takes its stats.
+    """``eater`` eats a minion off the counter and takes its stats.
 
     The stats are the ones the tavern shows, auras included — the same reading
-    ``ConsumeFriendlyBattlecry`` takes of a minion it eats off the board.
+    ``ConsumeFriendlyBattlecry`` takes of a minion it eats off the board. One at
+    random unless the card names the biggest.
     """
     filled = [i for i, m in enumerate(player.shop) if m is not None]
     if not filled:
         return None
-    idx = filled[int(rng.integers(0, len(filled)))]
+    if highest_health:
+        idx = max(filled, key=lambda i: player.shop[i].max_health)
+    else:
+        idx = filled[int(rng.integers(0, len(filled)))]
     eaten = player.shop[idx]
     attack, health = shop_effective_stats([m for m in player.shop if m is not None], eaten)
     eater.bonus_attack += attack

@@ -37,6 +37,7 @@
       "GiveLockboxEffect",
       "GrantKeywordAtAttackThreshold",
       "GrantTemporaryBuffEffect",
+      "HeroDamageResponseEffect",
       "IncreaseBloodGemBonusEffect",
       "IncreaseTavernSpellBonusEffect",
       "KeepCombatGainsEffect",
@@ -50,7 +51,6 @@
       "RefreshesCostHealthEffect",
       "RepeatPerCountEffect",
       "RewardAtDamageDealtEffect",
-      "RewindHeroDamageEffect",
       "SelfBonusPerGameCount",
       "StealTavernMinionEffect",
       "SummonBestFromHandEffect",
@@ -60,6 +60,7 @@
       "ON_ACTIVATE",
       "ON_ATTACK",
       "ON_CHOOSE_ONE_PLAYED",
+      "ON_HERO_DAMAGE",
       "ON_TARGETED_BY_SPELL",
       "ON_TAVERN_SPELL_CAST"
     ]

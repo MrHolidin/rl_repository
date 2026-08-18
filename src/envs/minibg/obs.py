@@ -186,7 +186,7 @@ assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS, (
 # invalidates every checkpoint that has one. An ability on such a trigger reads
 # as the unknown id 0.
 UNENCODED_TRIGGERS: frozenset[str] = frozenset(
-    {"ON_ATTACK", "ON_ACTIVATE", "ON_CHOOSE_ONE_PLAYED", "ON_TARGETED_BY_SPELL", "ON_TAVERN_SPELL_CAST"}
+    {"ON_ATTACK", "ON_ACTIVATE", "ON_CHOOSE_ONE_PLAYED", "ON_TARGETED_BY_SPELL", "ON_TAVERN_SPELL_CAST", "ON_HERO_DAMAGE"}
 )
 
 _missing_triggers = [
@@ -344,7 +344,7 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "BuffShopOnEveryRefreshEffect",
         "BuffRandomHandMinionEffect",
         "KeepCombatGainsEffect",
-        "RewindHeroDamageEffect",
+        "HeroDamageResponseEffect",
         "AddCardToNextRefreshesEffect",
         "FirstSpellcraftIsPermanentEffect",
         "ConsumeTavernMinionEffect",

@@ -91,8 +91,8 @@ def resolve_battle_and_advance(
         # because those are applied in one batch after the fight by rule.
         seats=(PlayerCombatSeat(pa, patch=patch), PlayerCombatSeat(pb, patch=patch)),
     )
-    apply_hero_damage(state.players[0], dmg_p0)
-    apply_hero_damage(state.players[1], dmg_p1)
+    apply_hero_damage(state.players[0], dmg_p0, patch=patch)
+    apply_hero_damage(state.players[1], dmg_p1, patch=patch)
     state.players[0].gold += combat_gold[0]
     state.players[1].gold += combat_gold[1]
     apply_combat_hand_adds(pa, combat_hand_adds[0], patch, shared_pool=state.shared_pool)

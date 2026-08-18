@@ -116,8 +116,10 @@ def _apply_hero_damage(
     state,
     seat: int,
     damage: int,
+    *,
+    patch=None,
 ) -> None:
-    apply_hero_damage(state.players[seat], damage)
+    apply_hero_damage(state.players[seat], damage, patch=patch)
 
 
 def _eliminate_seat(
@@ -237,7 +239,7 @@ def resolve_combat_round(
                 seats=(PlayerCombatSeat(live, patch=patch), RecordingSeat()),
             )
             dmg_live = battle_result.damage_p0
-            _apply_hero_damage(state, match.a, dmg_live)
+            _apply_hero_damage(state, match.a, dmg_live, patch=patch)
             # Record battle-prediction-head snapshots for the live seat. Ghost
             # is treated like a normal opponent: own=side0 (live), opp=side1
             # (ghost board). raw_signed: +raw_p1 if I won (raw_damage_p1 is
@@ -327,8 +329,8 @@ def resolve_combat_round(
             battle_result.raw_damage_p0 - battle_result.raw_damage_p1
         )
         if p0_first:
-            _apply_hero_damage(state, a, dmg_a)
-            _apply_hero_damage(state, b, dmg_b)
+            _apply_hero_damage(state, a, dmg_a, patch=patch)
+            _apply_hero_damage(state, b, dmg_b, patch=patch)
             pa.last_combat_won = dmg_a == 0 and dmg_b > 0
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]
@@ -340,8 +342,8 @@ def resolve_combat_round(
                 pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool
             )
         else:
-            _apply_hero_damage(state, b, dmg_b)
-            _apply_hero_damage(state, a, dmg_a)
+            _apply_hero_damage(state, b, dmg_b, patch=patch)
+            _apply_hero_damage(state, a, dmg_a, patch=patch)
             pa.last_combat_won = dmg_a == 0 and dmg_b > 0
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
             pa.gold += combat_gold[0]

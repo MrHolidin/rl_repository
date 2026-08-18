@@ -62,7 +62,7 @@ def effective_level_up_cost(player: PlayerState) -> int:
     return max(0, base)
 
 
-def _pay_refresh_in_health(player: PlayerState, cost: int) -> bool:
+def _pay_refresh_in_health(player: PlayerState, cost: int, *, patch=None) -> bool:
     """Pay this refresh in Health if the seat has a charge for it.
 
     The payment is hero damage rather than a bare subtraction, so everything
@@ -89,7 +89,7 @@ def _pay_refresh_in_health(player: PlayerState, cost: int) -> bool:
         player.health_refreshes_left = 0
         return False
     player.health_refreshes_left -= 1
-    apply_hero_damage(player, int(amount))
+    apply_hero_damage(player, int(amount), patch=patch)
     return True
 
 
@@ -187,7 +187,7 @@ def roll_shop(
     patch: PatchContext,
 ) -> None:
     cost = effective_roll_cost(player)
-    paid_in_health = _pay_refresh_in_health(player, cost)
+    paid_in_health = _pay_refresh_in_health(player, cost, patch=patch)
     if not paid_in_health:
         player.gold -= cost
     # Nozdormu: consume the free first refresh for this turn.

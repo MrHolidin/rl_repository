@@ -55,6 +55,9 @@ class Trigger(Enum):
     #: Blood Gems, which are the two things the engine lets a seat cast at a
     #: body ("Whenever you cast a spell on this, gain +1 Health").
     ON_TARGETED_BY_SPELL = auto()
+    #: shop: the seat's hero just took combat damage. Listeners may undo it —
+    #: which is why they run *before* the health is written, not after.
+    ON_HERO_DAMAGE = auto()
     #: shop: the seat cast a Tavern spell, after it resolved. Narrower than
     #: ON_TARGETED_BY_SPELL on purpose — that one is "a spell hit this minion",
     #: this one is "the seat cast one at all", and Blood Gems are not Tavern
@@ -778,11 +781,16 @@ class BuffSelfOnFriendlySoldEffect:
     Sits on ``Trigger.ON_SELL`` like the sold minion's own effects, and the type
     is what tells the two apart: this one belongs to a *watcher* on the board,
     not to the card leaving it.
+
+    ``effect`` is for the watchers that do something other than grow — Twisted
+    Wrathguard leaves a card in the next roll — and stats and effect are not
+    exclusive, since a card could print both.
     """
 
     attack: int = 0
     health: int = 0
     filter_race: Optional[Any] = None
+    effect: Any = None
 
 
 @dataclass(frozen=True)
@@ -876,15 +884,20 @@ class KeepCombatGainsEffect:
 
 
 @dataclass(frozen=True)
-class RewindHeroDamageEffect:
-    """Undo the damage the hero just took, and grow by ``health``.
+class HeroDamageResponseEffect:
+    """What a minion does when its owner's hero takes damage.
 
-    Not prevention at the source: the card reads "after your hero takes damage,
-    rewind it", and the difference is visible to anything that watches for the
-    damage having happened.
+    Four cards, three axes. ``rewind`` undoes the damage ("rewind it") and is
+    what separates Soul Rewinder from Tichondrius, who only watches. ``effect``
+    is the payload, which is an ordinary effect — a self buff, a tribe buff, a
+    card fetched. ``threshold`` makes it a counter rather than a trigger:
+    "after your hero takes 4 damage" fires once per four, and the running total
+    is the body's own.
     """
 
-    health: int = 1
+    effect: Any = None
+    rewind: bool = False
+    threshold: int = 0
 
 
 @dataclass(frozen=True)
@@ -919,6 +932,15 @@ class ConsumeTavernMinionEffect:
 
     filter_race: Optional[Any] = None
     count: int = 1
+    #: Take the biggest rather than one at random ("consume the highest-Health
+    #: minion in the Tavern").
+    highest_health: bool = False
+    #: Every friendly of ``filter_race`` eats, not one of them ("your Demons
+    #: *each* consume a random minion in the Tavern").
+    each: bool = False
+    #: The eater is the card carrying this, not one the seat picks — which is
+    #: what separates Insatiable Ur'zul from Mind Muck.
+    eater_is_source: bool = False
 
 
 @dataclass(frozen=True)
@@ -1446,7 +1468,7 @@ Effect = Union[
     SummonBestFromHandEffect,
     BuffRandomHandMinionEffect,
     KeepCombatGainsEffect,
-    RewindHeroDamageEffect,
+    HeroDamageResponseEffect,
     AddCardToNextRefreshesEffect,
     FirstSpellcraftIsPermanentEffect,
     ConsumeTavernMinionEffect,
@@ -1601,7 +1623,7 @@ __all__ = [
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
     "KeepCombatGainsEffect",
-    "RewindHeroDamageEffect",
+    "HeroDamageResponseEffect",
     "AddCardToNextRefreshesEffect",
     "FirstSpellcraftIsPermanentEffect",
     "ConsumeTavernMinionEffect",

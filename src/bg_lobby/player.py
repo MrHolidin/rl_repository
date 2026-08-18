@@ -266,20 +266,19 @@ class PlayerState:
         return max(0, base - self.upgrade_discount_accrued)
 
 
-def _hero_damage_rewinder(player: "PlayerState"):
-    """The board minion that undoes hero damage, if the seat has one."""
-    from src.bg_core.effects import RewindHeroDamageEffect, Trigger
+def _hero_damage_listeners(player: "PlayerState"):
+    """Board minions that answer hero damage, in board order."""
+    from src.bg_core.effects import HeroDamageResponseEffect, Trigger
 
     for minion in player.board:
         for ability in minion.abilities:
-            if ability.trigger is Trigger.AURA and isinstance(
-                ability.effect, RewindHeroDamageEffect
+            if ability.trigger is Trigger.ON_HERO_DAMAGE and isinstance(
+                ability.effect, HeroDamageResponseEffect
             ):
-                return minion, ability.effect
-    return None
+                yield minion, ability.effect
 
 
-def apply_hero_damage(player: PlayerState, damage: int) -> None:
+def apply_hero_damage(player: PlayerState, damage: int, *, patch=None) -> None:
     """Apply combat damage to ``player``, absorbing with ``armor`` first.
 
     Single choke point for hero-damage application (both the 2-player and
@@ -288,17 +287,53 @@ def apply_hero_damage(player: PlayerState, damage: int) -> None:
     """
     if damage <= 0:
         return
-    rewinder = _hero_damage_rewinder(player)
-    if rewinder is not None:
+    rewound = _fire_hero_damage(player, damage, patch=patch)
+    if rewound:
         # "After your hero takes damage, rewind it": the damage happened and
-        # was undone, which is why this reads it and returns rather than the
-        # callers checking before they deal it.
-        source, effect = rewinder
-        source.bonus_health += int(effect.health)
+        # was undone, which is why the listeners read it and this returns rather
+        # than the callers checking before they deal it.
         return
     absorbed = min(player.armor, damage)
     player.armor -= absorbed
     player.health -= damage - absorbed
+
+
+def _fire_hero_damage(player: PlayerState, damage: int, *, patch=None) -> bool:
+    """Let the board answer hero damage; report whether any of it undid it.
+
+    Runs before the health is written because a rewind has to be able to stop
+    it. A card counting toward a threshold banks the damage on itself and fires
+    once per full threshold — "(4 left!)" is a countdown that refills.
+    """
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    listeners = list(_hero_damage_listeners(player))
+    if not listeners:
+        return False
+    import numpy as _np
+
+    triggers = None
+    rewound = False
+    for source, effect in listeners:
+        if effect.threshold:
+            source.hero_damage_seen += int(damage)
+            times, source.hero_damage_seen = divmod(
+                source.hero_damage_seen, int(effect.threshold)
+            )
+        else:
+            times = 1
+        if effect.rewind:
+            rewound = True
+        if effect.effect is None or times <= 0 or patch is None:
+            # No patch: a rewind still works (it writes nothing but health),
+            # and a payload that needs the dispatcher waits for a caller that
+            # has one.
+            continue
+        if triggers is None:
+            triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+        for _ in range(times):
+            triggers.apply_shop_effect(player, source, effect.effect, placed=None)
+    return rewound
 
 
 # Fields whose value is a mutable container: a copy must clone them, or two

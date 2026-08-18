@@ -168,7 +168,6 @@ _HANDLED_ELSEWHERE = (
     BuffTargetFromPiratesBoughtBattlecry,
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
-    ConsumeTavernMinionEffect,
     DestroyFriendlyForCopyEffect,
     # fire_on_sell applies this one itself: it belongs to a minion staying
     # behind rather than to the card being sold, and the dispatcher only ever
@@ -548,6 +547,32 @@ class ShopTriggers:
             player.refresh_buffs = player.refresh_buffs + (
                 (int(effect.attack), int(effect.health)),
             )
+        elif isinstance(effect, ConsumeTavernMinionEffect):
+            # Only the shapes that name their own eaters resolve here. The
+            # seat-picked one (Mind Muck) is a targeted battlecry and is applied
+            # by that path; it lands here too and finds nobody to feed, which is
+            # what keeps it from eating twice.
+            from src.bg_recruitment.targeted_battlecry import consume_tavern_minion
+
+            if effect.each:
+                eaters = [
+                    m
+                    for m in player.board
+                    if effect.filter_race is None
+                    or minion_matches_tribe(m, effect.filter_race)
+                ]
+            elif effect.eater_is_source and source is not None:
+                eaters = [source]
+            else:
+                eaters = []
+            for eater in eaters:
+                for _ in range(max(1, effect.count)):
+                    consume_tavern_minion(
+                        player,
+                        eater,
+                        rng=self._rng,
+                        highest_health=effect.highest_health,
+                    )
         elif isinstance(effect, DoubleNextMagnetizeEffect):
             if source is not None:
                 source.magnet_doubles_next = True
@@ -684,6 +709,8 @@ class ShopTriggers:
                     continue
                 watcher.bonus_attack += eff.attack
                 watcher.bonus_health += eff.health
+                if eff.effect is not None:
+                    self.apply_shop_effect(player, watcher, eff.effect, placed=None)
 
     def fire_on_friendly_bought(self, bought: Minion, player: PlayerState) -> None:
         if bought.race == Race.PIRATE:

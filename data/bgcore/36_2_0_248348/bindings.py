@@ -23,6 +23,7 @@ from src.bg_core.effects import (
     BuffAttackerOnFriendlyAttackEffect,
     AddRandomCardToHandEffect,
     BuffOnSpellCastOnTribeEffect,
+    ConsumeTavernMinionEffect,
     BuffSharedTribeEffect,
     BuffPerMagnetizationEffect,
     CastSpellAtEffect,
@@ -89,7 +90,7 @@ from src.bg_core.effects import (
     SelfBonusPerGameCount,
     SummonBestFromHandEffect,
     ReduceTavernSpellCostEffect,
-    RewindHeroDamageEffect,
+    HeroDamageResponseEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
     SummonBestFromHandEffect,
@@ -380,9 +381,10 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BG26_174": (  # Soul Rewinder — hero damage undone, and this grows
-        # A standing property of the body rather than a battlecry: it watches
-        # for as long as it is on the board.
-        Ability(Trigger.AURA, RewindHeroDamageEffect(health=1)),
+        Ability(
+            Trigger.ON_HERO_DAMAGE,
+            HeroDamageResponseEffect(rewind=True, effect=BuffSelf(attack=0, health=1)),
+        ),
     ),
     "BG21_015": (  # Tarecgosa — keeps the stats and keywords it gains in combat
         Ability(Trigger.AURA, KeepCombatGainsEffect()),
@@ -998,6 +1000,89 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_ATTACK,
             CastSpellAtEffect(card_id="BG28_518", to_the_right=True),
+        ),
+    ),
+    # ----------------------------------------------------- the Demon family
+    "BG34_500": (  # Flaming Enforcer — end of turn: eat the biggest tavern minion
+        Ability(
+            Trigger.ON_TURN_END,
+            ConsumeTavernMinionEffect(highest_health=True, eater_is_source=True),
+        ),
+    ),
+    "BG36_503": (  # Soulkeeping Jailer — Activate (2): your Demons each eat one
+        Ability(
+            Trigger.ON_ACTIVATE,
+            ConsumeTavernMinionEffect(filter_race=Race.DEMON, each=True),
+            activate_cost=2,
+        ),
+    ),
+    "BG21_004": (  # Insatiable Ur'zul — Taunt; a Demon played, and it eats
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            ConsumeTavernMinionEffect(eater_is_source=True),
+            filter_race=Race.DEMON,
+        ),
+    ),
+    "BG32_873": (  # Ashen Corruptor — hero damage undone, and the tavern grows
+        Ability(
+            Trigger.ON_HERO_DAMAGE,
+            HeroDamageResponseEffect(
+                rewind=True, effect=BuffAllShopOffersEffect(attack=1, health=1)
+            ),
+        ),
+    ),
+    "BG26_523": (  # Tichondrius — hero damage taken: your Demons +3/+2
+        Ability(
+            Trigger.ON_HERO_DAMAGE,
+            HeroDamageResponseEffect(
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DEMON, attack=3, health=2
+                )
+            ),
+        ),
+    ),
+    "BG36_733": (  # Eredar Escapist — every 4 hero damage, a Tavern spell
+        Ability(
+            Trigger.ON_HERO_DAMAGE,
+            HeroDamageResponseEffect(
+                threshold=4,
+                effect=AddRandomTavernSpellToHandEffect(count=1, gives_stats=True),
+            ),
+        ),
+    ),
+    "BG35_152": (  # Void Pup Trainer — the tavern's small minions +3/+3 this game
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.SHOP, attack=3, health=3, scope_max_tier=3
+            ),
+        ),
+    ),
+    "BG27_016": (  # Champion of Sargeras — Battlecry *and* Deathrattle
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.SHOP, attack=5, health=5),
+        ),
+        Ability(
+            Trigger.ON_DEATH,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.SHOP, attack=5, health=5),
+        ),
+    ),
+    "BG35_155": (  # Twisted Wrathguard — a sale leaves a Fodder in the next roll
+        # A watcher of *other* sales, not something its own sale does — so the
+        # card it leaves behind rides on the watcher rather than on ON_SELL,
+        # which would only fire when the Wrathguard itself was sold.
+        Ability(
+            Trigger.ON_SELL,
+            BuffSelfOnFriendlySoldEffect(
+                effect=AddCardToNextRefreshesEffect(card_id="BG35_150t", refreshes=1)
+            ),
+        ),
+    ),
+    "BG36_731": (  # Imp-lusionist — Deathrattle: two Methodical Madness
+        Ability(
+            Trigger.ON_DEATH,
+            AddTavernSpellToHandEffect(card_id="BG36_880", count=2),
         ),
     ),
 }

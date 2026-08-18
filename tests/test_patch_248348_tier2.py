@@ -521,7 +521,7 @@ def test_soul_rewinder_undoes_the_damage_and_grows(patch):
 
     rewinder = _card(patch, "BG26_174")  # 4/1 Demon
     player = _player(patch, [rewinder], health=30)
-    apply_hero_damage(player, 7)
+    apply_hero_damage(player, 7, patch=patch)
     assert player.health == 30
     assert rewinder.max_health == rewinder.base_health + 1
 
