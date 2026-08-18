@@ -33,6 +33,7 @@ HAND_DISCOVER_KINDS = frozenset(
     {
         PendingChoiceKind.DISCOVER_MURLOC,
         PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
+        PendingChoiceKind.TAVERN_SPELL_DISCOVER,
     }
 )
 

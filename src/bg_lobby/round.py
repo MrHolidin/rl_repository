@@ -14,7 +14,7 @@ from src.bg_core.minion import Race
 from src.bg_lobby.player import PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shop_order import sample_shop_turn_order
 from src.bg_recruitment.combat_seat import PlayerCombatSeat
-from src.bg_recruitment.economy import accrue_upgrade_discount
+from src.bg_recruitment.economy import accrue_upgrade_discount, start_of_turn_gold
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 
 if TYPE_CHECKING:
@@ -121,7 +121,7 @@ def resolve_battle_and_advance(
     state.round_number += 1
     for p in state.players:
         accrue_upgrade_discount(p)
-        p.gold = ruleset.gold_for_round(state.round_number)
+        p.gold = start_of_turn_gold(p, state.round_number)
         p.phase = PlayerPhase.SHOP
         p.shop_actions_used = 0
         p.pending_choice = None

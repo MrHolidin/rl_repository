@@ -23,7 +23,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext
-from src.bg_core.effects import Ability, Trigger
+from src.bg_core.effects import Ability, BuffTargetFriendlyBattlecry, Trigger
 from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerPhase, PlayerState
 
@@ -79,6 +79,7 @@ def activate_minion(
     rng: np.random.Generator,
     patch: PatchContext,
     shared_pool=None,
+    buff_target: Optional[Minion] = None,
 ) -> None:
     """Pay for and fire the Activate on the minion at ``board_index``.
 
@@ -102,11 +103,22 @@ def activate_minion(
         )
 
     from src.bg_recruitment.shop_triggers import ShopTriggers
+    from src.bg_recruitment.targeted_battlecry import apply_targeted_buff
 
     player.gold -= cost
     minion.activate_used_this_turn = True
     triggers = ShopTriggers(rng, patch=patch)
     for ability in activate_abilities(minion):
+        effect = ability.effect
+        if isinstance(effect, BuffTargetFriendlyBattlecry):
+            # "Activate (1): Give another minion +3/+3" names a friendly, so it
+            # goes through the same target pick a battlecry does. The shop
+            # dispatcher deliberately drops these (they are _HANDLED_ELSEWHERE),
+            # so routing them there would spend the gold and do nothing.
+            apply_targeted_buff(
+                player, minion, effect, rng=rng, forced_buff_target=buff_target
+            )
+            continue
         triggers.apply_shop_effect(
-            player, minion, ability.effect, placed=None, shared_pool=shared_pool
+            player, minion, effect, placed=None, shared_pool=shared_pool
         )

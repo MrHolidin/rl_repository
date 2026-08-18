@@ -71,6 +71,11 @@ class Ruleset:
     # patch sets this to 4 ("uncapped once ≤4 players remain alive").
     damage_cap_lifted_at_alive: int = 0
     max_rounds: int = 50
+    #: Tavern spells the counter shows per roll, beside the minion row rather
+    #: than in place of any of it. 1 on a modern patch. Inert on the 2021
+    #: packages, which carry no Tavern spells at all, so the default needs no
+    #: per-package override there.
+    tavern_spells_per_roll: int = 1
 
     def __post_init__(self) -> None:
         # An upgrade out of every tier below the ceiling needs a price. Without
@@ -136,6 +141,7 @@ def ruleset_from_meta(raw: Optional[Mapping]) -> Ruleset:
         "starting_health",
         "damage_cap_lifted_at_alive",
         "max_rounds",
+        "tavern_spells_per_roll",
     ):
         if key in raw:
             kwargs[key] = int(raw[key])

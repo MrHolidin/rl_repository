@@ -582,6 +582,34 @@ def _fire_friendly_attack_listeners(
     _sync_health_all(rt)
 
 
+def _summon_beside(
+    rt: _CombatRuntime,
+    side_idx: int,
+    source: Optional[BattleMinion],
+    effect: SummonEffect,
+) -> bool:
+    """Summon ``effect``'s tokens beside a *living* source, Khadgar included.
+
+    The deathrattle path (``_dr_summon``) cannot serve here: it summons into the
+    slot a dead body vacated and multiplies by the side's deathrattle count. A
+    Rally or an Overkill fires while its minion is still standing, so the tokens
+    land to its right and only the summon multiplier applies.
+
+    Returns ``False`` once the board is full and the rest of the summon is lost.
+    """
+    side = rt.side(side_idx)
+    anchor: Optional[BattleMinion] = source
+    n_sum = _summon_multiplier(side)
+    for _ in range(max(0, effect.count)):
+        for __ in range(n_sum):
+            tok = make_minion(effect.token_id, patch=rt.patch)
+            summoned = _summon_insert(rt, side_idx, tok, _insert_idx_after(side, anchor))
+            if summoned is None:
+                return False
+            anchor = summoned
+    return True
+
+
 def _fire_rally(
     rt: _CombatRuntime,
     attacker: BattleMinion,
@@ -628,6 +656,12 @@ def _fire_rally(
             # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
             # mid-combat, and a permanent Gem played after it is worth more.
             rt.seats[attacker_side_idx].raise_blood_gem_value(eff.attack, eff.health)
+        elif isinstance(eff, SummonEffect) and not (
+            eff.for_opponent or eff.count_from_source_attack
+        ):
+            # "Rally: Summon a 1/1 Beast" — the token lands beside the attacker
+            # mid-swing, in time to be attacked itself this combat.
+            _summon_beside(rt, attacker_side_idx, attacker, eff)
         else:
             raise NotImplementedError(
                 f"Rally effect {type(eff).__name__} has no combat handler "
@@ -1120,21 +1154,8 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
         if isinstance(eff, SummonEffect):
             if eff.for_opponent or eff.count_from_source_attack:
                 continue
-            side = rt.side(e.attacker_side_idx)
-            anchor: Optional[BattleMinion] = att
-            n_sum = _summon_multiplier(side)
-            for _ in range(max(0, eff.count)):
-                for __ in range(n_sum):
-                    tok = make_minion(eff.token_id, patch=rt.patch)
-                    summoned = _summon_insert(
-                        rt,
-                        e.attacker_side_idx,
-                        tok,
-                        _insert_idx_after(side, anchor),
-                    )
-                    if summoned is None:
-                        return
-                    anchor = summoned
+            if not _summon_beside(rt, e.attacker_side_idx, att, eff):
+                return
         elif isinstance(eff, DealDamageRandomEnemyMinion):
             for _ in range(max(1, eff.repeats)):
                 _deal_random_enemy_minion_damage(rt, e.attacker_side_idx, eff.amount)

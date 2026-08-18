@@ -25,6 +25,7 @@ from src.bg_core.effects import (
     GrantTemporaryBuffEffect,
     Trigger,
 )
+from src.bg_core.board_helpers import fire_spell_cast_on
 from src.bg_core.minion import Minion
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerState
@@ -87,6 +88,7 @@ def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None
         race_ok = buff.keyword_if_race is None or target.race == buff.keyword_if_race
         if race_ok:
             target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
+    fire_spell_cast_on(target)
 
 
 def play_spellcraft_spell_from_hand(

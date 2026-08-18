@@ -14,7 +14,9 @@ from typing import Dict, FrozenSet, Mapping, Optional, Tuple
 from src.bg_catalog.patch_catalog import (
     TavernMinionRecord,
     load_patch_catalog,
+    is_duos_only_card_id,
     load_tavern_minions,
+    load_tavern_spells,
     minion_by_id,
     minion_from_tavern_record,
     race_from_hs_string,
@@ -123,12 +125,19 @@ class PatchContext:
         keyword_only_pool_ids: FrozenSet[str] = frozenset(
             getattr(bindings, "KEYWORD_ONLY_POOL_IDS", ())
         )
+        always_golden_ids: FrozenSet[str] = frozenset(
+            getattr(bindings, "ALWAYS_GOLDEN_POOL_IDS", ())
+        )
+        spell_effects: Dict[str, Tuple[Ability, ...]] = dict(
+            getattr(bindings, "SPELL_EFFECTS", {})
+        )
 
         templates, descriptions, pool_ids = _build_templates_and_descriptions(
             catalog_path=catalog_path,
             effects=effects,
             golden_reward_ids=golden_reward_ids,
             token_ids=token_ids,
+            always_golden_ids=always_golden_ids,
         )
         card_index_ids, card_id_to_dense = _build_card_index(
             templates, append_last=hero_token_ids
@@ -160,7 +169,10 @@ class PatchContext:
             num_pool_indices=len(card_index_ids),
             heroes=heroes,
             hero_pool_ids=hero_pool_ids,
-            tavern_spells=_build_tavern_spells(),
+            tavern_spells=_build_tavern_spells(
+                catalog_path=catalog_path,
+                spell_effects=spell_effects,
+            ),
         )
 
 
@@ -252,6 +264,7 @@ def _build_templates_and_descriptions(
     effects: Mapping[str, Tuple[Ability, ...]],
     golden_reward_ids: FrozenSet[str],
     token_ids: FrozenSet[str],
+    always_golden_ids: FrozenSet[str] = frozenset(),
 ) -> Tuple[Dict[str, Minion], Dict[str, PatchCardDescription], FrozenSet[str]]:
     rows = load_tavern_minions(catalog_path)
     by_id = minion_by_id(catalog_path)
@@ -260,9 +273,15 @@ def _build_templates_and_descriptions(
     pool_ids: set[str] = set()
 
     for rec in rows:
-        if rec.is_bacon_pool and not rec.is_golden:
+        if rec.is_bacon_pool and not rec.is_golden and not is_duos_only_card_id(rec.id):
             base = minion_from_tavern_record(rec)
             merged = _merge_template(rec.id, base, effects=effects)
+            if rec.id in always_golden_ids:
+                # "This minion is always Golden, but doesn't give a Triple
+                # Reward" (Aureate Laureate) is one flag, not two rules: the
+                # copy comes out golden, and the triple resolver only ever
+                # merges non-golden copies, so three of them never combine.
+                merged = replace(merged, is_golden=True)
             desc = _description_for(
                 rec,
                 card_id=rec.id,
@@ -375,17 +394,37 @@ def _build_templates_and_descriptions(
     return out, descriptions, frozenset(pool_ids)
 
 
-def _build_tavern_spells() -> Dict[str, SpellCard]:
-    """The tavern-spell catalog. Patch-independent today (mirrors the old
-    synthetic-``Minion`` construction it replaces) — a real per-patch
-    ``tavern_spells.py`` loader is a follow-up once actual spell content
-    exists; this only carries the one spell that already existed."""
-    return {
+def _build_tavern_spells(
+    *,
+    catalog_path: Path,
+    spell_effects: Mapping[str, Tuple[Ability, ...]],
+) -> Dict[str, SpellCard]:
+    """The tavern-spell catalog: every ``tavernSpells`` row the package carries,
+    plus the triple-reward Discover, which is not one of them.
+
+    Bound the same way minions are — the package's ``SPELL_EFFECTS`` supplies
+    the abilities, and a row with no binding is a card that exists, costs what
+    it says and does nothing yet. Packages with no such section (the 2021 ones,
+    which predate Tavern spells) get the single synthetic spell they always had,
+    unchanged.
+    """
+    out: Dict[str, SpellCard] = {
         "triple_reward_discover": SpellCard(
             card_id="triple_reward_discover",
             name="Discover (Triple Reward)",
         ),
     }
+    for rec in load_tavern_spells(catalog_path):
+        out[rec.id] = SpellCard(
+            card_id=rec.id,
+            name=rec.name,
+            cost=rec.cost,
+            tier=rec.tier,
+            abilities=tuple(spell_effects.get(rec.id, ())),
+            dbf_id=rec.dbf_id,
+            is_tavern_spell=True,
+        )
+    return out
 
 
 def _build_card_index(

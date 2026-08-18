@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
 from src.bg_catalog.patch_catalog import (
+    is_duos_only_card_id,
     TavernMinionRecord,
     load_tavern_minions,
 )
@@ -59,11 +60,17 @@ def _has_trigger(ctx: PatchContext, card_id: str, trigger: Trigger) -> bool:
 
 
 def _pool_rows(ctx: PatchContext) -> List[TavernMinionRecord]:
+    """The pool this engine plays: the catalog's, minus the Duos-only cards.
+
+    Same filter ``PatchContext`` applies when it builds templates. Without it
+    the checker would demand a binding for 28 cards that a solo lobby can never
+    offer, and read their absence from ``pool_ids`` as an error.
+    """
     catalog = ctx.patch_dir / "catalog.json"
     return [
         r
         for r in load_tavern_minions(catalog)
-        if r.is_bacon_pool and not r.is_golden
+        if r.is_bacon_pool and not r.is_golden and not is_duos_only_card_id(r.id)
     ]
 
 

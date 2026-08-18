@@ -52,6 +52,10 @@ class CombatSeat(Protocol):
     def raise_blood_gem_value(self, attack: int, health: int) -> None:
         """"Your Blood Gems give an extra +1/+1 this game", raised in combat."""
 
+    def hand_card_ids(self) -> Tuple[str, ...]:
+        """Card ids held in hand, for the Start of Combat effects that fire from
+        there ("If this minion is in your hand, summon a copy of it")."""
+
 
 @dataclass
 class PermanentGemGrant:
@@ -92,6 +96,10 @@ class RecordingSeat:
     def raise_blood_gem_value(self, attack: int, health: int) -> None:
         current_attack, current_health = self.gem_value_raise
         self.gem_value_raise = (current_attack + int(attack), current_health + int(health))
+
+    def hand_card_ids(self) -> Tuple[str, ...]:
+        """Empty: a seatless combat has two lists of minions and no hand."""
+        return ()
 
 
 __all__ = ["CombatSeat", "PermanentGemGrant", "RecordingSeat"]

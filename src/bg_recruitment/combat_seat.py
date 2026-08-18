@@ -57,6 +57,15 @@ class PlayerCombatSeat(RecordingSeat):
             return
         play_blood_gem_on(self.player, target, count=count)
 
+    def hand_card_ids(self) -> Tuple[str, ...]:
+        """The minions in hand, by card id. Spells are not minions and a Start
+        of Combat that summons a copy of itself has nothing to say about them."""
+        return tuple(
+            card.card_id
+            for card in self.player.hand
+            if isinstance(card, Minion)
+        )
+
     def _board_minion(self, instance_id: int) -> Optional[Minion]:
         """The owner's real minion behind a combat copy, by identity."""
         for minion in self.player.board:

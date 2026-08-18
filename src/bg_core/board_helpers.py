@@ -169,6 +169,68 @@ def stat_aura_bonus(
     return atk, hp
 
 
+def fire_spell_cast_on(target: Minion) -> None:
+    """Fire ``ON_TARGETED_BY_SPELL`` listeners on the minion a spell just hit.
+
+    Both casts the engine can aim at a body — a Spellcraft spell and a Blood Gem
+    — come through here, so a card counting them cannot see one kind and miss
+    the other. Each Gem of a multi-Gem play is its own cast.
+    """
+    from .effects import BuffSelf, Trigger
+
+    for ab in target.abilities:
+        if ab.trigger is not Trigger.ON_TARGETED_BY_SPELL:
+            continue
+        eff = ab.effect
+        if isinstance(eff, BuffSelf):
+            target.bonus_attack += eff.attack
+            target.bonus_health += eff.health
+        else:
+            raise NotImplementedError(
+                f"{type(eff).__name__} has no ON_TARGETED_BY_SPELL handler "
+                f"(minion {target.card_id})"
+            )
+
+
+def has_attack_threshold_ability(minion: Minion) -> bool:
+    """Whether this minion watches its own Attack for a keyword latch.
+
+    Cheap enough to ask once when a minion joins a board, which is what combat
+    does — a per-recount scan of every ability would sit in the hot path.
+    """
+    from .effects import GrantKeywordAtAttackThreshold, Trigger
+
+    return any(
+        ab.trigger is Trigger.AURA
+        and isinstance(ab.effect, GrantKeywordAtAttackThreshold)
+        for ab in minion.abilities
+    )
+
+
+def apply_attack_thresholds(minion: Minion, attack: int) -> bool:
+    """Grant any latched keyword this minion's ``attack`` has now earned.
+
+    ``attack`` is passed in rather than read off the minion because the two
+    phases measure it differently: combat counts auras and the shop does not.
+    Returns whether anything was granted, which combat uses to know the health
+    auras need recomputing.
+    """
+    from .effects import GrantKeywordAtAttackThreshold, Trigger
+
+    granted = False
+    for ab in minion.abilities:
+        if ab.trigger is not Trigger.AURA:
+            continue
+        eff = ab.effect
+        if not isinstance(eff, GrantKeywordAtAttackThreshold):
+            continue
+        if attack < eff.threshold or eff.keyword in minion.keywords:
+            continue
+        grant_keyword(minion, eff.keyword)
+        granted = True
+    return granted
+
+
 def grant_keyword(minion: Minion, keyword) -> bool:
     """Give ``minion`` a keyword. Returns whether it did not already have it.
 
@@ -341,6 +403,9 @@ __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
     "apply_summoned_listener",
+    "apply_attack_thresholds",
+    "fire_spell_cast_on",
+    "has_attack_threshold_ability",
     "grant_keyword",
     "grant_keyword_random",
     "index_of",

@@ -17,7 +17,7 @@ from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState, apply_
 from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment import hero_passives
 from src.bg_recruitment.combat_seat import PlayerCombatSeat
-from src.bg_recruitment.economy import accrue_upgrade_discount
+from src.bg_recruitment.economy import accrue_upgrade_discount, start_of_turn_gold
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
 
@@ -382,7 +382,7 @@ def resolve_combat_round(
     for seat in state.alive:
         p = state.players[seat]
         accrue_upgrade_discount(p)
-        p.gold = ruleset.gold_for_round(state.round_number)
+        p.gold = start_of_turn_gold(p, state.round_number)
         p.phase = PlayerPhase.SHOP
         p.shop_actions_used = 0
         p.pending_choice = None

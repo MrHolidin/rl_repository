@@ -25,12 +25,14 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+from src.bg_core.board_helpers import fire_spell_cast_on
 from src.bg_core.effects import BloodGemTarget, Keyword
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerState
 
 from .hand_slots import first_free_hand_slot
+from .shop_auras import refresh_attack_thresholds
 
 __all__ = [
     "BLOOD_GEM_CARD_ID",
@@ -120,6 +122,9 @@ def play_blood_gem_on(
         target.blood_gem_health += health
         if quilboar_keyword is not None and target.race is Race.QUILBOAR:
             target.granted_keywords = target.granted_keywords | {quilboar_keyword}
+        # A Gem is a spell, and it was cast at this body.
+        fire_spell_cast_on(target)
+    refresh_attack_thresholds(player.board)
 
 
 def can_play_blood_gem(player: PlayerState) -> bool:

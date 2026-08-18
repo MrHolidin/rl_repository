@@ -26,6 +26,10 @@ _MECHANIC_KEYWORDS: dict[str, Keyword] = {
     "POISONOUS": Keyword.POISONOUS,
     "REBORN": Keyword.REBORN,
     "VENOMOUS": Keyword.VENOMOUS,
+    # The 2021 dumps tag Magnetic as MODULAR (special-cased in
+    # keywords_for_tavern_record); modern builds print MAGNETIC on the card and
+    # tag it that way too. Both names, one keyword.
+    "MAGNETIC": Keyword.MAGNETIC,
 }
 
 # How each mechanic tag is printed in card text, for the self-grant check below.
@@ -108,6 +112,61 @@ def patch_version() -> str:
 def load_tavern_minions(path: Optional[Path] = None) -> List[TavernMinionRecord]:
     data = load_patch_catalog(path)
     return [TavernMinionRecord.from_row(r) for r in data["minions"]]
+
+
+@dataclass(frozen=True)
+class TavernSpellRecord:
+    """One row of the catalog's ``tavernSpells`` section.
+
+    Its own record and not a :class:`TavernMinionRecord` with empty stats: a
+    spell has a tier and a cost and nothing else a minion has, and the cost is
+    load-bearing here in a way a minion's never is — a minion always costs the
+    ruleset's buy price, a spell costs what is printed on it.
+    """
+
+    dbf_id: int
+    id: str
+    name: str
+    tier: int
+    cost: int
+    text: Optional[str]
+    mechanics: FrozenSet[str]
+    referenced_tags: FrozenSet[str]
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any]) -> "TavernSpellRecord":
+        return cls(
+            dbf_id=int(row["dbfId"]),
+            id=str(row["id"]),
+            name=str(row["name"]),
+            tier=int(row.get("tier") or 0),
+            cost=int(row.get("cost") or 0),
+            text=row.get("text"),
+            mechanics=frozenset(row.get("mechanics") or ()),
+            referenced_tags=frozenset(row.get("referencedTags") or ()),
+        )
+
+
+def is_duos_only_card_id(card_id: str) -> bool:
+    """Whether ``card_id`` belongs to the Duos-only set.
+
+    Modern builds flag these as pool minions — they *are* pool minions, in the
+    two-player mode — and their text says so ("the first time your team Passes",
+    "your partner"). A solo lobby has no partner, so they are not this engine's
+    cards. The set prefix is the whole rule: the 2021 packages predate Duos and
+    contain no such id, so the filter is inert for them.
+    """
+    return card_id.startswith("BGDUO")
+
+
+def load_tavern_spells(path: Optional[Path] = None) -> List[TavernSpellRecord]:
+    """The catalog's tavern spells, or nothing on a package that has none.
+
+    The 2021 packages predate Tavern spells entirely and carry no such section,
+    which is not an error — it is what that patch was.
+    """
+    data = load_patch_catalog(path)
+    return [TavernSpellRecord.from_row(r) for r in data.get("tavernSpells", ())]
 
 
 def tier_by_dbf_id(path: Optional[Path] = None) -> Dict[int, int]:

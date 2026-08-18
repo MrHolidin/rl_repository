@@ -51,6 +51,10 @@ class Trigger(Enum):
     #: ON_AFTER_ATTACK, which lands once the swing is over: a Rally that strips
     #: the target's Reborn has to run while the target is still standing.
     ON_ATTACK = auto()
+    #: shop: a spell was cast on this minion — the Spellcraft spells and the
+    #: Blood Gems, which are the two things the engine lets a seat cast at a
+    #: body ("Whenever you cast a spell on this, gain +1 Health").
+    ON_TARGETED_BY_SPELL = auto()
     #: shop: the seat played a card with Choose One, after the option resolved
     #: (Turbo Hogrider: "After you play Choose One card, this plays a Blood Gem
     #: on all your other Quilboar").
@@ -458,11 +462,79 @@ class ReduceUpgradeCostEffect:
 
 
 @dataclass(frozen=True)
+class SummonSelfCopyFromHandEffect:
+    """Start of Combat, fired by a card sitting in *hand*: summon a copy of it.
+
+    The only effect in the engine whose source is not on the board, which is why
+    it is its own type rather than a flag: the start-of-combat scan has to be
+    told to look somewhere else for it.
+    """
+
+
+@dataclass(frozen=True)
+class GrantKeywordAtAttackThreshold:
+    """Latch: the first time this minion's Attack reaches ``threshold``, it keeps
+    ``keyword`` for good ("Once this reaches 6 Attack, gain Divine Shield").
+
+    A latch and not an aura, which is the whole difficulty: the keyword does not
+    come off when the Attack later drops, and — for Divine Shield — a popped
+    shield must not silently re-arm on the next recount. Both fall out of
+    checking ``keyword not in minion.keywords`` before granting, since the
+    keyword stays on the minion while ``has_shield`` is the flag that pops.
+    """
+
+    threshold: int
+    keyword: Keyword
+
+
+@dataclass(frozen=True)
 class GainGoldThisTurnEffect:
     """Shop: grant ``amount`` gold when trigger fires (this turn only)."""
 
     amount: int = 1
     filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class ReduceTavernSpellCostEffect:
+    """Shop: the next Tavern spell bought costs ``amount`` less (Ominous Seer).
+
+    Sibling of :class:`ReduceUpgradeCostEffect`, and separate for the same
+    reason the two prices are separate: a discount banked against the tavern
+    upgrade must not follow the seat onto the spell counter.
+    """
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class StealTavernMinionEffect:
+    """Take a random minion off the tavern counter into hand, free (Enchanted
+    Lasso). Not a purchase: no gold changes hands and the shop slot empties."""
+
+
+@dataclass(frozen=True)
+class DiscoverMinionAtTierEffect:
+    """Discover a minion of exactly ``tier`` ("Discover a Tier 1 minion").
+
+    Distinct from the triple-reward Discover, which reads its tier off the
+    seat's tavern tier; this one is printed on the card and never moves.
+    """
+
+    tier: int = 1
+
+
+@dataclass(frozen=True)
+class GainGoldNextTurnEffect:
+    """Shop: bank ``amount`` gold for the *next* turn (Southsea Busker).
+
+    A separate effect rather than a flag on :class:`GainGoldThisTurnEffect`,
+    because the two are spent from different places: this turn's gold is added
+    to a seat that may already have spent some, and next turn's is added to a
+    coin count that has not been set yet.
+    """
+
+    amount: int = 1
 
 
 @dataclass(frozen=True)
@@ -758,9 +830,17 @@ class AddRandomMinionToHandOnKillEffect:
 
 @dataclass(frozen=True)
 class AddRandomMinionToHandEffect:
-    """Shop battlecry: add a random ``tribe`` minion to hand."""
+    """Shop battlecry: add a random ``tribe`` minion to hand.
+
+    ``tier`` pins the draw to one tavern tier ("get a random Tier 1 minion",
+    River Skipper). Left ``None`` the draw is the usual one — anything up to the
+    seat's own tavern tier — which is what every card without a printed tier
+    means. It is deliberately not in ``_GOLDEN_INT_FIELDS``: a golden printing
+    hands out two cards of the same tier, never one of a higher tier.
+    """
 
     tribe: Optional[Any] = None
+    tier: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -847,6 +927,12 @@ Effect = Union[
     SetNextRollCostEffect,
     ReduceUpgradeCostEffect,
     GainGoldThisTurnEffect,
+    GainGoldNextTurnEffect,
+    ReduceTavernSpellCostEffect,
+    StealTavernMinionEffect,
+    DiscoverMinionAtTierEffect,
+    GrantKeywordAtAttackThreshold,
+    SummonSelfCopyFromHandEffect,
     AddTokenToHandEffect,
     IncrementShopTribeBonusEffect,
 ]
@@ -959,6 +1045,12 @@ __all__ = [
     "SetNextRollCostEffect",
     "ReduceUpgradeCostEffect",
     "GainGoldThisTurnEffect",
+    "GainGoldNextTurnEffect",
+    "ReduceTavernSpellCostEffect",
+    "StealTavernMinionEffect",
+    "DiscoverMinionAtTierEffect",
+    "GrantKeywordAtAttackThreshold",
+    "SummonSelfCopyFromHandEffect",
     "AddTokenToHandEffect",
     "IncrementShopTribeBonusEffect",
     "Effect",

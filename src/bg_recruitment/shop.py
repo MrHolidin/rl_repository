@@ -13,6 +13,7 @@ from src.bg_core.minion import Minion, Race
 from src.bg_lobby.shared_pool import SharedCardPool
 
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.tavern_spells import offer_tavern_spells
 from src.envs.minibg.actions import MAX_SHOP_SLOTS, shop_offers_count
 from src.bg_lobby.player import PlayerState
 
@@ -140,6 +141,7 @@ def add_random_minion_to_hand(
     *,
     rng: np.random.Generator,
     patch: PatchContext,
+    tier: Optional[int] = None,
 ) -> None:
     """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot.
 
@@ -147,14 +149,21 @@ def add_random_minion_to_hand(
     more Elemental, not a different one, and Tavern Tempest handing over a copy
     of itself is a real outcome. What must not happen is that it is the *only*
     outcome — see ``tavern_card_pool``.
+
+    ``tier`` names one tavern tier and draws from that tier alone, independent
+    of the seat: River Skipper hands over a Tier 1 minion on turn 12 as readily
+    as on turn 1, and a card naming a tier above the seat's would otherwise draw
+    from an empty pool.
     """
     slot = first_free_hand_slot(player)
     if slot is None:
         return
+    draw_tier = player.tavern_tier if tier is None else int(tier)
     pool = [
         cid
-        for cid in tavern_card_pool(player.tavern_tier, shop_excluded_race, patch=patch)
-        if tribe is None or minion_matches_tribe(patch.templates[cid], tribe)
+        for cid in tavern_card_pool(draw_tier, shop_excluded_race, patch=patch)
+        if (tribe is None or minion_matches_tribe(patch.templates[cid], tribe))
+        and (tier is None or patch.templates[cid].tier == int(tier))
     ]
     if not pool:
         return
@@ -291,11 +300,19 @@ def refresh_shop(
     frozen_slots: Optional[Sequence[bool]] = None,
     patch: PatchContext,
 ) -> None:
-    """Full reroll of active offer slots (frozen slots kept)."""
+    """Full reroll of active offer slots (frozen slots kept).
+
+    A new tavern also puts a Tavern spell on the counter, *beside* the minions
+    rather than in place of one: a tier-1 tavern shows three minions and a
+    spell. A frozen shop keeps the spell it was frozen with, the way it keeps
+    its minions.
+    """
     n = effective_shop_offers_count(player)
     while len(player.shop) < MAX_SHOP_SLOTS:
         player.shop.append(None)
     frozen = frozen_slots or (False,) * MAX_SHOP_SLOTS
+    if not (any(frozen[:n]) and player.tavern_spell_offers):
+        offer_tavern_spells(player, rng=rng, patch=patch)
     for i in range(MAX_SHOP_SLOTS):
         if i >= n:
             if player.shop[i] is not None:

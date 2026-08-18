@@ -19,7 +19,7 @@ from src.bg_recruitment.effect_modal import (
     caster_ref_from_board_minion,
     compute_eligible_buff_target,
 )
-from src.bg_lobby.player import PlayerState
+from src.bg_lobby.player import CasterKind, CasterRef, PlayerState
 
 from .shop_auras import shop_effective_stats
 from .shop_triggers import ShopTriggers
@@ -40,6 +40,49 @@ def _apply_consume_friendly(
     source.bonus_health += hp * effect.stat_multiplier
     player.gold += effect.gold_reward
     player.board.remove(target)
+
+
+def apply_targeted_buff(
+    player: PlayerState,
+    source: Optional[Minion],
+    effect: BuffTargetFriendlyBattlecry,
+    *,
+    rng: np.random.Generator,
+    repeats: int = 1,
+    forced_buff_target: Optional[Minion] = None,
+) -> None:
+    """Resolve one "give a minion +X/+Y" against a friendly the seat picks.
+
+    Shared by the ON_PLACE battlecry below and by Activate: both name a friendly
+    and differ only in what fires them. ``repeats`` is the battlecry multiplier
+    at the placement site and stays 1 for an Activate, which Brann does not
+    double — he doubles Battlecries, and Activate is a move, not a battlecry.
+
+    With no ``forced_buff_target`` (no seat to ask, as in a heuristic rollout) a
+    random eligible friendly takes it, which is what the placement path already
+    did.
+    """
+    # ``source is None`` is a Tavern spell: there is no body on the board, so
+    # no "self" to exclude and no slot to read adjacency from.
+    caster = (
+        CasterRef(CasterKind.NONE)
+        if source is None
+        else caster_ref_from_board_minion(player.board, source)
+    )
+    if forced_buff_target is not None:
+        if forced_buff_target not in player.board:
+            return
+        target = forced_buff_target
+    else:
+        eligible = compute_eligible_buff_target(player.board, caster, effect)
+        if not eligible:
+            return
+        pick = (
+            eligible[0] if len(eligible) == 1 else eligible[int(rng.integers(0, len(eligible)))]
+        )
+        target = player.board[pick]
+    for _ in range(repeats):
+        _apply_buff_target(player.board, player.board.index(target), effect)
 
 
 def apply_targeted_on_place_battlecries(
@@ -65,23 +108,14 @@ def apply_targeted_on_place_battlecries(
             for _ in range(mult):
                 triggers.apply_buff_adjacent(player, placed, e)
         elif isinstance(e, BuffTargetFriendlyBattlecry):
-            if forced_buff_target is not None:
-                if forced_buff_target not in player.board:
-                    continue
-                target = forced_buff_target
-            else:
-                eligible = compute_eligible_buff_target(player.board, caster, e)
-                if not eligible:
-                    continue
-                pick = (
-                    eligible[0]
-                    if len(eligible) == 1
-                    else eligible[int(rng.integers(0, len(eligible)))]
-                )
-                target = player.board[pick]
-            for _ in range(mult):
-                idx = player.board.index(target)
-                _apply_buff_target(player.board, idx, e)
+            apply_targeted_buff(
+                player,
+                placed,
+                e,
+                rng=rng,
+                repeats=mult,
+                forced_buff_target=forced_buff_target,
+            )
         elif isinstance(e, BuffTargetFromPiratesBoughtBattlecry):
             n = max(0, player.pirates_bought_this_turn)
             if n == 0:

@@ -62,6 +62,19 @@ def effective_level_up_cost(player: PlayerState) -> int:
     return max(0, base)
 
 
+def start_of_turn_gold(player: PlayerState, round_number: int) -> int:
+    """The coins a seat starts ``round_number`` with, banked promises included.
+
+    Reads and clears ``gold_next_turn``: "Gain 1 Gold next turn" is paid exactly
+    once, by the turn it named. Both lobby types call this instead of setting
+    ``gold`` from the curve directly, so a promise cannot be honoured in one and
+    dropped in the other.
+    """
+    banked = max(0, int(player.gold_next_turn))
+    player.gold_next_turn = 0
+    return player.ruleset.gold_for_round(int(round_number)) + banked
+
+
 def accrue_upgrade_discount(player: PlayerState) -> None:
     """Waiting a round makes the next tier cheaper (the standing BG discount).
 

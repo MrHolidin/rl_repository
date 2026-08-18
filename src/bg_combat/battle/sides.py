@@ -7,6 +7,7 @@ from typing import List
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext, require_patch
+from src.bg_core.board_helpers import has_attack_threshold_ability
 from src.bg_core.minion import Minion, Race
 
 from .state import BattleMinion, battle_copy, BattleSide, _CombatRuntime
@@ -21,6 +22,8 @@ def _build_side(board: List[Minion], rt: _CombatRuntime) -> BattleSide:
     for m in board:
         bid = rt.alloc_id()
         out.append(battle_copy(m, bid))
+        if has_attack_threshold_ability(m):
+            rt.watch_attack_thresholds = True
     return BattleSide(minions=out)
 
 

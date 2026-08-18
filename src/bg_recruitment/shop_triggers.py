@@ -45,6 +45,8 @@ from src.bg_core.effects import (
     DiscoverMurlocEffect,
     Effect,
     GainGoldThisTurnEffect,
+    GainGoldNextTurnEffect,
+    ReduceTavernSpellCostEffect,
     GrantKeywordRandomFriendly,
     HeroImmuneAura,
     IncrementShopTribeBonusEffect,
@@ -56,6 +58,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.lockbox import tick_lockboxes
 from src.bg_recruitment.spellcraft import (
@@ -384,6 +387,10 @@ class ShopTriggers:
                 placed is not None and self.minion_matches_tribe(placed, effect.filter_race)
             ):
                 player.gold += effect.amount
+        elif isinstance(effect, ReduceTavernSpellCostEffect):
+            player.tavern_spell_cost_delta -= int(effect.amount)
+        elif isinstance(effect, GainGoldNextTurnEffect):
+            player.gold_next_turn += int(effect.amount)
         elif isinstance(effect, AddTokenToHandEffect):
             for _ in range(max(0, effect.count)):
                 slot = first_free_hand_slot(player)
@@ -438,6 +445,7 @@ class ShopTriggers:
                 shop_excluded_race,
                 rng=self._rng,
                 patch=self._patch,
+                tier=effect.tier,
             )
         elif isinstance(effect, GainBloodGemsEffect):
             give_blood_gems(
@@ -455,6 +463,7 @@ class ShopTriggers:
                 f"handler and is not listed in _HANDLED_ELSEWHERE. Either give "
                 f"it a branch or say where it is handled instead."
             )
+        refresh_attack_thresholds(player.board)
 
     @staticmethod
     def _has_battlecry(minion: Minion) -> bool:
@@ -680,6 +689,11 @@ class ShopTriggers:
                     self.apply_buff_one_per_listed_tribe(
                         source, ab.effect, player.board
                     )
+                elif isinstance(ab.effect, BuffSelf):
+                    # "At the end of your turn, gain +1 Health" (Lullabot, and
+                    # every card printed on that pattern since). fire_on_turn_start
+                    # already delegates its BuffSelf the same way.
+                    self.apply_shop_effect(player, source, ab.effect, None)
                 elif isinstance(ab.effect, BuffSelfPerCount):
                     apply_buff_self_per_count(ab.effect, source, player.board)
                 elif isinstance(ab.effect, BuffLeftmostRepeatedEffect):

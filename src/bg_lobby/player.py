@@ -63,6 +63,10 @@ class PendingChoiceKind(IntEnum):
     TRANSFORM_SHOP_MINION = 3
     #: Choose One — two effects, not three cards. See ``PendingChoice.effects``.
     CHOOSE_ONE = 4
+    #: "Discover a Tier N minion", printed on a Tavern spell. Its own kind and
+    #: not TRIPLE_REWARD_DISCOVER: that one reads its tier off the seat's
+    #: tavern tier, this one off the card. Both land the pick in hand.
+    TAVERN_SPELL_DISCOVER = 5
 
 
 @dataclass
@@ -127,6 +131,20 @@ class PlayerState:
     shop_freeze_next_round: bool = False
     shop_frozen: Tuple[bool, ...] = (False,) * MAX_SHOP_SLOTS
     upgrade_cost_delta: int = 0
+    #: Gold promised to *next* turn ("Battlecry: Gain 1 Gold next turn"), paid
+    #: out and cleared by ``start_of_turn_gold`` when that turn's coins are set.
+    #: Distinct from ``gold``: spending this turn must not reach it.
+    gold_next_turn: int = 0
+    #: The Tavern spells on the counter this turn (``ruleset`` says how many).
+    #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
+    #: everywhere that reads one — observation, legal mask, the flat buy actions.
+    #: They cost no minion slot either; a tier-1 tavern shows three minions and
+    #: a spell (see ``bg_recruitment/tavern_spells.py``).
+    tavern_spell_offers: Tuple[SpellCard, ...] = ()
+    #: Discount on the next Tavern spell bought (Ominous Seer), spent by that
+    #: purchase. Negative, like ``upgrade_cost_delta``, and for the same reason:
+    #: the price is derived, never stored.
+    tavern_spell_cost_delta: int = 0
     next_roll_cost_override: Optional[int] = None
     free_roll_charges: int = 0
     last_combat_won: bool = False

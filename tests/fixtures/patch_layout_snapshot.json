@@ -9,15 +9,22 @@
       "AvengeEffect",
       "ChooseOneEffect",
       "CreateSpellcraftSpellEffect",
+      "DiscoverMinionAtTierEffect",
       "GainBloodGemsEffect",
+      "GainGoldNextTurnEffect",
+      "GrantKeywordAtAttackThreshold",
       "GrantTemporaryBuffEffect",
       "IncreaseBloodGemBonusEffect",
-      "PlayBloodGemsEffect"
+      "PlayBloodGemsEffect",
+      "ReduceTavernSpellCostEffect",
+      "StealTavernMinionEffect",
+      "SummonSelfCopyFromHandEffect"
     ],
     "unencoded_triggers": [
       "ON_ACTIVATE",
       "ON_ATTACK",
-      "ON_CHOOSE_ONE_PLAYED"
+      "ON_CHOOSE_ONE_PLAYED",
+      "ON_TARGETED_BY_SPELL"
     ]
   },
   "action_layout": {
@@ -393,28 +400,28 @@
           "7": 7
         }
       },
-      "num_pool_ids": 274,
-      "num_pool_indices": 277,
-      "num_templates": 277,
+      "num_pool_ids": 246,
+      "num_pool_indices": 253,
+      "num_templates": 253,
       "obs_fingerprints": {
         "bglike": {
-          "sha256": "7d2a4920f57890f34526d48b0fea6dabb8234dbdc1a0064d1e2e63dcfe904ca7",
+          "sha256": "92915ae0e0f47d6750273a8d189cbaf04d8bf75336dd04514e919d3d50d2e7fc",
           "shape": 976
         },
         "bglike_v5": {
-          "sha256": "79d46ebf2d8d0711d9f471d6a2b733691a786d3493c1a424eaa1d4654a5c3b04",
+          "sha256": "8c5df728441a5e9ae1a76ce74805581d6287099d4c340b809b8df739db875357",
           "shape": 2536
         },
         "bglike_v5_heroes": {
-          "sha256": "515b4ebde809358c1a85531a8f719347c7d6c63f888437cacc5a2faf10f1edc0",
+          "sha256": "909c8d52e58773539f01b90d98032dbfaa58e6c93435b17ef58e824fb90b0715",
           "shape": 2683
         },
         "bglike_v6_heroes": {
-          "sha256": "068b9d763832942f5b8a2e868e7f6a66289af76b0194a1174b4a2fccdb9f01eb",
+          "sha256": "2b9ea76c2c9e4ad3d43cf79474d2aad6492f3f3d8e7410602b162ef8bf47fcc8",
           "shape": 1123
         },
         "bglike_v7_pref": {
-          "sha256": "212359dc0782a641c6fd54652fec274464d8845308bfd138fe261230c1267f90",
+          "sha256": "fcc57d378ab09dd0720e323e1a56d531ae18af186fcebe02910f7baad9353ab3",
           "shape": 1130
         }
       },

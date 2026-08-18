@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from src.bg_core.effects import Keyword, StartOfCombatDamagePerFriendlyTribe, Trigger
+from src.bg_core.effects import (
+    Keyword,
+    StartOfCombatDamagePerFriendlyTribe,
+    SummonSelfCopyFromHandEffect,
+    Trigger,
+)
 
-from .state import BattleMinion, BattleSide, _CombatRuntime
+from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
+from .summon import _summon_append
 from .events import (
     AttackCompleted,
     BeginAttackExchange,
@@ -38,6 +44,30 @@ from .effects import (
 )
 
 
+def _queue_hand_start_of_combat(
+    rt: _CombatRuntime,
+    side_idx: int,
+    pending: List[Tuple[BattleMinion, object]],
+) -> None:
+    """Queue the Start of Combat triggers of cards held in *hand*.
+
+    Flighty Scout is the shape: "If this minion is in your hand, summon a copy
+    of it". The card never joins the board, so it is materialised only to carry
+    its ability into the queue below — and only for effects that say they fire
+    from hand, since every other Start of Combat means the board.
+    """
+    for card_id in rt.seats[side_idx].hand_card_ids():
+        template = rt.patch.templates.get(card_id)
+        if template is None:
+            continue
+        for ab in template.abilities:
+            if ab.trigger != Trigger.ON_START_OF_COMBAT:
+                continue
+            if not isinstance(ab.effect, SummonSelfCopyFromHandEffect):
+                continue
+            pending.append((battle_copy(template, rt.alloc_id()), ab.effect))
+
+
 def _fire_start_of_combat(rt: _CombatRuntime) -> None:
     # Hero Start-of-Combat keyword grants to the left-most minion (Al'Akir:
     # Windfury + Divine Shield + Taunt) — applied before minion start-of-combat.
@@ -57,6 +87,7 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
             for ab in bm.abilities:
                 if ab.trigger == Trigger.ON_START_OF_COMBAT:
                     pending[side_idx].append((bm, ab.effect))
+        _queue_hand_start_of_combat(rt, side_idx, pending[side_idx])
 
     # Real BG draws a dominant player at random, then the sides alternate one
     # trigger at a time, each taking its left-most untriggered minion, with
@@ -100,6 +131,12 @@ def _apply_start_of_combat_effect(
         amount = count * eff.amount_per_match
         for _ in range(max(1, eff.repeats)):
             _deal_random_enemy_minion_damage(rt, side_idx, amount)
+    elif isinstance(eff, SummonSelfCopyFromHandEffect):
+        # ``source`` is the card in hand, made only to carry this trigger; the
+        # copy that joins the fight is built from its template like any summon.
+        template = rt.patch.templates.get(source.card_id)
+        if template is not None:
+            _summon_append(rt, side_idx, template)
 
 
 def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:

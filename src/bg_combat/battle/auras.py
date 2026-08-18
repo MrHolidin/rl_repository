@@ -10,6 +10,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_core.board_helpers import (
+    apply_attack_thresholds,
     grant_keyword,
     multiplier_for,
     stat_aura_bonus,
@@ -118,7 +119,23 @@ def _sync_health_aura_side(side: BattleSide, death_resolution: bool) -> None:
         bm.aura_health = 0 if death_resolution else hp
 
 
+def _apply_attack_threshold_latches(rt: _CombatRuntime) -> None:
+    """Grant the keywords any Attack has just earned (Scarlet Survivor).
+
+    Sits in ``_sync_health_all`` because that is the engine's "the board just
+    changed" point: every buff, death and summon reaches it. Measured with auras
+    included, which is what the card's own tooltip shows.
+    """
+    for side_idx in (0, 1):
+        side = rt.side(side_idx)
+        for bm in side.iter_living():
+            if apply_attack_thresholds(bm, attack_value(bm, side, death_resolution=False)):
+                _mark_health_aura_dirty(rt, side_idx)
+
+
 def _sync_health_all(rt: _CombatRuntime) -> None:
+    if rt.watch_attack_thresholds:
+        _apply_attack_threshold_latches(rt)
     dr = rt.in_death_resolution
     if rt.health_aura_dr_snapshot != dr:
         _mark_health_aura_dirty(rt, 0, 1)

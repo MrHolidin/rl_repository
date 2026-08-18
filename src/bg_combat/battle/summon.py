@@ -7,7 +7,7 @@ from src.bg_core.minion import Minion
 
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .events import MinionSummoned
-from src.bg_core.board_helpers import index_of
+from src.bg_core.board_helpers import has_attack_threshold_ability, index_of
 
 from .auras import _mark_health_aura_dirty, _sync_health_all
 
@@ -29,6 +29,8 @@ def _summon_insert(
         return None
     bid = rt.alloc_id()
     bm = battle_copy(template, bid)
+    if not rt.watch_attack_thresholds and has_attack_threshold_ability(template):
+        rt.watch_attack_thresholds = True
     if at_idx is None or at_idx >= len(side.minions):
         side.minions.append(bm)
     else:

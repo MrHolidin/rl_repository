@@ -227,6 +227,10 @@ class _CombatRuntime:
         default_factory=dict
     )
     attacker_killed_this_swing: bool = False
+    #: Whether any minion in this combat watches its own Attack for a keyword
+    #: latch (Scarlet Survivor). Almost always False, and _sync_health_all runs
+    #: on every board change, so the flag keeps that hot path free of a scan.
+    watch_attack_thresholds: bool = False
     health_aura_dirty: List[bool] = field(default_factory=lambda: [True, True])
     health_aura_dr_snapshot: Optional[bool] = None
 

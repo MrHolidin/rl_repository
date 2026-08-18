@@ -35,8 +35,27 @@ checked for them yet — they are placeholders carried over from 19.6.0 shape:
 Confirm them before anything is trained on this package. The engine will happily
 simulate wrong numbers.
 
-## Not in the package yet
+## What the pool actually is
 
-`bindings.py` is empty of effects, so every card here is a vanilla body. That is
-the honest starting state: `python scripts/check_patch_coverage.py
-data/bgcore/36_2_0_248348` prints the work queue.
+274 of the catalog's pool minions carry the Duos-only set prefix on 28 of them.
+Those are real pool minions *in Duos* — their text says so ("the first time your
+team Passes") — and a solo lobby has no partner, so `PatchContext` drops them
+(`is_duos_only_card_id`). The pool this engine plays is **246**.
+
+## Bindings
+
+Tier 1 is done: 19 of its 22 solo-pool minions carry effect bindings, two more
+are keyword-only bodies the catalog already describes (so 21 of 22 are complete;
+the 22nd, Aureate Laureate, is the always-golden flag rather than an effect), and
+all 8 tier-1 Tavern spells are bound. Tiers 2-7 are untouched.
+
+`python scripts/check_patch_coverage.py data/bgcore/36_2_0_248348` prints what
+is left; the list is the queue, and it fails the day a binding names a card the
+catalog does not have.
+
+Tavern spells are engine API only (`src/bg_recruitment/tavern_spells.py`), the
+same arrangement Blood Gems and Spellcraft have: the tavern offers, the seat
+buys, the seat plays, and the flat RL action space has no index for any of it.
+One spell per roll (`ruleset.tavern_spells_per_roll`), offered beside the minion
+row rather than in place of it — a tier-1 tavern shows three minions and a
+spell.
