@@ -37,6 +37,7 @@ from src.bg_core.effects import (
     BuffTargetFromPiratesBoughtBattlecry,
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
+    ConsumeTavernMinionEffect,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
@@ -47,6 +48,7 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    AddCardToNextRefreshesEffect,
     AddRandomTavernSpellToHandEffect,
     CastRandomTavernSpellEffect,
     CopyLastTavernSpellEffect,
@@ -147,11 +149,13 @@ _HANDLED_ELSEWHERE = (
     BuffTargetFromPiratesBoughtBattlecry,
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
+    ConsumeTavernMinionEffect,
     # fire_on_place applies these itself and then skips them here: they read
     # and write per-turn counters that Brann must not multiply.
     PogoHopperBattlecry,
     AdaptSelfRandomEffect,
     # fire_after_friendly_minion_placed handles these before it delegates.
+    BuffPlacedMinionEffect,
     BuffSelfPerCount,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
@@ -476,6 +480,9 @@ class ShopTriggers:
                     effect.attack,
                     effect.health,
                 )
+        elif isinstance(effect, AddCardToNextRefreshesEffect):
+            have = player.refresh_promises.get(effect.card_id, 0)
+            player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
         elif isinstance(effect, GiveLockboxEffect):
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):

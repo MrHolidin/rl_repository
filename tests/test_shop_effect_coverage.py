@@ -26,7 +26,13 @@ from src.bg_catalog.patch_context import load_patch_context
 from src.bg_core.effects import Trigger
 from src.bg_recruitment.shop_triggers import _HANDLED_ELSEWHERE
 
-PATCH_DIRS = ("data/bgcore/19_6_0_74257", "data/bgcore/15_6_2_36393")
+PATCH_DIRS = (
+    "data/bgcore/19_6_0_74257",
+    "data/bgcore/15_6_2_36393",
+    # The modern package binds effects the classic ones never had; without it
+    # this guard reads every one of them as an excuse nothing reaches.
+    "data/bgcore/36_2_0_248348",
+)
 
 #: Triggers whose abilities reach ``apply_shop_effect``. ON_TURN_START and
 #: ON_TURN_END are absent on purpose: their loops dispatch a fixed handful of

@@ -34,6 +34,10 @@ def battle_copy(minion: Minion, instance_id: int) -> Minion:
     # along so a permanent effect can find the body it came from afterwards.
     bm.origin_instance_id = minion.instance_id
     bm.instance_id = instance_id
+    # What it came in worth, for the one card that keeps what it gains.
+    bm.start_bonus_attack = minion.bonus_attack
+    bm.start_bonus_health = minion.bonus_health
+    bm.start_keywords = minion.keywords
     bm.damage_taken = 0
     bm.has_shield = minion.has_shield and Keyword.SHIELD in minion.all_keywords
     bm.deathrattle_fired = False

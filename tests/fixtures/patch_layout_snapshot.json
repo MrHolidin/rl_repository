@@ -6,16 +6,20 @@
     "NUM_RACE_IDS": 10,
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
+      "AddCardToNextRefreshesEffect",
       "AddRandomTavernSpellToHandEffect",
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
       "BuffPlacedMinionEffect",
+      "BuffRandomHandMinionEffect",
       "CastRandomTavernSpellEffect",
       "ChooseOneEffect",
+      "ConsumeTavernMinionEffect",
       "CopyLastTavernSpellEffect",
       "CreateSpellcraftSpellEffect",
       "DiscoverMinionAtTierEffect",
       "DiscoverTavernSpellEffect",
+      "FirstSpellcraftIsPermanentEffect",
       "GainBloodGemsEffect",
       "GainGoldNextTurnEffect",
       "GiveLockboxEffect",
@@ -23,14 +27,17 @@
       "GrantTemporaryBuffEffect",
       "IncreaseBloodGemBonusEffect",
       "IncreaseTavernSpellBonusEffect",
+      "KeepCombatGainsEffect",
       "PlaceFishbaitEffect",
       "PlayBloodGemsEffect",
       "PlayBloodGemsOnAttackerEffect",
       "RaiseStandingBonusEffect",
       "ReduceTavernSpellCostEffect",
       "RepeatPerCountEffect",
+      "RewindHeroDamageEffect",
       "SelfBonusPerGameCount",
       "StealTavernMinionEffect",
+      "SummonBestFromHandEffect",
       "SummonSelfCopyFromHandEffect"
     ],
     "unencoded_triggers": [
@@ -415,27 +422,27 @@
         }
       },
       "num_pool_ids": 246,
-      "num_pool_indices": 254,
-      "num_templates": 254,
+      "num_pool_indices": 255,
+      "num_templates": 255,
       "obs_fingerprints": {
         "bglike": {
-          "sha256": "92915ae0e0f47d6750273a8d189cbaf04d8bf75336dd04514e919d3d50d2e7fc",
+          "sha256": "a4163720a00dbe30f09923ec00d6bf80cad90a4de968bef8ebcf673a35723b8a",
           "shape": 976
         },
         "bglike_v5": {
-          "sha256": "8c5df728441a5e9ae1a76ce74805581d6287099d4c340b809b8df739db875357",
+          "sha256": "3fc3cf3a082fb98133e568d905eae0f3f467d08f5dd6553d8f979386b14e4cde",
           "shape": 2536
         },
         "bglike_v5_heroes": {
-          "sha256": "909c8d52e58773539f01b90d98032dbfaa58e6c93435b17ef58e824fb90b0715",
+          "sha256": "f4a7f06d403874e419caa71a6a0e5e0649b841bfacdd707e39aec729c7e2e28a",
           "shape": 2683
         },
         "bglike_v6_heroes": {
-          "sha256": "2b9ea76c2c9e4ad3d43cf79474d2aad6492f3f3d8e7410602b162ef8bf47fcc8",
+          "sha256": "955a6bd57736ca5be674c5b0cdac3aa2cbfb64f7b7ff06a43aa5a1bfe5b359a1",
           "shape": 1123
         },
         "bglike_v7_pref": {
-          "sha256": "fcc57d378ab09dd0720e323e1a56d531ae18af186fcebe02910f7baad9353ab3",
+          "sha256": "f70b4f45bb19536f310f29a3e8cc94efd353379bc7629b9e65bdd65a406b576e",
           "shape": 1130
         }
       },

@@ -20,6 +20,7 @@ from typing import Dict, FrozenSet, Tuple
 
 from src.bg_core.effects import (
     Ability,
+    AddCardToNextRefreshesEffect,
     AddRandomMinionToHandEffect,
     AddTavernSpellToHandEffect,
     AddTokenToHandEffect,
@@ -28,11 +29,13 @@ from src.bg_core.effects import (
     BuffAllShopOffersEffect,
     BuffMatching,
     BuffPlacedMinionEffect,
+    BuffRandomHandMinionEffect,
     BuffRandomOtherFriendlyCombat,
     BuffTarget,
     BuffSelf,
     BuffTargetFriendlyBattlecry,
     ChooseOneEffect,
+    ConsumeTavernMinionEffect,
     CreateSpellcraftSpellEffect,
     DiscoverTavernSpellEffect,
     DealHeroDamage,
@@ -41,8 +44,10 @@ from src.bg_core.effects import (
     GainGoldNextTurnEffect,
     GainGoldThisTurnEffect,
     CountSource,
+    FirstSpellcraftIsPermanentEffect,
     GiveLockboxEffect,
     IncreaseTavernSpellBonusEffect,
+    KeepCombatGainsEffect,
     GrantKeywordAtAttackThreshold,
     GrantTemporaryBuffEffect,
     Keyword,
@@ -52,7 +57,9 @@ from src.bg_core.effects import (
     RaiseStandingBonusEffect,
     ScopeKind,
     SelfBonusPerGameCount,
+    SummonBestFromHandEffect,
     ReduceTavernSpellCostEffect,
+    RewindHeroDamageEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
     SummonEffect,
@@ -72,6 +79,7 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG_ICC_026t",  # Skeleton 1/1 — Harmless Bonehead
         "BG36_200t",  # Foraging Bat 1/1 — Flittering Bat
         "BGS_115t",  # Water Droplet 2/2 — Sellemental
+        "BG35_150t",  # Demon Fodder — Laboratory Assistant
     }
 )
 
@@ -242,6 +250,38 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
                 first=IncreaseTavernSpellBonusEffect(attack=1, health=0),
                 second=IncreaseTavernSpellBonusEffect(attack=0, health=1),
             ),
+        ),
+    ),
+    "BG34_140": (  # Expert Aviator — Rally: summon the best card in hand for this fight
+        Ability(Trigger.ON_ATTACK, SummonBestFromHandEffect()),
+    ),
+    "BG35_150": (  # Laboratory Assistant — a Fodder in each of the next 3 Refreshes
+        Ability(
+            Trigger.ON_PLACE,
+            AddCardToNextRefreshesEffect(card_id="BG35_150t", refreshes=3),
+        ),
+    ),
+    "BG23_009": (  # Lava Lurker — the first Spellcraft spell on this each turn sticks
+        Ability(Trigger.AURA, FirstSpellcraftIsPermanentEffect()),
+    ),
+    "BG23_357": (  # Mind Muck — a friendly Demon eats a tavern minion for its stats
+        Ability(
+            Trigger.ON_PLACE,
+            ConsumeTavernMinionEffect(filter_race=Race.DEMON, count=1),
+        ),
+    ),
+    "BG26_174": (  # Soul Rewinder — hero damage undone, and this grows
+        # A standing property of the body rather than a battlecry: it watches
+        # for as long as it is on the board.
+        Ability(Trigger.AURA, RewindHeroDamageEffect(health=1)),
+    ),
+    "BG21_015": (  # Tarecgosa — keeps the stats and keywords it gains in combat
+        Ability(Trigger.AURA, KeepCombatGainsEffect()),
+    ),
+    "BG29_300": (  # Very Hungry Winterfinner — damaged: a minion in hand +2/+1
+        Ability(
+            Trigger.ON_SELF_DAMAGED,
+            BuffRandomHandMinionEffect(attack=2, health=1),
         ),
     ),
     "BG_TTN_401": (  # Ancestral Automaton — +3/+2 per *other* one summoned this game

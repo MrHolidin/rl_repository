@@ -72,9 +72,14 @@ def can_activate(player: PlayerState, minion: Minion) -> bool:
 
 
 def reset_activations(player: PlayerState) -> None:
-    """Give every minion on the board its Activate back (start of turn)."""
+    """Give every minion on the board its Activate back (start of turn).
+
+    And its one permanent Spellcraft spell — a different card's rule, but the
+    same per-turn lifetime, cleared at the same moment.
+    """
     for minion in player.board:
         minion.activate_used_this_turn = False
+        minion.spellcraft_kept_this_turn = False
 
 
 def activate_minion(

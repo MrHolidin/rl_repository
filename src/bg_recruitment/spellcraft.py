@@ -80,14 +80,38 @@ def can_play_spellcraft_spell(player: PlayerState) -> bool:
     return bool(player.board)
 
 
+def _keeps_first_spellcraft(target: Minion) -> bool:
+    from src.bg_core.effects import FirstSpellcraftIsPermanentEffect, Trigger
+
+    return any(
+        ability.trigger is Trigger.AURA
+        and isinstance(ability.effect, FirstSpellcraftIsPermanentEffect)
+        for ability in target.abilities
+    )
+
+
 def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None:
-    """Stats and keyword that come off again at the owner's next turn."""
-    target.temp_attack += buff.attack
-    target.temp_health += buff.health
+    """Stats and keyword that come off again at the owner's next turn.
+
+    Unless the body keeps them: Lava Lurker makes the first Spellcraft spell
+    cast on it each turn permanent, which is the same buff written to the
+    lasting fields instead of the expiring ones.
+    """
+    permanent = _keeps_first_spellcraft(target) and not target.spellcraft_kept_this_turn
+    if permanent:
+        target.spellcraft_kept_this_turn = True
+        target.bonus_attack += buff.attack
+        target.bonus_health += buff.health
+    else:
+        target.temp_attack += buff.attack
+        target.temp_health += buff.health
     if buff.keyword is not None:
         race_ok = buff.keyword_if_race is None or target.race == buff.keyword_if_race
         if race_ok:
-            target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
+            if permanent:
+                target.granted_keywords = target.granted_keywords | {buff.keyword}
+            else:
+                target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
     fire_spell_cast_on(target)
 
 

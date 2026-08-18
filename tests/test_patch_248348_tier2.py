@@ -360,3 +360,197 @@ def test_adjacent_now_matches_instead_of_silently_missing(patch):
     board = [Minion(card_id=c, base_attack=1, base_health=1, tier=1) for c in ("l", "s", "r")]
     apply_buff_matching(BuffMatching(BuffTarget.ADJACENT, attack=1), board, board[1])
     assert [m.raw_attack for m in board] == [2, 1, 2]
+
+
+# --------------------------------------------------------------------------- #
+# Wave 3 — cards that reach outside the board they stand on
+# --------------------------------------------------------------------------- #
+
+
+def test_expert_aviator_summons_the_biggest_card_in_hand(patch):
+    aviator = _card(patch, "BG34_140")
+    player = _player(patch, [aviator])
+    small = _card(patch, "BG25_001")  # Risen Rider 2/1
+    big = _card(patch, "BG23_002")  # Shell Collector 4/3
+    player.hand[0], player.hand[1] = small, big
+    seat = PlayerCombatSeat(player)
+    survivors, deaths = _fight(
+        [aviator], [_wall(hp=40)], patch, seats=(seat, PlayerCombatSeat(_player(patch)))
+    )
+    on_board = {m.card_id for m in survivors} | {cid for side, cid in deaths if side == 0}
+    assert big.card_id in on_board and small.card_id not in on_board
+
+
+def test_the_card_it_summoned_is_still_in_hand(patch):
+    """"for this combat only" — a copy fights, the card stays put."""
+    aviator = _card(patch, "BG34_140")
+    player = _player(patch, [aviator])
+    held = _card(patch, "BG23_002")
+    player.hand[0] = held
+    _fight(
+        [aviator],
+        [_wall(hp=40)],
+        patch,
+        seats=(PlayerCombatSeat(player), PlayerCombatSeat(_player(patch))),
+    )
+    assert player.hand[0] is held
+
+
+def test_an_aviator_with_an_empty_hand_summons_nothing(patch):
+    survivors, _ = _fight([_card(patch, "BG34_140")], [_wall(hp=40)], patch)
+    assert len(survivors) == 1
+
+
+def test_laboratory_assistant_seeds_the_next_three_rolls(patch, triggers):
+    from src.bg_recruitment.shop import refresh_shop
+
+    assistant = _card(patch, "BG35_150")
+    player = _player(patch, [assistant], tavern_tier=3)
+    triggers.fire_on_place(assistant, player, None)
+    assert player.refresh_promises == {"BG35_150t": 3}
+    for expected_left in (2, 1, 0):
+        refresh_shop(player, None, rng=np.random.default_rng(expected_left), patch=patch)
+        assert any(m is not None and m.card_id == "BG35_150t" for m in player.shop)
+        assert player.refresh_promises.get("BG35_150t", 0) == expected_left
+    refresh_shop(player, None, rng=np.random.default_rng(9), patch=patch)
+    assert not any(m is not None and m.card_id == "BG35_150t" for m in player.shop)
+
+
+def test_lava_lurker_keeps_the_first_spellcraft_spell_of_the_turn(patch):
+    from src.bg_core.effects import GrantTemporaryBuffEffect
+    from src.bg_recruitment.spellcraft import apply_temporary_buff
+
+    lurker = _card(patch, "BG23_009")  # 2/5 Naga
+    apply_temporary_buff(lurker, GrantTemporaryBuffEffect(attack=2, health=2))
+    assert (lurker.bonus_attack, lurker.bonus_health) == (2, 2)  # kept, not temporary
+    assert (lurker.temp_attack, lurker.temp_health) == (0, 0)
+
+
+def test_the_second_spell_of_the_turn_expires_as_usual(patch):
+    from src.bg_core.effects import GrantTemporaryBuffEffect
+    from src.bg_recruitment.spellcraft import apply_temporary_buff
+
+    lurker = _card(patch, "BG23_009")
+    apply_temporary_buff(lurker, GrantTemporaryBuffEffect(attack=2, health=2))
+    apply_temporary_buff(lurker, GrantTemporaryBuffEffect(attack=3, health=3))
+    assert (lurker.bonus_attack, lurker.bonus_health) == (2, 2)
+    assert (lurker.temp_attack, lurker.temp_health) == (3, 3)
+
+
+def test_a_new_turn_gives_the_lurker_another_permanent_one(patch):
+    from src.bg_core.effects import GrantTemporaryBuffEffect
+    from src.bg_recruitment.activate import reset_activations
+    from src.bg_recruitment.spellcraft import apply_temporary_buff
+
+    lurker = _card(patch, "BG23_009")
+    player = _player(patch, [lurker])
+    apply_temporary_buff(lurker, GrantTemporaryBuffEffect(attack=2, health=2))
+    reset_activations(player)
+    apply_temporary_buff(lurker, GrantTemporaryBuffEffect(attack=2, health=2))
+    assert (lurker.bonus_attack, lurker.bonus_health) == (4, 4)
+
+
+def test_an_ordinary_naga_keeps_nothing(patch):
+    from src.bg_core.effects import GrantTemporaryBuffEffect
+    from src.bg_recruitment.spellcraft import apply_temporary_buff
+
+    plain = Minion(card_id="plain", base_attack=1, base_health=1, tier=1)
+    apply_temporary_buff(plain, GrantTemporaryBuffEffect(attack=2, health=2))
+    assert (plain.bonus_attack, plain.temp_attack) == (0, 2)
+
+
+def test_mind_muck_feeds_a_demon_with_a_tavern_minion(patch):
+    from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
+
+    muck = _card(patch, "BG23_357")  # 3/2 Demon
+    demon = Minion(card_id="d", base_attack=1, base_health=1, tier=1, race=Race.DEMON)
+    meal = Minion(card_id="meal", base_attack=4, base_health=5, tier=1)
+    player = _player(patch, [muck, demon])
+    player.shop[0] = meal
+    apply_targeted_on_place_battlecries(
+        ShopTriggers(np.random.default_rng(0), patch=patch),
+        player,
+        muck,
+        rng=np.random.default_rng(0),
+        forced_buff_target=demon,
+    )
+    assert (demon.raw_attack, demon.max_health) == (5, 6)
+    assert player.shop[0] is None
+
+
+def test_mind_muck_with_an_empty_tavern_eats_nothing(patch):
+    from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
+
+    muck = _card(patch, "BG23_357")
+    demon = Minion(card_id="d", base_attack=1, base_health=1, tier=1, race=Race.DEMON)
+    player = _player(patch, [muck, demon])
+    apply_targeted_on_place_battlecries(
+        ShopTriggers(np.random.default_rng(0), patch=patch),
+        player,
+        muck,
+        rng=np.random.default_rng(0),
+        forced_buff_target=demon,
+    )
+    assert (demon.raw_attack, demon.max_health) == (1, 1)
+
+
+def test_soul_rewinder_undoes_the_damage_and_grows(patch):
+    from src.bg_lobby.player import apply_hero_damage
+
+    rewinder = _card(patch, "BG26_174")  # 4/1 Demon
+    player = _player(patch, [rewinder], health=30)
+    apply_hero_damage(player, 7)
+    assert player.health == 30
+    assert rewinder.max_health == rewinder.base_health + 1
+
+
+def test_without_a_rewinder_the_hero_takes_it(patch):
+    from src.bg_lobby.player import apply_hero_damage
+
+    player = _player(patch, health=30)
+    apply_hero_damage(player, 7)
+    assert player.health == 23
+
+
+def test_tarecgosa_keeps_what_the_fight_gave_it(patch):
+    from src.bg_core.effects import Ability, BuffMatching, BuffTarget, Trigger
+
+    tarecgosa = _card(patch, "BG21_015")  # 4/4 Dragon
+    tarecgosa.bonus_health += 40  # outlive the fight; the gains are what is on trial
+    giver = Minion(
+        card_id="giver",
+        base_attack=1,
+        base_health=40,
+        tier=1,
+        abilities=(
+            Ability(
+                Trigger.ON_START_OF_COMBAT,
+                BuffMatching(BuffTarget.ALL_FRIENDLY, attack=5, health=5),
+            ),
+        ),
+    )
+    player = _player(patch, [tarecgosa, giver])
+    _fight(
+        [tarecgosa, giver],
+        [_wall(hp=1)],
+        patch,
+        seats=(PlayerCombatSeat(player), PlayerCombatSeat(_player(patch))),
+    )
+    assert tarecgosa.raw_attack == tarecgosa.base_attack + 5
+    # The one that does not keep its gains comes out of the fight as it went in.
+    assert giver.raw_attack == 1
+
+
+def test_very_hungry_winterfinner_feeds_a_card_in_hand(patch):
+    winterfinner = _card(patch, "BG29_300")  # 2/5 Murloc, Taunt
+    winterfinner.bonus_health += 30
+    player = _player(patch, [winterfinner])
+    in_hand = Minion(card_id="held", base_attack=1, base_health=1, tier=1)
+    player.hand[0] = in_hand
+    _fight(
+        [winterfinner],
+        [_wall(hp=40, atk=1)],
+        patch,
+        seats=(PlayerCombatSeat(player), PlayerCombatSeat(_player(patch))),
+    )
+    assert (in_hand.raw_attack, in_hand.max_health) > (1, 1)

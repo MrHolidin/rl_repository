@@ -149,6 +149,9 @@ class PlayerState:
     #: the same number as one on the board — see
     #: ``bg_recruitment/game_counts.py``.
     game_counts: Dict[str, int] = field(default_factory=dict)
+    #: Cards promised to the next N tavern rolls, ``card_id -> rolls left``
+    #: ("add a Fodder to your next 3 Refreshes"). Spent one roll at a time.
+    refresh_promises: Dict[str, int] = field(default_factory=dict)
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.
@@ -255,6 +258,19 @@ class PlayerState:
         return max(0, base - self.upgrade_discount_accrued)
 
 
+def _hero_damage_rewinder(player: "PlayerState"):
+    """The board minion that undoes hero damage, if the seat has one."""
+    from src.bg_core.effects import RewindHeroDamageEffect, Trigger
+
+    for minion in player.board:
+        for ability in minion.abilities:
+            if ability.trigger is Trigger.AURA and isinstance(
+                ability.effect, RewindHeroDamageEffect
+            ):
+                return minion, ability.effect
+    return None
+
+
 def apply_hero_damage(player: PlayerState, damage: int) -> None:
     """Apply combat damage to ``player``, absorbing with ``armor`` first.
 
@@ -263,6 +279,14 @@ def apply_hero_damage(player: PlayerState, damage: int) -> None:
     that don't have it — behaves identically everywhere damage lands.
     """
     if damage <= 0:
+        return
+    rewinder = _hero_damage_rewinder(player)
+    if rewinder is not None:
+        # "After your hero takes damage, rewind it": the damage happened and
+        # was undone, which is why this reads it and returns rather than the
+        # callers checking before they deal it.
+        source, effect = rewinder
+        source.bonus_health += int(effect.health)
         return
     absorbed = min(player.armor, damage)
     player.armor -= absorbed
@@ -337,6 +361,7 @@ def copy_player_state(p: PlayerState) -> PlayerState:
         # seat's Nerubian Deathswarmer buff another seat's Undead.
         "standing_bonuses": dict(p.standing_bonuses),
         "game_counts": dict(p.game_counts),
+        "refresh_promises": dict(p.refresh_promises),
         "bought_tribe_counts": dict(p.bought_tribe_counts),
         "pending_choice": (
             PendingChoice(

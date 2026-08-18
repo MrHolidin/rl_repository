@@ -632,6 +632,85 @@ class CopyLastTavernSpellEffect:
 
 
 @dataclass(frozen=True)
+class SummonBestFromHandEffect:
+    """Summon the highest-Attack minion in hand, for this combat only.
+
+    The card stays in hand — what joins the fight is a copy, and it dies with
+    the combat like any other. Reads the hand through the seat, the same way
+    ``SummonSelfCopyFromHandEffect`` does.
+    """
+
+
+@dataclass(frozen=True)
+class BuffRandomHandMinionEffect:
+    """Stats onto a random minion in the owner's *hand*.
+
+    Fired from combat ("whenever this takes damage, give a minion in your hand
+    +2/+1"), so it goes through the seat: a hand is not something a combat copy
+    has.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class KeepCombatGainsEffect:
+    """Tarecgosa: what this body gained in the fight, it keeps.
+
+    Everything a combat normally throws away with the copy — stats bought by
+    buffs, keywords granted mid-fight — is written back to the owner's real
+    minion when the fight ends.
+    """
+
+
+@dataclass(frozen=True)
+class RewindHeroDamageEffect:
+    """Undo the damage the hero just took, and grow by ``health``.
+
+    Not prevention at the source: the card reads "after your hero takes damage,
+    rewind it", and the difference is visible to anything that watches for the
+    damage having happened.
+    """
+
+    health: int = 1
+
+
+@dataclass(frozen=True)
+class AddCardToNextRefreshesEffect:
+    """Slip a card into each of the next ``refreshes`` tavern rolls.
+
+    "Add a Fodder to your next 3 Refreshes" — a promise held by the seat and
+    spent one roll at a time, not a card handed over now.
+    """
+
+    card_id: str
+    refreshes: int = 1
+
+
+@dataclass(frozen=True)
+class FirstSpellcraftIsPermanentEffect:
+    """Lava Lurker: the first Spellcraft spell cast on this each turn sticks.
+
+    A Spellcraft buff normally expires at the owner's next turn; this makes one
+    of them permanent instead. Carried on ``Trigger.AURA`` because it is a
+    standing property of the body, not something that fires.
+    """
+
+
+@dataclass(frozen=True)
+class ConsumeTavernMinionEffect:
+    """A friendly eats a minion off the tavern counter and takes its stats.
+
+    ``filter_race`` is who may do the eating ("choose a friendly Demon"). The
+    eaten minion leaves the tavern the way a bought one does.
+    """
+
+    filter_race: Optional[Any] = None
+    count: int = 1
+
+
+@dataclass(frozen=True)
 class SelfBonusPerGameCount:
     """Stats scaled by a game-long tally the seat keeps.
 
@@ -1139,6 +1218,13 @@ Effect = Union[
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
     RaiseStandingBonusEffect,
+    SummonBestFromHandEffect,
+    BuffRandomHandMinionEffect,
+    KeepCombatGainsEffect,
+    RewindHeroDamageEffect,
+    AddCardToNextRefreshesEffect,
+    FirstSpellcraftIsPermanentEffect,
+    ConsumeTavernMinionEffect,
     SelfBonusPerGameCount,
     IncreaseTavernSpellBonusEffect,
     AddRandomTavernSpellToHandEffect,
@@ -1271,6 +1357,13 @@ __all__ = [
     "BuffPlacedMinionEffect",
     "ScopeKind",
     "RaiseStandingBonusEffect",
+    "SummonBestFromHandEffect",
+    "BuffRandomHandMinionEffect",
+    "KeepCombatGainsEffect",
+    "RewindHeroDamageEffect",
+    "AddCardToNextRefreshesEffect",
+    "FirstSpellcraftIsPermanentEffect",
+    "ConsumeTavernMinionEffect",
     "SelfBonusPerGameCount",
     "IncreaseTavernSpellBonusEffect",
     "AddRandomTavernSpellToHandEffect",

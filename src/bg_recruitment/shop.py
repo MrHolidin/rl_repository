@@ -335,6 +335,44 @@ def refresh_shop(
                 shared_pool=shared_pool,
                 patch=patch,
             )
+    # After the roll, not before: the fill above would have rolled straight
+    # over a promised card.
+    _pay_refresh_promises(player, n, frozen, shared_pool=shared_pool, patch=patch)
+
+
+def _pay_refresh_promises(
+    player: PlayerState,
+    n: int,
+    frozen: Sequence[bool],
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
+) -> None:
+    """Put each promised card into this roll, one copy per promise.
+
+    "Add a Fodder to your next 3 Refreshes" is spent a roll at a time, so this
+    runs before the slots are filled and the fill works around what it placed.
+    A frozen slot is not this roll's to take, and the minion it displaces goes
+    back to the shared pool the way any cleared slot's does.
+    """
+    if not player.refresh_promises:
+        return
+    for card_id, left in list(player.refresh_promises.items()):
+        if left <= 0:
+            player.refresh_promises.pop(card_id, None)
+            continue
+        slot = next(
+            (i for i in range(n) if not frozen[i]),
+            None,
+        )
+        if slot is None:
+            return
+        clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
+        player.shop[slot] = make_minion(card_id, patch=patch)
+        if left - 1 <= 0:
+            player.refresh_promises.pop(card_id, None)
+        else:
+            player.refresh_promises[card_id] = left - 1
 
 
 def refresh_shop_fill_empty_slots(

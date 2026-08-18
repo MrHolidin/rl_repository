@@ -9,10 +9,11 @@ import cycle.
 """
 from __future__ import annotations
 
-from copy import copy
 from typing import Any, List, Optional, Tuple
 
 from src.bg_catalog.cards import make_minion
+from copy import copy
+
 from src.bg_recruitment.game_counts import DIED, SUMMONED
 from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
@@ -26,7 +27,10 @@ from src.bg_core.effects import (
     AddRandomMinionToHandEffect,
     GainBloodGemsEffect,
     PlayBloodGemsOnAttackerEffect,
+    BuffRandomHandMinionEffect,
+    KeepCombatGainsEffect,
     SelfBonusPerGameCount,
+    SummonBestFromHandEffect,
     AddRandomMinionToHandOnKillEffect,
     BloodGemTarget,
     IncreaseBloodGemBonusEffect,
@@ -286,7 +290,11 @@ def _fire_self_damaged(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> N
         if ab.trigger != Trigger.ON_SELF_DAMAGED:
             continue
         eff = ab.effect
-        if isinstance(eff, SummonOnSelfDamaged):
+        if isinstance(eff, BuffRandomHandMinionEffect):
+            # "give a minion in your hand +2/+1" — the hand is the seat's, and
+            # a combat copy has none.
+            rt.seats[side_idx].buff_hand_minion(eff.attack, eff.health, rng=rt.rng)
+        elif isinstance(eff, SummonOnSelfDamaged):
             anchor: Optional[BattleMinion] = bm
             n_sum = _summon_multiplier(rt.side(side_idx))
             for _ in range(max(0, eff.count)):
@@ -601,6 +609,8 @@ def _summon_beside(
     side_idx: int,
     source: Optional[BattleMinion],
     effect: SummonEffect,
+    *,
+    template: Optional[Minion] = None,
 ) -> bool:
     """Summon ``effect``'s tokens beside a *living* source, Khadgar included.
 
@@ -616,7 +626,11 @@ def _summon_beside(
     n_sum = _summon_multiplier(side)
     for _ in range(max(0, effect.count)):
         for __ in range(n_sum):
-            tok = make_minion(effect.token_id, patch=rt.patch)
+            tok = (
+                copy(template)
+                if template is not None
+                else make_minion(effect.token_id, patch=rt.patch)
+            )
             summoned = _summon_insert(rt, side_idx, tok, _insert_idx_after(side, anchor))
             if summoned is None:
                 return False
@@ -673,6 +687,24 @@ def _fire_rally(
             # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
             # mid-combat, and a permanent Gem played after it is worth more.
             rt.seats[attacker_side_idx].raise_blood_gem_value(eff.attack, eff.health)
+        elif isinstance(eff, SummonBestFromHandEffect):
+            # "for this combat only" is the default here: the summon is a copy
+            # and the card itself never leaves hand.
+            held = rt.seats[attacker_side_idx].hand_minion_stats()
+            if held:
+                card_id, attack, health = max(held, key=lambda row: row[1])
+                template = rt.patch.templates.get(card_id)
+                if template is not None:
+                    body = copy(template)
+                    body.bonus_attack += max(0, attack - template.raw_attack)
+                    body.bonus_health += max(0, health - template.max_health)
+                    _summon_beside(
+                        rt,
+                        attacker_side_idx,
+                        attacker,
+                        SummonEffect(token_id=card_id, count=1),
+                        template=body,
+                    )
         elif isinstance(eff, SummonEffect) and not (
             eff.for_opponent or eff.count_from_source_attack
         ):

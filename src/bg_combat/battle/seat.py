@@ -77,6 +77,24 @@ class CombatSeat(Protocol):
         read by Knights in hand, in the tavern, and in every fight after this.
         """
 
+    def hand_minion_stats(self) -> Tuple[Tuple[str, int, int], ...]:
+        """``(card_id, attack, health)`` for each minion in hand.
+
+        Stats, not just ids, because the cards that read the hand pick by them
+        ("summon the highest-Attack minion from your hand").
+        """
+
+    def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
+        """Stats onto a random minion in the owner's hand."""
+
+    def keep_combat_gains(self, instance_id: int, attack: int, health: int, keywords) -> None:
+        """Write a body's combat gains through to the owner's real minion.
+
+        The one thing a combat normally never does. Tarecgosa is the card that
+        asks for it, and it asks for exactly this: the stats and keywords the
+        copy picked up, kept.
+        """
+
 
 @dataclass
 class PermanentGemGrant:
@@ -102,6 +120,10 @@ class RecordingSeat:
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
     #: Events a combat counted, for a seat that keeps tallies.
     count_bumps: List[Tuple[str, str]] = field(default_factory=list)
+    #: Buffs a combat aimed at the owner's hand.
+    hand_buffs: List[Tuple[int, int]] = field(default_factory=list)
+    #: Combat gains a body asked to keep (instance_id, attack, health, keywords).
+    kept_gains: List[Tuple[int, int, int, frozenset]] = field(default_factory=list)
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -138,6 +160,16 @@ class RecordingSeat:
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))
+
+    def hand_minion_stats(self) -> Tuple[Tuple[str, int, int], ...]:
+        """Empty: a seatless combat has no hand."""
+        return ()
+
+    def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
+        self.hand_buffs.append((int(attack), int(health)))
+
+    def keep_combat_gains(self, instance_id: int, attack: int, health: int, keywords) -> None:
+        self.kept_gains.append((int(instance_id), int(attack), int(health), frozenset(keywords)))
 
 
 __all__ = ["CombatSeat", "PermanentGemGrant", "RecordingSeat"]

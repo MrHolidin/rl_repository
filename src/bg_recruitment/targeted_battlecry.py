@@ -11,6 +11,7 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     BuffTargetFromPiratesBoughtBattlecry,
     ConsumeFriendlyBattlecry,
+    ConsumeTavernMinionEffect,
     Trigger,
 )
 from src.bg_core.minion import Minion
@@ -40,6 +41,52 @@ def _apply_consume_friendly(
     source.bonus_health += hp * effect.stat_multiplier
     player.gold += effect.gold_reward
     player.board.remove(target)
+
+
+def _pick_eater(
+    player: PlayerState,
+    placed: Minion,
+    effect: ConsumeTavernMinionEffect,
+    *,
+    rng: np.random.Generator,
+    forced: Optional[Minion],
+) -> Optional[Minion]:
+    """Which friendly does the eating — the seat's pick, or a random eligible."""
+    if forced is not None:
+        return forced if forced in player.board else None
+    caster = caster_ref_from_board_minion(player.board, placed)
+    eligible = compute_eligible_buff_target(
+        player.board,
+        caster,
+        BuffTargetFriendlyBattlecry(filter_race=effect.filter_race, exclude_self=False),
+    )
+    if not eligible:
+        return None
+    pick = eligible[0] if len(eligible) == 1 else eligible[int(rng.integers(0, len(eligible)))]
+    return player.board[pick]
+
+
+def consume_tavern_minion(
+    player: PlayerState,
+    eater: Minion,
+    *,
+    rng: np.random.Generator,
+) -> Optional[Minion]:
+    """``eater`` eats a random minion off the counter and takes its stats.
+
+    The stats are the ones the tavern shows, auras included — the same reading
+    ``ConsumeFriendlyBattlecry`` takes of a minion it eats off the board.
+    """
+    filled = [i for i, m in enumerate(player.shop) if m is not None]
+    if not filled:
+        return None
+    idx = filled[int(rng.integers(0, len(filled)))]
+    eaten = player.shop[idx]
+    attack, health = shop_effective_stats([m for m in player.shop if m is not None], eaten)
+    eater.bonus_attack += attack
+    eater.bonus_health += health
+    player.shop[idx] = None
+    return eaten
 
 
 def apply_targeted_buff(
@@ -139,6 +186,12 @@ def apply_targeted_on_place_battlecries(
                 m = player.board[idx]
                 m.bonus_attack += e.attack_per * n
                 m.bonus_health += e.health_per * n
+        elif isinstance(e, ConsumeTavernMinionEffect):
+            target = _pick_eater(player, placed, e, rng=rng, forced=forced_buff_target)
+            if target is None:
+                continue
+            for _ in range(max(1, e.count)):
+                consume_tavern_minion(player, target, rng=rng)
         elif isinstance(e, ConsumeFriendlyBattlecry):
             if forced_buff_target is not None:
                 if forced_buff_target not in player.board:

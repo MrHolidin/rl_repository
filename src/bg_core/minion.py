@@ -77,6 +77,9 @@ class Minion:
     #: An Activate ability is spent for the turn once fired. Board state, not
     #: combat state: it is cleared at the start of the seat's turn.
     activate_used_this_turn: bool = False
+    #: Whether this body has already had its one permanent Spellcraft spell
+    #: this turn (Lava Lurker). Reset with the Activate flag at turn start.
+    spellcraft_kept_this_turn: bool = False
 
     #: entity identity; see ``next_instance_id``
     instance_id: int = field(default_factory=next_instance_id)
@@ -137,6 +140,12 @@ class Minion:
     #: Whether this card's own arrival is one of the events its tally counted —
     #: the single subtraction behind "for each **other**".
     self_counted: bool = False
+    #: What this body was worth when the fight began, so a card that keeps its
+    #: combat gains (Tarecgosa) can tell what it gained. Set by ``battle_copy``
+    #: and meaningless on a shop minion.
+    start_bonus_attack: int = 0
+    start_bonus_health: int = 0
+    start_keywords: frozenset = frozenset()
     # --- "until next turn" ------------------------------------------------
     #: Stats and keywords that expire at the start of the owner's next recruit
     #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").

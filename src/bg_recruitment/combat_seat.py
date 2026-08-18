@@ -72,6 +72,30 @@ class PlayerCombatSeat(RecordingSeat):
     def bump_game_count(self, family: str, subject: str) -> None:
         bump_game_count(self.player, family, subject)
 
+    def hand_minion_stats(self) -> Tuple[Tuple[str, int, int], ...]:
+        return tuple(
+            (card.card_id, card.raw_attack, card.max_health)
+            for card in self.player.hand
+            if isinstance(card, Minion)
+        )
+
+    def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
+        held = [card for card in self.player.hand if isinstance(card, Minion)]
+        if not held:
+            return
+        target = held[int(rng.integers(0, len(held)))]
+        target.bonus_attack += int(attack)
+        target.bonus_health += int(health)
+
+    def keep_combat_gains(self, instance_id: int, attack: int, health: int, keywords) -> None:
+        target = self._board_minion(instance_id)
+        if target is None:
+            return
+        target.bonus_attack += int(attack)
+        target.bonus_health += int(health)
+        if keywords:
+            target.granted_keywords = target.granted_keywords | frozenset(keywords)
+
     def hand_card_ids(self) -> Tuple[str, ...]:
         """The minions in hand, by card id. Spells are not minions and a Start
         of Combat that summons a copy of itself has nothing to say about them."""

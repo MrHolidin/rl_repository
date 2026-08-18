@@ -30,6 +30,35 @@ from .result import (
 )
 
 
+def _keep_combat_gains(rt: "_CombatRuntime") -> None:
+    """Write home what a body was promised to keep (Tarecgosa).
+
+    Runs once the fighting is over, on survivors only: a card that keeps its
+    gains has to be there at the end to keep them. Everything else a combat
+    picks up still dies with the copy, which is what makes a board come out of
+    a fight the way it went in.
+    """
+    from src.bg_core.effects import KeepCombatGainsEffect, Trigger
+
+    for side_idx in (0, 1):
+        for bm in rt.side(side_idx).iter_living():
+            if not any(
+                ability.trigger is Trigger.AURA
+                and isinstance(ability.effect, KeepCombatGainsEffect)
+                for ability in bm.abilities
+            ):
+                continue
+            gained_attack = bm.bonus_attack - bm.start_bonus_attack
+            gained_health = bm.bonus_health - bm.start_bonus_health
+            gained_keywords = bm.keywords - bm.start_keywords
+            if gained_attack or gained_health or gained_keywords:
+                # By origin id: the seat's board knows the body it sent, not
+                # the combat-local id the copy fought under.
+                rt.seats[side_idx].keep_combat_gains(
+                    bm.origin_instance_id, gained_attack, gained_health, gained_keywords
+                )
+
+
 def simulate_battle(
     p0_board: List[Minion],
     p1_board: List[Minion],
@@ -191,6 +220,7 @@ def simulate_battle(
 
     p0_alive = side0.has_alive()
     p1_alive = side1.has_alive()
+    _keep_combat_gains(rt)
     _emit_survivor_outputs(
         side0,
         side1,
