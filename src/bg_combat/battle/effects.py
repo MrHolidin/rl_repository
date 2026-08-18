@@ -31,6 +31,7 @@ from src.bg_core.effects import (
     KeepCombatGainsEffect,
     IncreaseTavernSpellBonusEffect,
     RaiseStandingBonusEffect,
+    RewardAtDamageDealtEffect,
     SelfBonusPerGameCount,
     SummonBestFromHandEffect,
     AddRandomMinionToHandOnKillEffect,
@@ -76,6 +77,7 @@ from src.bg_core.board_helpers import (
     apply_summoned_listener,
     grant_keyword_random,
     index_of,
+    apply_buff_matching,
     minion_matches_tribe,
 )
 from .auras import (
@@ -596,13 +598,8 @@ def _fire_friendly_attack_listeners(
                 attacker_side_idx,
                 PlayBloodGemsEffect(target=BloodGemTarget.SELF, count=eff.count),
             )
-        # ALL_FRIENDLY only: before the merge just ``BuffAllFriendlyMinions``
-        # reached this branch, so matching every BuffMatching variant here
-        # would newly fire the tribe/keyword ones on this trigger.
-        elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
-            for ally in side.iter_living():
-                ally.bonus_attack += eff.attack
-                ally.bonus_health += eff.health
+        elif isinstance(eff, BuffMatching):
+            apply_buff_matching(eff, list(side.iter_living()), listener)
     _sync_health_all(rt)
 
 
@@ -666,13 +663,12 @@ def _fire_rally(
         if isinstance(eff, BuffSelf):
             attacker.bonus_attack += eff.attack
             attacker.bonus_health += eff.health
-        elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.ALL_FRIENDLY:
-            # ALL_FRIENDLY includes the source here, as it does at every other
-            # site. A card that buffs its *other* minions says so through its
-            # binding, not by this trigger quietly meaning something else.
-            for ally in side.iter_living():
-                ally.bonus_attack += eff.attack
-                ally.bonus_health += eff.health
+        elif isinstance(eff, BuffMatching):
+            # Through the shared applier, not a loop of its own: this branch
+            # used to spell out ALL_FRIENDLY by hand and so ignored every field
+            # BuffMatching has grown since — limit, grant_keyword, and the
+            # exclude_source that "give your *other* minions" is made of.
+            apply_buff_matching(eff, list(side.iter_living()), attacker)
         elif isinstance(eff, DealDamageRandomEnemyMinion):
             for _ in range(max(1, eff.repeats)):
                 _deal_random_enemy_minion_damage(rt, attacker_side_idx, eff.amount)
@@ -858,10 +854,34 @@ def _handle_shield_lost(rt: _CombatRuntime, e: ShieldLost) -> None:
 
 
 def _handle_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
+    _count_damage_dealt(rt, e)
     bm = rt.find_minion(e.victim_side_idx, e.victim_instance_id)
     if bm is not None and bm.alive and e.hp_loss > 0:
         _fire_self_damaged(rt, e.victim_side_idx, bm)
         rt.swing_damage_survivors.append((e.victim_side_idx, e.victim_instance_id))
+
+
+def _count_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
+    """Tally damage for a body that is counting toward a reward.
+
+    Damage dealt *by* it, so the source is looked up on the other side of the
+    victim, and the tally goes to the seat: "(40 left!)" counts down across
+    fights, and the copy that swings does not survive one.
+    """
+    if e.hp_loss <= 0:
+        return
+    dealer_side = 1 - e.victim_side_idx
+    dealer = rt.find_minion(dealer_side, e.source_instance_id)
+    if dealer is None:
+        return
+    for ability in dealer.abilities:
+        if ability.trigger is not Trigger.AURA:
+            continue
+        eff = ability.effect
+        if isinstance(eff, RewardAtDamageDealtEffect):
+            rt.seats[dealer_side].record_damage_dealt(
+                dealer.card_id, e.hp_loss, eff.threshold, eff.card_id
+            )
 
 
 # --- Deathrattle (ON_DEATH) effect handlers ------------------------------

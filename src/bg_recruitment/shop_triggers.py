@@ -38,6 +38,7 @@ from src.bg_core.effects import (
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     ConsumeTavernMinionEffect,
+    DestroyFriendlyForCopyEffect,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
@@ -94,6 +95,7 @@ from src.bg_recruitment.spellcraft import (
     give_spellcraft_spell,
 )
 from src.bg_recruitment.activate import reset_activations
+from src.bg_recruitment.economy import reset_health_refreshes
 from src.bg_recruitment.blood_gems import (
     blood_gem_targets,
     give_blood_gems,
@@ -158,6 +160,7 @@ _HANDLED_ELSEWHERE = (
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     ConsumeTavernMinionEffect,
+    DestroyFriendlyForCopyEffect,
     # fire_on_place applies these itself and then skips them here: they read
     # and write per-turn counters that Brann must not multiply.
     PogoHopperBattlecry,
@@ -845,6 +848,7 @@ class ShopTriggers:
         player.pirates_bought_this_turn = 0
         player.elementals_played = 0
         reset_activations(player)
+        reset_health_refreshes(player)
         # Last turn's "until next turn" buffs end here — after the combat they
         # were cast for, before the seat acts again.
         expire_temporary_buffs(player)

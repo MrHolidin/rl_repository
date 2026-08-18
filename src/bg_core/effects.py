@@ -184,6 +184,13 @@ class BuffMatching:
     #: above, which *matches* on one (``FRIENDLY_WITH_KEYWORD``) — the same
     #: split ``BuffTargetFriendlyBattlecry`` already draws.
     grant_keyword: Optional[Keyword] = None
+    #: Leave the source out ("give your **other** minions +4/+2"). A flag rather
+    #: than a fifth target, because "other" is a question about the source and
+    #: not about who matches — which is why ``OTHER_OF_TRIBE`` exists at all,
+    #: and why it needed a tribe it did not otherwise care about.
+    #: ``BloodGemTarget`` has carried ALL_OTHER_FRIENDLY all along; this is the
+    #: same idea, said once and composable with every target.
+    exclude_source: bool = False
 
 
 @dataclass(frozen=True)
@@ -647,6 +654,48 @@ class BumpSeatCounterEffect:
     """
 
     counter: str
+
+
+@dataclass(frozen=True)
+class RewardAtDamageDealtEffect:
+    """Once this body has dealt ``threshold`` damage, hand the owner a card.
+
+    The tally is damage dealt **in combat**, and it carries across fights —
+    "(40 left!)" counts down over the whole game, not over one battle. The card
+    lands on the seat, so it survives the copy that earned it.
+    """
+
+    threshold: int
+    card_id: str
+
+
+@dataclass(frozen=True)
+class RefreshesCostHealthEffect:
+    """The first ``uses`` refreshes each turn are paid in Health, not Gold.
+
+    The payment is hero damage and goes through ``apply_hero_damage``, which is
+    what makes it interact with everything else that reads hero damage — armor
+    absorbs it, and a card that undoes hero damage undoes this too.
+    """
+
+    amount: int = 1
+    uses: int = 2
+
+
+@dataclass(frozen=True)
+class DestroyFriendlyForCopyEffect:
+    """Destroy a friendly and put a *plain* copy of it in hand.
+
+    Plain means the printed card: whatever the body had gained — buffs, granted
+    keywords, Blood Gems — does not come with it, which is the whole cost of the
+    trade.
+
+    A destroyed minion in the tavern is a death, and is counted as one (Eternal
+    Knight reads that tally). It does not fire deathrattles and Reborn does not
+    return it: those are combat rules, and this happens in the recruit phase.
+    """
+
+    filter_race: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -1386,6 +1435,9 @@ __all__ = [
     "ScopeKind",
     "RaiseStandingBonusEffect",
     "BumpSeatCounterEffect",
+    "DestroyFriendlyForCopyEffect",
+    "RefreshesCostHealthEffect",
+    "RewardAtDamageDealtEffect",
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
     "KeepCombatGainsEffect",

@@ -35,7 +35,9 @@ __all__ = [
     "SUMMONED",
     "DIED",
     "counter_key",
+    "DAMAGE_DEALT",
     "SPELLS_CAST",
+    "bump_died",
     "bump_game_count",
     "bump_seat_counter",
     "improve_level",
@@ -51,6 +53,10 @@ DIED = "died"
 #: Every spell this seat has cast — Tavern spells, Spellcraft spells and Blood
 #: Gems alike, because "spells you've cast" draws no distinction between them.
 SPELLS_CAST = "spells_cast:*"
+
+#: Damage a body has dealt in combat, across every fight. Keyed by card id
+#: because the tally belongs to the printing, not to the copy that swung.
+DAMAGE_DEALT = "damage_dealt"
 
 
 def counter_key(family: str, subject: str = "*") -> str:
@@ -144,6 +150,17 @@ def bump_game_count(
     ):
         subject_card.self_counted = True
     refresh_count_bonuses(player)
+
+
+def bump_died(player: PlayerState, dead: Minion) -> None:
+    """A friendly died — the shop's half of what combat already counts.
+
+    Selling is not this, and neither is a triple merge or being eaten: those are
+    the card leaving, not dying. Destroying one is, which is why this exists at
+    all — until a card destroyed a friendly in the tavern, every death in the
+    game happened in a fight.
+    """
+    bump_game_count(player, DIED, dead.card_id, subject_card=dead)
 
 
 def bump_summoned(player: PlayerState, arrived: Minion) -> None:

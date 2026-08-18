@@ -62,6 +62,53 @@ def effective_level_up_cost(player: PlayerState) -> int:
     return max(0, base)
 
 
+def _pay_refresh_in_health(player: PlayerState, cost: int) -> bool:
+    """Pay this refresh in Health if the seat has a charge for it.
+
+    The payment is hero damage rather than a bare subtraction, so everything
+    that reads hero damage sees it: armor absorbs it first, and a card that
+    undoes hero damage undoes this one too — which is the same rule the card
+    would face from a combat.
+    """
+    from src.bg_core.effects import RefreshesCostHealthEffect, Trigger
+    from src.bg_lobby.player import apply_hero_damage
+
+    if player.health_refreshes_left <= 0 or cost <= 0:
+        return False
+    amount = next(
+        (
+            ability.effect.amount
+            for minion in player.board
+            for ability in minion.abilities
+            if ability.trigger is Trigger.AURA
+            and isinstance(ability.effect, RefreshesCostHealthEffect)
+        ),
+        None,
+    )
+    if amount is None:
+        player.health_refreshes_left = 0
+        return False
+    player.health_refreshes_left -= 1
+    apply_hero_damage(player, int(amount))
+    return True
+
+
+def reset_health_refreshes(player: PlayerState) -> None:
+    """Give back this turn's health-paid refreshes, from what is on the board."""
+    from src.bg_core.effects import RefreshesCostHealthEffect, Trigger
+
+    player.health_refreshes_left = max(
+        (
+            ability.effect.uses
+            for minion in player.board
+            for ability in minion.abilities
+            if ability.trigger is Trigger.AURA
+            and isinstance(ability.effect, RefreshesCostHealthEffect)
+        ),
+        default=0,
+    )
+
+
 def start_of_turn_gold(player: PlayerState, round_number: int) -> int:
     """The coins a seat starts ``round_number`` with, banked promises included.
 
@@ -140,7 +187,9 @@ def roll_shop(
     patch: PatchContext,
 ) -> None:
     cost = effective_roll_cost(player)
-    player.gold -= cost
+    paid_in_health = _pay_refresh_in_health(player, cost)
+    if not paid_in_health:
+        player.gold -= cost
     # Nozdormu: consume the free first refresh for this turn.
     if player.hero_free_roll_pending:
         player.hero_free_roll_pending = False

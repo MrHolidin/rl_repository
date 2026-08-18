@@ -152,6 +152,10 @@ class PlayerState:
     #: Cards promised to the next N tavern rolls, ``card_id -> rolls left``
     #: ("add a Fodder to your next 3 Refreshes"). Spent one roll at a time.
     refresh_promises: Dict[str, int] = field(default_factory=dict)
+    #: Refreshes left this turn that cost Health instead of Gold (Malchezaar).
+    #: Reset at turn start from whatever is on the board, so selling the card
+    #: takes the discount with it.
+    health_refreshes_left: int = 0
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.

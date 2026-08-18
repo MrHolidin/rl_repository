@@ -12,6 +12,7 @@ from src.bg_core.effects import (
     BuffTargetFromPiratesBoughtBattlecry,
     ConsumeFriendlyBattlecry,
     ConsumeTavernMinionEffect,
+    DestroyFriendlyForCopyEffect,
     Trigger,
 )
 from src.bg_core.minion import Minion
@@ -22,6 +23,7 @@ from src.bg_recruitment.effect_modal import (
 )
 from src.bg_lobby.player import CasterKind, CasterRef, PlayerState
 
+from .hand_slots import first_free_hand_slot
 from .shop_auras import shop_effective_stats
 from .shop_triggers import ShopTriggers
 
@@ -64,6 +66,36 @@ def _pick_eater(
         return None
     pick = eligible[0] if len(eligible) == 1 else eligible[int(rng.integers(0, len(eligible)))]
     return player.board[pick]
+
+
+def destroy_friendly_for_copy(
+    player: PlayerState,
+    victim: Minion,
+    *,
+    patch,
+) -> Optional[Minion]:
+    """Destroy ``victim`` and hand its owner a plain copy of the printed card.
+
+    Three things a body normally does on the way out, and only one of them
+    happens here. It is *counted* as a death, so "for each Eternal Knight that
+    died this game" sees it. Its deathrattle does not fire and Reborn does not
+    return it: both are combat rules, and this is the recruit phase.
+    """
+    from src.bg_catalog.cards import make_minion
+
+    from .game_counts import bump_died
+
+    if victim not in player.board:
+        return None
+    slot = first_free_hand_slot(player)
+    if slot is None:
+        return None
+    player.board.remove(victim)
+    bump_died(player, victim)
+    # Plain: built from the template, so nothing the body had gained rides along.
+    copy = make_minion(victim.card_id, patch=patch)
+    player.hand[slot] = copy
+    return copy
 
 
 def consume_tavern_minion(
@@ -186,6 +218,16 @@ def apply_targeted_on_place_battlecries(
                 m = player.board[idx]
                 m.bonus_attack += e.attack_per * n
                 m.bonus_health += e.health_per * n
+        elif isinstance(e, DestroyFriendlyForCopyEffect):
+            victim = _pick_eater(
+                player,
+                placed,
+                ConsumeTavernMinionEffect(filter_race=e.filter_race),
+                rng=rng,
+                forced=forced_buff_target,
+            )
+            if victim is not None:
+                destroy_friendly_for_copy(player, victim, patch=triggers._patch)
         elif isinstance(e, ConsumeTavernMinionEffect):
             target = _pick_eater(player, placed, e, rng=rng, forced=forced_buff_target)
             if target is None:

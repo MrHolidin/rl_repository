@@ -234,7 +234,7 @@ def resolve_combat_round(
                 p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(live),
                 # A ghost has no seat to write to; the live one still does, so
                 # a permanent Gem earned against a dead player's board keeps.
-                seats=(PlayerCombatSeat(live), RecordingSeat()),
+                seats=(PlayerCombatSeat(live, patch=patch), RecordingSeat()),
             )
             dmg_live = battle_result.damage_p0
             _apply_hero_damage(state, match.a, dmg_live)
@@ -292,7 +292,7 @@ def resolve_combat_round(
             combat_hand_adds_out=combat_hand_adds,
             # See round.py: the seats carry the writes a combat copy cannot,
             # while gold and hand adds stay batched to after the fight.
-            seats=(PlayerCombatSeat(pa), PlayerCombatSeat(pb)),
+            seats=(PlayerCombatSeat(pa, patch=patch), PlayerCombatSeat(pb, patch=patch)),
             p0_attack_aura_all=hero_passives.hero_combat_attack_aura(pa),
             p1_attack_aura_all=hero_passives.hero_combat_attack_aura(pb),
             p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(pa),

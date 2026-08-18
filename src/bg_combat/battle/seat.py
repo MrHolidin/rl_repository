@@ -71,6 +71,15 @@ class CombatSeat(Protocol):
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         """"Rally: your Tavern spells give an extra +1 Health this game"."""
 
+    def record_damage_dealt(
+        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+    ) -> None:
+        """Count damage a body dealt, and pay its reward when the total lands.
+
+        The seat keeps the total because the card counts across fights and the
+        copy that swings does not survive one.
+        """
+
     def bump_game_count(self, family: str, subject: str) -> None:
         """Count one event on the owner's tally, from inside the fight.
 
@@ -121,6 +130,8 @@ class RecordingSeat:
     blood_gems: int = 0
     #: "This game" bonuses a combat raised, for a seat that has a table.
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
+    #: Damage a counting body dealt: (card_id, amount, threshold, reward).
+    damage_dealt: List[Tuple[str, int, int, str]] = field(default_factory=list)
     #: What a combat raised the owner's Tavern-spell bonus by.
     tavern_spell_raise: Tuple[int, int] = (0, 0)
     #: Events a combat counted, for a seat that keeps tallies.
@@ -166,6 +177,11 @@ class RecordingSeat:
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         current_attack, current_health = self.tavern_spell_raise
         self.tavern_spell_raise = (current_attack + int(attack), current_health + int(health))
+
+    def record_damage_dealt(
+        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+    ) -> None:
+        self.damage_dealt.append((card_id, int(amount), int(threshold), reward_card_id))
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))

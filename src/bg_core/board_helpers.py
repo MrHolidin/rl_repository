@@ -98,6 +98,8 @@ def buff_matching_hits(
     """
     from .effects import BuffTarget
 
+    if getattr(effect, "exclude_source", False) and source is not None and candidate is source:
+        return False
     t = effect.target
     if t is BuffTarget.ALL_FRIENDLY:
         return True

@@ -22,6 +22,7 @@ from src.bg_core.effects import (
     Ability,
     BuffAttackerOnFriendlyAttackEffect,
     CastRandomTavernSpellEffect,
+    DestroyFriendlyForCopyEffect,
     BuffListenerIfSummonedMatches,
     DealExcessDamageToAdjacentEffect,
     GrantKeywordRandomFriendly,
@@ -66,6 +67,8 @@ from src.bg_core.effects import (
     PlaceFishbaitEffect,
     PlayBloodGemsOnAttackerEffect,
     RaiseStandingBonusEffect,
+    RefreshesCostHealthEffect,
+    RewardAtDamageDealtEffect,
     ScopeKind,
     SelfBonusPerGameCount,
     SummonBestFromHandEffect,
@@ -647,6 +650,29 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BGS_126": (  # Wildfire Elemental — overkill splashes onto a neighbour
         Ability(Trigger.ON_OVERKILL, DealExcessDamageToAdjacentEffect()),
+    ),
+    "BG36_207": (  # Wolf Pup — Rally: give your *other* minions +4/+2
+        Ability(
+            Trigger.ON_ATTACK,
+            BuffMatching(
+                BuffTarget.ALL_FRIENDLY, attack=4, health=2, exclude_source=True
+            ),
+        ),
+    ),
+    "BG28_303": (  # Disguised Graverobber — destroy a friendly Undead for a plain copy
+        Ability(
+            Trigger.ON_PLACE,
+            DestroyFriendlyForCopyEffect(filter_race=Race.UNDEAD),
+        ),
+    ),
+    "BG26_524": (  # Malchezaar — two Refreshes a turn cost Health instead of Gold
+        Ability(Trigger.AURA, RefreshesCostHealthEffect(amount=1, uses=2)),
+    ),
+    "BG36_763": (  # Treasure Parrot — once this has dealt 40 damage, a Golden Touch
+        Ability(
+            Trigger.AURA,
+            RewardAtDamageDealtEffect(threshold=40, card_id="BG28_830"),
+        ),
     ),
 }
 

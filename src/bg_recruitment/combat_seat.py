@@ -27,7 +27,8 @@ from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerState
 
 from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
-from .game_counts import bump_game_count
+from .game_counts import DAMAGE_DEALT, bump_game_count, counter_key
+from .hand_slots import first_free_hand_slot
 from .standing_bonuses import BonusScope, raise_standing_bonus
 
 __all__ = ["PlayerCombatSeat"]
@@ -36,9 +37,13 @@ __all__ = ["PlayerCombatSeat"]
 class PlayerCombatSeat(RecordingSeat):
     """A combat seat bound to a real ``PlayerState``."""
 
-    def __init__(self, player: PlayerState) -> None:
+    def __init__(self, player: PlayerState, *, patch=None) -> None:
         super().__init__()
         self.player = player
+        # Only the rewards need it — a card handed over mid-fight has to be
+        # built from somewhere — so a seat without one still fights fine and
+        # simply cannot pay those out.
+        self.patch = patch
 
     # --- live: read and write the seat as the combat runs ------------------
 
@@ -72,6 +77,25 @@ class PlayerCombatSeat(RecordingSeat):
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         self.player.tavern_spell_bonus_attack += int(attack)
         self.player.tavern_spell_bonus_health += int(health)
+
+    def record_damage_dealt(
+        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+    ) -> None:
+        key = counter_key(DAMAGE_DEALT, card_id)
+        total = self.player.game_counts.get(key, 0)
+        if total >= threshold:
+            return  # already paid; the card says "(40 left!)" once
+        total += int(amount)
+        self.player.game_counts[key] = total
+        if total >= threshold:
+            slot = first_free_hand_slot(self.player)
+            spell = (
+                self.patch.tavern_spells.get(reward_card_id)
+                if self.patch is not None
+                else None
+            )
+            if slot is not None and spell is not None:
+                self.player.hand[slot] = spell
 
     def bump_game_count(self, family: str, subject: str) -> None:
         bump_game_count(self.player, family, subject)
