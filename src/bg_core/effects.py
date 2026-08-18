@@ -662,6 +662,45 @@ class BumpSeatCounterEffect:
 
 
 @dataclass(frozen=True)
+class BuffOnSpellCastOnTribeEffect:
+    """Watch every spell the seat casts at a friendly of ``tribe``.
+
+    Distinct from ``ON_TARGETED_BY_SPELL``, which is a card watching spells cast
+    at *itself*: Torrential Ruiner is watching the board.
+    """
+
+    tribe: Any = None
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class BuffSharedTribeEffect:
+    """Buff every friendly sharing a tribe with the minion this was cast at.
+
+    "Choose a minion. Give all minions that share a type with it +3/+3" — the
+    tribe is read off the target rather than named, which is what no fixed
+    ``BuffMatching`` can say.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class CastSpellAtEffect:
+    """Cast a named spell at a minion the position names, not the seat.
+
+    "Cast Chef's Choice on the minion to the right", "cast Natural Blessing on
+    adjacent minions" — the card picks the target, so nobody is asked.
+    """
+
+    card_id: str
+    to_the_right: bool = False
+    adjacent: bool = False
+
+
+@dataclass(frozen=True)
 class MagnetizeTokenEffect:
     """Magnetize a token onto a Mech, without it ever being in hand.
 
@@ -1221,7 +1260,11 @@ class CreateSpellcraftSpellEffect:
     double the effect, which is the ``buff``'s doubled stats.
     """
 
-    buff: GrantTemporaryBuffEffect
+    #: What the spell does. Usually a buff that expires — that is what the
+    #: keyword was built around — but not always: some Nagas hand out a spell
+    #: that fetches a card or raises a seat bonus, and those are ordinary
+    #: effects wearing a Spellcraft spell as a wrapper.
+    buff: Any
     card_id: str = ""
     name: str = ""
     #: "Improved by every 4 spells you've cast this game" — the buff is
@@ -1542,6 +1585,9 @@ __all__ = [
     "BumpSeatCounterEffect",
     "DestroyFriendlyForCopyEffect",
     "RefreshesCostHealthEffect",
+    "BuffOnSpellCastOnTribeEffect",
+    "BuffSharedTribeEffect",
+    "CastSpellAtEffect",
     "MagnetizeTokenEffect",
     "MagnetizesToTribesEffect",
     "DoubleNextMagnetizeEffect",

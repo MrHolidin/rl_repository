@@ -37,6 +37,7 @@ __all__ = [
     "counter_key",
     "GOLDEN_PLAYED",
     "SPELLS_CAST",
+    "TAVERN_SPELLS_CAST",
     "bump_died",
     "bump_game_count",
     "bump_played",
@@ -54,6 +55,10 @@ DIED = "died"
 #: Every spell this seat has cast — Tavern spells, Spellcraft spells and Blood
 #: Gems alike, because "spells you've cast" draws no distinction between them.
 SPELLS_CAST = "spells_cast:*"
+
+#: Tavern spells only — narrower than SPELLS_CAST, because the cards that read
+#: it say "Tavern spell" and a Blood Gem is not one.
+TAVERN_SPELLS_CAST = "tavern_spells_cast:*"
 
 #: Golden minions this seat has played. Played, not summoned: the cards that
 #: read it say "you've played", and a golden token summoned in a fight is not

@@ -28,6 +28,8 @@ from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import (
     AddRandomTavernSpellToHandEffect,
     BuffAllShopOffersEffect,
+    BuffSharedTribeEffect,
+    CastSpellAtEffect,
     BuffTargetFriendlyBattlecry,
     CastRandomTavernSpellEffect,
     ChooseOneEffect,
@@ -38,12 +40,18 @@ from src.bg_core.effects import (
     StealTavernMinionEffect,
     Trigger,
 )
+from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
 
-from .game_counts import SPELLS_CAST, bump_seat_counter, improve_level
+from .game_counts import (
+    SPELLS_CAST,
+    TAVERN_SPELLS_CAST,
+    bump_seat_counter,
+    improve_level,
+)
 from .hand_slots import first_free_hand_slot
 from .pool_ledger import on_bought_from_shop
 
@@ -271,6 +279,7 @@ def cast_tavern_spell(
         )
     player.last_tavern_spell_cast = card.card_id
     bump_seat_counter(player, SPELLS_CAST)
+    bump_seat_counter(player, TAVERN_SPELLS_CAST)
     _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
 
 
@@ -425,6 +434,31 @@ def _apply_spell_effect(
         )
         return
 
+    if isinstance(effect, BuffSharedTribeEffect):
+        if target is not None:
+            for friendly in player.board:
+                if minion_matches_tribe(friendly, target.race):
+                    friendly.bonus_attack += effect.attack
+                    friendly.bonus_health += effect.health
+        return
+
+    if isinstance(effect, CastSpellAtEffect):
+        # ``target`` is the minion carrying this effect — the positions the card
+        # names are read from where *it* stands.
+        spell = patch.tavern_spells.get(effect.card_id)
+        if spell is not None and target is not None:
+            for aimed in _positional_targets(player, target, effect):
+                cast_tavern_spell(
+                    player,
+                    spell,
+                    rng=rng,
+                    patch=patch,
+                    target=aimed,
+                    shop_excluded_race=shop_excluded_race,
+                    shared_pool=shared_pool,
+                )
+        return
+
     if isinstance(effect, DiscoverTavernSpellEffect):
         open_tavern_spell_discover(player, rng=rng, patch=patch)
         return
@@ -448,6 +482,20 @@ def _apply_spell_effect(
         shop_excluded_race=shop_excluded_race,
         shared_pool=shared_pool,
     )
+
+
+def _positional_targets(player: PlayerState, source: Minion, effect) -> List[Minion]:
+    """Who a positional cast lands on — the card names them, not the seat."""
+    board = player.board
+    try:
+        idx = board.index(source)
+    except ValueError:
+        return []
+    if effect.to_the_right:
+        return [board[idx + 1]] if idx + 1 < len(board) else []
+    if effect.adjacent:
+        return [board[i] for i in (idx - 1, idx + 1) if 0 <= i < len(board)]
+    return [source]
 
 
 def steal_tavern_minion(

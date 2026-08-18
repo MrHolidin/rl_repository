@@ -22,7 +22,10 @@ from src.bg_core.effects import (
     Ability,
     BuffAttackerOnFriendlyAttackEffect,
     AddRandomCardToHandEffect,
+    BuffOnSpellCastOnTribeEffect,
+    BuffSharedTribeEffect,
     BuffPerMagnetizationEffect,
+    CastSpellAtEffect,
     DoubleNextMagnetizeEffect,
     EchoMagnetizeEffect,
     MagnetizeTokenEffect,
@@ -906,6 +909,97 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG26_149": (  # Polarizing Beatboxer — a weld elsewhere also lands here
         Ability(Trigger.AURA, EchoMagnetizeEffect()),
     ),
+    # ------------------------------------------------------- the Naga family
+    "BG23_008": (  # Glowscale — Spellcraft: Divine Shield until next turn
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=GrantTemporaryBuffEffect(keyword=Keyword.SHIELD),
+                card_id="BG23_008t",
+                name="Glowscale's Ward",
+            ),
+        ),
+    ),
+    "BG33_319": (  # Rimescale Priestess — Spellcraft: a Tavern spell that gives stats
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=AddRandomTavernSpellToHandEffect(count=1, gives_stats=True),
+                card_id="BG33_319t",
+                name="Rimescale Rites",
+            ),
+        ),
+    ),
+    "BG32_835": (  # Tranquil Meditative — Spellcraft: your Tavern spells give +1/+1
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=IncreaseTavernSpellBonusEffect(attack=1, health=1),
+                card_id="BG32_835t",
+                name="Tranquil Tide",
+            ),
+        ),
+    ),
+    "BG31_920": (  # Darkcrest Strategist — Spellcraft: a Tier 1 Naga, improving
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=AddRandomMinionToHandEffect(tribe=Race.NAGA, tier=1),
+                card_id="BG31_920t",
+                name="Darkcrest Call",
+            ),
+        ),
+    ),
+    "BG35_921": (  # Abyssal Bruiser — +2/+1 per Tavern spell cast this game
+        Ability(
+            Trigger.AURA,
+            SelfBonusPerGameCount(
+                counter="tavern_spells_cast", subject="*",
+                attack_per=2, health_per=1, count_self=True,
+            ),
+        ),
+    ),
+    "BG31_925": (  # Showy Cyclist — Deathrattle: your Naga +2/+2, improving
+        Ability(
+            Trigger.ON_DEATH,
+            RepeatPerCountEffect(
+                counter="spells_cast:*",
+                per=4,
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.NAGA, attack=2, health=2
+                ),
+            ),
+        ),
+    ),
+    "BG31_035": (  # Groundbreaker — after you play a Naga, gain +1/+1, improving
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            RepeatPerCountEffect(
+                counter="spells_cast:*",
+                per=4,
+                effect=BuffSelf(attack=1, health=1),
+            ),
+            filter_race=Race.NAGA,
+        ),
+    ),
+    "BG36_622": (  # Torrential Ruiner — a spell on a Naga: your minions +3/+3
+        Ability(
+            Trigger.AURA,
+            BuffOnSpellCastOnTribeEffect(tribe=Race.NAGA, attack=3, health=3),
+        ),
+    ),
+    "BG32_837": (  # Fauna Whisperer — end of turn: Natural Blessing on the neighbours
+        Ability(
+            Trigger.ON_TURN_END,
+            CastSpellAtEffect(card_id="BG28_845", adjacent=True),
+        ),
+    ),
+    "BG34_925": (  # Seafloor Recruiter — Rally: Chef's Choice on the minion right
+        Ability(
+            Trigger.ON_ATTACK,
+            CastSpellAtEffect(card_id="BG28_518", to_the_right=True),
+        ),
+    ),
 }
 
 
@@ -913,6 +1007,10 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
 #: battlecry, so every ability here hangs off ``Trigger.ON_PLACE`` — it fires
 #: when the card is cast, which for a spell is the only thing it ever does.
 SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
+    "BG28_845": (  # Natural Blessing — everyone sharing the target's type +3/+3
+        Ability(Trigger.ON_PLACE, BuffSharedTribeEffect(attack=3, health=3)),
+    ),
+
     # ---------------------------------------------------- spells handed out
     # Not sold in the tavern; these arrive from a minion that names them.
     "EBG_Spell_014": (  # Pointy Arrow — give a minion +4 Attack

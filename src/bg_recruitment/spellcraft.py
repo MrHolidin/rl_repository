@@ -17,6 +17,8 @@ is felt in combat N and gone in recruit N+1, which is what the cards mean.
 
 from __future__ import annotations
 
+import numpy as np
+
 from typing import List, Optional
 
 from src.bg_core.effects import (
@@ -50,7 +52,7 @@ def is_spellcraft_spell(card) -> bool:
 
 def _improved_buff(
     player: PlayerState, effect: CreateSpellcraftSpellEffect
-) -> GrantTemporaryBuffEffect:
+):
     """The spell's buff at the seat's current level.
 
     "Give a minion +1/+1 until next turn. (Improved by every 4 spells you've
@@ -62,7 +64,9 @@ def _improved_buff(
     from .game_counts import improve_level
 
     level = improve_level(player, effect.counter, effect.per)
-    if level == 1:
+    if level == 1 or not isinstance(effect.buff, GrantTemporaryBuffEffect):
+        # Only a buff has numbers to multiply; a spell that fetches a card is
+        # improved by whatever its own effect says, not by this.
         return effect.buff
     return replace(
         effect.buff,
@@ -151,7 +155,7 @@ def _count_spell_cast(player: PlayerState) -> None:
 
 
 def play_spellcraft_spell_from_hand(
-    player: PlayerState, hand_index: int, board_index: int
+    player: PlayerState, hand_index: int, board_index: int, *, patch=None
 ) -> None:
     """Cast the spell in ``hand_index`` on the board minion at ``board_index``.
 
@@ -167,11 +171,20 @@ def play_spellcraft_spell_from_hand(
     target = player.board[board_index]
     for ability in card.abilities:
         if isinstance(ability.effect, GrantTemporaryBuffEffect):
-            apply_temporary_buff(target, ability.effect, player=player)
+            apply_temporary_buff(target, ability.effect, player=player, patch=patch)
+        elif patch is not None:
+            # A Spellcraft spell that does something other than buff its target
+            # — fetch a card, raise a seat bonus — is an ordinary effect, so it
+            # goes to the dispatcher that knows them all and raises on the rest.
+            from .shop_triggers import ShopTriggers
+
+            ShopTriggers(np.random.default_rng(0), patch=patch).apply_shop_effect(
+                player, target, ability.effect, placed=None
+            )
         else:
             raise NotImplementedError(
-                f"Spellcraft spell effect {type(ability.effect).__name__} has no "
-                f"handler ({card.card_id})"
+                f"Spellcraft spell effect {type(ability.effect).__name__} needs a "
+                f"patch to resolve ({card.card_id})"
             )
     player.hand[hand_index] = None
     _count_spell_cast(player)

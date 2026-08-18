@@ -187,8 +187,10 @@ def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
     def _rng():
         return _np.random.default_rng(0)
 
-    from .effects import BuffSelf, Trigger
+    from .effects import BuffOnSpellCastOnTribeEffect, BuffSelf, Trigger
 
+    if player is not None:
+        _fire_board_spell_watchers(player, target)
     for ab in target.abilities:
         if ab.trigger is not Trigger.ON_TARGETED_BY_SPELL:
             continue
@@ -248,6 +250,29 @@ def apply_attack_thresholds(minion: Minion, attack: int) -> bool:
         grant_keyword(minion, eff.keyword)
         granted = True
     return granted
+
+
+def _fire_board_spell_watchers(player, target: Minion) -> None:
+    """Board listeners of "whenever you cast a spell on a <tribe>".
+
+    The watcher is not the target, which is what separates this from
+    ``ON_TARGETED_BY_SPELL``: Torrential Ruiner pays out for spells cast on any
+    friendly Naga, itself included.
+    """
+    from .effects import BuffOnSpellCastOnTribeEffect, Trigger
+
+    for watcher in list(player.board):
+        for ability in watcher.abilities:
+            if ability.trigger is not Trigger.AURA:
+                continue
+            eff = ability.effect
+            if not isinstance(eff, BuffOnSpellCastOnTribeEffect):
+                continue
+            if eff.tribe is not None and not minion_matches_tribe(target, eff.tribe):
+                continue
+            for friendly in player.board:
+                friendly.bonus_attack += eff.attack
+                friendly.bonus_health += eff.health
 
 
 def grant_keyword(minion: Minion, keyword) -> bool:

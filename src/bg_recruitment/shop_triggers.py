@@ -60,6 +60,7 @@ from src.bg_core.effects import (
     AddRandomTavernSpellToHandEffect,
     CastRandomTavernSpellEffect,
     CopyLastTavernSpellEffect,
+    CastSpellAtEffect,
     DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
@@ -150,6 +151,7 @@ class UnhandledShopEffect(RuntimeError):
 #: Effects the Tavern-spell module owns end to end — including the tier
 #: Discover, which is printed on a spell and on a minion alike.
 _TAVERN_SPELL_EFFECTS = (
+    CastSpellAtEffect,
     DiscoverMinionAtTierEffect,
     IncreaseTavernSpellBonusEffect,
     AddRandomTavernSpellToHandEffect,
