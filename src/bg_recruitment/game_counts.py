@@ -35,9 +35,11 @@ __all__ = [
     "SUMMONED",
     "DIED",
     "counter_key",
+    "GOLDEN_PLAYED",
     "SPELLS_CAST",
     "bump_died",
     "bump_game_count",
+    "bump_played",
     "bump_seat_counter",
     "improve_level",
     "refresh_count_bonuses",
@@ -52,6 +54,11 @@ DIED = "died"
 #: Every spell this seat has cast — Tavern spells, Spellcraft spells and Blood
 #: Gems alike, because "spells you've cast" draws no distinction between them.
 SPELLS_CAST = "spells_cast:*"
+
+#: Golden minions this seat has played. Played, not summoned: the cards that
+#: read it say "you've played", and a golden token summoned in a fight is not
+#: something the seat played.
+GOLDEN_PLAYED = "golden_played:*"
 
 
 def counter_key(family: str, subject: str = "*") -> str:
@@ -156,6 +163,12 @@ def bump_died(player: PlayerState, dead: Minion) -> None:
     game happened in a fight.
     """
     bump_game_count(player, DIED, dead.card_id, subject_card=dead)
+
+
+def bump_played(player: PlayerState, played: Minion) -> None:
+    """Count a card the seat played from hand, for the tallies that read it."""
+    if played.is_golden:
+        bump_seat_counter(player, GOLDEN_PLAYED)
 
 
 def bump_summoned(player: PlayerState, arrived: Minion) -> None:

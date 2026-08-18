@@ -239,6 +239,33 @@ def fill_shop_slot(
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
 ) -> None:
+    """Roll one offer into ``slot``, then square it with the seat's standing
+    "this game" bonuses.
+
+    A wrapper because the roll has three exits — Ysera's forced tribe, the
+    shared-pool draw and the plain one — and a minion landing on the counter is
+    owed those bonuses however it got there.
+    """
+    _roll_shop_slot(
+        player,
+        slot,
+        shop_excluded_race,
+        rng=rng,
+        shared_pool=shared_pool,
+        patch=patch,
+    )
+    settle_standing_bonuses(player)
+
+
+def _roll_shop_slot(
+    player: PlayerState,
+    slot: int,
+    shop_excluded_race: Optional[Race],
+    *,
+    rng: np.random.Generator,
+    shared_pool: Optional[SharedCardPool] = None,
+    patch: PatchContext,
+) -> None:
     """Roll one offer into ``slot``; shared pool reserves on display."""
     # Ysera: the extra slot(s) beyond the tier's base count are always Dragons.
     forced_tribe = _hero_forced_slot_tribe(player, slot)
@@ -289,9 +316,6 @@ def _fill_forced_tribe_slot(
     player.shop[slot] = make_minion(card_id, patch=patch)
     apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
     _apply_hero_shop_tribe_buff(player, player.shop[slot])
-    # A minion that has just landed on the counter is owed whatever "this game"
-    # bonuses the seat is carrying, the same as one it already owned.
-    settle_standing_bonuses(player)
     return True
 
 

@@ -117,7 +117,9 @@ def _keeps_first_spellcraft(target: Minion) -> bool:
     )
 
 
-def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None:
+def apply_temporary_buff(
+    target: Minion, buff: GrantTemporaryBuffEffect, *, player=None, patch=None
+) -> None:
     """Stats and keyword that come off again at the owner's next turn.
 
     Unless the body keeps them: Lava Lurker makes the first Spellcraft spell
@@ -139,7 +141,7 @@ def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None
                 target.granted_keywords = target.granted_keywords | {buff.keyword}
             else:
                 target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
-    fire_spell_cast_on(target)
+    fire_spell_cast_on(target, player=player, patch=patch)
 
 
 def _count_spell_cast(player: PlayerState) -> None:
@@ -165,7 +167,7 @@ def play_spellcraft_spell_from_hand(
     target = player.board[board_index]
     for ability in card.abilities:
         if isinstance(ability.effect, GrantTemporaryBuffEffect):
-            apply_temporary_buff(target, ability.effect)
+            apply_temporary_buff(target, ability.effect, player=player)
         else:
             raise NotImplementedError(
                 f"Spellcraft spell effect {type(ability.effect).__name__} has no "

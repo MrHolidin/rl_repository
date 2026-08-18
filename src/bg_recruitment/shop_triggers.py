@@ -594,7 +594,9 @@ class ShopTriggers:
             )
         elif isinstance(effect, PlayBloodGemsEffect):
             for target in blood_gem_targets(player, source, effect.target):
-                play_blood_gem_on(player, target, count=effect.count)
+                play_blood_gem_on(
+                    player, target, count=effect.count, patch=self._patch
+                )
         elif isinstance(effect, IncreaseBloodGemBonusEffect):
             player.blood_gem_bonus_attack += effect.attack
             player.blood_gem_bonus_health += effect.health

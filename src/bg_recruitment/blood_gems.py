@@ -110,6 +110,7 @@ def play_blood_gem_on(
     *,
     count: int = 1,
     quilboar_keyword: Optional[Keyword] = None,
+    patch=None,
 ) -> None:
     """Play ``count`` Gems onto one minion (from hand or from a card's effect)."""
     if target.cannot_gain_stats:
@@ -123,7 +124,7 @@ def play_blood_gem_on(
         if quilboar_keyword is not None and target.race is Race.QUILBOAR:
             target.granted_keywords = target.granted_keywords | {quilboar_keyword}
         # A Gem is a spell, and it was cast at this body.
-        fire_spell_cast_on(target)
+        fire_spell_cast_on(target, player=player, patch=patch)
     refresh_attack_thresholds(player.board)
     # A Gem is a spell, and "spells you've cast" counts every kind.
     from .game_counts import SPELLS_CAST, bump_seat_counter

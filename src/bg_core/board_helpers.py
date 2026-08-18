@@ -171,13 +171,22 @@ def stat_aura_bonus(
     return atk, hp
 
 
-def fire_spell_cast_on(target: Minion) -> None:
+def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
     """Fire ``ON_TARGETED_BY_SPELL`` listeners on the minion a spell just hit.
 
     Both casts the engine can aim at a body — a Spellcraft spell and a Blood Gem
     — come through here, so a card counting them cannot see one kind and miss
     the other. Each Gem of a multi-Gem play is its own cast.
+
+    ``player`` and ``patch`` are needed only by the listeners that write to the
+    seat rather than to the body ("give minions in the Tavern +2/+2 this game");
+    without them such a card raises rather than silently doing nothing.
     """
+    import numpy as _np
+
+    def _rng():
+        return _np.random.default_rng(0)
+
     from .effects import BuffSelf, Trigger
 
     for ab in target.abilities:
@@ -187,6 +196,14 @@ def fire_spell_cast_on(target: Minion) -> None:
         if isinstance(eff, BuffSelf):
             target.bonus_attack += eff.attack
             target.bonus_health += eff.health
+        elif player is not None:
+            # Anything that writes to the seat rather than to the body goes to
+            # the shop dispatcher, which raises on an effect nobody handles.
+            from src.bg_recruitment.shop_triggers import ShopTriggers
+
+            ShopTriggers(_rng(), patch=patch).apply_shop_effect(
+                player, target, eff, placed=None
+            )
         else:
             raise NotImplementedError(
                 f"{type(eff).__name__} has no ON_TARGETED_BY_SPELL handler "

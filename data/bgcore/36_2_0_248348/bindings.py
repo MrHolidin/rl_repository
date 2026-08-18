@@ -22,6 +22,10 @@ from src.bg_core.effects import (
     Ability,
     BuffAttackerOnFriendlyAttackEffect,
     AddRandomCardToHandEffect,
+    AddRandomTavernSpellToHandEffect,
+    BuffOnePerListedTribeFriendly,
+    CleaveOnAttack,
+    DealDamageAllMinions,
     BuffSelfOnFriendlyDamageEffect,
     BuffSelfOnFriendlySoldEffect,
     BuffShopOnEveryRefreshEffect,
@@ -138,7 +142,12 @@ KEYWORD_ONLY_POOL_IDS: FrozenSet[str] = frozenset(
 #:
 #: Empty through tier 1. (Duos-only cards are not listed: they never reach a
 #: solo pool — see ``is_duos_only_card_id``.)
-UNBOUND_NEEDS_ENGINE: Dict[str, str] = {}
+UNBOUND_NEEDS_ENGINE: Dict[str, str] = {
+    "BG32_842": "Glowing Cinder: 'your Elementals give an extra +2 Health this game' "
+    "modifies what the Elemental-played trigger hands out, and shop_elemental_bonus "
+    "is one int used as both the count and the value — it cannot carry a Health-only "
+    "bonus. Needs that field split before this card can be said correctly.",
+}
 
 EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     # ------------------------------------------------------------------ tier 1
@@ -732,6 +741,137 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.AURA,
             RewardAtDamageDealtEffect(threshold=40, card_id="BG28_830"),
         ),
+    ),
+    # ------------------------------------------------------------------ tier 4
+    "BG32_172": (  # Auto Assembler — Magnetic; Deathrattle: an Ancestral Automaton
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG_TTN_401", count=1)),
+    ),
+    "BG33_822": (  # Bigwig Bandit — Rally: get a random Bounty
+        Ability(
+            Trigger.ON_ATTACK,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG33_811",  # Healthy
+                    "BG33_812",  # Hostile
+                    "BG33_813",  # Selfish
+                    "BG33_814",  # Friendly
+                    "BG33_815",  # Wealthy
+                )
+            ),
+        ),
+    ),
+    "BG26_817": (  # Blade Collector — the swing also hits whoever stands beside
+        Ability(Trigger.AURA, CleaveOnAttack()),
+    ),
+    "BG20_104": (  # Bonker — Windfury; Rally: a Blood Gem on all your others
+        Ability(
+            Trigger.ON_ATTACK,
+            PlayBloodGemsEffect(target=BloodGemTarget.ALL_OTHER_FRIENDLY, count=1),
+        ),
+    ),
+    "BG36_620": (  # Boom-in-a-Box — Taunt; Start of Combat: 3 to all other minions
+        Ability(Trigger.ON_START_OF_COMBAT, DealDamageAllMinions(amount=3)),
+    ),
+    "BG36_242": (  # Bronze Timewalker — Rally: get a random Chromadrake
+        Ability(
+            Trigger.ON_ATTACK,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG34_634t",
+                    "BG34_635t",
+                    "BG34_636t",
+                    "BG34_637t",
+                    "BG34_638t",
+                )
+            ),
+        ),
+    ),
+    "BG36_211": (  # Cage Gnawer — a friendly Beast attacks: your Beasts +2/+1
+        Ability(
+            Trigger.ON_FRIENDLY_ATTACK,
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=2, health=1
+            ),
+        ),
+    ),
+    "BG36_760": (  # Captain Cookie — Deathrattle: get a Chef's Choice
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG28_518")),
+    ),
+    "BG35_143": (  # Deepwater Chieftain — Battlecry *and* Deathrattle: a Deepwater Clan
+        Ability(Trigger.ON_PLACE, AddTavernSpellToHandEffect(card_id="BG35_149")),
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG35_149")),
+    ),
+    "BG36_762": (  # Devilish Distractor — a spell on this buffs the tavern for good
+        Ability(
+            Trigger.ON_TARGETED_BY_SPELL,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.SHOP, attack=2, health=2),
+        ),
+    ),
+    "BG34_865": (  # En-Djinn Blazer — every roll from now on buffs the tavern
+        Ability(Trigger.ON_PLACE, BuffShopOnEveryRefreshEffect(attack=7, health=7)),
+    ),
+    "BG30_123": (  # Fearless Foodie — Choose One: better Gems, or four of them
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=IncreaseBloodGemBonusEffect(attack=1, health=1),
+                second=GainBloodGemsEffect(count=4),
+            ),
+        ),
+    ),
+    "BG32_880": (  # Friendly Geist — Deathrattle: Tavern spells give +1 Attack
+        Ability(Trigger.ON_DEATH, IncreaseTavernSpellBonusEffect(attack=1, health=0)),
+    ),
+    "BG36_764": (  # Gearfin — end of turn: two 1-Cost Tavern spells
+        Ability(
+            Trigger.ON_TURN_END,
+            AddRandomTavernSpellToHandEffect(count=2, max_cost=1),
+        ),
+    ),
+    "BG36_204": (  # Headhunter Gryphon — Rally: get a random Beast
+        Ability(Trigger.ON_ATTACK, AddRandomMinionToHandEffect(tribe=Race.BEAST)),
+    ),
+    "BG36_524": (  # Maritime Extortionist — +8/+8 per Golden minion played this game
+        Ability(
+            Trigger.AURA,
+            SelfBonusPerGameCount(
+                counter="golden_played", subject="*", attack_per=8, health_per=8,
+                count_self=True,
+            ),
+        ),
+    ),
+    "BG27_080": (  # Motley Phalanx — Deathrattle: one friendly of each type +2/+2
+        Ability(
+            Trigger.ON_DEATH,
+            BuffOnePerListedTribeFriendly(
+                attack=2,
+                health=2,
+                tribes=(
+                    Race.BEAST,
+                    Race.DEMON,
+                    Race.DRAGON,
+                    Race.ELEMENTAL,
+                    Race.MECHANICAL,
+                    Race.MURLOC,
+                    Race.NAGA,
+                    Race.PIRATE,
+                    Race.QUILBOAR,
+                    Race.UNDEAD,
+                ),
+            ),
+        ),
+    ),
+    "BG34_682": (  # Razorfen Flapper — Deathrattle: get a Blood Gem Barrage
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG34_689")),
+    ),
+    "BGS_116": (  # Refreshing Anomaly — Battlecry: two free Refreshes
+        Ability(Trigger.ON_PLACE, SetNextRollCostEffect(cost=0, uses=2)),
+    ),
+    "BGS_123": (  # Tavern Tempest — Battlecry: get a random Elemental
+        Ability(Trigger.ON_PLACE, AddRandomMinionToHandEffect(tribe=Race.ELEMENTAL)),
+    ),
+    "BG34_684": (  # Trench Fighter — end of turn: get a Gem Confiscation
+        Ability(Trigger.ON_TURN_END, AddTavernSpellToHandEffect(card_id="BG28_698")),
     ),
 }
 

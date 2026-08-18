@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 
 from src.bg_core.effects import (
     BuffMatching,
+    DealDamageAllMinions,
     Keyword,
     SummonBestFromHandEffect,
     StartOfCombatDamagePerFriendlyTribe,
@@ -15,7 +16,7 @@ from src.bg_core.effects import (
 
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .summon import _summon_append
-from .effects import _summon_best_from_hand
+from .effects import _deal_damage_to_battle_minion, _summon_best_from_hand
 from .events import (
     AttackCompleted,
     BeginAttackExchange,
@@ -155,6 +156,14 @@ def _apply_start_of_combat_effect(
             grant=lambda m, kw: _grant_keyword(rt, side_idx, m, kw),
         )
         _sync_health_all(rt)
+    elif isinstance(eff, DealDamageAllMinions):
+        # "Start of Combat: deal 3 damage to all other minions" — every body in
+        # the fight but the one that said so.
+        for other_side in (0, 1):
+            for bm in list(rt.side(other_side).iter_living()):
+                if bm is source:
+                    continue
+                _deal_damage_to_battle_minion(rt, other_side, bm, eff.amount)
     elif isinstance(eff, SummonBestFromHandEffect):
         # Same reach as the Rally that summons from hand, at a different moment:
         # the card stays put and a copy joins the fight.

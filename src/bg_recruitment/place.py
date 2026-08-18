@@ -8,6 +8,7 @@ from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PlayerState
 
+from .game_counts import bump_played
 from .shop_triggers import ShopTriggers
 from .triples import (
     flush_triple_reward_queue_if_idle,
@@ -86,6 +87,7 @@ def place_from_hand(
     else:
         pos = max(0, min(int(insert_at), len(player.board)))
         player.board.insert(pos, minion)
+    bump_played(player, minion)
     triggers.fire_shop_friendly_summoned(player, minion)
     player.placed_minion_board_index = len(player.board) - 1
     player.placed_minion_pending_after = minion
