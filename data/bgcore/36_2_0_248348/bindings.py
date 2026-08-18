@@ -24,6 +24,8 @@ from src.bg_core.effects import (
     AddRandomCardToHandEffect,
     BuffOnSpellCastOnTribeEffect,
     BuffBoughtMinionEffect,
+    BuffTargetPerGoldSpentEffect,
+    MakeFriendlyGoldenEffect,
     ConsumeTavernMinionEffect,
     GoldSpentResponseEffect,
     IncreaseTribeGiftEffect,
@@ -1164,6 +1166,91 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
+    # ---------------------------------------------------- the Pirate family
+    "BG36_523": (  # Enterprising Escapee — every 5 Gold, a Lockbox
+        Ability(
+            Trigger.AURA,
+            GoldSpentResponseEffect(threshold=5, effect=GiveLockboxEffect(sooner=1)),
+        ),
+    ),
+    "BG26_810": (  # Gunpowder Courier — every 5 Gold, your Pirates +2 Attack
+        Ability(
+            Trigger.AURA,
+            GoldSpentResponseEffect(
+                threshold=5,
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.PIRATE, attack=2, health=0
+                ),
+            ),
+        ),
+    ),
+    "BG31_824": (  # Dual-Wield Corsair — every 5 Gold, two Pirates +4/+5
+        Ability(
+            Trigger.AURA,
+            GoldSpentResponseEffect(
+                threshold=5,
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE,
+                    tribe=Race.PIRATE,
+                    attack=4,
+                    health=5,
+                    limit=2,
+                ),
+            ),
+        ),
+    ),
+    "BG33_823": (  # Sky Admiral Rogers — every 9 Gold, a random Bounty
+        Ability(
+            Trigger.AURA,
+            GoldSpentResponseEffect(
+                threshold=9,
+                effect=AddRandomCardToHandEffect(
+                    card_ids=(
+                    "BG33_811",  # Healthy
+                    "BG33_812",  # Hostile
+                    "BG33_813",  # Selfish
+                    "BG33_814",  # Friendly
+                    "BG33_815",  # Wealthy
+                    )
+                ),
+            ),
+        ),
+    ),
+    "BG33_821": (  # Shipwrecked Rascal — Battlecry *and* Deathrattle: a Bounty
+        Ability(
+            Trigger.ON_PLACE,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG33_811",  # Healthy
+                    "BG33_812",  # Hostile
+                    "BG33_813",  # Selfish
+                    "BG33_814",  # Friendly
+                    "BG33_815",  # Wealthy
+                )
+            ),
+        ),
+        Ability(
+            Trigger.ON_DEATH,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG33_811",  # Healthy
+                    "BG33_812",  # Hostile
+                    "BG33_813",  # Selfish
+                    "BG33_814",  # Friendly
+                    "BG33_815",  # Wealthy
+                )
+            ),
+        ),
+    ),
+    "BG26_814": (  # Lovesick Balladist — a Pirate +1 Health per Gold spent this turn
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetPerGoldSpentEffect(attack=0, health=1, filter_race=Race.PIRATE),
+        ),
+    ),
+    "BG25_034": (  # Captain Sanders — make a friendly from Tier 6 or below Golden
+        Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect(max_tier=6)),
+    ),
 }
 
 
@@ -1171,6 +1258,29 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
 #: battlecry, so every ability here hangs off ``Trigger.ON_PLACE`` — it fires
 #: when the card is cast, which for a spell is the only thing it ever does.
 SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
+    # ------------------------------------------------------------- Bounties
+    "BG33_811": (  # Healthy Bounty — four friendly minions +4 Health
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=0, health=4, limit=4),
+        ),
+    ),
+    "BG33_812": (  # Hostile Bounty — four friendly minions +4 Attack
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=4, health=0, limit=4),
+        ),
+    ),
+    "BG33_813": (  # Selfish Bounty — your left-most minion +6/+6
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=6, health=6, limit=1),
+        ),
+    ),
+    "BG33_815": (  # Wealthy Bounty — gain 2 Gold
+        Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=2)),
+    ),
+
     "BG34_444": (  # Easterly Winds — every roll from now on buffs the tavern
         Ability(Trigger.ON_PLACE, BuffShopOnEveryRefreshEffect(attack=6, health=6)),
     ),

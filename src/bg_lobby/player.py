@@ -201,6 +201,10 @@ class PlayerState:
     blood_gem_bonus_health: int = 0
     elementals_played: int = 0
     pirates_bought_this_turn: int = 0
+    #: Gold spent since this turn began. Cleared at turn start, unlike the
+    #: running totals the "(5 Gold left!)" cards keep on themselves — this one
+    #: is read by the cards improved by *this turn's* spending.
+    gold_spent_this_turn: int = 0
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
     # Hero (passive power). ``None`` ⇒ classic no-hero seat (default; identical

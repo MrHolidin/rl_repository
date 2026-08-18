@@ -684,6 +684,31 @@ class BuffOnSpellCastOnTribeEffect:
 
 
 @dataclass(frozen=True)
+class MakeFriendlyGoldenEffect:
+    """Turn a friendly into its Golden printing.
+
+    ``max_tier`` is the cap the card prints ("from Tier 6 or below"). The copy
+    gives no Triple Reward, because nothing was tripled — it was made.
+    """
+
+    max_tier: int = 0
+
+
+@dataclass(frozen=True)
+class BuffTargetPerGoldSpentEffect:
+    """A targeted buff scaled by the gold spent *this turn*.
+
+    Lovesick Balladist: "Give a Pirate +1 Health. (Improved by each Gold you
+    spent this turn!)" — a different tally from the "(5 Gold left!)" cards,
+    which count without ever resetting.
+    """
+
+    attack: int = 0
+    health: int = 0
+    filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
 class BuffBoughtMinionEffect:
     """Pay the minion the seat just bought.
 
@@ -1667,6 +1692,8 @@ __all__ = [
     "RefreshesCostHealthEffect",
     "BuffOnSpellCastOnTribeEffect",
     "BuffSharedTribeEffect",
+    "MakeFriendlyGoldenEffect",
+    "BuffTargetPerGoldSpentEffect",
     "BuffBoughtMinionEffect",
     "StatsFromNextBuyEffect",
     "GoldSpentResponseEffect",

@@ -337,6 +337,8 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "BuffSharedTribeEffect",
         "IncreaseTribeGiftEffect",
         "BuffBoughtMinionEffect",
+        "MakeFriendlyGoldenEffect",
+        "BuffTargetPerGoldSpentEffect",
         "StatsFromNextBuyEffect",
         "GoldSpentResponseEffect",
         "MagnetizesToTribesEffect",

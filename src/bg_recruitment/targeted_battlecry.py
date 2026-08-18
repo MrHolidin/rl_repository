@@ -11,10 +11,13 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     BuffTargetFromPiratesBoughtBattlecry,
     ConsumeFriendlyBattlecry,
+    BuffTargetPerGoldSpentEffect,
     ConsumeTavernMinionEffect,
     DestroyFriendlyForCopyEffect,
+    MakeFriendlyGoldenEffect,
     Trigger,
 )
+from src.bg_catalog.patch_catalog import minion_by_id, minion_from_tavern_record
 from src.bg_core.minion import Minion
 from src.bg_recruitment.effect_modal import (
     _apply_buff_target,
@@ -66,6 +69,39 @@ def _pick_eater(
         return None
     pick = eligible[0] if len(eligible) == 1 else eligible[int(rng.integers(0, len(eligible)))]
     return player.board[pick]
+
+
+def make_friendly_golden(player: PlayerState, target: Minion, *, patch) -> None:
+    """Turn ``target`` into its Golden printing, in place.
+
+    Not a triple: nothing merged, so no Triple Reward is owed. What the body had
+    gained rides along, because the card is being upgraded rather than replaced
+    — the golden printing's doubled base plus the bonuses it already carried.
+    """
+    from src.bg_catalog.patch_catalog import golden_upgrade_card_id
+
+    if target.is_golden:
+        return
+    golden_id = golden_upgrade_card_id(
+        target.card_id, patch.patch_dir / "catalog.json"
+    )
+    if golden_id is None:
+        return
+    golden = minion_from_tavern_record(
+        minion_by_id(patch.patch_dir / "catalog.json")[golden_id]
+    )
+    target.card_id = golden.card_id
+    target.base_attack = golden.base_attack
+    target.base_health = golden.base_health
+    target.keywords = golden.keywords
+    # The golden printing's own abilities, resolved the way a triple resolves
+    # them — a made Golden is the same card as a forged one.
+    target.abilities = patch.triple_merge_golden_abilities(
+        golden_id[:-2] if golden_id.endswith("_G") else golden_id
+    )
+    target.dbf_id = golden.dbf_id
+    target.is_golden = True
+    target.has_shield = target.has_shield or golden.has_shield
 
 
 def destroy_friendly_for_copy(
@@ -223,6 +259,28 @@ def apply_targeted_on_place_battlecries(
                 m = player.board[idx]
                 m.bonus_attack += e.attack_per * n
                 m.bonus_health += e.health_per * n
+        elif isinstance(e, BuffTargetPerGoldSpentEffect):
+            target = _pick_eater(
+                player,
+                placed,
+                ConsumeTavernMinionEffect(filter_race=e.filter_race),
+                rng=rng,
+                forced=forced_buff_target,
+            )
+            if target is not None:
+                times = 1 + max(0, player.gold_spent_this_turn)
+                target.bonus_attack += e.attack * times
+                target.bonus_health += e.health * times
+        elif isinstance(e, MakeFriendlyGoldenEffect):
+            target = _pick_eater(
+                player,
+                placed,
+                ConsumeTavernMinionEffect(),
+                rng=rng,
+                forced=forced_buff_target,
+            )
+            if target is not None and (not e.max_tier or target.tier <= e.max_tier):
+                make_friendly_golden(player, target, patch=triggers._patch)
         elif isinstance(e, DestroyFriendlyForCopyEffect):
             victim = _pick_eater(
                 player,

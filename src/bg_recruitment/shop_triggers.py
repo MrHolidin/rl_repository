@@ -13,6 +13,8 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.conditions import ability_condition_met
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
+    BuffTargetPerGoldSpentEffect,
+    MakeFriendlyGoldenEffect,
     AdaptSelfRandomEffect,
     AddRandomMinionToShopEffect,
     AddFromLastOpponentBoardEffect,
@@ -175,6 +177,8 @@ _HANDLED_ELSEWHERE = (
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     DestroyFriendlyForCopyEffect,
+    BuffTargetPerGoldSpentEffect,
+    MakeFriendlyGoldenEffect,
     # fire_on_sell applies this one itself: it belongs to a minion staying
     # behind rather than to the card being sold, and the dispatcher only ever
     # sees the card that leaves.
@@ -442,6 +446,7 @@ class ShopTriggers:
         """
         if amount <= 0:
             return
+        player.gold_spent_this_turn += int(amount)
         for watcher in list(player.board):
             for ab in watcher.abilities:
                 eff = ab.effect
@@ -620,11 +625,22 @@ class ShopTriggers:
             have = player.refresh_promises.get(effect.card_id, 0)
             player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
         elif isinstance(effect, AddRandomCardToHandEffect):
-            pool = [cid for cid in effect.card_ids if cid in self._patch.templates]
+            # The named set may be minions (the Chromadrakes) or spells (the
+            # Bounties), so the card is looked up in both catalogs rather than
+            # assumed to be one.
+            pool = [
+                cid
+                for cid in effect.card_ids
+                if cid in self._patch.templates or cid in self._patch.tavern_spells
+            ]
             slot = first_free_hand_slot(player) if pool else None
             if slot is not None:
                 pick = pool[int(self._rng.integers(0, len(pool)))]
-                player.hand[slot] = make_minion(pick, patch=self._patch)
+                player.hand[slot] = (
+                    make_minion(pick, patch=self._patch)
+                    if pick in self._patch.templates
+                    else self._patch.tavern_spells[pick]
+                )
         elif isinstance(effect, BuffShopOnEveryRefreshEffect):
             player.refresh_buffs = player.refresh_buffs + (
                 (int(effect.attack), int(effect.health)),
@@ -1065,6 +1081,7 @@ class ShopTriggers:
         for minion in player.board:
             minion.magnet_doubles_next = False
             minion.buy_answered_this_turn = False
+        player.gold_spent_this_turn = 0
         # Last turn's "until next turn" buffs end here — after the combat they
         # were cast for, before the seat acts again.
         expire_temporary_buffs(player)
