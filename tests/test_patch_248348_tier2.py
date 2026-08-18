@@ -214,3 +214,91 @@ def test_a_seatless_combat_still_runs_a_rally_that_gives_gems(patch):
     """The recording seat collects them and applies nothing, as it always has."""
     survivors, _ = _fight([_card(patch, "BG20_101")], [_wall(hp=30)], patch)
     assert any(m.card_id == "BG20_101" for m in survivors)
+
+
+# --------------------------------------------------------------------------- #
+# Wave 2 — listeners that pay someone other than themselves
+# --------------------------------------------------------------------------- #
+
+
+def test_mechagnome_interpreter_pays_the_mech_that_arrived(patch, triggers):
+    interpreter = _card(patch, "BG31_177")
+    mech = Minion(card_id="m", base_attack=1, base_health=1, tier=1, race=Race.MECHANICAL)
+    player = _player(patch, [interpreter])
+    triggers.fire_after_friendly_minion_placed(player, mech)
+    assert (mech.raw_attack, mech.max_health) == (4, 2)
+    assert (interpreter.raw_attack, interpreter.max_health) == (
+        interpreter.base_attack,
+        interpreter.base_health,
+    )
+
+
+def test_mechagnome_interpreter_ignores_a_minion_of_another_tribe(patch, triggers):
+    interpreter = _card(patch, "BG31_177")
+    beast = Minion(card_id="b", base_attack=1, base_health=1, tier=1, race=Race.BEAST)
+    player = _player(patch, [interpreter])
+    triggers.fire_after_friendly_minion_placed(player, beast)
+    assert (beast.raw_attack, beast.max_health) == (1, 1)
+
+
+def test_prodigious_tusker_gems_whoever_swings(patch):
+    tusker = _card(patch, "BG33_430")  # 1/3 Quilboar
+    ally = Minion(card_id="a", base_attack=2, base_health=30, tier=1)
+    survivors, _ = _fight([tusker, ally], [_wall(hp=40)], patch)
+    swung = next(m for m in survivors if m.card_id == "a")
+    assert (swung.raw_attack, swung.max_health) > (2, 30)
+
+
+def test_prodigious_tusker_does_not_gem_itself(patch):
+    """"Whenever *another* friendly attacks" — its own swing pays nothing."""
+    tusker = _card(patch, "BG33_430")
+    survivors, _ = _fight([tusker], [_wall(hp=40)], patch)
+    alone = next(m for m in survivors if m.card_id == "BG33_430")
+    assert (alone.raw_attack, alone.max_health) == (alone.base_attack, alone.base_health)
+
+
+def test_decoy_conjurer_steals_the_biggest_minion_in_the_tavern(patch):
+    from src.bg_recruitment.activate import activate_minion
+
+    conjurer = _card(patch, "BG36_354")
+    small = Minion(card_id="small", base_attack=1, base_health=1, tier=1)
+    big = Minion(card_id="big", base_attack=9, base_health=1, tier=1)
+    player = _player(patch, [conjurer], gold=5)
+    player.shop[0], player.shop[1] = small, big
+    activate_minion(player, 0, rng=np.random.default_rng(0), patch=patch)
+    assert any(c is big for c in player.hand)
+    assert player.shop[1] is None and player.shop[0] is small
+    assert player.gold == 3  # Activate (2)
+
+
+def test_lurking_lionfish_baits_the_tavern_slot_it_was_given(patch):
+    from src.bg_recruitment.activate import activate_minion
+    from src.bg_recruitment.fishbait import FISHBAIT_CARD_ID
+
+    lionfish = _card(patch, "BG36_201")
+    player = _player(patch, [lionfish], gold=5)
+    player.shop[2] = Minion(card_id="victim", base_attack=1, base_health=1, tier=1)
+    activate_minion(
+        player, 0, rng=np.random.default_rng(0), patch=patch, shop_target_index=2
+    )
+    assert player.shop[2].card_id == FISHBAIT_CARD_ID
+    assert player.gold == 3
+
+
+def test_surfing_sylvar_buffs_adjacent_once_with_no_golden_around(patch, triggers):
+    sylvar = _card(patch, "BG32_235")
+    left = Minion(card_id="l", base_attack=1, base_health=1, tier=1)
+    right = Minion(card_id="r", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [left, sylvar, right])
+    triggers.fire_on_turn_end(player)
+    assert left.raw_attack == 2 and right.raw_attack == 2
+
+
+def test_surfing_sylvar_repeats_once_per_golden_friendly(patch, triggers):
+    sylvar = _card(patch, "BG32_235")
+    left = Minion(card_id="l", base_attack=1, base_health=1, tier=1)
+    golden = Minion(card_id="g", base_attack=1, base_health=1, tier=1, is_golden=True)
+    player = _player(patch, [left, sylvar, golden])
+    triggers.fire_on_turn_end(player)
+    # Once for the trigger, once more for the one Golden minion on the board.
+    assert left.raw_attack == 3

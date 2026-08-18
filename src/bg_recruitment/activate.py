@@ -23,7 +23,12 @@ from typing import Optional, Tuple
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext
-from src.bg_core.effects import Ability, BuffTargetFriendlyBattlecry, Trigger
+from src.bg_core.effects import (
+    Ability,
+    BuffTargetFriendlyBattlecry,
+    PlaceFishbaitEffect,
+    Trigger,
+)
 from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerPhase, PlayerState
 
@@ -80,6 +85,7 @@ def activate_minion(
     patch: PatchContext,
     shared_pool=None,
     buff_target: Optional[Minion] = None,
+    shop_target_index: Optional[int] = None,
 ) -> None:
     """Pay for and fire the Activate on the minion at ``board_index``.
 
@@ -102,6 +108,7 @@ def activate_minion(
             f"{minion.card_id} costs {cost} to activate; the seat has {player.gold}"
         )
 
+    from src.bg_recruitment.fishbait import place_fishbait
     from src.bg_recruitment.shop_triggers import ShopTriggers
     from src.bg_recruitment.targeted_battlecry import apply_targeted_buff
 
@@ -110,6 +117,13 @@ def activate_minion(
     triggers = ShopTriggers(rng, patch=patch)
     for ability in activate_abilities(minion):
         effect = ability.effect
+        if isinstance(effect, PlaceFishbaitEffect):
+            # "Choose a card in the Tavern. Replace it with a Fishbait" — the
+            # seat names the slot, so this is a targeted move like the buff
+            # below, and the shop dispatcher has no way to be told which slot.
+            if shop_target_index is not None:
+                place_fishbait(player, shop_target_index)
+            continue
         if isinstance(effect, BuffTargetFriendlyBattlecry):
             # "Activate (1): Give another minion +3/+3" names a friendly, so it
             # goes through the same target pick a battlecry does. The shop

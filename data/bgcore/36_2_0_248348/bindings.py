@@ -24,9 +24,11 @@ from src.bg_core.effects import (
     AddTavernSpellToHandEffect,
     AddTokenToHandEffect,
     BloodGemTarget,
+    BuffAdjacentBattlecry,
     BuffAllShopOffersEffect,
     BuffLeftmostOfTribeEffect,
     BuffMatching,
+    BuffPlacedMinionEffect,
     BuffRandomOtherFriendlyCombat,
     BuffTarget,
     BuffSelf,
@@ -38,12 +40,16 @@ from src.bg_core.effects import (
     GainBloodGemsEffect,
     GainGoldNextTurnEffect,
     GainGoldThisTurnEffect,
+    CountSource,
     GiveLockboxEffect,
     GrantKeywordAtAttackThreshold,
     GrantTemporaryBuffEffect,
     Keyword,
     PlayBloodGemsEffect,
+    PlaceFishbaitEffect,
+    PlayBloodGemsOnAttackerEffect,
     ReduceTavernSpellCostEffect,
+    RepeatPerCountEffect,
     StealTavernMinionEffect,
     SummonEffect,
     SummonSelfCopyFromHandEffect,
@@ -219,6 +225,38 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_START_OF_COMBAT,
             BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=1, health=0),
+        ),
+    ),
+    "BG31_177": (  # Mechagnome Interpreter — play or Magnetize a Mech, give it +3/+1
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffPlacedMinionEffect(attack=3, health=1),
+            filter_race=Race.MECHANICAL,
+        ),
+    ),
+    "BG33_430": (  # Prodigious Tusker — another friendly attacks, gem it
+        Ability(Trigger.ON_FRIENDLY_ATTACK, PlayBloodGemsOnAttackerEffect(count=1)),
+    ),
+    "BG36_354": (  # Decoy Conjurer — Activate (2): steal the biggest tavern minion
+        Ability(
+            Trigger.ON_ACTIVATE,
+            StealTavernMinionEffect(highest_attack=True),
+            activate_cost=2,
+        ),
+    ),
+    "BG36_201": (  # Lurking Lionfish — Activate (2): bait a tavern card
+        Ability(Trigger.ON_ACTIVATE, PlaceFishbaitEffect(), activate_cost=2),
+    ),
+    "BG32_235": (  # Surfing Sylvar — end of turn: adjacent +1 Attack, again per Golden
+        Ability(
+            Trigger.ON_TURN_END,
+            RepeatPerCountEffect(
+                source=CountSource.GOLDEN_FRIENDLIES,
+                # BuffAdjacentBattlecry is "buff my neighbours" whatever fires
+                # it; the name is the printing it was written for and renaming
+                # it would move an encoded effect id.
+                effect=BuffAdjacentBattlecry(attack=1, health=0),
+            ),
         ),
     ),
     "BG29_810": (  # Thousandth Paper Drake — SoC: left-most Dragon +1/+2, Windfury

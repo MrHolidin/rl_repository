@@ -46,6 +46,9 @@ from src.bg_core.effects import (
     Effect,
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
+    BuffPlacedMinionEffect,
+    RepeatPerCountEffect,
+    StealTavernMinionEffect,
     GiveLockboxEffect,
     AddTavernSpellToHandEffect,
     ReduceTavernSpellCostEffect,
@@ -63,6 +66,7 @@ from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
+from src.bg_recruitment.tavern_spells import steal_tavern_minion
 from src.bg_recruitment.spellcraft import (
     discard_spellcraft_spells,
     expire_temporary_buffs,
@@ -75,6 +79,7 @@ from src.bg_recruitment.blood_gems import (
     play_blood_gem_on,
 )
 from src.bg_core.board_helpers import (
+    count_for_source,
     apply_buff_matching,
     apply_summoned_listener,
     grant_keyword,
@@ -389,6 +394,35 @@ class ShopTriggers:
                 placed is not None and self.minion_matches_tribe(placed, effect.filter_race)
             ):
                 player.gold += effect.amount
+        elif isinstance(effect, StealTavernMinionEffect):
+            steal_tavern_minion(
+                player,
+                rng=self._rng,
+                shared_pool=shared_pool,
+                highest_attack=effect.highest_attack,
+            )
+        elif isinstance(effect, RepeatPerCountEffect):
+            repeats = int(effect.base_repeats) + count_for_source(
+                effect.source, player.board, tribe=effect.tribe
+            )
+            inner = effect.effect
+            for _ in range(max(0, repeats)):
+                if isinstance(inner, BuffAdjacentBattlecry):
+                    # Adjacency is positional, and the dispatcher hands
+                    # BuffAdjacentBattlecry to the placement path (it is in
+                    # _HANDLED_ELSEWHERE) because at placement the slot is not
+                    # settled yet. Here the source is already standing, so the
+                    # neighbours are simply known.
+                    self.apply_buff_adjacent(player, source, inner)
+                    continue
+                self.apply_shop_effect(
+                    player,
+                    source,
+                    inner,
+                    placed,
+                    shop_excluded_race=shop_excluded_race,
+                    shared_pool=shared_pool,
+                )
         elif isinstance(effect, GiveLockboxEffect):
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):
@@ -637,6 +671,14 @@ class ShopTriggers:
                 if ab.filter_race is not None and placed.race != ab.filter_race:
                     continue
                 eff = ab.effect
+                if isinstance(eff, BuffPlacedMinionEffect):
+                    # The one listener on this trigger that pays the newcomer
+                    # rather than the watcher.
+                    if m is placed:
+                        continue
+                    placed.bonus_attack += eff.attack
+                    placed.bonus_health += eff.health
+                    continue
                 if isinstance(eff, BuffSelfWhenFriendlyBattlecryPlaced):
                     if m is placed:
                         continue
@@ -713,6 +755,12 @@ class ShopTriggers:
                         for _ in range(n):
                             left.bonus_attack += e.attack
                             left.bonus_health += e.health
+                else:
+                    # Anything else this trigger can carry goes to the shop
+                    # dispatcher, which raises on an effect nobody handles.
+                    # The branches above stay because they read the board in
+                    # ways the dispatcher's single-source signature cannot.
+                    self.apply_shop_effect(player, source, ab.effect, None)
 
     def fire_on_turn_start(self, player: PlayerState) -> None:
         """After round increment, before shop reroll: board L→R, then hand slots."""

@@ -24,6 +24,7 @@ from src.bg_core.effects import (
     BuffRandomOtherFriendlyCombat,
     AddRandomMinionToHandEffect,
     GainBloodGemsEffect,
+    PlayBloodGemsOnAttackerEffect,
     AddRandomMinionToHandOnKillEffect,
     BloodGemTarget,
     IncreaseBloodGemBonusEffect,
@@ -573,6 +574,13 @@ def _fire_friendly_attack_listeners(
                 continue
             attacker.bonus_attack += eff.attack
             attacker.bonus_health += eff.health
+        elif isinstance(eff, PlayBloodGemsOnAttackerEffect):
+            _play_combat_blood_gems(
+                rt,
+                attacker,
+                attacker_side_idx,
+                PlayBloodGemsEffect(target=BloodGemTarget.SELF, count=eff.count),
+            )
         # ALL_FRIENDLY only: before the merge just ``BuffAllFriendlyMinions``
         # reached this branch, so matching every BuffMatching variant here
         # would newly fire the tribe/keyword ones on this trigger.

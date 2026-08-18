@@ -46,6 +46,7 @@ __all__ = [
     "offer_tavern_spells",
     "clear_tavern_spell_offers",
     "buy_tavern_spell",
+    "steal_tavern_minion",
     "play_tavern_spell_from_hand",
 ]
 
@@ -246,7 +247,12 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, StealTavernMinionEffect):
-        _steal_from_tavern(player, rng=rng, shared_pool=shared_pool)
+        steal_tavern_minion(
+            player,
+            rng=rng,
+            shared_pool=shared_pool,
+            highest_attack=effect.highest_attack,
+        )
         return
 
     if isinstance(effect, DiscoverMinionAtTierEffect):
@@ -270,24 +276,33 @@ def _apply_spell_effect(
     )
 
 
-def _steal_from_tavern(
+def steal_tavern_minion(
     player: PlayerState,
     *,
     rng: np.random.Generator,
-    shared_pool: Optional[SharedCardPool],
-) -> None:
-    """Enchanted Lasso: one random minion off the counter, into hand, free."""
+    shared_pool: Optional[SharedCardPool] = None,
+    highest_attack: bool = False,
+) -> Optional[Minion]:
+    """Take one minion off the counter into hand, free.
+
+    Enchanted Lasso takes a random one, Decoy Conjurer the biggest; that is the
+    only difference between them, so it is a flag rather than two functions.
+    """
     filled = [i for i, m in enumerate(player.shop) if m is not None]
     slot = first_free_hand_slot(player)
     if not filled or slot is None:
-        return
-    idx = filled[int(rng.integers(0, len(filled)))]
+        return None
+    if highest_attack:
+        idx = max(filled, key=lambda i: player.shop[i].raw_attack)
+    else:
+        idx = filled[int(rng.integers(0, len(filled)))]
     taken = player.shop[idx]
     player.shop[idx] = None
     player.hand[slot] = taken
     # It left the tavern for a hand, which is the same thing a purchase does to
     # the shared pool even though no gold moved.
     on_bought_from_shop(shared_pool, taken)
+    return taken
 
 
 def _open_tier_discover(

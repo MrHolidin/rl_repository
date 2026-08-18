@@ -502,6 +502,53 @@ class GainGoldThisTurnEffect:
 
 
 @dataclass(frozen=True)
+class BuffPlacedMinionEffect:
+    """Buff the minion that was just played, not the listener.
+
+    "Whenever you play or Magnetize a Mech, give it +3/+1" — the *it* is the
+    newcomer, which is what separates this from every other listener on
+    AFTER_FRIENDLY_MINION_PLACED: those pay the watcher.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class PlayBloodGemsOnAttackerEffect:
+    """Combat: Gems onto whichever friendly just attacked.
+
+    Sibling of :class:`BuffAttackerOnFriendlyAttackEffect` and separate from
+    :class:`PlayBloodGemsEffect` for the same reason: the attacker is context
+    the trigger carries, not a position on the board that ``BloodGemTarget``
+    could name.
+    """
+
+    count: int = 1
+
+
+@dataclass(frozen=True)
+class RepeatPerCountEffect:
+    """Fire ``effect`` once, then once more per thing counted on the board.
+
+    "At the end of your turn, give adjacent minions +1 Attack. Repeat for each
+    friendly Golden minion." A wrapper rather than a field on the inner effect,
+    the way :class:`AvengeEffect` puts a counter in front of one: the repeat
+    rule is the same whatever is being repeated.
+    """
+
+    source: Any
+    effect: Any
+    tribe: Any = None
+    base_repeats: int = 1
+
+
+@dataclass(frozen=True)
+class PlaceFishbaitEffect:
+    """Replace a tavern card with a Fishbait for the left-most Beast to attack."""
+
+
+@dataclass(frozen=True)
 class GiveLockboxEffect:
     """Hand the seat a Lockbox, or hurry the one it already has along.
 
@@ -548,8 +595,14 @@ class ReduceTavernSpellCostEffect:
 
 @dataclass(frozen=True)
 class StealTavernMinionEffect:
-    """Take a random minion off the tavern counter into hand, free (Enchanted
-    Lasso). Not a purchase: no gold changes hands and the shop slot empties."""
+    """Take a minion off the tavern counter into hand, free (Enchanted Lasso,
+    Decoy Conjurer). Not a purchase: no gold changes hands and the slot empties.
+
+    ``highest_attack`` picks the biggest instead of one at random, which is the
+    difference between the two cards printing this.
+    """
+
+    highest_attack: bool = False
 
 
 @dataclass(frozen=True)
@@ -967,6 +1020,10 @@ Effect = Union[
     ReduceUpgradeCostEffect,
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
+    BuffPlacedMinionEffect,
+    PlayBloodGemsOnAttackerEffect,
+    RepeatPerCountEffect,
+    PlaceFishbaitEffect,
     GiveLockboxEffect,
     AddTavernSpellToHandEffect,
     BuffLeftmostOfTribeEffect,
@@ -1088,6 +1145,10 @@ __all__ = [
     "ReduceUpgradeCostEffect",
     "GainGoldThisTurnEffect",
     "GainGoldNextTurnEffect",
+    "BuffPlacedMinionEffect",
+    "PlayBloodGemsOnAttackerEffect",
+    "RepeatPerCountEffect",
+    "PlaceFishbaitEffect",
     "GiveLockboxEffect",
     "AddTavernSpellToHandEffect",
     "BuffLeftmostOfTribeEffect",
