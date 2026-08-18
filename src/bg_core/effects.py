@@ -662,6 +662,51 @@ class BumpSeatCounterEffect:
 
 
 @dataclass(frozen=True)
+class MagnetizeTokenEffect:
+    """Magnetize a token onto a Mech, without it ever being in hand.
+
+    "Whenever you play a Mech, Magnetize a 3/3 Satellite to it" — the Satellite
+    is made on the spot and merged in, so everything that watches a
+    Magnetization sees this one too.
+
+    ``attack``/``health`` override the token's printed stats where the card
+    names them: there is one Satellite card, printed 6/6, and Spark Snapper
+    welds a 3/3 of it while Glambot welds it as printed.
+    """
+
+    token_id: str
+    improves: str = ""
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class MagnetizesToTribesEffect:
+    """This magnet may attach to more than Mechs (Prosthetic Hand: "Can
+    Magnetize to Mechs or Undead")."""
+
+    tribes: Tuple[Any, ...] = ()
+
+
+@dataclass(frozen=True)
+class DoubleNextMagnetizeEffect:
+    """The next Magnetization onto this minion this turn lands twice."""
+
+
+@dataclass(frozen=True)
+class BuffPerMagnetizationEffect:
+    """+stats to every friendly, once per Magnetization it carries."""
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class EchoMagnetizeEffect:
+    """When a Magnetization lands elsewhere, it lands on this body too."""
+
+
+@dataclass(frozen=True)
 class AddRandomCardToHandEffect:
     """One of a named set of cards, at random ("get a random Chromadrake").
 
@@ -1497,6 +1542,11 @@ __all__ = [
     "BumpSeatCounterEffect",
     "DestroyFriendlyForCopyEffect",
     "RefreshesCostHealthEffect",
+    "MagnetizeTokenEffect",
+    "MagnetizesToTribesEffect",
+    "DoubleNextMagnetizeEffect",
+    "BuffPerMagnetizationEffect",
+    "EchoMagnetizeEffect",
     "AddRandomCardToHandEffect",
     "BuffSelfOnFriendlyDamageEffect",
     "BuffSelfOnFriendlySoldEffect",

@@ -260,12 +260,19 @@ def test_a_lone_mrrglton_is_worth_what_it_prints(patch, triggers):
     [
         ("BG_BOT_911", {Keyword.MAGNETIC, Keyword.SHIELD, Keyword.TAUNT}),
         ("BGS_131", {Keyword.VENOMOUS}),
-        ("BG_DEEP_015", {Keyword.MAGNETIC, Keyword.REBORN}),
     ],
 )
 def test_keyword_only_cards_need_no_binding(patch, card_id, keywords):
     card = _card(patch, card_id)
     assert keywords <= card.keywords and card.abilities == ()
+
+
+def test_prosthetic_hand_keeps_its_keywords_and_gains_a_rule(patch):
+    """Not keyword-only after all: "Can Magnetize to Mechs or Undead" is a rule
+    about where it may land, and it says so through a binding."""
+    hand = _card(patch, "BG_DEEP_015")
+    assert {Keyword.MAGNETIC, Keyword.REBORN} <= hand.keywords
+    assert hand.abilities != ()
 
 
 # --------------------------------------------------------------------------- #

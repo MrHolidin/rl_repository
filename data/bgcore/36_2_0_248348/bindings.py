@@ -22,6 +22,11 @@ from src.bg_core.effects import (
     Ability,
     BuffAttackerOnFriendlyAttackEffect,
     AddRandomCardToHandEffect,
+    BuffPerMagnetizationEffect,
+    DoubleNextMagnetizeEffect,
+    EchoMagnetizeEffect,
+    MagnetizeTokenEffect,
+    MagnetizesToTribesEffect,
     AddRandomTavernSpellToHandEffect,
     BuffOnePerListedTribeFriendly,
     CleaveOnAttack,
@@ -105,6 +110,7 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BGS_115t",  # Water Droplet 2/2 — Sellemental
         "BG35_150t",  # Demon Fodder — Laboratory Assistant
         "BG25_010t",  # Helping Hand 2/1 Reborn — Handless Forsaken
+        "BG31_171t",  # Satellite 3/3 — welded on by Spark Snapper
         # The five Chromadrakes: out of the tavern pool this patch, still handed
         # over by Hired Mount, so the package has to carry them.
         "BG34_634t",
@@ -132,7 +138,6 @@ KEYWORD_ONLY_POOL_IDS: FrozenSet[str] = frozenset(
         "BG25_001",  # Risen Rider — Taunt, Reborn
         "BG_BOT_911",  # Annoy-o-Module — Magnetic, Divine Shield, Taunt
         "BGS_131",  # Deadly Spore — Venomous
-        "BG_DEEP_015",  # Prosthetic Hand — Magnetic, Reborn
     }
 )
 
@@ -872,6 +877,34 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG34_684": (  # Trench Fighter — end of turn: get a Gem Confiscation
         Ability(Trigger.ON_TURN_END, AddTavernSpellToHandEffect(card_id="BG28_698")),
+    ),
+    # ------------------------------------------------------- the Mech family
+    "BG_DEEP_015": (  # Prosthetic Hand — Magnetic, Reborn; welds to Undead too
+        Ability(
+            Trigger.AURA,
+            MagnetizesToTribesEffect(tribes=(Race.MECHANICAL, Race.UNDEAD)),
+        ),
+    ),
+    "BG36_851": (  # Spark Snapper — a Mech played gets a 3/3 Satellite, improving
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            MagnetizeTokenEffect(
+                token_id="BG31_171t",  # Satellite, printed 6/6
+                attack=3,
+                health=3,
+                improves="spark_snappers",
+            ),
+            filter_race=Race.MECHANICAL,
+        ),
+    ),
+    "BG36_506": (  # Drone Duplicator — Activate (1): the next weld here is doubled
+        Ability(Trigger.ON_ACTIVATE, DoubleNextMagnetizeEffect(), activate_cost=1),
+    ),
+    "BG26_152": (  # Utility Drone — end of turn: +4/+4 per Magnetization carried
+        Ability(Trigger.ON_TURN_END, BuffPerMagnetizationEffect(attack=4, health=4)),
+    ),
+    "BG26_149": (  # Polarizing Beatboxer — a weld elsewhere also lands here
+        Ability(Trigger.AURA, EchoMagnetizeEffect()),
     ),
 }
 

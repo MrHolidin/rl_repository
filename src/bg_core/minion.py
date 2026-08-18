@@ -137,6 +137,13 @@ class Minion:
     #: Stats currently granted by a game-long tally, so a recompute can apply
     #: the difference instead of stacking (see ``game_counts``).
     count_bonus_granted: Tuple[int, int] = (0, 0)
+    #: How many minions have been Magnetized onto this body. Read by the cards
+    #: that pay per Magnetization, and by nothing else — the stats themselves
+    #: are merged in, not derived from this.
+    magnetized_count: int = 0
+    #: The next Magnetization onto this body lands twice (Drone Duplicator).
+    #: Spent by that Magnetization, and cleared at the start of the turn.
+    magnet_doubles_next: bool = False
     #: Damage this body has dealt in combat, across every fight it has been in
     #: ("once this deals 40 damage…"). Per body and not per printing: two
     #: copies count separately, and a golden made from three starts over,

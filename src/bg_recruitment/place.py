@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion, Race
@@ -27,6 +27,27 @@ def hand_minion_can_magnetize(m) -> bool:
     # spell obviously can't magnetize; the isinstance check is what actually
     # guards it, since SpellCard has neither ``all_keywords`` nor ``race``.
     return isinstance(m, Minion) and Keyword.MAGNETIC in m.all_keywords and is_mech(m)
+
+
+def magnet_target_races(magnet: Minion) -> Tuple[Race, ...]:
+    """Which tribes this magnet may attach to.
+
+    Mechs unless the card says otherwise — Prosthetic Hand is printed "Can
+    Magnetize to Mechs or Undead", and says so through its binding rather than
+    through a special case here.
+    """
+    from src.bg_core.effects import MagnetizesToTribesEffect
+
+    for ability in magnet.abilities:
+        if isinstance(ability.effect, MagnetizesToTribesEffect):
+            return tuple(ability.effect.tribes)
+    return (Race.MECHANICAL,)
+
+
+def can_magnetize_onto(magnet: Minion, target: Minion) -> bool:
+    """Whether ``magnet`` may attach to ``target``."""
+    races = magnet_target_races(magnet)
+    return target.race in races or target.race == Race.ALL
 
 
 def merge_magnetic_inplace(target: Minion, magnet: Minion) -> None:
@@ -123,20 +144,71 @@ def place_from_hand(
         )
 
 
+def magnetize(
+    player: PlayerState,
+    target: Minion,
+    magnet: Minion,
+    *,
+    triggers: Optional[ShopTriggers] = None,
+    echo: bool = True,
+) -> None:
+    """Attach ``magnet`` to ``target``, and tell everything that watches.
+
+    The one place a Magnetization happens, so the four cards that care all see
+    every one of them however it arrived — out of hand, made on the spot by
+    Spark Snapper, or echoed by Polarizing Beatboxer.
+
+    Doubling is spent here rather than by the caller: "the next Magnetization to
+    this minion is doubled" is a property of the *target*, and only this knows
+    which minion is being magnetized to.
+    """
+    times = 2 if target.magnet_doubles_next else 1
+    target.magnet_doubles_next = False
+    for _ in range(times):
+        merge_magnetic_inplace(target, magnet)
+        target.magnetized_count += 1
+    if triggers is not None:
+        triggers.fire_magnetized(player, target, magnet)
+    if echo:
+        _echo_magnetize(player, target, magnet, triggers=triggers)
+
+
+def _echo_magnetize(
+    player: PlayerState,
+    target: Minion,
+    magnet: Minion,
+    *,
+    triggers: Optional[ShopTriggers],
+) -> None:
+    """Polarizing Beatboxer: a Magnetization elsewhere also lands on it.
+
+    ``echo=False`` on the second landing, or two Beatboxers would answer each
+    other forever.
+    """
+    from src.bg_core.effects import EchoMagnetizeEffect
+
+    for other in list(player.board):
+        if other is target:
+            continue
+        if any(isinstance(ab.effect, EchoMagnetizeEffect) for ab in other.abilities):
+            magnetize(player, other, magnet, triggers=triggers, echo=False)
+
+
 def magnet_from_hand(
     player: PlayerState,
     hand_slot: int,
     board_pos: int,
     *,
     patch: PatchContext,
+    triggers: Optional[ShopTriggers] = None,
 ) -> None:
     magnet = player.hand[hand_slot]
     assert magnet is not None
     assert board_pos < len(player.board)
     target = player.board[board_pos]
-    assert is_mech(target)
+    assert can_magnetize_onto(magnet, target)
     assert hand_minion_can_magnetize(magnet)
     player.hand[hand_slot] = None
-    merge_magnetic_inplace(target, magnet)
+    magnetize(player, target, magnet, triggers=triggers)
     if player.pending_choice is None:
         resolve_triples_loop(player, patch=patch)

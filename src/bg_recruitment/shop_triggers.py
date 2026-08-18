@@ -50,7 +50,10 @@ from src.bg_core.effects import (
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
     AddRandomCardToHandEffect,
+    BuffPerMagnetizationEffect,
+    MagnetizeTokenEffect,
     BuffSelfOnFriendlySoldEffect,
+    DoubleNextMagnetizeEffect,
     BuffShopOnEveryRefreshEffect,
     BumpSeatCounterEffect,
     AddCardToNextRefreshesEffect,
@@ -175,6 +178,7 @@ _HANDLED_ELSEWHERE = (
     AdaptSelfRandomEffect,
     # fire_after_friendly_minion_placed handles these before it delegates.
     BuffPlacedMinionEffect,
+    MagnetizeTokenEffect,
     BuffSelfPerCount,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
@@ -369,6 +373,29 @@ class ShopTriggers:
         if player.pending_choice is None:
             self._resolve_triples(player)
 
+    def fire_magnetized(
+        self, player: PlayerState, target: Minion, magnet: Minion
+    ) -> None:
+        """A Magnetization just landed on ``target``.
+
+        Shares AFTER_FRIENDLY_MINION_PLACED with playing a Mech, because the one
+        card that watches both says so in one breath: "whenever you play or
+        Magnetize a Mech, give it +3/+1". The effect is the same either way —
+        the newcomer is paid — so the trigger is the same and the site is what
+        differs.
+        """
+        for watcher in list(player.board):
+            if watcher is target:
+                continue
+            for ab in watcher.abilities:
+                if ab.trigger != Trigger.AFTER_FRIENDLY_MINION_PLACED:
+                    continue
+                if ab.filter_race is not None and target.race != ab.filter_race:
+                    continue
+                if isinstance(ab.effect, BuffPlacedMinionEffect):
+                    target.bonus_attack += ab.effect.attack
+                    target.bonus_health += ab.effect.health
+
     def fire_shop_friendly_summoned(self, player: PlayerState, summoned: Minion) -> None:
         # Every arrival is a summon as the cards use the word — played from
         # hand, summoned by a deathrattle, opened out of a Lockbox — and this
@@ -519,6 +546,15 @@ class ShopTriggers:
             player.refresh_buffs = player.refresh_buffs + (
                 (int(effect.attack), int(effect.health)),
             )
+        elif isinstance(effect, DoubleNextMagnetizeEffect):
+            if source is not None:
+                source.magnet_doubles_next = True
+        elif isinstance(effect, BuffPerMagnetizationEffect):
+            for minion in player.board:
+                if minion.magnetized_count <= 0:
+                    continue
+                minion.bonus_attack += effect.attack * minion.magnetized_count
+                minion.bonus_health += effect.health * minion.magnetized_count
         elif isinstance(effect, GiveLockboxEffect):
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):
@@ -796,6 +832,22 @@ class ShopTriggers:
                 if ab.filter_race is not None and placed.race != ab.filter_race:
                     continue
                 eff = ab.effect
+                if isinstance(eff, MagnetizeTokenEffect):
+                    # A Satellite made on the spot, welded to the newcomer. It
+                    # goes through the one magnetize entry point, so it counts,
+                    # doubles and echoes like any other Magnetization.
+                    from src.bg_recruitment.place import magnetize
+
+                    token = make_minion(eff.token_id, patch=self._patch)
+                    if eff.attack or eff.health:
+                        token.base_attack = eff.attack
+                        token.base_health = eff.health
+                    level = improve_level(player, eff.improves) if eff.improves else 1
+                    for _ in range(level):
+                        magnetize(player, placed, token, triggers=self)
+                    if eff.improves:
+                        bump_seat_counter(player, eff.improves)
+                    continue
                 if isinstance(eff, BuffPlacedMinionEffect):
                     # The one listener on this trigger that pays the newcomer
                     # rather than the watcher.
@@ -893,6 +945,8 @@ class ShopTriggers:
         player.elementals_played = 0
         reset_activations(player)
         reset_health_refreshes(player)
+        for minion in player.board:
+            minion.magnet_doubles_next = False
         # Last turn's "until next turn" buffs end here — after the combat they
         # were cast for, before the seat acts again.
         expire_temporary_buffs(player)
