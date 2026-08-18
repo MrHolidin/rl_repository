@@ -8,6 +8,7 @@ import numpy as np
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.minion import Minion
 
+from .seat import CombatSeat, RecordingSeat
 from .state import BattleSide, _CombatRuntime
 from .sides import _build_side
 from .auras import _sync_health_all
@@ -50,6 +51,11 @@ def simulate_battle(
     patch: PatchContext,
     combat_gold_out: Optional[List[int]] = None,
     combat_hand_adds_out: Optional[List[List[str]]] = None,
+    # The two seats this combat is fought on behalf of. Omitted — every test
+    # and the pure-rules API — each side gets a RecordingSeat, which collects
+    # what the fight hands out and applies none of it, exactly as the two
+    # ``*_out`` lists above did on their own.
+    seats: Optional[Tuple["CombatSeat", "CombatSeat"]] = None,
     p0_attack_aura_all: int = 0,
     p1_attack_aura_all: int = 0,
     p0_start_combat_keywords: frozenset = frozenset(),
@@ -75,6 +81,7 @@ def simulate_battle(
         patch=ctx,
         death_hook=(lambda si, cid: death_log.append((si, cid))) if death_log is not None else None,
         mech_hook=(lambda si, tpl: mech_death_log.append((si, tpl))) if mech_death_log is not None else None,
+        seats=seats if seats is not None else (RecordingSeat(), RecordingSeat()),
     )
     if death_log is not None:
         death_log.clear()

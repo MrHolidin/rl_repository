@@ -13,6 +13,7 @@ from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion
 
 from .events import BattleEvent
+from .seat import CombatSeat, RecordingSeat
 
 
 # A minion in a battle *is* a Minion -- there is no wrapper. Combat runs on a
@@ -29,6 +30,9 @@ def battle_copy(minion: Minion, instance_id: int) -> Minion:
     makes divine shields refresh between combats without anyone writing back.
     """
     bm = copy(minion)
+    # The copy fights under a combat-local id; the board minion's own id rides
+    # along so a permanent effect can find the body it came from afterwards.
+    bm.origin_instance_id = minion.instance_id
     bm.instance_id = instance_id
     bm.damage_taken = 0
     bm.has_shield = minion.has_shield and Keyword.SHIELD in minion.all_keywords
@@ -214,8 +218,11 @@ class _CombatRuntime:
     mech_hook: Optional[Callable[[int, Minion], None]] = None
     swing_damage_survivors: List[Tuple[int, int]] = field(default_factory=list)
     bonus_attack_depth: int = 0
-    combat_gold: List[int] = field(default_factory=lambda: [0, 0])
-    combat_hand_adds: List[List[str]] = field(default_factory=lambda: [[], []])
+    #: One per side: what this combat hands its owner. A seatless combat gets
+    #: RecordingSeats, which collect and apply nothing — see battle/seat.py.
+    seats: Tuple["CombatSeat", "CombatSeat"] = field(
+        default_factory=lambda: (RecordingSeat(), RecordingSeat())
+    )
     kill_attribution: dict[Tuple[int, int], Tuple[int, int]] = field(
         default_factory=dict
     )

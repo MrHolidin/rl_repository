@@ -13,6 +13,7 @@ from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Race
 from src.bg_lobby.player import PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shop_order import sample_shop_turn_order
+from src.bg_recruitment.combat_seat import PlayerCombatSeat
 from src.bg_recruitment.economy import accrue_upgrade_discount
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 
@@ -84,6 +85,11 @@ def resolve_battle_and_advance(
         patch=patch,
         combat_gold_out=combat_gold,
         combat_hand_adds_out=combat_hand_adds,
+        # Seats let a fight write the things a combat copy cannot carry —
+        # permanent Blood Gems, "this game" modifiers — straight onto the two
+        # players. Gold and hand adds keep coming back through the lists above,
+        # because those are applied in one batch after the fight by rule.
+        seats=(PlayerCombatSeat(pa), PlayerCombatSeat(pb)),
     )
     apply_hero_damage(state.players[0], dmg_p0)
     apply_hero_damage(state.players[1], dmg_p1)

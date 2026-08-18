@@ -617,10 +617,16 @@ class PlayBloodGemsEffect:
 
     Distinct from :class:`GainBloodGemsEffect`: nothing reaches hand and the
     seat makes no choice — the card names who gets them.
+
+    ``permanent`` is printed on the card and only means anything in combat: a
+    Gem played mid-fight normally dies with the combat copy, and "permanent"
+    is what sends it through to the owner's real board (Skulking Bristlemane's
+    deathrattle, Razorfen Vineweaver's and Timewarped Bonker's Rally).
     """
 
     target: BloodGemTarget
     count: int = 1
+    permanent: bool = False
 
 
 @dataclass(frozen=True)

@@ -24,6 +24,9 @@ from src.bg_core.effects import (
     BuffRandomOtherFriendlyCombat,
     AddRandomMinionToHandEffect,
     AddRandomMinionToHandOnKillEffect,
+    BloodGemTarget,
+    IncreaseBloodGemBonusEffect,
+    PlayBloodGemsEffect,
     BuffSelf,
     BuffDeadMinionNeighborsEffect,
     DealDamageRandomEnemyMinion,
@@ -45,7 +48,7 @@ from src.bg_core.effects import (
     TriggerRandomFriendlyDeathrattleEffect,
     Trigger,
 )
-from src.bg_core.minion import Minion
+from src.bg_core.minion import Minion, Race
 
 from .events import (
     AttackCompleted,
@@ -255,7 +258,7 @@ def _buff_neighbors_of_dead(
 def _queue_combat_hand_add_card(
     rt: _CombatRuntime, side_idx: int, card_id: str
 ) -> None:
-    rt.combat_hand_adds[side_idx].append(card_id)
+    rt.seats[side_idx].add_card_to_hand(card_id)
 
 
 def _summon_attack_immediately_if_requested(
@@ -365,7 +368,7 @@ def _queue_random_combat_hand_add(
     if not pool:
         return
     cid = pool[int(rt.rng.integers(0, len(pool)))]
-    rt.combat_hand_adds[side_idx].append(cid)
+    rt.seats[side_idx].add_card_to_hand(cid)
 
 
 def _reap_all(rt: _CombatRuntime) -> None:
@@ -619,10 +622,72 @@ def _fire_rally(
             # "Rally: Get a random Beast" — the card lands in hand after combat,
             # through the same queue a Deathrattle hand-add uses.
             _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
+        elif isinstance(eff, PlayBloodGemsEffect):
+            _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
+        elif isinstance(eff, IncreaseBloodGemBonusEffect):
+            # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
+            # mid-combat, and a permanent Gem played after it is worth more.
+            rt.seats[attacker_side_idx].raise_blood_gem_value(eff.attack, eff.health)
         else:
             raise NotImplementedError(
                 f"Rally effect {type(eff).__name__} has no combat handler "
                 f"(minion {attacker.card_id})"
+            )
+    _sync_health_all(rt)
+
+
+def _combat_blood_gem_targets(
+    side: BattleSide, source: BattleMinion, target: BloodGemTarget
+) -> List[BattleMinion]:
+    """Who a "this plays a Blood Gem on ..." reaches on a combat board."""
+    living = list(side.iter_living())
+    if target is BloodGemTarget.SELF:
+        return [source] if source.alive else []
+    if target is BloodGemTarget.ALL_FRIENDLY:
+        return living
+    if target is BloodGemTarget.ALL_OTHER_FRIENDLY:
+        return [m for m in living if m is not source]
+    if target is BloodGemTarget.ALL_FRIENDLY_QUILBOAR:
+        return [m for m in living if m.race is Race.QUILBOAR]
+    if target is BloodGemTarget.ADJACENT:
+        idx = index_of(side.minions, source)
+        if idx is None:
+            return []
+        return [
+            side.minions[j]
+            for j in (idx - 1, idx + 1)
+            if 0 <= j < len(side.minions)
+        ]
+    raise NotImplementedError(f"no combat target resolution for {target!r}")
+
+
+def _play_combat_blood_gems(
+    rt: _CombatRuntime,
+    source: BattleMinion,
+    side_idx: int,
+    effect: PlayBloodGemsEffect,
+) -> None:
+    """A Gem played inside a fight, on the combat board and maybe beyond it.
+
+    The stats always land on the copy, so the Gem counts for the rest of this
+    combat. A Gem the card prints as *permanent* is additionally written
+    through to the owner's real minion, found by ``origin_instance_id`` — the
+    copy fights under a combat-local id, so the board minion's own identity has
+    to ride along for anything to be able to point back at it.
+    """
+    seat = rt.seats[side_idx]
+    attack, health = seat.blood_gem_value()
+    for target in _combat_blood_gem_targets(rt.side(side_idx), source, effect.target):
+        if target.cannot_gain_stats:
+            continue
+        for _ in range(max(0, int(effect.count))):
+            target.bonus_attack += attack
+            target.bonus_health += health
+            target.blood_gem_attack += attack
+            target.blood_gem_health += health
+        if effect.permanent:
+            seat.play_permanent_blood_gem(
+                target.origin_instance_id, max(0, int(effect.count))
             )
     _sync_health_all(rt)
 
@@ -980,7 +1045,7 @@ def _dr_gain_gold(
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        rt.combat_gold[side_idx] += effect.amount
+        rt.seats[side_idx].gain_gold(effect.amount)
 
 
 _DEATHRATTLE_HANDLERS = {

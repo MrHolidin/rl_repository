@@ -8,6 +8,7 @@ from typing import List, Optional, Tuple
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Minion
 
+from .seat import RecordingSeat
 from .state import BattleSide, _CombatRuntime
 
 
@@ -127,15 +128,28 @@ def _emit_survivor_outputs(
         out.extend(list(side.iter_living())[:max_board_slots])
 
 
+def _recorded(rt: _CombatRuntime, side_idx: int):
+    """The side's seat, if it is one that collected rather than applied.
+
+    A caller passing its own seat has already had everything written through to
+    it; these out-parameters have nothing left to report, and filling them from
+    a live seat would hand the same gold out twice.
+    """
+    seat = rt.seats[side_idx]
+    return seat if isinstance(seat, RecordingSeat) else None
+
+
 def _emit_combat_hand_adds(
     rt: _CombatRuntime, combat_hand_adds_out: Optional[List[List[str]]]
 ) -> None:
     if combat_hand_adds_out is None:
         return
-    if len(combat_hand_adds_out) >= 1:
-        combat_hand_adds_out[0] = list(rt.combat_hand_adds[0])
-    if len(combat_hand_adds_out) >= 2:
-        combat_hand_adds_out[1] = list(rt.combat_hand_adds[1])
+    for side_idx in (0, 1):
+        if len(combat_hand_adds_out) <= side_idx:
+            return
+        seat = _recorded(rt, side_idx)
+        if seat is not None:
+            combat_hand_adds_out[side_idx] = list(seat.hand_adds)
 
 
 def _emit_combat_gold(
@@ -143,7 +157,9 @@ def _emit_combat_gold(
 ) -> None:
     if combat_gold_out is None:
         return
-    if len(combat_gold_out) >= 1:
-        combat_gold_out[0] = rt.combat_gold[0]
-    if len(combat_gold_out) >= 2:
-        combat_gold_out[1] = rt.combat_gold[1]
+    for side_idx in (0, 1):
+        if len(combat_gold_out) <= side_idx:
+            return
+        seat = _recorded(rt, side_idx)
+        if seat is not None:
+            combat_gold_out[side_idx] = seat.gold

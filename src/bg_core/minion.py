@@ -80,6 +80,13 @@ class Minion:
 
     #: entity identity; see ``next_instance_id``
     instance_id: int = field(default_factory=next_instance_id)
+    #: On a combat copy: the ``instance_id`` of the board minion it was made
+    #: from, so an effect printed as permanent can name the body it means on
+    #: the owner's real board. A copy gets a fresh ``instance_id`` of its own
+    #: (the combat addresses minions by it), which is why the origin has to be
+    #: carried rather than inherited. 0 on a board minion and on anything
+    #: summoned mid-combat, which has no counterpart to write back to.
+    origin_instance_id: int = 0
 
     # --- combat lifecycle -------------------------------------------------
     # Only meaningful while this minion is in Zone.COMBAT, which is always a

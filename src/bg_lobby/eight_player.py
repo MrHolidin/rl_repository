@@ -8,6 +8,7 @@ import numpy as np
 
 from src.bg_catalog.ruleset import Ruleset
 from src.bg_combat.battle import simulate_battle
+from src.bg_combat.battle.seat import RecordingSeat
 from src.bg_core.board_helpers import snapshot_warband
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.match_types import CombatMatch, EliminatedSnapshot, GHOST_OPPONENT_ID
@@ -15,6 +16,7 @@ from src.bg_lobby.pairing import compute_pairings, record_combat_opponent
 from src.bg_lobby.player import BattleSnapshot, PlayerPhase, PlayerState, apply_hero_damage
 from src.bg_lobby.shared_pool import SharedCardPool
 from src.bg_recruitment import hero_passives
+from src.bg_recruitment.combat_seat import PlayerCombatSeat
 from src.bg_recruitment.economy import accrue_upgrade_discount
 from src.bg_recruitment.hand_slots import apply_combat_hand_adds
 from src.bg_recruitment.pool_ledger import on_eliminate_player
@@ -230,6 +232,9 @@ def resolve_combat_round(
                 # Ghost boards carry no hero; only the live seat's hero applies.
                 p0_attack_aura_all=hero_passives.hero_combat_attack_aura(live),
                 p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(live),
+                # A ghost has no seat to write to; the live one still does, so
+                # a permanent Gem earned against a dead player's board keeps.
+                seats=(PlayerCombatSeat(live), RecordingSeat()),
             )
             dmg_live = battle_result.damage_p0
             _apply_hero_damage(state, match.a, dmg_live)
@@ -285,6 +290,9 @@ def resolve_combat_round(
             patch=patch,
             combat_gold_out=combat_gold,
             combat_hand_adds_out=combat_hand_adds,
+            # See round.py: the seats carry the writes a combat copy cannot,
+            # while gold and hand adds stay batched to after the fight.
+            seats=(PlayerCombatSeat(pa), PlayerCombatSeat(pb)),
             p0_attack_aura_all=hero_passives.hero_combat_attack_aura(pa),
             p1_attack_aura_all=hero_passives.hero_combat_attack_aura(pb),
             p0_start_combat_keywords=hero_passives.hero_start_combat_keywords(pa),
