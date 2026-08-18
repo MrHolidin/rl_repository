@@ -26,7 +26,7 @@ from src.bg_combat.battle.seat import RecordingSeat
 from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerState
 
-from .blood_gems import blood_gem_value, play_blood_gem_on
+from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
 
 __all__ = ["PlayerCombatSeat"]
 
@@ -56,6 +56,9 @@ class PlayerCombatSeat(RecordingSeat):
             # away regardless.
             return
         play_blood_gem_on(self.player, target, count=count)
+
+    def gain_blood_gems(self, count: int) -> None:
+        give_blood_gems(self.player, int(count))
 
     def hand_card_ids(self) -> Tuple[str, ...]:
         """The minions in hand, by card id. Spells are not minions and a Start

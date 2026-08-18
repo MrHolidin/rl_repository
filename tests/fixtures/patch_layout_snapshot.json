@@ -6,12 +6,15 @@
     "NUM_RACE_IDS": 10,
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
+      "AddTavernSpellToHandEffect",
       "AvengeEffect",
+      "BuffLeftmostOfTribeEffect",
       "ChooseOneEffect",
       "CreateSpellcraftSpellEffect",
       "DiscoverMinionAtTierEffect",
       "GainBloodGemsEffect",
       "GainGoldNextTurnEffect",
+      "GiveLockboxEffect",
       "GrantKeywordAtAttackThreshold",
       "GrantTemporaryBuffEffect",
       "IncreaseBloodGemBonusEffect",
@@ -401,8 +404,8 @@
         }
       },
       "num_pool_ids": 246,
-      "num_pool_indices": 253,
-      "num_templates": 253,
+      "num_pool_indices": 254,
+      "num_templates": 254,
       "obs_fingerprints": {
         "bglike": {
           "sha256": "92915ae0e0f47d6750273a8d189cbaf04d8bf75336dd04514e919d3d50d2e7fc",

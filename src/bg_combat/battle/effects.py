@@ -23,6 +23,7 @@ from src.bg_core.effects import (
     BuffAttackerOnFriendlyAttackEffect,
     BuffRandomOtherFriendlyCombat,
     AddRandomMinionToHandEffect,
+    GainBloodGemsEffect,
     AddRandomMinionToHandOnKillEffect,
     BloodGemTarget,
     IncreaseBloodGemBonusEffect,
@@ -652,6 +653,9 @@ def _fire_rally(
             _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
+        elif isinstance(eff, GainBloodGemsEffect):
+            # Into hand, not onto a body — the seat holds it until it is played.
+            rt.seats[attacker_side_idx].gain_blood_gems(eff.count)
         elif isinstance(eff, IncreaseBloodGemBonusEffect):
             # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
             # mid-combat, and a permanent Gem played after it is worth more.
@@ -1008,7 +1012,12 @@ def _dr_buff_random_other(
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        pool = [m for m in side.minions if m is not dead]
+        pool = [
+            m
+            for m in side.minions
+            if m is not dead
+            and (effect.filter_race is None or minion_matches_tribe(m, effect.filter_race))
+        ]
         if not pool:
             continue
         t = pool[int(rt.rng.integers(0, len(pool)))]

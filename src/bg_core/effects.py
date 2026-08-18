@@ -199,10 +199,16 @@ class BuffSelfWhenFriendlyBattlecryPlaced:
 
 @dataclass(frozen=True)
 class BuffRandomOtherFriendlyCombat:
-    """Combat deathrattle: one random other friendly (Tortollan Shellraiser)."""
+    """Combat deathrattle: one random other friendly (Tortollan Shellraiser).
+
+    ``filter_race`` narrows it to one tribe ("Deathrattle: give a friendly
+    Undead +1/+2"). Not a golden-doubled field — a golden printing buffs one
+    minion twice as hard, not two minions.
+    """
 
     attack: int = 0
     health: int = 0
+    filter_race: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -493,6 +499,39 @@ class GainGoldThisTurnEffect:
 
     amount: int = 1
     filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class GiveLockboxEffect:
+    """Hand the seat a Lockbox, or hurry the one it already has along.
+
+    Both halves of "Get a Lockbox. If you already have one, it opens 1 turn
+    sooner" — which is one rule, since a seat only ever holds one.
+    """
+
+    sooner: int = 1
+
+
+@dataclass(frozen=True)
+class AddTavernSpellToHandEffect:
+    """Put a named Tavern spell in hand ("Battlecry: Get a Tavern Coin").
+
+    Names the card rather than rolling one: these battlecries print which spell
+    they hand over. A package that does not carry it hands over nothing.
+    """
+
+    card_id: str
+
+
+@dataclass(frozen=True)
+class BuffLeftmostOfTribeEffect:
+    """Start of Combat: stats and an optional keyword on the left-most friendly
+    of ``tribe`` ("Give your left-most Dragon +1/+2 and Windfury")."""
+
+    tribe: Any = None
+    attack: int = 0
+    health: int = 0
+    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -928,6 +967,9 @@ Effect = Union[
     ReduceUpgradeCostEffect,
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
+    GiveLockboxEffect,
+    AddTavernSpellToHandEffect,
+    BuffLeftmostOfTribeEffect,
     ReduceTavernSpellCostEffect,
     StealTavernMinionEffect,
     DiscoverMinionAtTierEffect,
@@ -1046,6 +1088,9 @@ __all__ = [
     "ReduceUpgradeCostEffect",
     "GainGoldThisTurnEffect",
     "GainGoldNextTurnEffect",
+    "GiveLockboxEffect",
+    "AddTavernSpellToHandEffect",
+    "BuffLeftmostOfTribeEffect",
     "ReduceTavernSpellCostEffect",
     "StealTavernMinionEffect",
     "DiscoverMinionAtTierEffect",

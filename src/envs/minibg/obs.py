@@ -320,6 +320,9 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "ReduceTavernSpellCostEffect",
         "StealTavernMinionEffect",
         "DiscoverMinionAtTierEffect",
+        "GiveLockboxEffect",
+        "AddTavernSpellToHandEffect",
+        "BuffLeftmostOfTribeEffect",
     }
 )
 

@@ -56,6 +56,13 @@ class CombatSeat(Protocol):
         """Card ids held in hand, for the Start of Combat effects that fire from
         there ("If this minion is in your hand, summon a copy of it")."""
 
+    def gain_blood_gems(self, count: int) -> None:
+        """Gems into the owner's hand ("Rally: Get a Blood Gem").
+
+        Not ``add_card_to_hand``: that queue is card ids the lobby turns into
+        minions after the fight, and a Gem is a spell.
+        """
+
 
 @dataclass
 class PermanentGemGrant:
@@ -75,6 +82,8 @@ class RecordingSeat:
     hand_adds: List[str] = field(default_factory=list)
     permanent_gems: List[PermanentGemGrant] = field(default_factory=list)
     gem_value_raise: Tuple[int, int] = (0, 0)
+    #: Gems a combat handed the owner, waiting for a seat that can hold them.
+    blood_gems: int = 0
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -100,6 +109,9 @@ class RecordingSeat:
     def hand_card_ids(self) -> Tuple[str, ...]:
         """Empty: a seatless combat has two lists of minions and no hand."""
         return ()
+
+    def gain_blood_gems(self, count: int) -> None:
+        self.blood_gems += int(count)
 
 
 __all__ = ["CombatSeat", "PermanentGemGrant", "RecordingSeat"]

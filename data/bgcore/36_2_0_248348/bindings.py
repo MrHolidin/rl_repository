@@ -21,8 +21,14 @@ from typing import Dict, FrozenSet, Tuple
 from src.bg_core.effects import (
     Ability,
     AddRandomMinionToHandEffect,
+    AddTavernSpellToHandEffect,
+    AddTokenToHandEffect,
     BloodGemTarget,
     BuffAllShopOffersEffect,
+    BuffLeftmostOfTribeEffect,
+    BuffMatching,
+    BuffRandomOtherFriendlyCombat,
+    BuffTarget,
     BuffSelf,
     BuffTargetFriendlyBattlecry,
     ChooseOneEffect,
@@ -32,6 +38,7 @@ from src.bg_core.effects import (
     GainBloodGemsEffect,
     GainGoldNextTurnEffect,
     GainGoldThisTurnEffect,
+    GiveLockboxEffect,
     GrantKeywordAtAttackThreshold,
     GrantTemporaryBuffEffect,
     Keyword,
@@ -54,6 +61,7 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG_BOT_312t",  # Microbot 1/1 — Cord Puller
         "BG_ICC_026t",  # Skeleton 1/1 — Harmless Bonehead
         "BG36_200t",  # Foraging Bat 1/1 — Flittering Bat
+        "BGS_115t",  # Water Droplet 2/2 — Sellemental
     }
 )
 
@@ -175,6 +183,51 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG31_330": (  # Ominous Seer — Battlecry: next Tavern spell costs (1) less
         Ability(Trigger.ON_PLACE, ReduceTavernSpellCostEffect(amount=1)),
+    ),
+    # ------------------------------------------------------------------ tier 2
+    "BGS_115": (  # Sellemental — when you sell this, get a 3/3 Elemental
+        Ability(Trigger.ON_SELL, AddTokenToHandEffect(token_id="BGS_115t")),
+    ),
+    "BG25_022": (  # Scarlet Skull — Reborn; Deathrattle: a friendly Undead +1/+2
+        Ability(
+            Trigger.ON_DEATH,
+            BuffRandomOtherFriendlyCombat(attack=1, health=2, filter_race=Race.UNDEAD),
+        ),
+    ),
+    "BG20_101": (  # Roadboar — Rally: get a Blood Gem
+        Ability(Trigger.ON_ATTACK, GainBloodGemsEffect(count=1)),
+    ),
+    "BG36_520": (  # Bilgewater Breakout — Battlecry: get a Lockbox (or hurry one)
+        Ability(Trigger.ON_PLACE, GiveLockboxEffect(sooner=1)),
+    ),
+    "BG23_002": (  # Shell Collector — Battlecry: get a Tavern Coin
+        Ability(Trigger.ON_PLACE, AddTavernSpellToHandEffect(card_id="BG28_810")),
+    ),
+    "BG26_963": (  # Electric Synthesizer — Battlecry *and* Start of Combat:
+        # give your other Dragons +1/+1. Two triggers, one effect, exactly as
+        # the card prints it.
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1),
+        ),
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            BuffMatching(BuffTarget.OTHER_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1),
+        ),
+    ),
+    "BG26_805": (  # Humming Bird — Start of Combat: your Beasts have +1 Attack
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=1, health=0),
+        ),
+    ),
+    "BG29_810": (  # Thousandth Paper Drake — SoC: left-most Dragon +1/+2, Windfury
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            BuffLeftmostOfTribeEffect(
+                tribe=Race.DRAGON, attack=1, health=2, keyword=Keyword.WINDFURY
+            ),
+        ),
     ),
 }
 

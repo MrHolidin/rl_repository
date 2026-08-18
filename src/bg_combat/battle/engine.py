@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from src.bg_core.effects import (
+    BuffLeftmostOfTribeEffect,
+    BuffMatching,
     Keyword,
     StartOfCombatDamagePerFriendlyTribe,
     SummonSelfCopyFromHandEffect,
@@ -24,6 +26,7 @@ from .events import (
     ShieldLost,
 )
 from .auras import attack_value, _grant_keyword, _sync_health_all
+from src.bg_core.board_helpers import apply_buff_matching, minion_matches_tribe
 from .targeting import (
     _attacker_has_cleave,
     _cleave_victim_ids_at_swing_start,
@@ -131,6 +134,22 @@ def _apply_start_of_combat_effect(
         amount = count * eff.amount_per_match
         for _ in range(max(1, eff.repeats)):
             _deal_random_enemy_minion_damage(rt, side_idx, amount)
+    elif isinstance(eff, BuffMatching):
+        # "Start of Combat: give your other Dragons +1/+1", "…your Beasts have
+        # +1 Attack for the rest of this combat". Both are the same write: the
+        # buff lands on the combat copies and dies with them.
+        apply_buff_matching(eff, rt.side(side_idx).minions, source)
+        _sync_health_all(rt)
+    elif isinstance(eff, BuffLeftmostOfTribeEffect):
+        for bm in rt.side(side_idx).iter_living():
+            if eff.tribe is not None and not minion_matches_tribe(bm, eff.tribe):
+                continue
+            bm.bonus_attack += eff.attack
+            bm.bonus_health += eff.health
+            if eff.keyword is not None:
+                _grant_keyword(rt, side_idx, bm, eff.keyword)
+            break
+        _sync_health_all(rt)
     elif isinstance(eff, SummonSelfCopyFromHandEffect):
         # ``source`` is the card in hand, made only to carry this trigger; the
         # copy that joins the fight is built from its template like any summon.

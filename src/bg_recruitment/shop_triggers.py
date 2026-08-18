@@ -46,6 +46,8 @@ from src.bg_core.effects import (
     Effect,
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
+    GiveLockboxEffect,
+    AddTavernSpellToHandEffect,
     ReduceTavernSpellCostEffect,
     GrantKeywordRandomFriendly,
     HeroImmuneAura,
@@ -60,7 +62,7 @@ from src.bg_core.effects import (
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
-from src.bg_recruitment.lockbox import tick_lockboxes
+from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
 from src.bg_recruitment.spellcraft import (
     discard_spellcraft_spells,
     expire_temporary_buffs,
@@ -387,6 +389,13 @@ class ShopTriggers:
                 placed is not None and self.minion_matches_tribe(placed, effect.filter_race)
             ):
                 player.gold += effect.amount
+        elif isinstance(effect, GiveLockboxEffect):
+            give_lockbox(player, sooner=int(effect.sooner))
+        elif isinstance(effect, AddTavernSpellToHandEffect):
+            spell = self._patch.tavern_spells.get(effect.card_id)
+            slot = first_free_hand_slot(player) if spell is not None else None
+            if slot is not None:
+                player.hand[slot] = spell
         elif isinstance(effect, ReduceTavernSpellCostEffect):
             player.tavern_spell_cost_delta -= int(effect.amount)
         elif isinstance(effect, GainGoldNextTurnEffect):
