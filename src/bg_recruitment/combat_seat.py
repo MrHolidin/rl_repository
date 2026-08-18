@@ -27,7 +27,7 @@ from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerState
 
 from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
-from .game_counts import DAMAGE_DEALT, bump_game_count, counter_key
+from .game_counts import bump_game_count
 from .hand_slots import first_free_hand_slot
 from .standing_bonuses import BonusScope, raise_standing_bonus
 
@@ -79,23 +79,23 @@ class PlayerCombatSeat(RecordingSeat):
         self.player.tavern_spell_bonus_health += int(health)
 
     def record_damage_dealt(
-        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+        self, instance_id: int, amount: int, threshold: int, reward_card_id: str
     ) -> None:
-        key = counter_key(DAMAGE_DEALT, card_id)
-        total = self.player.game_counts.get(key, 0)
-        if total >= threshold:
-            return  # already paid; the card says "(40 left!)" once
-        total += int(amount)
-        self.player.game_counts[key] = total
-        if total >= threshold:
-            slot = first_free_hand_slot(self.player)
-            spell = (
-                self.patch.tavern_spells.get(reward_card_id)
-                if self.patch is not None
-                else None
-            )
-            if slot is not None and spell is not None:
-                self.player.hand[slot] = spell
+        body = self._board_minion(instance_id)
+        if body is None or body.damage_reward_paid:
+            return
+        body.damage_dealt_total += int(amount)
+        if body.damage_dealt_total < threshold:
+            return
+        body.damage_reward_paid = True
+        slot = first_free_hand_slot(self.player)
+        spell = (
+            self.patch.tavern_spells.get(reward_card_id)
+            if self.patch is not None
+            else None
+        )
+        if slot is not None and spell is not None:
+            self.player.hand[slot] = spell
 
     def bump_game_count(self, family: str, subject: str) -> None:
         bump_game_count(self.player, family, subject)

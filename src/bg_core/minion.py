@@ -137,6 +137,14 @@ class Minion:
     #: Stats currently granted by a game-long tally, so a recompute can apply
     #: the difference instead of stacking (see ``game_counts``).
     count_bonus_granted: Tuple[int, int] = (0, 0)
+    #: Damage this body has dealt in combat, across every fight it has been in
+    #: ("once this deals 40 damage…"). Per body and not per printing: two
+    #: copies count separately, and a golden made from three starts over,
+    #: because ``merge_three_non_golden_into_golden`` builds a new card.
+    damage_dealt_total: int = 0
+    #: Whether the reward for that total has already been paid, so a body pays
+    #: once however much further it swings.
+    damage_reward_paid: bool = False
     #: Whether this card's own arrival is one of the events its tally counted —
     #: the single subtraction behind "for each **other**".
     self_counted: bool = False

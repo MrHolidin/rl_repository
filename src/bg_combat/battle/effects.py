@@ -865,8 +865,9 @@ def _count_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
     """Tally damage for a body that is counting toward a reward.
 
     Damage dealt *by* it, so the source is looked up on the other side of the
-    victim, and the tally goes to the seat: "(40 left!)" counts down across
-    fights, and the copy that swings does not survive one.
+    victim, and it is written through to the owner's real minion by origin id:
+    the tally is that body's — two Treasure Parrots count separately — and the
+    copy doing the swinging does not survive the fight.
     """
     if e.hp_loss <= 0:
         return
@@ -880,7 +881,7 @@ def _count_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
         eff = ability.effect
         if isinstance(eff, RewardAtDamageDealtEffect):
             rt.seats[dealer_side].record_damage_dealt(
-                dealer.card_id, e.hp_loss, eff.threshold, eff.card_id
+                dealer.origin_instance_id, e.hp_loss, eff.threshold, eff.card_id
             )
 
 

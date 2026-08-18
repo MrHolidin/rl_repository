@@ -35,7 +35,6 @@ __all__ = [
     "SUMMONED",
     "DIED",
     "counter_key",
-    "DAMAGE_DEALT",
     "SPELLS_CAST",
     "bump_died",
     "bump_game_count",
@@ -53,10 +52,6 @@ DIED = "died"
 #: Every spell this seat has cast — Tavern spells, Spellcraft spells and Blood
 #: Gems alike, because "spells you've cast" draws no distinction between them.
 SPELLS_CAST = "spells_cast:*"
-
-#: Damage a body has dealt in combat, across every fight. Keyed by card id
-#: because the tally belongs to the printing, not to the copy that swung.
-DAMAGE_DEALT = "damage_dealt"
 
 
 def counter_key(family: str, subject: str = "*") -> str:

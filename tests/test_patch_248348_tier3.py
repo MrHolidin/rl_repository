@@ -376,8 +376,6 @@ def test_armor_absorbs_the_refresh_payment(patch, triggers):
 
 
 def test_treasure_parrot_pays_out_once_it_has_dealt_forty(patch):
-    from src.bg_recruitment.game_counts import DAMAGE_DEALT, counter_key
-
     parrot = _card(patch, "BG36_763")  # 5/5
     player = _player(patch, [parrot])
     seat = PlayerCombatSeat(player, patch=patch)
@@ -387,18 +385,14 @@ def test_treasure_parrot_pays_out_once_it_has_dealt_forty(patch):
         patch,
         seats=(seat, PlayerCombatSeat(_player(patch))),
     )
-    dealt = player.game_counts[counter_key(DAMAGE_DEALT, "BG36_763")]
-    assert dealt >= 40
+    assert parrot.damage_dealt_total >= 40
     assert any(c is not None and c.card_id == "BG28_830" for c in player.hand)
 
 
 def test_the_parrot_carries_its_tally_between_fights(patch):
     """"(40 left!)" counts down over the game, not over one battle."""
-    from src.bg_recruitment.game_counts import DAMAGE_DEALT, counter_key
-
     parrot = _card(patch, "BG36_763")
     player = _player(patch, [parrot])
-    key = counter_key(DAMAGE_DEALT, "BG36_763")
     for _ in range(2):
         _fight(
             [parrot],
@@ -406,7 +400,7 @@ def test_the_parrot_carries_its_tally_between_fights(patch):
             patch,
             seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
         )
-    assert player.game_counts[key] > 11  # both fights counted
+    assert parrot.damage_dealt_total > 11  # both fights counted
 
 
 def test_the_parrot_pays_out_only_once(patch):
@@ -420,3 +414,43 @@ def test_the_parrot_pays_out_only_once(patch):
             seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
         )
     assert sum(1 for c in player.hand if c is not None and c.card_id == "BG28_830") == 1
+
+
+def test_two_parrots_count_separately(patch):
+    """The tally is the body's, not the printing's: one swinging does not bring
+    the other one closer to its reward."""
+    swinging = _card(patch, "BG36_763")
+    idle = _card(patch, "BG36_763")
+    player = _player(patch, [swinging, idle])
+    _fight(
+        [swinging],
+        [_wall(hp=200)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    assert swinging.damage_dealt_total >= 40
+    assert idle.damage_dealt_total == 0
+    assert not idle.damage_reward_paid
+
+
+def test_a_golden_parrot_starts_its_count_over(patch):
+    """Three merge into one new card, and the new card has dealt nothing —
+    even when the copies that made it had already been paid."""
+    from src.bg_recruitment.triples import resolve_triples_loop
+
+    parrots = [_card(patch, "BG36_763") for _ in range(3)]
+    player = _player(patch, parrots)
+    _fight(
+        [parrots[0]],
+        [_wall(hp=200)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    assert parrots[0].damage_reward_paid
+
+    resolve_triples_loop(player, patch=patch)
+    golden = next(
+        c for c in player.hand if c is not None and getattr(c, "is_golden", False)
+    )
+    assert golden.card_id == "BG36_763"
+    assert (golden.damage_dealt_total, golden.damage_reward_paid) == (0, False)

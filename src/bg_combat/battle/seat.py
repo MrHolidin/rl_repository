@@ -72,12 +72,13 @@ class CombatSeat(Protocol):
         """"Rally: your Tavern spells give an extra +1 Health this game"."""
 
     def record_damage_dealt(
-        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+        self, instance_id: int, amount: int, threshold: int, reward_card_id: str
     ) -> None:
         """Count damage a body dealt, and pay its reward when the total lands.
 
-        The seat keeps the total because the card counts across fights and the
-        copy that swings does not survive one.
+        Named by ``instance_id`` because the tally is that body's own: two
+        copies of the same card count separately, and the copy that swings does
+        not survive the fight to keep it.
         """
 
     def bump_game_count(self, family: str, subject: str) -> None:
@@ -130,8 +131,8 @@ class RecordingSeat:
     blood_gems: int = 0
     #: "This game" bonuses a combat raised, for a seat that has a table.
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
-    #: Damage a counting body dealt: (card_id, amount, threshold, reward).
-    damage_dealt: List[Tuple[str, int, int, str]] = field(default_factory=list)
+    #: Damage a counting body dealt: (instance_id, amount, threshold, reward).
+    damage_dealt: List[Tuple[int, int, int, str]] = field(default_factory=list)
     #: What a combat raised the owner's Tavern-spell bonus by.
     tavern_spell_raise: Tuple[int, int] = (0, 0)
     #: Events a combat counted, for a seat that keeps tallies.
@@ -179,9 +180,11 @@ class RecordingSeat:
         self.tavern_spell_raise = (current_attack + int(attack), current_health + int(health))
 
     def record_damage_dealt(
-        self, card_id: str, amount: int, threshold: int, reward_card_id: str
+        self, instance_id: int, amount: int, threshold: int, reward_card_id: str
     ) -> None:
-        self.damage_dealt.append((card_id, int(amount), int(threshold), reward_card_id))
+        self.damage_dealt.append(
+            (int(instance_id), int(amount), int(threshold), reward_card_id)
+        )
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))
