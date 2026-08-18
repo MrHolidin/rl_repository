@@ -68,6 +68,9 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
+        """"Rally: your Tavern spells give an extra +1 Health this game"."""
+
     def bump_game_count(self, family: str, subject: str) -> None:
         """Count one event on the owner's tally, from inside the fight.
 
@@ -118,6 +121,8 @@ class RecordingSeat:
     blood_gems: int = 0
     #: "This game" bonuses a combat raised, for a seat that has a table.
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
+    #: What a combat raised the owner's Tavern-spell bonus by.
+    tavern_spell_raise: Tuple[int, int] = (0, 0)
     #: Events a combat counted, for a seat that keeps tallies.
     count_bumps: List[Tuple[str, str]] = field(default_factory=list)
     #: Buffs a combat aimed at the owner's hand.
@@ -157,6 +162,10 @@ class RecordingSeat:
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
         self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
+
+    def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
+        current_attack, current_health = self.tavern_spell_raise
+        self.tavern_spell_raise = (current_attack + int(attack), current_health + int(health))
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))

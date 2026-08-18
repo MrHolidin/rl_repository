@@ -423,27 +423,27 @@
         }
       },
       "num_pool_ids": 246,
-      "num_pool_indices": 255,
-      "num_templates": 255,
+      "num_pool_indices": 256,
+      "num_templates": 256,
       "obs_fingerprints": {
         "bglike": {
-          "sha256": "a4163720a00dbe30f09923ec00d6bf80cad90a4de968bef8ebcf673a35723b8a",
+          "sha256": "8083c26fd26f5f719799ed2f6304259f97d5452310fd6d182603c134cca61d11",
           "shape": 976
         },
         "bglike_v5": {
-          "sha256": "3fc3cf3a082fb98133e568d905eae0f3f467d08f5dd6553d8f979386b14e4cde",
+          "sha256": "02fd69e96c7d60f50ecf94a681f4a6b16d247a7ff4c4bf8557ae6e2b6f340148",
           "shape": 2536
         },
         "bglike_v5_heroes": {
-          "sha256": "f4a7f06d403874e419caa71a6a0e5e0649b841bfacdd707e39aec729c7e2e28a",
+          "sha256": "f7388e3ab5224bbdc0855c6e56223fbbba3b92ba7746adf7c719fbd836e697c6",
           "shape": 2683
         },
         "bglike_v6_heroes": {
-          "sha256": "955a6bd57736ca5be674c5b0cdac3aa2cbfb64f7b7ff06a43aa5a1bfe5b359a1",
+          "sha256": "2483fff388aec71bbebf19d35f18451f5431cd9638769a94941c026e88c2024a",
           "shape": 1123
         },
         "bglike_v7_pref": {
-          "sha256": "f70b4f45bb19536f310f29a3e8cc94efd353379bc7629b9e65bdd65a406b576e",
+          "sha256": "0caaa24b4bbeba2943c5cc55dce0555bc9e78732276b964ec498f92eeba23661",
           "shape": 1130
         }
       },

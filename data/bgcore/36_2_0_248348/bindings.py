@@ -20,6 +20,14 @@ from typing import Dict, FrozenSet, Tuple
 
 from src.bg_core.effects import (
     Ability,
+    BuffAttackerOnFriendlyAttackEffect,
+    CastRandomTavernSpellEffect,
+    BuffListenerIfSummonedMatches,
+    DealExcessDamageToAdjacentEffect,
+    GrantKeywordRandomFriendly,
+    GrantListenerKeywordIfSummonedMatches,
+    IncrementShopTribeBonusEffect,
+    SetNextRollCostEffect,
     AddCardToNextRefreshesEffect,
     AddRandomMinionToHandEffect,
     AddTavernSpellToHandEffect,
@@ -83,6 +91,7 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG36_200t",  # Foraging Bat 1/1 — Flittering Bat
         "BGS_115t",  # Water Droplet 2/2 — Sellemental
         "BG35_150t",  # Demon Fodder — Laboratory Assistant
+        "BG25_010t",  # Helping Hand 2/1 Reborn — Handless Forsaken
     }
 )
 
@@ -101,6 +110,9 @@ KEYWORD_ONLY_POOL_IDS: FrozenSet[str] = frozenset(
     {
         "BGS_119",  # Crackling Cyclone — Divine Shield, Windfury
         "BG25_001",  # Risen Rider — Taunt, Reborn
+        "BG_BOT_911",  # Annoy-o-Module — Magnetic, Divine Shield, Taunt
+        "BGS_131",  # Deadly Spore — Venomous
+        "BG_DEEP_015",  # Prosthetic Hand — Magnetic, Reborn
     }
 )
 
@@ -425,6 +437,216 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
                 grant_keyword=Keyword.WINDFURY,
             ),
         ),
+    ),
+    # ------------------------------------------------------------------ tier 3
+    "BG26_147": (  # Accord-o-Tron — Magnetic; start of turn, gain 1 Gold
+        Ability(Trigger.ON_TURN_START, GainGoldThisTurnEffect(amount=1)),
+    ),
+    "BG24_500": (  # Amber Guardian — SoC: another Dragon +2/+2 and Divine Shield
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            BuffMatching(
+                BuffTarget.OTHER_OF_TRIBE,
+                tribe=Race.DRAGON,
+                attack=2,
+                health=2,
+                limit=1,
+                grant_keyword=Keyword.SHIELD,
+            ),
+        ),
+    ),
+    "BG33_830": (  # Azsharan Cutlassier — your Tavern spells give +1 Attack
+        Ability(Trigger.ON_PLACE, IncreaseTavernSpellBonusEffect(attack=1, health=0)),
+    ),
+    "BG33_924": (  # Blue Whelp — Rally: your Tavern spells give +1 Health
+        Ability(Trigger.ON_ATTACK, IncreaseTavernSpellBonusEffect(attack=0, health=1)),
+    ),
+    "BG36_507": (  # Breakout Mastermind — Activate (2): get a random Murloc
+        Ability(
+            Trigger.ON_ACTIVATE,
+            AddRandomMinionToHandEffect(tribe=Race.MURLOC),
+            activate_cost=2,
+        ),
+    ),
+    "BG34_683": (  # Briarback Drummer — Battlecry: get a Blood Gem Barrage
+        Ability(Trigger.ON_PLACE, AddTavernSpellToHandEffect(card_id="BG34_689")),
+    ),
+    "BG30_125": (  # Cadaver Caretaker — Deathrattle: three 1/1 Skeletons
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG_ICC_026t", count=3)),
+    ),
+    "BG36_508": (  # Cagey Conjurer — Activate (1): cast a random Tavern spell
+        Ability(Trigger.ON_ACTIVATE, CastRandomTavernSpellEffect(), activate_cost=1),
+    ),
+    "BG23_004": (  # Deep-Sea Angler — Spellcraft: +2/+6 and Taunt until next turn
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=GrantTemporaryBuffEffect(attack=2, health=6, keyword=Keyword.TAUNT),
+                card_id="BG23_004t",
+                name="Anglerfish",
+            ),
+        ),
+    ),
+    "BGS_071": (  # Deflect-o-Bot — a Mech summoned in combat: +2 Attack, Divine Shield
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            GrantListenerKeywordIfSummonedMatches(Race.MECHANICAL, Keyword.SHIELD),
+            combat_only=True,
+        ),
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            BuffListenerIfSummonedMatches(Race.MECHANICAL, attack=2, health=0),
+            combat_only=True,
+        ),
+    ),
+    "BG33_323": (  # Dustbone Devastator — Rally: your Undead +2 Attack this game
+        Ability(
+            Trigger.ON_ATTACK,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.TRIBE, scope_key=Race.UNDEAD, attack=2, health=0
+            ),
+        ),
+    ),
+    "BG36_346": (  # Fruit Vendor — Activate (1): get 2 Tavern Dish Bananas
+        Ability(
+            Trigger.ON_ACTIVATE,
+            AddTavernSpellToHandEffect(card_id="BG28_897", count=2),
+            activate_cost=1,
+        ),
+    ),
+    "BG31_326": (  # Gem Rat — at the end of your turn, get a Gem Day
+        Ability(Trigger.ON_TURN_END, AddTavernSpellToHandEffect(card_id="BG31_893")),
+    ),
+    "BG25_010": (  # Handless Forsaken — Deathrattle: a 2/1 Helping Hand with Reborn
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG25_010t", count=1)),
+    ),
+    "BG36_521": (  # Locked-up Mutineer — Deathrattle: a Lockbox, or hurry one
+        Ability(Trigger.ON_DEATH, GiveLockboxEffect(sooner=1)),
+    ),
+    "BG35_140": (  # Mama Mrrglton — other Murlocs +2 Attack, improved per Mrrglton
+        Ability(
+            Trigger.ON_PLACE,
+            RepeatPerCountEffect(
+                counter="mrrgltons_played",
+                effect=BuffMatching(
+                    BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=0
+                ),
+            ),
+        ),
+        Ability(Trigger.ON_PLACE, BumpSeatCounterEffect(counter="mrrgltons_played")),
+    ),
+    "BG35_141": (  # Papa Mrrglton — the same in Health, off the same tally
+        Ability(
+            Trigger.ON_PLACE,
+            RepeatPerCountEffect(
+                counter="mrrgltons_played",
+                effect=BuffMatching(
+                    BuffTarget.OTHER_OF_TRIBE, tribe=Race.MURLOC, attack=0, health=2
+                ),
+            ),
+        ),
+        Ability(Trigger.ON_PLACE, BumpSeatCounterEffect(counter="mrrgltons_played")),
+    ),
+    "BG28_309": (  # Mummifier — Deathrattle: a different friendly Undead gets Reborn
+        Ability(
+            Trigger.ON_DEATH,
+            GrantKeywordRandomFriendly(Keyword.REBORN, filter_race=Race.UNDEAD),
+        ),
+    ),
+    "BG36_509": (  # Private Investigator — Activate (1): 2 Gold next turn
+        Ability(Trigger.ON_ACTIVATE, GainGoldNextTurnEffect(amount=2), activate_cost=1),
+    ),
+    "BG36_854": (  # Rescue Bot — Taunt; Deathrattle: get a Repair Job
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG36_624")),
+    ),
+    "BG29_816": (  # Roaring Recruiter — another Dragon attacks: give it +3/+1
+        Ability(
+            Trigger.ON_FRIENDLY_ATTACK,
+            BuffAttackerOnFriendlyAttackEffect(Race.DRAGON, attack=3, health=1),
+        ),
+    ),
+    "BG32_841": (  # Sand Swirler — your Elementals give an extra +1 Attack
+        Ability(
+            Trigger.ON_PLACE,
+            IncrementShopTribeBonusEffect(tribe=Race.ELEMENTAL, attack=1, health=0),
+        ),
+    ),
+    "BG26_360": (  # Scourfin — Deathrattle: a random minion in hand +7/+7
+        Ability(Trigger.ON_DEATH, BuffRandomHandMinionEffect(attack=7, health=7)),
+    ),
+    "BG36_330": (  # Sly Infiltrator — Choose One: 2 free Refreshes; or 3 Blood Gems
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=SetNextRollCostEffect(cost=0, uses=2),
+                second=GainBloodGemsEffect(count=3),
+            ),
+        ),
+    ),
+    "BG27_084": (  # Sprightly Scarab — Choose One, on a Beast
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=BuffTargetFriendlyBattlecry(
+                    attack=1,
+                    health=1,
+                    filter_race=Race.BEAST,
+                    grant_keyword=Keyword.REBORN,
+                ),
+                second=BuffTargetFriendlyBattlecry(
+                    attack=4,
+                    health=0,
+                    filter_race=Race.BEAST,
+                    grant_keyword=Keyword.WINDFURY,
+                ),
+            ),
+        ),
+    ),
+    "BG36_202": (  # Tasty Lobster — Deathrattle: two Beasts +1/+1, improving
+        Ability(
+            Trigger.ON_DEATH,
+            RepeatPerCountEffect(
+                counter="tasty_lobsters",
+                effect=BuffMatching(
+                    BuffTarget.OTHER_OF_TRIBE,
+                    tribe=Race.BEAST,
+                    attack=1,
+                    health=1,
+                    limit=2,
+                ),
+            ),
+        ),
+        Ability(Trigger.ON_DEATH, BumpSeatCounterEffect(counter="tasty_lobsters")),
+    ),
+    "BG27_005": (  # Timecap'n Hooktail — a Tavern spell cast: your minions +1 Attack
+        Ability(
+            Trigger.ON_TAVERN_SPELL_CAST,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=0),
+        ),
+    ),
+    "BG36_730": (  # Trapped Clapper — Deathrattle: a Fodder in the next 3 Refreshes
+        Ability(
+            Trigger.ON_DEATH,
+            AddCardToNextRefreshesEffect(card_id="BG35_150t", refreshes=3),
+        ),
+    ),
+    "BG23_007": (  # Waverider — Spellcraft: +2/+2, and Windfury to a Naga
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=GrantTemporaryBuffEffect(
+                    attack=2,
+                    health=2,
+                    keyword=Keyword.WINDFURY,
+                    keyword_if_race=Race.NAGA,
+                ),
+                card_id="BG23_007t",
+                name="Waverider's Wave",
+            ),
+        ),
+    ),
+    "BGS_126": (  # Wildfire Elemental — overkill splashes onto a neighbour
+        Ability(Trigger.ON_OVERKILL, DealExcessDamageToAdjacentEffect()),
     ),
 }
 

@@ -29,6 +29,8 @@ from src.bg_core.effects import (
     PlayBloodGemsOnAttackerEffect,
     BuffRandomHandMinionEffect,
     KeepCombatGainsEffect,
+    IncreaseTavernSpellBonusEffect,
+    RaiseStandingBonusEffect,
     SelfBonusPerGameCount,
     SummonBestFromHandEffect,
     AddRandomMinionToHandOnKillEffect,
@@ -683,6 +685,17 @@ def _fire_rally(
         elif isinstance(eff, GainBloodGemsEffect):
             # Into hand, not onto a body — the seat holds it until it is played.
             rt.seats[attacker_side_idx].gain_blood_gems(eff.count)
+        elif isinstance(eff, RaiseStandingBonusEffect):
+            # "Rally: your Undead have +2 Attack this game" — owed to the seat,
+            # not to this copy, and to Undead it has not bought yet.
+            rt.seats[attacker_side_idx].raise_standing_bonus(
+                eff.scope_kind,
+                eff.scope_key if eff.scope_key is not None else attacker.card_id,
+                eff.attack,
+                eff.health,
+            )
+        elif isinstance(eff, IncreaseTavernSpellBonusEffect):
+            rt.seats[attacker_side_idx].raise_tavern_spell_bonus(eff.attack, eff.health)
         elif isinstance(eff, IncreaseBloodGemBonusEffect):
             # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
             # mid-combat, and a permanent Gem played after it is worth more.
@@ -1078,6 +1091,14 @@ def _count_death(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
             )
 
 
+def _dr_buff_hand_minion(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomHandMinionEffect
+) -> None:
+    """"Deathrattle: give a random minion in your hand +7/+7" — a seat write,
+    because a combat copy has no hand to reach into."""
+    rt.seats[side_idx].buff_hand_minion(effect.attack, effect.health, rng=rt.rng)
+
+
 def _dr_buff_random_other(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomOtherFriendlyCombat
 ) -> None:
@@ -1178,6 +1199,7 @@ _DEATHRATTLE_HANDLERS = {
     GrantKeywordRandomFriendly: _dr_grant_kw_random,
     GrantKeywordAllFriendlyOfTribe: _dr_grant_kw_all_of_tribe,
     GainGoldOnDeathEffect: _dr_gain_gold,
+    BuffRandomHandMinionEffect: _dr_buff_hand_minion,
 }
 
 
