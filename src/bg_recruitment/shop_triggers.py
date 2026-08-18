@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace as dataclass_replace
+
 from typing import Any, Callable, List, Optional
 
 import numpy as np
@@ -192,6 +194,36 @@ _HANDLED_ELSEWHERE = (
     AdaptAllMurlocsEffect,
     DiscoverMurlocEffect,
 )
+
+
+def _amplified_by_gift(player: PlayerState, source: Optional[Minion], effect):
+    """Bigger, when the seat has been told this source's tribe gives extra.
+
+    "Your Elementals give an extra +2 Health this game" is not a buff of its own
+    and not a bonus on the tavern — it raises *whatever an Elemental gives*. Ten
+    Elementals in this pool give stats through nine different effect types, so
+    the amplifier reads the source's tribe and the effect's own numbers rather
+    than naming any of them.
+
+    Raising the gift is not itself a gift, or Sand Swirler would amplify its own
+    grant.
+    """
+    gift_attack = player.elemental_gift_attack
+    gift_health = player.elemental_gift_health
+    if source is None or not (gift_attack or gift_health):
+        return effect
+    if isinstance(effect, IncreaseTribeGiftEffect):
+        return effect
+    if not minion_matches_tribe(source, Race.ELEMENTAL):
+        return effect
+    declared = getattr(effect, "__dataclass_fields__", {})
+    if "attack" not in declared or "health" not in declared:
+        return effect
+    return dataclass_replace(
+        effect,
+        attack=effect.attack + gift_attack,
+        health=effect.health + gift_health,
+    )
 
 
 class ShopTriggers:
@@ -477,6 +509,7 @@ class ShopTriggers:
     ) -> None:
         if isinstance(effect, _HANDLED_ELSEWHERE):
             return
+        effect = _amplified_by_gift(player, source, effect)
         if isinstance(effect, BuffRandomFriendly):
             self.apply_buff_random(source, effect, player.board)
         elif isinstance(effect, BuffOnePerListedTribeFriendly):
@@ -654,15 +687,11 @@ class ShopTriggers:
                     break
                 player.hand[slot] = make_minion(effect.token_id, patch=self._patch)
         elif isinstance(effect, IncrementShopTribeBonusEffect):
-            # What this grant is worth, plus whatever the seat has been told
-            # its Elementals give extra.
-            attack = effect.attack + player.elemental_gift_attack
-            health = effect.health + player.elemental_gift_health
             if effect.tribe == Race.ELEMENTAL:
-                player.shop_elemental_bonus += attack
-                player.shop_elemental_bonus_health += health
+                player.shop_elemental_bonus += effect.attack
+                player.shop_elemental_bonus_health += effect.health
             buff_shop_minions_of_tribe(
-                player, effect.tribe, attack=attack, health=health
+                player, effect.tribe, attack=effect.attack, health=effect.health
             )
         elif isinstance(effect, IncreaseTribeGiftEffect):
             player.elemental_gift_attack += effect.attack

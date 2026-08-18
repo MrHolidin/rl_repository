@@ -81,24 +81,50 @@ def test_nomi_still_grants_symmetrically(patch, triggers):
     assert (player.shop_elemental_bonus, player.shop_elemental_bonus_health) == (4, 4)
 
 
-def test_glowing_cinder_raises_only_the_health_half(patch, triggers):
-    from src.bg_core.effects import IncrementShopTribeBonusEffect
-
+def test_glowing_cinder_raises_what_every_elemental_gives(patch, triggers):
+    """Not the tavern bonus — *whatever an Elemental gives*. Molten Rock's own
+    +1 Health is an Elemental giving something, so it grows too."""
     cinder = _card(patch, "BG32_842")
     player = _player(patch)
     triggers.apply_shop_effect(player, cinder, cinder.abilities[0].effect, None)
     assert (player.elemental_gift_attack, player.elemental_gift_health) == (0, 2)
 
+    rock = _card(patch, "BGS_127")  # Molten Rock: +1 Health per Elemental played
+    player.board.append(rock)
+    triggers.fire_after_friendly_minion_placed(player, _elemental())
+    assert rock.max_health == rock.base_health + 3  # +1 printed, +2 extra
+
+
+def test_the_gift_reaches_a_tavern_grant_too(patch, triggers):
+    """Nomi is one of the things an Elemental gives, not the only one."""
+    from src.bg_core.effects import IncrementShopTribeBonusEffect
+
+    cinder = _card(patch, "BG32_842")
+    giver = _elemental("giver")
+    player = _player(patch, [giver])
+    triggers.apply_shop_effect(player, cinder, cinder.abilities[0].effect, None)
     on_offer = _elemental("s")
     player.shop[0] = on_offer
     triggers.apply_shop_effect(
         player,
-        None,
+        giver,
         IncrementShopTribeBonusEffect(tribe=Race.ELEMENTAL, attack=1, health=1),
         None,
     )
-    # The grant prints +1/+1; the Cinder made it +1/+3.
     assert (on_offer.raw_attack, on_offer.max_health) == (2, 4)
+
+
+def test_a_buff_from_something_else_is_not_amplified(patch, triggers):
+    """The gift is about what *Elementals* give."""
+    from src.bg_core.effects import BuffSelf
+
+    cinder = _card(patch, "BG32_842")
+    player = _player(patch)
+    triggers.apply_shop_effect(player, cinder, cinder.abilities[0].effect, None)
+    beast = Minion(card_id="b", base_attack=1, base_health=1, tier=1, race=Race.BEAST)
+    player.board.append(beast)
+    triggers.apply_shop_effect(player, beast, BuffSelf(attack=0, health=1), None)
+    assert beast.max_health == 2
 
 
 def test_sand_swirler_raises_only_the_attack_half(patch, triggers):
@@ -109,22 +135,12 @@ def test_sand_swirler_raises_only_the_attack_half(patch, triggers):
 
 
 def test_the_extras_stack(patch, triggers):
-    from src.bg_core.effects import IncrementShopTribeBonusEffect
-
     swirler = _card(patch, "BG32_841")
     cinder = _card(patch, "BG32_842")
     player = _player(patch, [swirler])
     triggers.fire_on_place(swirler, player, None)
     triggers.apply_shop_effect(player, cinder, cinder.abilities[0].effect, None)
-    on_offer = _elemental("s")
-    player.shop[0] = on_offer
-    triggers.apply_shop_effect(
-        player,
-        None,
-        IncrementShopTribeBonusEffect(tribe=Race.ELEMENTAL, attack=1, health=1),
-        None,
-    )
-    assert (on_offer.raw_attack, on_offer.max_health) == (3, 4)
+    assert (player.elemental_gift_attack, player.elemental_gift_health) == (1, 2)
 
 
 def test_a_later_elemental_arrives_carrying_the_total(patch, triggers):
