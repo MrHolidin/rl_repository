@@ -75,6 +75,7 @@ from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
 from src.bg_recruitment.standing_bonuses import (
     BonusScope,
     ScopeKind,
+    raise_own_standing_bonus,
     raise_standing_bonus,
     settle_standing_bonuses,
 )
@@ -346,6 +347,7 @@ class ShopTriggers:
             self._resolve_triples(player)
 
     def fire_shop_friendly_summoned(self, player: PlayerState, summoned: Minion) -> None:
+        raise_own_standing_bonus(player, summoned)
         for m in player.board:
             if m is summoned:
                 continue

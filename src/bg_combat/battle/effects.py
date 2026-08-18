@@ -25,6 +25,7 @@ from src.bg_core.effects import (
     AddRandomMinionToHandEffect,
     GainBloodGemsEffect,
     PlayBloodGemsOnAttackerEffect,
+    RaiseStandingBonusEffect,
     AddRandomMinionToHandOnKillEffect,
     BloodGemTarget,
     IncreaseBloodGemBonusEffect,
@@ -341,6 +342,14 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):
+        if isinstance(eff, RaiseStandingBonusEffect):
+            # "for each other <me> you've summoned this game" — the tally is
+            # the owner's, so it goes to the seat rather than to this copy.
+            if summoned.card_id == listener.card_id:
+                rt.seats[e.side_idx].raise_standing_bonus(
+                    eff.scope_kind, listener.card_id, eff.attack, eff.health
+                )
+            continue
         apply_summoned_listener(eff, listener, summoned, grant_keyword=grant)
     _sync_health_all(rt)
 
@@ -1013,6 +1022,20 @@ def _dr_buff_matching(
     _sync_health_all(rt)
 
 
+def _dr_raise_standing_bonus(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: RaiseStandingBonusEffect
+) -> None:
+    """"Has +4/+2 for each friendly Eternal Knight that died this game."
+
+    Scoped to the dead card's own id when the binding leaves the key open, so
+    every other copy — on the board, in hand, still in the tavern — grows.
+    """
+    key = effect.scope_key if effect.scope_key is not None else dead.card_id
+    rt.seats[side_idx].raise_standing_bonus(
+        effect.scope_kind, key, effect.attack, effect.health
+    )
+
+
 def _dr_buff_random_other(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomOtherFriendlyCombat
 ) -> None:
@@ -1112,6 +1135,7 @@ _DEATHRATTLE_HANDLERS = {
     SummonFirstDeadFriendlyMechsThisCombat: _dr_summon_dead_mechs,
     GrantKeywordRandomFriendly: _dr_grant_kw_random,
     GrantKeywordAllFriendlyOfTribe: _dr_grant_kw_all_of_tribe,
+    RaiseStandingBonusEffect: _dr_raise_standing_bonus,
     GainGoldOnDeathEffect: _dr_gain_gold,
 }
 

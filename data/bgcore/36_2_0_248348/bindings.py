@@ -243,6 +243,18 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
+    "BG_TTN_401": (  # Ancestral Automaton — +3/+2 per other one summoned this game
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.CARD, attack=3, health=2),
+        ),
+    ),
+    "BG25_008": (  # Eternal Knight — +4/+2 per friendly Eternal Knight that died
+        Ability(
+            Trigger.ON_DEATH,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.CARD, attack=4, health=2),
+        ),
+    ),
     "BG25_011": (  # Nerubian Deathswarmer — your Undead have +1 Attack this game
         Ability(
             Trigger.ON_PLACE,

@@ -37,6 +37,7 @@ from src.bg_lobby.player import PlayerState
 __all__ = [
     "BonusScope",
     "ScopeKind",
+    "raise_own_standing_bonus",
     "raise_standing_bonus",
     "standing_bonus_for",
     "settle_standing_bonuses",
@@ -143,13 +144,62 @@ def settle_standing_bonuses(player: PlayerState) -> None:
             _settle_one(player, card, in_shop=True)
 
 
+def raise_own_standing_bonus(player: PlayerState, arrived: Minion) -> None:
+    """Fire an arriving minion's own "for each other <me>" raise, once.
+
+    The count is over copies, so exactly one raise per arrival — read off the
+    newcomer rather than off the copies already standing, which would raise once
+    per existing copy and grow quadratically. The newcomer is excluded from the
+    raise it caused, which is how *other* comes out true for every copy at once:
+    N arrivals make N raises, and each copy skips exactly its own.
+    """
+    from src.bg_core.effects import RaiseStandingBonusEffect, Trigger
+
+    for ability in arrived.abilities:
+        if ability.trigger is not Trigger.ON_FRIENDLY_MINION_SUMMONED:
+            continue
+        effect = ability.effect
+        if not isinstance(effect, RaiseStandingBonusEffect):
+            continue
+        key = effect.scope_key if effect.scope_key is not None else arrived.card_id
+        # Bank what the copies before it are already worth *first*, then skip
+        # only the raise its own arrival causes. Without this the newcomer is
+        # excluded from the whole running total rather than from one raise.
+        settle_standing_bonuses(player)
+        raise_standing_bonus(
+            player,
+            BonusScope(effect.scope_kind, key),
+            effect.attack,
+            effect.health,
+            exclude=arrived,
+        )
+
+
+def _mark_absorbed(player: PlayerState, minion: Minion, scope: BonusScope) -> None:
+    """Record ``minion`` as square with ``scope`` without paying it anything."""
+    offered = player.standing_bonuses.get(scope, (0, 0))
+    rows = [row for row in minion.standing_absorbed if row[0] != scope]
+    rows.append((scope, offered[0], offered[1]))
+    minion.standing_absorbed = tuple(rows)
+
+
 def raise_standing_bonus(
     player: PlayerState,
     scope: BonusScope,
     attack: int,
     health: int,
+    *,
+    exclude: Optional[Minion] = None,
 ) -> None:
-    """Raise (or open) a standing bonus, and let everyone catch up to it."""
+    """Raise (or open) a standing bonus, and let everyone catch up to it.
+
+    ``exclude`` is the card whose own arrival caused the raise, and it is what
+    makes "for each **other** Ancestral Automaton you've summoned" come out
+    right: the newcomer banks every raise before its own and skips that one, so
+    with N copies each carries exactly N-1 raises.
+    """
     have_attack, have_health = player.standing_bonuses.get(scope, (0, 0))
     player.standing_bonuses[scope] = (have_attack + int(attack), have_health + int(health))
+    if exclude is not None:
+        _mark_absorbed(player, exclude, scope)
     settle_standing_bonuses(player)

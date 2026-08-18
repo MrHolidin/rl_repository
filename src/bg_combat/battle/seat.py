@@ -63,6 +63,17 @@ class CombatSeat(Protocol):
         minions after the fight, and a Gem is a spell.
         """
 
+    def raise_standing_bonus(
+        self, scope_kind: object, scope_key: object, attack: int, health: int
+    ) -> None:
+        """Raise a "this game" bonus on the owner, from inside the fight.
+
+        "Has +4/+2 for each friendly Eternal Knight that **died** this game" is
+        raised by a death, and the deaths happen here. It has to reach the seat
+        rather than the combat copy: the copy is thrown away, and the bonus is
+        owed to Knights in hand, in the tavern and in every fight after this.
+        """
+
 
 @dataclass
 class PermanentGemGrant:
@@ -84,6 +95,8 @@ class RecordingSeat:
     gem_value_raise: Tuple[int, int] = (0, 0)
     #: Gems a combat handed the owner, waiting for a seat that can hold them.
     blood_gems: int = 0
+    #: "This game" bonuses a combat raised, for a seat that has a table.
+    standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -112,6 +125,11 @@ class RecordingSeat:
 
     def gain_blood_gems(self, count: int) -> None:
         self.blood_gems += int(count)
+
+    def raise_standing_bonus(
+        self, scope_kind: object, scope_key: object, attack: int, health: int
+    ) -> None:
+        self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
 
 
 __all__ = ["CombatSeat", "PermanentGemGrant", "RecordingSeat"]
