@@ -78,10 +78,31 @@ def test_default_discover_picks_matches_action_space():
 
 
 @pytest.mark.parametrize("patch_dir", _packages(), ids=lambda p: p.name)
-def test_shipped_packages_use_the_default_layout(patch_dir):
-    """No package declares a layout yet, so all of them must land on the default."""
-    assert "layout" not in json.loads((patch_dir / "meta.json").read_text())
-    assert load_patch_context(str(patch_dir)).meta.layout == DEFAULT_LAYOUT
+def test_a_package_without_a_layout_block_gets_the_default(patch_dir):
+    """The classic packages declare nothing and must keep the classic layout.
+
+    This is the guarantee old checkpoints rest on: a package that says nothing
+    about layout encodes exactly as it always did, no matter what a newer
+    package declares.
+    """
+    declares_layout = "layout" in json.loads((patch_dir / "meta.json").read_text())
+    layout = load_patch_context(str(patch_dir)).meta.layout
+    if declares_layout:
+        pytest.skip(f"{patch_dir.name} declares its own layout")
+    assert layout == DEFAULT_LAYOUT
+
+
+def test_the_modern_package_declares_a_wider_layout():
+    """36.2.0 is the reason the layout became data: it fits in none of the old numbers."""
+    modern = _PACKAGES_DIR / "36_2_0_248348"
+    if not modern.is_dir():
+        pytest.skip("modern package not present")
+    layout = load_patch_context(str(modern)).meta.layout
+    assert layout != DEFAULT_LAYOUT
+    assert layout.num_tiers == 7, "tier 7 exists"
+    assert layout.max_shop_slots == 7
+    assert {Race.QUILBOAR, Race.NAGA, Race.UNDEAD} <= set(layout.races)
+    assert layout.race_onehot_dim == 12  # 11 tribes plus the "no race" slot
 
 
 @pytest.mark.parametrize("patch_dir", _packages(), ids=lambda p: p.name)

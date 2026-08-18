@@ -7,6 +7,15 @@ Reads:
     (override with ``--hsjson`` for a local file or another HTTPS URL on the same host).
   - HearthSim ``CardDefs.xml`` at commit matching the patch for TECH_LEVEL,
     IS_BACON_POOL_MINION, and BACON triple-upgrade linkage (enumID 1429).
+    **Optional.** Modern HearthstoneJSON carries all three itself as
+    ``techLevel`` / ``isBattlegroundsPoolMinion`` / ``battlegroundsPremiumDbfId``,
+    so a build from 2022 on needs no XML at all; ``--card-defs`` stays for the
+    older builds whose JSON predates those fields.
+
+A catalog also carries the non-minion cards a modern build offers, each in its
+own section: tavern spells, trinkets, heroes and Dark Gifts. They are listed
+whether or not the engine can bind them yet — a package that omits them cannot
+even be checked for coverage, and what is missing is the point of the file.
 
 Examples::
 
@@ -114,6 +123,81 @@ def parse_card_defs(path: Path) -> dict[int, dict]:
     return out
 
 
+def defs_from_hsjson(cards: list) -> dict[int, dict]:
+    """The same table ``parse_card_defs`` builds, read off HearthstoneJSON.
+
+    Modern JSON exposes the three tags the XML was needed for. ``techLevel`` is
+    the tavern tier, and carrying one is what makes a card a tavern minion — the
+    same rule the XML path applies.
+    """
+    out: dict[int, dict] = {}
+    for c in cards:
+        if c.get("type") != "MINION" or c.get("techLevel") is None:
+            continue
+        dbf_id = c.get("dbfId")
+        card_id = c.get("id")
+        if dbf_id is None or not card_id:
+            continue
+        out[int(dbf_id)] = {
+            "card_id": card_id,
+            "tier": int(c["techLevel"]),
+            "is_bacon_pool": bool(c.get("isBattlegroundsPoolMinion")),
+            "golden_dbf_id": c.get("battlegroundsPremiumDbfId"),
+        }
+    return out
+
+
+def _row(c: dict, **extra) -> dict:
+    """Shared card row: identity, text and tags, plus per-section fields."""
+    row = {
+        "dbfId": c.get("dbfId"),
+        "id": c.get("id"),
+        "name": c.get("name"),
+        "cost": c.get("cost"),
+        "set": c.get("set"),
+        "text": c.get("text"),
+        "mechanics": c.get("mechanics") or [],
+        "referencedTags": c.get("referencedTags") or [],
+    }
+    row.update(extra)
+    return row
+
+
+def collect_tavern_spells(cards: list) -> list[dict]:
+    """Cards bought off the tavern counter (BATTLEGROUND_SPELL, school TAVERN).
+
+    Not to be confused with a Blood Gem or a Spellcraft spell: those are plain
+    SPELLs that go straight to hand, and cards tell the two apart.
+    """
+    out = [
+        _row(c, tier=c.get("techLevel"), spellSchool=c.get("spellSchool"))
+        for c in cards
+        if c.get("isBattlegroundsPoolSpell")
+    ]
+    return sorted(out, key=lambda r: (r["tier"] or 0, r["id"] or ""))
+
+
+def collect_trinkets(cards: list) -> list[dict]:
+    """Trinkets are a card *type*, not a flag — there is no isBattlegrounds
+    equivalent for them the way there is for pool minions and spells."""
+    out = [_row(c) for c in cards if c.get("type") == "BATTLEGROUND_TRINKET"]
+    return sorted(out, key=lambda r: r["id"] or "")
+
+
+def collect_heroes(cards: list) -> list[dict]:
+    out = [
+        _row(c, armor=c.get("armor"), health=c.get("health"))
+        for c in cards
+        if c.get("battlegroundsHero")
+    ]
+    return sorted(out, key=lambda r: r["id"] or "")
+
+
+def collect_dark_gifts(cards: list) -> list[dict]:
+    out = [_row(c) for c in cards if c.get("isBattlegroundsDarkGift")]
+    return sorted(out, key=lambda r: r["id"] or "")
+
+
 def patch_package_dir(patch: str, build: int) -> Path:
     slug = patch.strip().replace(".", "_")
     return Path("data") / "bgcore" / f"{slug}_{build}"
@@ -121,7 +205,15 @@ def patch_package_dir(patch: str, build: int) -> Path:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--card-defs", type=Path, required=True)
+    p.add_argument(
+        "--card-defs",
+        type=Path,
+        default=None,
+        help=(
+            "HearthSim CardDefs.xml. Only needed for builds whose HearthstoneJSON "
+            "predates techLevel / isBattlegroundsPoolMinion."
+        ),
+    )
     p.add_argument(
         "--hsjson",
         type=str,
@@ -150,16 +242,24 @@ def main() -> None:
     if args.out is None:
         args.out = patch_package_dir(args.patch, args.build) / "catalog.json"
 
-    defs = parse_card_defs(args.card_defs)
     hs_src = args.hsjson
     if hs_src is None:
         hs_src = f"https://{_HSJSON_ALLOWED_NETLOC}/v1/{args.build}/{args.locale}/cards.json"
     cards = load_hsjson_cards(hs_src)
     by_dbf = {c["dbfId"]: c for c in cards if "dbfId" in c}
 
-    missing_json = [d for d in defs if d not in by_dbf]
-    if missing_json:
-        raise SystemExit(f"{len(missing_json)} dbfIds in CardDefs but not in HSJSON")
+    if args.card_defs is not None:
+        defs = parse_card_defs(args.card_defs)
+        missing_json = [d for d in defs if d not in by_dbf]
+        if missing_json:
+            raise SystemExit(f"{len(missing_json)} dbfIds in CardDefs but not in HSJSON")
+    else:
+        defs = defs_from_hsjson(cards)
+        if not defs:
+            raise SystemExit(
+                "no tavern minions found in HearthstoneJSON (no techLevel field): "
+                "this build needs --card-defs"
+            )
 
     minions: list[dict] = []
     for dbf_id in sorted(defs):
@@ -202,11 +302,27 @@ def main() -> None:
         "minions": minions,
     }
 
+    # Non-minion cards, each kind in its own section. Empty on old builds,
+    # which is itself the honest answer: 15.6.2 had none of them.
+    for key, rows in (
+        ("tavernSpells", collect_tavern_spells(cards)),
+        ("trinkets", collect_trinkets(cards)),
+        ("heroes", collect_heroes(cards)),
+        ("darkGifts", collect_dark_gifts(cards)),
+    ):
+        if rows:
+            payload[key] = rows
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    print(f"Wrote {len(minions)} minions to {args.out}")
+    counts = ", ".join(
+        f"{len(payload[k])} {k}"
+        for k in ("tavernSpells", "trinkets", "heroes", "darkGifts")
+        if k in payload
+    )
+    print(f"Wrote {len(minions)} minions{', ' + counts if counts else ''} to {args.out}")
 
 
 if __name__ == "__main__":

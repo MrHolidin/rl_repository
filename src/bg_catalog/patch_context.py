@@ -328,7 +328,12 @@ def _build_templates_and_descriptions(
                 base_health=2,
                 tier=1,
                 name="Target Buffer",
-                abilities=effects["target_buffer"],
+                # ``.get``: a package that binds nothing still loads. The
+                # synthetic tokens are added to every package for dense-index
+                # stability, so requiring a binding for one of them made an
+                # empty bindings.py — the honest starting state of a new
+                # package — impossible to load at all.
+                abilities=effects.get("target_buffer", ()),
                 is_token=True,
             ),
             False,
