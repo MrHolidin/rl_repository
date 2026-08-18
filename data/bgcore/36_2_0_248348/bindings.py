@@ -47,6 +47,8 @@ from src.bg_core.effects import (
     PlayBloodGemsEffect,
     PlaceFishbaitEffect,
     PlayBloodGemsOnAttackerEffect,
+    RaiseStandingBonusEffect,
+    ScopeKind,
     ReduceTavernSpellCostEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
@@ -225,6 +227,23 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_START_OF_COMBAT,
             BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=1, health=0),
         ),
+    ),
+    "BG25_011": (  # Nerubian Deathswarmer — your Undead have +1 Attack this game
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.TRIBE, scope_key=Race.UNDEAD, attack=1, health=0
+            ),
+        ),
+    ),
+    "BG31_801": (  # Forest Rover — your Beetles have +2/+1 this game; DR: a Beetle
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.CARD, scope_key="BG28_603t", attack=2, health=1
+            ),
+        ),
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG28_603t", count=1)),
     ),
     "BG31_177": (  # Mechagnome Interpreter — play or Magnetize a Mech, give it +3/+1
         Ability(

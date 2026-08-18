@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import copy as _shallow_copy
 from dataclasses import dataclass, field, fields as _dataclass_fields
 from enum import IntEnum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from src.bg_catalog.ruleset import DEFAULT_RULESET, Ruleset
 from src.bg_core.hero import Hero
@@ -135,6 +135,11 @@ class PlayerState:
     #: out and cleared by ``start_of_turn_gold`` when that turn's coins are set.
     #: Distinct from ``gold``: spending this turn must not reach it.
     gold_next_turn: int = 0
+    #: "This game" modifiers the seat has accumulated, keyed by what they
+    #: reach (a card id, a tribe, the tavern). Cards catch up to this table
+    #: rather than the table hunting them down — see
+    #: ``bg_recruitment/standing_bonuses.py``.
+    standing_bonuses: Dict[Any, Tuple[int, int]] = field(default_factory=dict)
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.
@@ -310,6 +315,9 @@ def copy_player_state(p: PlayerState) -> PlayerState:
         # the generic copy.copy() dispatches correctly for both.
         "hand": [_shallow_copy(m) if m is not None else None for m in p.hand],
         "last_round_tribe_counts": dict(p.last_round_tribe_counts),
+        # Mutable, so the copy needs its own — a shared table would let one
+        # seat's Nerubian Deathswarmer buff another seat's Undead.
+        "standing_bonuses": dict(p.standing_bonuses),
         "bought_tribe_counts": dict(p.bought_tribe_counts),
         "pending_choice": (
             PendingChoice(

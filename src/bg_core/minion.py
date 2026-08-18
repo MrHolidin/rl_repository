@@ -122,6 +122,11 @@ class Minion:
     #: tavern; a general funnel for every buff site is the right home for it
     #: once a second card needs the flag.
     cannot_gain_stats: bool = False
+    #: Stats already absorbed from the owner's standing "this game" bonuses.
+    #: Not a buff of its own — the running total that lets
+    #: ``standing_bonuses.settle`` be idempotent and hook-free.
+    standing_attack: int = 0
+    standing_health: int = 0
     # --- "until next turn" ------------------------------------------------
     #: Stats and keywords that expire at the start of the owner's next recruit
     #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").

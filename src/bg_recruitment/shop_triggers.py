@@ -47,6 +47,7 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    RaiseStandingBonusEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
     GiveLockboxEffect,
@@ -66,6 +67,12 @@ from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
+from src.bg_recruitment.standing_bonuses import (
+    BonusScope,
+    ScopeKind,
+    raise_standing_bonus,
+    settle_standing_bonuses,
+)
 from src.bg_recruitment.tavern_spells import steal_tavern_minion
 from src.bg_recruitment.spellcraft import (
     discard_spellcraft_spells,
@@ -423,6 +430,18 @@ class ShopTriggers:
                     shop_excluded_race=shop_excluded_race,
                     shared_pool=shared_pool,
                 )
+        elif isinstance(effect, RaiseStandingBonusEffect):
+            key = effect.scope_key
+            if effect.scope_kind is ScopeKind.CARD and key is None:
+                # "for each other <me>" — the card scopes the bonus to itself.
+                key = source.card_id if source is not None else None
+            if not (effect.scope_kind is ScopeKind.CARD and key is None):
+                raise_standing_bonus(
+                    player,
+                    BonusScope(effect.scope_kind, key),
+                    effect.attack,
+                    effect.health,
+                )
         elif isinstance(effect, GiveLockboxEffect):
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):
@@ -506,6 +525,7 @@ class ShopTriggers:
                 f"handler and is not listed in _HANDLED_ELSEWHERE. Either give "
                 f"it a branch or say where it is handled instead."
             )
+        settle_standing_bonuses(player)
         refresh_attack_thresholds(player.board)
 
     @staticmethod

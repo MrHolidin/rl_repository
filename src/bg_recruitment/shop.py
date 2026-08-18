@@ -13,6 +13,7 @@ from src.bg_core.minion import Minion, Race
 from src.bg_lobby.shared_pool import SharedCardPool
 
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.standing_bonuses import settle_standing_bonuses
 from src.bg_recruitment.tavern_spells import offer_tavern_spells
 from src.envs.minibg.actions import MAX_SHOP_SLOTS, shop_offers_count
 from src.bg_lobby.player import PlayerState
@@ -288,6 +289,9 @@ def _fill_forced_tribe_slot(
     player.shop[slot] = make_minion(card_id, patch=patch)
     apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
     _apply_hero_shop_tribe_buff(player, player.shop[slot])
+    # A minion that has just landed on the counter is owed whatever "this game"
+    # bonuses the seat is carrying, the same as one it already owned.
+    settle_standing_bonuses(player)
     return True
 
 

@@ -558,6 +558,42 @@ class PlaceFishbaitEffect:
     """Replace a tavern card with a Fishbait for the left-most Beast to attack."""
 
 
+class ScopeKind(Enum):
+    """What class of card a standing "this game" bonus reaches.
+
+    Lives here with the other effect vocabularies (``BuffTarget``,
+    ``BloodGemTarget``, ``CountSource``) because a package's bindings name it,
+    and a package may only import ``bg_core``.
+    """
+
+    #: One printed card, by id ("your Beetles", "each Eternal Knight").
+    CARD = auto()
+    #: A tribe, wherever its members are ("your Undead have +1 Attack").
+    TRIBE = auto()
+    #: Whatever is on the tavern counter, now and after every reroll.
+    SHOP = auto()
+
+
+@dataclass(frozen=True)
+class RaiseStandingBonusEffect:
+    """Open or raise a "this game" bonus on the seat.
+
+    ``scope_kind``/``scope_key`` name what it reaches: a tribe ("your Undead
+    have +1 Attack this game"), a printed card ("your Beetles have +2/+1"), or
+    the tavern counter ("minions in the Tavern have +5/+5"). ``scope_key`` of
+    ``None`` on a CARD scope means *this card* — the shape "has +X for each
+    other <me> you've summoned" takes.
+
+    The bonus follows the class of card, not the board: something bought or
+    summoned afterwards arrives already carrying it.
+    """
+
+    scope_kind: Any
+    attack: int = 0
+    health: int = 0
+    scope_key: Any = None
+
+
 @dataclass(frozen=True)
 class GiveLockboxEffect:
     """Hand the seat a Lockbox, or hurry the one it already has along.
@@ -1020,6 +1056,7 @@ Effect = Union[
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    RaiseStandingBonusEffect,
     PlayBloodGemsOnAttackerEffect,
     RepeatPerCountEffect,
     PlaceFishbaitEffect,
@@ -1144,6 +1181,8 @@ __all__ = [
     "GainGoldThisTurnEffect",
     "GainGoldNextTurnEffect",
     "BuffPlacedMinionEffect",
+    "ScopeKind",
+    "RaiseStandingBonusEffect",
     "PlayBloodGemsOnAttackerEffect",
     "RepeatPerCountEffect",
     "PlaceFishbaitEffect",

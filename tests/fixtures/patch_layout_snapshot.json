@@ -21,6 +21,7 @@
       "PlaceFishbaitEffect",
       "PlayBloodGemsEffect",
       "PlayBloodGemsOnAttackerEffect",
+      "RaiseStandingBonusEffect",
       "ReduceTavernSpellCostEffect",
       "RepeatPerCountEffect",
       "StealTavernMinionEffect",
