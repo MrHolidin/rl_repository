@@ -478,7 +478,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_041": (
         Ability(
             Trigger.AFTER_FRIENDLY_MINION_PLACED,
-            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1),
+            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1, requires_placed_battlecry=True),
         ),
     ),
     "BGS_044": (

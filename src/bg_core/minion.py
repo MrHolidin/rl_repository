@@ -144,6 +144,13 @@ class Minion:
     #: The next Magnetization onto this body lands twice (Drone Duplicator).
     #: Spent by that Magnetization, and cleared at the start of the turn.
     magnet_doubles_next: bool = False
+    #: Waiting to take the stats of the next minion the seat buys this turn.
+    wants_next_buy_stats: bool = False
+    #: Gold the seat has spent while this body watched, for the cards that
+    #: answer every Nth coin rather than every purchase.
+    gold_spent_seen: int = 0
+    #: Spent by the buy it paid, for the watchers printed "once per turn".
+    buy_answered_this_turn: bool = False
     #: Hero damage this body has watched, for the cards that answer every Nth
     #: point rather than every hit ("after your hero takes 4 damage").
     hero_damage_seen: int = 0

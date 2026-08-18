@@ -197,11 +197,13 @@ class PlayerTurnEngine:
                 race = getattr(m, "race", None)
                 p.bought_tribe_counts[race] = p.bought_tribe_counts.get(race, 0) + 1
                 ctx.triggers.fire_on_buy(m, p)
+                ctx.triggers.fire_on_bought(p, m)  # watchers that pay the card bought
                 hero_passives.apply_hero_on_bought(m, p)  # Kael'thas / Rat King
 
             recruitment_economy.buy_from_shop(
                 player,
                 action_int - int(a.Action.BUY_SLOT_0),
+                patch=ctx.patch,
                 on_bought=_on_bought,
                 on_friendly_bought=ctx.triggers.fire_on_friendly_bought,
                 on_triples=lambda p: recruitment_triples.resolve_triples_loop(

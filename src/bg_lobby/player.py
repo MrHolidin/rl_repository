@@ -183,7 +183,17 @@ class PlayerState:
     free_roll_charges: int = 0
     last_combat_won: bool = False
     last_opponent_board: Tuple[Minion, ...] = ()
+    #: Attack every Elemental entering the tavern carries, accumulated by the
+    #: cards that grant it per Elemental played (Nomi). Kept as the field the
+    #: observation has always read; the Health half is beside it, and on the
+    #: classic packages the two always move together.
     shop_elemental_bonus: int = 0
+    shop_elemental_bonus_health: int = 0
+    #: Extra stats *each* such grant hands out on top of what the granting card
+    #: prints ("your Elementals give an extra +1 Attack this game"). A modifier
+    #: on a modifier, which is why it cannot live in the total above.
+    elemental_gift_attack: int = 0
+    elemental_gift_health: int = 0
     # Extra stats every Blood Gem this seat plays gives, on top of the printed
     # +1/+1, for the rest of the game ("Your Blood Gems give an extra +1/+1 this
     # game"). Two numbers, not one: Gem Day grants Attack or Health alone.

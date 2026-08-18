@@ -23,7 +23,11 @@ from src.bg_core.effects import (
     BuffAttackerOnFriendlyAttackEffect,
     AddRandomCardToHandEffect,
     BuffOnSpellCastOnTribeEffect,
+    BuffBoughtMinionEffect,
     ConsumeTavernMinionEffect,
+    GoldSpentResponseEffect,
+    IncreaseTribeGiftEffect,
+    StatsFromNextBuyEffect,
     BuffSharedTribeEffect,
     BuffPerMagnetizationEffect,
     CastSpellAtEffect,
@@ -603,7 +607,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG32_841": (  # Sand Swirler — your Elementals give an extra +1 Attack
         Ability(
             Trigger.ON_PLACE,
-            IncrementShopTribeBonusEffect(tribe=Race.ELEMENTAL, attack=1, health=0),
+            IncreaseTribeGiftEffect(tribe=Race.ELEMENTAL, attack=1, health=0),
         ),
     ),
     "BG26_360": (  # Scourfin — Deathrattle: a random minion in hand +7/+7
@@ -1085,6 +1089,81 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             AddTavernSpellToHandEffect(card_id="BG36_880", count=2),
         ),
     ),
+    # ------------------------------------------------- the Elemental family
+    "BG32_842": (  # Glowing Cinder — your Elementals give an extra +2 Health
+        Ability(
+            Trigger.ON_DEATH,
+            IncreaseTribeGiftEffect(tribe=Race.ELEMENTAL, attack=0, health=2),
+        ),
+    ),
+    "BG36_351": (  # Moat Custodian — Rally: your Elementals give an extra +1/+2
+        Ability(
+            Trigger.ON_ATTACK,
+            IncreaseTribeGiftEffect(tribe=Race.ELEMENTAL, attack=1, health=2),
+        ),
+    ),
+    "BG36_181": (  # Air Baller — sell: your minions +2/+2, and Ballers improve
+        Ability(
+            Trigger.ON_SELL,
+            RepeatPerCountEffect(
+                counter="ballers_sold",
+                effect=BuffMatching(BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+            ),
+        ),
+        Ability(Trigger.ON_SELL, BumpSeatCounterEffect(counter="ballers_sold")),
+    ),
+    "BG26_162": (  # Dancing Barnstormer — Battlecry *and* Deathrattle
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.SHOP, scope_key=Race.ELEMENTAL, attack=8, health=8
+            ),
+        ),
+        Ability(
+            Trigger.ON_DEATH,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.SHOP, scope_key=Race.ELEMENTAL, attack=8, health=8
+            ),
+        ),
+    ),
+    "BG26_537": (  # Flourishing Frostling — +2/+1 per Elemental played this game
+        Ability(
+            Trigger.AURA,
+            SelfBonusPerGameCount(
+                counter="elementals_played", subject="*",
+                attack_per=2, health_per=1, count_self=True,
+            ),
+        ),
+    ),
+    "BG32_846": (  # Unleashed Mana Surge — an Elemental played: your Elementals +4/+4
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.ELEMENTAL, attack=4, health=4
+            ),
+            filter_race=Race.ELEMENTAL,
+        ),
+    ),
+    "BG34_858": (  # Air Revenant — every 7 Gold spent, cast Easterly Winds
+        Ability(
+            Trigger.AURA,
+            GoldSpentResponseEffect(
+                threshold=7,
+                effect=CastSpellAtEffect(card_id="BG34_444"),
+            ),
+        ),
+    ),
+    "BG36_180": (  # Living Prison — Activate (1): take the next buy's stats
+        Ability(Trigger.ON_ACTIVATE, StatsFromNextBuyEffect(), activate_cost=1),
+    ),
+    "BG34_950": (  # Stone Age Slab — a minion bought gets +10/+10 and doubles
+        Ability(
+            Trigger.AURA,
+            BuffBoughtMinionEffect(
+                attack=10, health=10, double_stats=True, once_per_turn=True
+            ),
+        ),
+    ),
 }
 
 
@@ -1092,6 +1171,10 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
 #: battlecry, so every ability here hangs off ``Trigger.ON_PLACE`` — it fires
 #: when the card is cast, which for a spell is the only thing it ever does.
 SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
+    "BG34_444": (  # Easterly Winds — every roll from now on buffs the tavern
+        Ability(Trigger.ON_PLACE, BuffShopOnEveryRefreshEffect(attack=6, health=6)),
+    ),
+
     "BG28_845": (  # Natural Blessing — everyone sharing the target's type +3/+3
         Ability(Trigger.ON_PLACE, BuffSharedTribeEffect(attack=3, health=3)),
     ),

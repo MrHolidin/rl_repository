@@ -50,7 +50,10 @@ from src.bg_core.effects import (
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
     AddRandomCardToHandEffect,
+    BuffBoughtMinionEffect,
     BuffPerMagnetizationEffect,
+    GoldSpentResponseEffect,
+    StatsFromNextBuyEffect,
     MagnetizeTokenEffect,
     BuffSelfOnFriendlySoldEffect,
     DoubleNextMagnetizeEffect,
@@ -72,6 +75,7 @@ from src.bg_core.effects import (
     ReduceTavernSpellCostEffect,
     GrantKeywordRandomFriendly,
     HeroImmuneAura,
+    IncreaseTribeGiftEffect,
     IncrementShopTribeBonusEffect,
     Keyword,
     PogoHopperBattlecry,
@@ -374,6 +378,51 @@ class ShopTriggers:
         if player.pending_choice is None:
             self._resolve_triples(player)
 
+    def fire_on_bought(self, player: PlayerState, bought: Minion) -> None:
+        """The seat just bought ``bought`` — pay the watchers of a purchase.
+
+        Separate from ON_FRIENDLY_BOUGHT, which counts Pirates: these cards act
+        *on the card bought*, and one of them was promised it in advance.
+        """
+        for watcher in list(player.board):
+            if watcher.wants_next_buy_stats:
+                watcher.wants_next_buy_stats = False
+                watcher.bonus_attack += bought.raw_attack
+                watcher.bonus_health += bought.max_health
+            for ab in watcher.abilities:
+                eff = ab.effect
+                if not isinstance(eff, BuffBoughtMinionEffect):
+                    continue
+                if eff.once_per_turn and watcher.buy_answered_this_turn:
+                    continue
+                watcher.buy_answered_this_turn = True
+                bought.bonus_attack += eff.attack
+                bought.bonus_health += eff.health
+                if eff.double_stats:
+                    bought.bonus_attack += bought.raw_attack
+                    bought.bonus_health += bought.max_health
+
+    def fire_gold_spent(self, player: PlayerState, amount: int) -> None:
+        """Count gold leaving the seat, and answer every full threshold.
+
+        The running total is each watcher's own, because "(5 Gold left!)" is a
+        countdown printed on the card and two copies count separately.
+        """
+        if amount <= 0:
+            return
+        for watcher in list(player.board):
+            for ab in watcher.abilities:
+                eff = ab.effect
+                if not isinstance(eff, GoldSpentResponseEffect):
+                    continue
+                watcher.gold_spent_seen += int(amount)
+                times, watcher.gold_spent_seen = divmod(
+                    watcher.gold_spent_seen, max(1, int(eff.threshold))
+                )
+                for _ in range(times):
+                    if eff.effect is not None:
+                        self.apply_shop_effect(player, watcher, eff.effect, placed=None)
+
     def fire_magnetized(
         self, player: PlayerState, target: Minion, magnet: Minion
     ) -> None:
@@ -573,6 +622,9 @@ class ShopTriggers:
                         rng=self._rng,
                         highest_health=effect.highest_health,
                     )
+        elif isinstance(effect, StatsFromNextBuyEffect):
+            if source is not None:
+                source.wants_next_buy_stats = True
         elif isinstance(effect, DoubleNextMagnetizeEffect):
             if source is not None:
                 source.magnet_doubles_next = True
@@ -602,11 +654,19 @@ class ShopTriggers:
                     break
                 player.hand[slot] = make_minion(effect.token_id, patch=self._patch)
         elif isinstance(effect, IncrementShopTribeBonusEffect):
+            # What this grant is worth, plus whatever the seat has been told
+            # its Elementals give extra.
+            attack = effect.attack + player.elemental_gift_attack
+            health = effect.health + player.elemental_gift_health
             if effect.tribe == Race.ELEMENTAL:
-                player.shop_elemental_bonus += effect.attack
+                player.shop_elemental_bonus += attack
+                player.shop_elemental_bonus_health += health
             buff_shop_minions_of_tribe(
-                player, effect.tribe, attack=effect.attack, health=effect.health
+                player, effect.tribe, attack=attack, health=health
             )
+        elif isinstance(effect, IncreaseTribeGiftEffect):
+            player.elemental_gift_attack += effect.attack
+            player.elemental_gift_health += effect.health
         elif isinstance(effect, AddFromLastOpponentBoardEffect):
             if not player.last_opponent_board:
                 return
@@ -847,6 +907,9 @@ class ShopTriggers:
                 )
         if placed.race == Race.ELEMENTAL:
             player.elementals_played += 1
+            # The same count as a tally, for the cards that read one. The field
+            # above stays because the observation has always read it.
+            bump_seat_counter(player, "elementals_played:*")
             from src.bg_recruitment import hero_passives
 
             hero_passives.apply_hero_on_elemental_played(player)  # Chenvaala
@@ -922,13 +985,9 @@ class ShopTriggers:
                     pick.bonus_attack += atk
                     pick.bonus_health += hp
                     continue
-                # Gate is specific to the FRIENDLY_OF_TRIBE target — before the
-                # merge only ``BuffAllFriendlyOfTribe`` reached this branch, so
-                # widening it to every BuffMatching variant would change them.
-                if (
-                    isinstance(eff, BuffMatching)
-                    and eff.target is BuffTarget.FRIENDLY_OF_TRIBE
-                ):
+                # The card says whether it wants a Battlecry, rather than the
+                # target variant implying it for everyone.
+                if getattr(eff, "requires_placed_battlecry", False):
                     if not self._has_battlecry(placed):
                         continue
                 self.apply_shop_effect(player, m, ab.effect, placed)
@@ -976,6 +1035,7 @@ class ShopTriggers:
         reset_health_refreshes(player)
         for minion in player.board:
             minion.magnet_doubles_next = False
+            minion.buy_answered_this_turn = False
         # Last turn's "until next turn" buffs end here — after the combat they
         # were cast for, before the seat acts again.
         expire_temporary_buffs(player)

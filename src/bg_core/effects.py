@@ -199,6 +199,12 @@ class BuffMatching:
     #: ``BloodGemTarget`` has carried ALL_OTHER_FRIENDLY all along; this is the
     #: same idea, said once and composable with every target.
     exclude_source: bool = False
+    #: Fire only when the minion just played has a Battlecry (Kalecgos). A field
+    #: rather than a ``ConditionKind`` because that vocabulary sizes an
+    #: embedding table every trained network carries, and rather than a gate on
+    #: the target — it is one card's rule, and gating the whole
+    #: FRIENDLY_OF_TRIBE variant on it silently broke the next card to use it.
+    requires_placed_battlecry: bool = False
 
 
 @dataclass(frozen=True)
@@ -670,6 +676,58 @@ class BuffOnSpellCastOnTribeEffect:
 
     Distinct from ``ON_TARGETED_BY_SPELL``, which is a card watching spells cast
     at *itself*: Torrential Ruiner is watching the board.
+    """
+
+    tribe: Any = None
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class BuffBoughtMinionEffect:
+    """Pay the minion the seat just bought.
+
+    ``double_stats`` is Stone Age Slab's second half, applied after the flat
+    stats. ``once_per_turn`` is printed on it too, and the flag is spent by the
+    buy that used it.
+    """
+
+    attack: int = 0
+    health: int = 0
+    double_stats: bool = False
+    once_per_turn: bool = False
+
+
+@dataclass(frozen=True)
+class StatsFromNextBuyEffect:
+    """Living Prison: take the stats of the next minion bought this turn.
+
+    A promise rather than an effect that resolves now — the minion it reads has
+    not been bought yet — so it is remembered on the body and spent by that buy.
+    """
+
+
+@dataclass(frozen=True)
+class GoldSpentResponseEffect:
+    """Answer every ``threshold`` Gold the seat spends.
+
+    "(5 Gold left!)" is a countdown that refills, so the running total lives on
+    the body and the payload fires once per full threshold.
+    """
+
+    threshold: int
+    effect: Any = None
+
+
+@dataclass(frozen=True)
+class IncreaseTribeGiftEffect:
+    """"Your Elementals give an extra +1 Attack this game."
+
+    Raises what *each* Elemental-played grant hands out, not the running total —
+    a modifier on a modifier, the same relationship the Blood Gem bonus has to a
+    Gem. Sibling of :class:`IncreaseBloodGemBonusEffect` and
+    :class:`IncreaseTavernSpellBonusEffect`, and separate for the same reason:
+    they are different buffs.
     """
 
     tribe: Any = None
@@ -1609,6 +1667,10 @@ __all__ = [
     "RefreshesCostHealthEffect",
     "BuffOnSpellCastOnTribeEffect",
     "BuffSharedTribeEffect",
+    "BuffBoughtMinionEffect",
+    "StatsFromNextBuyEffect",
+    "GoldSpentResponseEffect",
+    "IncreaseTribeGiftEffect",
     "CastSpellAtEffect",
     "MagnetizeTokenEffect",
     "MagnetizesToTribesEffect",

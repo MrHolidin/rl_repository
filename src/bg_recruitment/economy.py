@@ -156,10 +156,26 @@ def sell_from_board(
     on_triples(player)
 
 
+def _spent(player: PlayerState, amount: int, *, patch=None) -> None:
+    """Tell the board that gold left the seat.
+
+    One helper at every spend site rather than a hook per action, because the
+    cards say "after you spend N Gold" without caring what it went on.
+    """
+    if amount <= 0 or patch is None:
+        return
+    import numpy as _np
+
+    from .shop_triggers import ShopTriggers
+
+    ShopTriggers(_np.random.default_rng(0), patch=patch).fire_gold_spent(player, amount)
+
+
 def buy_from_shop(
     player: PlayerState,
     slot: int,
     *,
+    patch=None,
     on_bought: Callable[[Minion, PlayerState], None],
     on_friendly_bought: Callable[[Minion, PlayerState], None] | None = None,
     on_triples: Callable[[PlayerState], None],
@@ -167,7 +183,9 @@ def buy_from_shop(
 ) -> None:
     minion = player.shop[slot]
     assert minion is not None
-    player.gold -= effective_buy_cost(player)
+    buy_cost = effective_buy_cost(player)
+    player.gold -= buy_cost
+    _spent(player, buy_cost, patch=patch)
     clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
     h = first_free_hand_slot(player)
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
@@ -190,6 +208,7 @@ def roll_shop(
     paid_in_health = _pay_refresh_in_health(player, cost, patch=patch)
     if not paid_in_health:
         player.gold -= cost
+        _spent(player, cost, patch=patch)
     # Nozdormu: consume the free first refresh for this turn.
     if player.hero_free_roll_pending:
         player.hero_free_roll_pending = False
@@ -221,6 +240,7 @@ def level_up_tavern(
 ) -> None:
     cost = effective_level_up_cost(player)
     player.gold -= cost
+    _spent(player, cost, patch=patch)
     player.upgrade_cost_delta = 0
     player.hero_upgrade_discount = 0  # Chenvaala: discount consumed by the upgrade
     old_tier = player.tavern_tier

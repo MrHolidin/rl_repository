@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -49,17 +49,24 @@ def _apply_hero_shop_tribe_buff(player: PlayerState, minion: Optional[Minion]) -
         minion.bonus_health += buff.health
 
 
-def shop_tribe_bonus_for(player: PlayerState, race: Optional[Race]) -> int:
+def shop_tribe_bonus_for(
+    player: PlayerState, race: Optional[Race]
+) -> Tuple[int, int]:
+    """Stats a minion of ``race`` carries when it lands on the counter.
+
+    A pair rather than one number: the cards that raise it can raise the halves
+    separately ("your Elementals give an extra +2 Health"), which the single
+    figure this replaced could not say.
+    """
     if race == Race.ELEMENTAL:
-        return player.shop_elemental_bonus
-    return 0
+        return (player.shop_elemental_bonus, player.shop_elemental_bonus_health)
+    return (0, 0)
 
 
 def apply_shop_tribe_bonus_to_minion(minion: Minion, player: PlayerState) -> None:
-    bonus = shop_tribe_bonus_for(player, minion.race)
-    if bonus > 0:
-        minion.bonus_attack += bonus
-        minion.bonus_health += bonus
+    attack, health = shop_tribe_bonus_for(player, minion.race)
+    minion.bonus_attack += attack
+    minion.bonus_health += health
 
 
 def buff_shop_minions_of_tribe(
