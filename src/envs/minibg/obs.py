@@ -322,7 +322,6 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "DiscoverMinionAtTierEffect",
         "GiveLockboxEffect",
         "AddTavernSpellToHandEffect",
-        "BuffLeftmostOfTribeEffect",
         "BuffPlacedMinionEffect",
         "PlayBloodGemsOnAttackerEffect",
         "RepeatPerCountEffect",

@@ -302,3 +302,61 @@ def test_surfing_sylvar_repeats_once_per_golden_friendly(patch, triggers):
     triggers.fire_on_turn_end(player)
     # Once for the trigger, once more for the one Golden minion on the board.
     assert left.raw_attack == 3
+
+
+def test_an_unhandled_start_of_combat_effect_is_loud(patch):
+    """The bug that let Electric Synthesizer half-work: a Start of Combat effect
+    with no branch used to return quietly. Tier 3 gets a failing test instead."""
+    from src.bg_core.effects import Ability, GainGoldThisTurnEffect, Trigger
+
+    odd = Minion(
+        card_id="odd",
+        base_attack=1,
+        base_health=1,
+        tier=1,
+        abilities=(Ability(Trigger.ON_START_OF_COMBAT, GainGoldThisTurnEffect(amount=1)),),
+    )
+    with pytest.raises(NotImplementedError):
+        _fight([odd], [_wall(hp=10)], patch)
+
+
+def test_a_limited_buff_stops_after_its_first_match(patch):
+    """``limit`` is what "your left-most Dragon" is made of, and it is general:
+    the same field would serve any other card that says "the first"."""
+    from src.bg_core.board_helpers import apply_buff_matching
+    from src.bg_core.effects import BuffMatching, BuffTarget
+
+    board = [
+        Minion(card_id=c, base_attack=1, base_health=1, tier=1, race=Race.DRAGON)
+        for c in ("a", "b", "c")
+    ]
+    apply_buff_matching(
+        BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1, limit=1),
+        board,
+    )
+    assert [m.raw_attack for m in board] == [2, 1, 1]
+
+
+def test_an_unlimited_buff_still_reaches_everyone(patch):
+    from src.bg_core.board_helpers import apply_buff_matching
+    from src.bg_core.effects import BuffMatching, BuffTarget
+
+    board = [
+        Minion(card_id=c, base_attack=1, base_health=1, tier=1, race=Race.DRAGON)
+        for c in ("a", "b", "c")
+    ]
+    apply_buff_matching(
+        BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1), board
+    )
+    assert [m.raw_attack for m in board] == [2, 2, 2]
+
+
+def test_adjacent_now_matches_instead_of_silently_missing(patch):
+    """Positions reach the predicate now, so the positional target works through
+    the general applier rather than hitting nobody."""
+    from src.bg_core.board_helpers import apply_buff_matching
+    from src.bg_core.effects import BuffMatching, BuffTarget
+
+    board = [Minion(card_id=c, base_attack=1, base_health=1, tier=1) for c in ("l", "s", "r")]
+    apply_buff_matching(BuffMatching(BuffTarget.ADJACENT, attack=1), board, board[1])
+    assert [m.raw_attack for m in board] == [2, 1, 2]

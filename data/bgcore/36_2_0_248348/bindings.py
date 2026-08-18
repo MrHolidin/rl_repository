@@ -26,7 +26,6 @@ from src.bg_core.effects import (
     BloodGemTarget,
     BuffAdjacentBattlecry,
     BuffAllShopOffersEffect,
-    BuffLeftmostOfTribeEffect,
     BuffMatching,
     BuffPlacedMinionEffect,
     BuffRandomOtherFriendlyCombat,
@@ -262,8 +261,13 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG29_810": (  # Thousandth Paper Drake — SoC: left-most Dragon +1/+2, Windfury
         Ability(
             Trigger.ON_START_OF_COMBAT,
-            BuffLeftmostOfTribeEffect(
-                tribe=Race.DRAGON, attack=1, health=2, keyword=Keyword.WINDFURY
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE,
+                tribe=Race.DRAGON,
+                attack=1,
+                health=2,
+                limit=1,  # "your left-most Dragon"
+                grant_keyword=Keyword.WINDFURY,
             ),
         ),
     ),

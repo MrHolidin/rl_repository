@@ -8,7 +8,6 @@
     "unencoded_effects": [
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
-      "BuffLeftmostOfTribeEffect",
       "BuffPlacedMinionEffect",
       "ChooseOneEffect",
       "CreateSpellcraftSpellEffect",

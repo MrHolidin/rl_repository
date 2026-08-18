@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from src.bg_core.effects import (
-    BuffLeftmostOfTribeEffect,
     BuffMatching,
     Keyword,
     StartOfCombatDamagePerFriendlyTribe,
@@ -136,19 +135,15 @@ def _apply_start_of_combat_effect(
             _deal_random_enemy_minion_damage(rt, side_idx, amount)
     elif isinstance(eff, BuffMatching):
         # "Start of Combat: give your other Dragons +1/+1", "…your Beasts have
-        # +1 Attack for the rest of this combat". Both are the same write: the
-        # buff lands on the combat copies and dies with them.
-        apply_buff_matching(eff, rt.side(side_idx).minions, source)
-        _sync_health_all(rt)
-    elif isinstance(eff, BuffLeftmostOfTribeEffect):
-        for bm in rt.side(side_idx).iter_living():
-            if eff.tribe is not None and not minion_matches_tribe(bm, eff.tribe):
-                continue
-            bm.bonus_attack += eff.attack
-            bm.bonus_health += eff.health
-            if eff.keyword is not None:
-                _grant_keyword(rt, side_idx, bm, eff.keyword)
-            break
+        # +1 Attack for the rest of this combat", "give your left-most Dragon
+        # +1/+2 and Windfury" (that one is ``limit=1`` plus a granted keyword).
+        # All the same write: it lands on the combat copies and dies with them.
+        apply_buff_matching(
+            eff,
+            rt.side(side_idx).minions,
+            source,
+            grant=lambda m, kw: _grant_keyword(rt, side_idx, m, kw),
+        )
         _sync_health_all(rt)
     elif isinstance(eff, SummonSelfCopyFromHandEffect):
         # ``source`` is the card in hand, made only to carry this trigger; the
@@ -156,6 +151,11 @@ def _apply_start_of_combat_effect(
         template = rt.patch.templates.get(source.card_id)
         if template is not None:
             _summon_append(rt, side_idx, template)
+    else:
+        raise NotImplementedError(
+            f"Start of Combat effect {type(eff).__name__} has no combat handler "
+            f"(minion {source.card_id})"
+        )
 
 
 def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:

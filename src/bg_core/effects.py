@@ -169,6 +169,16 @@ class BuffMatching:
     health: int = 0
     tribe: Any = None
     keyword: Optional[Keyword] = None
+    #: Stop after this many matches, in board order — 0 means "everyone who
+    #: matches". ``limit=1`` is how a card says "your left-most Dragon"
+    #: (Thousandth Paper Drake). Deliberately outside ``_GOLDEN_INT_FIELDS``:
+    #: a golden printing buffs its one target twice as hard, it does not find
+    #: a second target.
+    limit: int = 0
+    #: A keyword handed to everyone the buff reaches. Distinct from ``keyword``
+    #: above, which *matches* on one (``FRIENDLY_WITH_KEYWORD``) — the same
+    #: split ``BuffTargetFriendlyBattlecry`` already draws.
+    grant_keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -568,17 +578,6 @@ class AddTavernSpellToHandEffect:
     """
 
     card_id: str
-
-
-@dataclass(frozen=True)
-class BuffLeftmostOfTribeEffect:
-    """Start of Combat: stats and an optional keyword on the left-most friendly
-    of ``tribe`` ("Give your left-most Dragon +1/+2 and Windfury")."""
-
-    tribe: Any = None
-    attack: int = 0
-    health: int = 0
-    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -1026,7 +1025,6 @@ Effect = Union[
     PlaceFishbaitEffect,
     GiveLockboxEffect,
     AddTavernSpellToHandEffect,
-    BuffLeftmostOfTribeEffect,
     ReduceTavernSpellCostEffect,
     StealTavernMinionEffect,
     DiscoverMinionAtTierEffect,
@@ -1151,7 +1149,6 @@ __all__ = [
     "PlaceFishbaitEffect",
     "GiveLockboxEffect",
     "AddTavernSpellToHandEffect",
-    "BuffLeftmostOfTribeEffect",
     "ReduceTavernSpellCostEffect",
     "StealTavernMinionEffect",
     "DiscoverMinionAtTierEffect",

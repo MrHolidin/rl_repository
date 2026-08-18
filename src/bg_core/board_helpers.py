@@ -331,7 +331,7 @@ def apply_summoned_listener(
         listener.bonus_health += effect.health
 
 
-def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> None:
+def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1, grant=None) -> None:
     """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
 
     One body for what the shop and combat each spelled out. Everything they
@@ -340,6 +340,12 @@ def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> No
     settles its auras afterwards at the call site, which is the one thing that
     genuinely has no shop equivalent.
 
+    ``limit`` stops after that many matches in board order ("your left-most
+    Dragon"), and ``grant_keyword`` hands one out to everyone reached; ``grant``
+    is how combat injects its own granting function, which marks the health
+    auras dirty. Positions are supplied to the predicate now, so the positional
+    ``ADJACENT`` target works here too rather than silently matching nobody.
+
     ``source`` is passed through to the predicate, which excludes it only for
     ``OTHER_OF_TRIBE`` -- the targets whose card text says "other". Combat used
     to exclude the source unconditionally, which is invisible for a real death
@@ -347,12 +353,24 @@ def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1) -> No
     living minion's deathrattle: Goldrinn is a Beast and "give your Beasts"
     includes it.
     """
+    limit = int(getattr(effect, "limit", 0) or 0)
+    keyword = getattr(effect, "grant_keyword", None)
+    give = grant if grant is not None else grant_keyword
+    idx_source = index_of(minions, source) if source is not None else None
     for _ in range(max(1, repeats)):
-        for m in minions:
-            if not buff_matching_hits(effect, m, source):
+        hit = 0
+        for i, m in enumerate(minions):
+            if not buff_matching_hits(
+                effect, m, source, idx_candidate=i, idx_source=idx_source
+            ):
                 continue
             m.bonus_attack += effect.attack
             m.bonus_health += effect.health
+            if keyword is not None:
+                give(m, keyword)
+            hit += 1
+            if limit and hit >= limit:
+                break
 
 
 def count_for_source(
