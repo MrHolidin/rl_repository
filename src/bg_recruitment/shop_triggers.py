@@ -47,6 +47,11 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    AddRandomTavernSpellToHandEffect,
+    CastRandomTavernSpellEffect,
+    CopyLastTavernSpellEffect,
+    DiscoverTavernSpellEffect,
+    IncreaseTavernSpellBonusEffect,
     RaiseStandingBonusEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
@@ -124,6 +129,15 @@ class UnhandledShopEffect(RuntimeError):
 #: Effects that legitimately reach ``apply_shop_effect`` and must do nothing
 #: there, because something upstream already applied them. Each entry is a
 #: claim that can be checked, which is the point of writing them down.
+#: Effects the Tavern-spell module owns end to end.
+_TAVERN_SPELL_EFFECTS = (
+    IncreaseTavernSpellBonusEffect,
+    AddRandomTavernSpellToHandEffect,
+    DiscoverTavernSpellEffect,
+    CastRandomTavernSpellEffect,
+    CopyLastTavernSpellEffect,
+)
+
 _HANDLED_ELSEWHERE = (
     # Battlecries needing a target the player picked: applied by
     # bg_recruitment/targeted_battlecry.py off the placement action.
@@ -430,6 +444,21 @@ class ShopTriggers:
                     shop_excluded_race=shop_excluded_race,
                     shared_pool=shared_pool,
                 )
+        elif isinstance(effect, _TAVERN_SPELL_EFFECTS):
+            # Owned by bg_recruitment.tavern_spells: they read and write the
+            # spell counter, the spell bonus and the seat's spell memory, none
+            # of which this dispatcher knows about.
+            from src.bg_recruitment.tavern_spells import apply_tavern_spell_effect
+
+            apply_tavern_spell_effect(
+                player,
+                effect,
+                rng=self._rng,
+                patch=self._patch,
+                source=source,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
         elif isinstance(effect, RaiseStandingBonusEffect):
             key = effect.scope_key
             if effect.scope_kind is ScopeKind.CARD and key is None:

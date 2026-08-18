@@ -34,6 +34,7 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     ChooseOneEffect,
     CreateSpellcraftSpellEffect,
+    DiscoverTavernSpellEffect,
     DealHeroDamage,
     DiscoverMinionAtTierEffect,
     GainBloodGemsEffect,
@@ -41,6 +42,7 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     CountSource,
     GiveLockboxEffect,
+    IncreaseTavernSpellBonusEffect,
     GrantKeywordAtAttackThreshold,
     GrantTemporaryBuffEffect,
     Keyword,
@@ -226,6 +228,19 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_START_OF_COMBAT,
             BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=1, health=0),
+        ),
+    ),
+    "BG36_342": (  # Clever Castaway — Activate (2): Discover a Tavern spell
+        Ability(Trigger.ON_ACTIVATE, DiscoverTavernSpellEffect(), activate_cost=2),
+    ),
+    "BG32_237": (  # Intrepid Botanist — Choose One: your Tavern spells give
+        # an extra +1 Attack this game; or +1 Health
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=IncreaseTavernSpellBonusEffect(attack=1, health=0),
+                second=IncreaseTavernSpellBonusEffect(attack=0, health=1),
+            ),
         ),
     ),
     "BG25_011": (  # Nerubian Deathswarmer — your Undead have +1 Attack this game

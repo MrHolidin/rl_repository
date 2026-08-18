@@ -67,6 +67,10 @@ class PendingChoiceKind(IntEnum):
     #: not TRIPLE_REWARD_DISCOVER: that one reads its tier off the seat's
     #: tavern tier, this one off the card. Both land the pick in hand.
     TAVERN_SPELL_DISCOVER = 5
+    #: "Discover a Tavern spell" — the options are spell ids and the pick lands
+    #: in hand as a SpellCard. The kind above is the mirror image: a Discover
+    #: *printed on* a spell, whose options are minions.
+    SPELL_DISCOVER = 6
 
 
 @dataclass
@@ -150,6 +154,15 @@ class PlayerState:
     #: purchase. Negative, like ``upgrade_cost_delta``, and for the same reason:
     #: the price is derived, never stored.
     tavern_spell_cost_delta: int = 0
+    #: Extra stats every Tavern spell this seat casts hands out, on top of what
+    #: is printed ("your Tavern spells give an extra +1 Attack this game"). The
+    #: same shape as ``blood_gem_bonus_*`` and deliberately not the same field:
+    #: they are different buffs, and a card raising one says nothing about the
+    #: other.
+    tavern_spell_bonus_attack: int = 0
+    tavern_spell_bonus_health: int = 0
+    #: The last Tavern spell this seat cast, for the cards that copy it.
+    last_tavern_spell_cast: Optional[str] = None
     next_roll_cost_override: Optional[int] = None
     free_roll_charges: int = 0
     last_combat_won: bool = False

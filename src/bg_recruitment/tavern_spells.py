@@ -19,15 +19,22 @@ adding one would move every number a trained checkpoint is wired to.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import (
+    AddRandomTavernSpellToHandEffect,
+    BuffAllShopOffersEffect,
     BuffTargetFriendlyBattlecry,
+    CastRandomTavernSpellEffect,
     ChooseOneEffect,
+    CopyLastTavernSpellEffect,
     DiscoverMinionAtTierEffect,
+    DiscoverTavernSpellEffect,
+    IncreaseTavernSpellBonusEffect,
     StealTavernMinionEffect,
     Trigger,
 )
@@ -47,6 +54,12 @@ __all__ = [
     "clear_tavern_spell_offers",
     "buy_tavern_spell",
     "steal_tavern_minion",
+    "add_random_tavern_spells",
+    "apply_tavern_spell_effect",
+    "cast_tavern_spell",
+    "open_tavern_spell_discover",
+    "spell_gives_stats",
+    "tavern_spell_bonus",
     "play_tavern_spell_from_hand",
 ]
 
@@ -67,6 +80,28 @@ def tavern_spell_pool(tavern_tier: int, *, patch: PatchContext) -> List[str]:
         for card_id, spell in ctx.tavern_spells.items()
         if spell.is_tavern_spell and 1 <= spell.tier <= int(tavern_tier)
     )
+
+
+def spell_gives_stats(spell: SpellCard) -> bool:
+    """Whether this spell hands out stats, asked of its bindings not its text.
+
+    "Get a random Tavern spell **that gives stats**" is printed on three cards,
+    and the catalog has no such flag — but a spell that gives stats is one whose
+    effects buff something, which the bindings already say.
+    """
+    stat_giving = (BuffTargetFriendlyBattlecry, BuffAllShopOffersEffect)
+
+    def _gives(effect) -> bool:
+        if isinstance(effect, ChooseOneEffect):
+            return _gives(effect.first) or _gives(effect.second)
+        return isinstance(effect, stat_giving) and bool(effect.attack or effect.health)
+
+    return any(_gives(ability.effect) for ability in spell.abilities)
+
+
+def tavern_spell_bonus(player: PlayerState) -> Tuple[int, int]:
+    """Extra stats this seat's Tavern spells hand out beyond the printed ones."""
+    return (int(player.tavern_spell_bonus_attack), int(player.tavern_spell_bonus_health))
 
 
 def effective_tavern_spell_cost(player: PlayerState, spell: SpellCard) -> int:
@@ -190,6 +225,36 @@ def play_tavern_spell_from_hand(
         else None
     )
     player.hand[hand_index] = None
+    cast_tavern_spell(
+        player,
+        card,
+        rng=rng,
+        patch=ctx,
+        target=target,
+        choose_one_option=choose_one_option,
+        shop_excluded_race=shop_excluded_race,
+        shared_pool=shared_pool,
+    )
+
+
+def cast_tavern_spell(
+    player: PlayerState,
+    card: SpellCard,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    target: Optional[Minion] = None,
+    choose_one_option: int = 0,
+    shop_excluded_race: Optional[Race] = None,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> None:
+    """Resolve a Tavern spell that is already out of hand (or never was).
+
+    Split from ``play_tavern_spell_from_hand`` because two cards cast a spell
+    the seat never held: "Cast a random Tavern spell" makes one on the spot.
+    Everything that follows a cast — the seat's spell bonus, the memory of
+    which one it was, the listeners — belongs to the cast, not to the hand.
+    """
     for ability in card.abilities:
         if ability.trigger != Trigger.ON_PLACE:
             continue
@@ -197,12 +262,63 @@ def play_tavern_spell_from_hand(
             player,
             ability.effect,
             rng=rng,
-            patch=ctx,
+            patch=patch,
             target=target,
             choose_one_option=choose_one_option,
             shop_excluded_race=shop_excluded_race,
             shared_pool=shared_pool,
         )
+    player.last_tavern_spell_cast = card.card_id
+    _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
+
+
+def _fire_tavern_spell_cast(
+    player: PlayerState,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    shared_pool: Optional[SharedCardPool],
+) -> None:
+    """"Whenever you cast a Tavern spell" — board listeners, left to right."""
+    from .shop_triggers import ShopTriggers
+
+    triggers = ShopTriggers(rng, patch=patch)
+    for source in list(player.board):
+        for ability in source.abilities:
+            if ability.trigger != Trigger.ON_TAVERN_SPELL_CAST:
+                continue
+            triggers.apply_shop_effect(
+                player, source, ability.effect, placed=None, shared_pool=shared_pool
+            )
+
+
+def apply_tavern_spell_effect(
+    player: PlayerState,
+    effect: object,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    source: Optional[Minion] = None,
+    shop_excluded_race: Optional[Race] = None,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> None:
+    """Resolve a Tavern-spell effect carried by a *minion* rather than a spell.
+
+    "Battlecry: Get a random Tavern spell", "Activate: Discover a Tavern spell",
+    "Rally: your Tavern spells give an extra +1 Health" — the effect is the same
+    one a spell would carry, so it goes through the same resolver. ``source`` is
+    the minion, which is who a self-targeting cast aims at.
+    """
+    _apply_spell_effect(
+        player,
+        effect,
+        rng=rng,
+        patch=patch,
+        target=source,
+        choose_one_option=0,
+        shop_excluded_race=shop_excluded_race,
+        shared_pool=shared_pool,
+    )
 
 
 def _apply_spell_effect(
@@ -237,13 +353,65 @@ def _apply_spell_effect(
     if isinstance(effect, BuffTargetFriendlyBattlecry):
         # A spell has no body on the board, so there is no "self" to exclude
         # and no caster to read adjacency from — only the minion it names.
+        # "Your Tavern spells give an extra +1 Attack" lands here, on the buff
+        # itself, so it applies once however many minions the spell reaches.
+        extra_attack, extra_health = tavern_spell_bonus(player)
         apply_targeted_buff(
             player,
             source=None,
-            effect=effect,
+            effect=replace(
+                effect,
+                attack=effect.attack + extra_attack,
+                health=effect.health + extra_health,
+            ),
             rng=rng,
             forced_buff_target=target,
         )
+        return
+
+    if isinstance(effect, BuffAllShopOffersEffect):
+        extra_attack, extra_health = tavern_spell_bonus(player)
+        effect = replace(
+            effect,
+            attack=effect.attack + extra_attack,
+            health=effect.health + extra_health,
+        )
+
+    if isinstance(effect, IncreaseTavernSpellBonusEffect):
+        player.tavern_spell_bonus_attack += int(effect.attack)
+        player.tavern_spell_bonus_health += int(effect.health)
+        return
+
+    if isinstance(effect, AddRandomTavernSpellToHandEffect):
+        add_random_tavern_spells(
+            player,
+            count=effect.count,
+            max_cost=effect.max_cost,
+            gives_stats=effect.gives_stats,
+            rng=rng,
+            patch=patch,
+        )
+        return
+
+    if isinstance(effect, CopyLastTavernSpellEffect):
+        last = player.last_tavern_spell_cast
+        if last is not None:
+            _give_spell(player, patch.tavern_spells.get(last))
+        return
+
+    if isinstance(effect, CastRandomTavernSpellEffect):
+        pool = tavern_spell_pool(player.tavern_tier, patch=patch)
+        if pool:
+            rolled = patch.tavern_spells[pool[int(rng.integers(0, len(pool)))]]
+            cast_tavern_spell(
+                player,
+                rolled,
+                rng=rng,
+                patch=patch,
+                target=target,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
         return
 
     if isinstance(effect, StealTavernMinionEffect):
@@ -253,6 +421,10 @@ def _apply_spell_effect(
             shared_pool=shared_pool,
             highest_attack=effect.highest_attack,
         )
+        return
+
+    if isinstance(effect, DiscoverTavernSpellEffect):
+        open_tavern_spell_discover(player, rng=rng, patch=patch)
         return
 
     if isinstance(effect, DiscoverMinionAtTierEffect):
@@ -303,6 +475,78 @@ def steal_tavern_minion(
     # the shared pool even though no gold moved.
     on_bought_from_shop(shared_pool, taken)
     return taken
+
+
+def _give_spell(player: PlayerState, spell: Optional[SpellCard]) -> bool:
+    """Put ``spell`` in the first free hand slot. False if it does not fit."""
+    if spell is None:
+        return False
+    slot = first_free_hand_slot(player)
+    if slot is None:
+        return False
+    player.hand[slot] = spell
+    return True
+
+
+def add_random_tavern_spells(
+    player: PlayerState,
+    *,
+    count: int = 1,
+    max_cost: int = 0,
+    gives_stats: bool = False,
+    rng: np.random.Generator,
+    patch: PatchContext,
+) -> int:
+    """"Get N random Tavern spells", filtered as the card prints it.
+
+    Returns how many actually fit in hand — a full hand takes what it can, the
+    same as every other card-giving effect.
+    """
+    ctx = require_patch(patch, where="tavern_spells.add_random_tavern_spells")
+    pool = [
+        card_id
+        for card_id in tavern_spell_pool(player.tavern_tier, patch=ctx)
+        if (not max_cost or ctx.tavern_spells[card_id].cost <= max_cost)
+        and (not gives_stats or spell_gives_stats(ctx.tavern_spells[card_id]))
+    ]
+    if not pool:
+        return 0
+    given = 0
+    for _ in range(max(0, int(count))):
+        pick = pool[int(rng.integers(0, len(pool)))]
+        if not _give_spell(player, ctx.tavern_spells[pick]):
+            break
+        given += 1
+    return given
+
+
+def open_tavern_spell_discover(
+    player: PlayerState,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+) -> bool:
+    """"Discover a Tavern spell": three offered, the seat keeps one.
+
+    No shared-pool reservation, unlike a minion Discover — Tavern spells are
+    not drawn from the lobby's shared minion pool, so there is nothing to
+    reserve or hand back.
+    """
+    from src.bg_lobby.player import PendingChoiceKind
+
+    from .discover import try_open_hand_discover_modal
+
+    ctx = require_patch(patch, where="tavern_spells.open_tavern_spell_discover")
+    pool = tavern_spell_pool(player.tavern_tier, patch=ctx)
+    if len(pool) < 3:
+        return False
+    picks: List[str] = []
+    remaining = list(pool)
+    for _ in range(3):
+        picks.append(remaining.pop(int(rng.integers(0, len(remaining)))))
+    return try_open_hand_discover_modal(
+        player, PendingChoiceKind.SPELL_DISCOVER, tuple(picks), 0
+    )
 
 
 def _open_tier_discover(

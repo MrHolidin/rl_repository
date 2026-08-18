@@ -6,18 +6,23 @@
     "NUM_RACE_IDS": 10,
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
+      "AddRandomTavernSpellToHandEffect",
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
       "BuffPlacedMinionEffect",
+      "CastRandomTavernSpellEffect",
       "ChooseOneEffect",
+      "CopyLastTavernSpellEffect",
       "CreateSpellcraftSpellEffect",
       "DiscoverMinionAtTierEffect",
+      "DiscoverTavernSpellEffect",
       "GainBloodGemsEffect",
       "GainGoldNextTurnEffect",
       "GiveLockboxEffect",
       "GrantKeywordAtAttackThreshold",
       "GrantTemporaryBuffEffect",
       "IncreaseBloodGemBonusEffect",
+      "IncreaseTavernSpellBonusEffect",
       "PlaceFishbaitEffect",
       "PlayBloodGemsEffect",
       "PlayBloodGemsOnAttackerEffect",
@@ -31,7 +36,8 @@
       "ON_ACTIVATE",
       "ON_ATTACK",
       "ON_CHOOSE_ONE_PLAYED",
-      "ON_TARGETED_BY_SPELL"
+      "ON_TARGETED_BY_SPELL",
+      "ON_TAVERN_SPELL_CAST"
     ]
   },
   "action_layout": {

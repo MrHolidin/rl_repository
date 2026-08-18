@@ -34,6 +34,7 @@ HAND_DISCOVER_KINDS = frozenset(
         PendingChoiceKind.DISCOVER_MURLOC,
         PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
         PendingChoiceKind.TAVERN_SPELL_DISCOVER,
+        PendingChoiceKind.SPELL_DISCOVER,
     }
 )
 
@@ -176,6 +177,12 @@ def resolve_discover_pick(
             raise ValueError(
                 "DISCOVER pick with full hand; legal mask must require a free hand slot"
             )
+        if pc.kind is PendingChoiceKind.SPELL_DISCOVER:
+            # The options are Tavern spells; nothing about them is a minion,
+            # including the shared pool, which only tracks tavern minions.
+            player.hand[h] = patch.tavern_spells[choice_token]
+            player.pending_choice = None
+            return
         picked = make_minion(choice_token, patch=patch)
         player.hand[h] = picked
         if pc.options_pool_reserved and shared_pool is not None:

@@ -55,6 +55,11 @@ class Trigger(Enum):
     #: Blood Gems, which are the two things the engine lets a seat cast at a
     #: body ("Whenever you cast a spell on this, gain +1 Health").
     ON_TARGETED_BY_SPELL = auto()
+    #: shop: the seat cast a Tavern spell, after it resolved. Narrower than
+    #: ON_TARGETED_BY_SPELL on purpose — that one is "a spell hit this minion",
+    #: this one is "the seat cast one at all", and Blood Gems are not Tavern
+    #: spells (see ``SpellCard``).
+    ON_TAVERN_SPELL_CAST = auto()
     #: shop: the seat played a card with Choose One, after the option resolved
     #: (Turbo Hogrider: "After you play Choose One card, this plays a Blood Gem
     #: on all your other Quilboar").
@@ -578,6 +583,55 @@ class ScopeKind(Enum):
 
 
 @dataclass(frozen=True)
+class IncreaseTavernSpellBonusEffect:
+    """"Your Tavern spells give an extra +1 Attack this game."
+
+    Sibling of :class:`IncreaseBloodGemBonusEffect`, and separate because they
+    are separate buffs: a card that raises what a Gem is worth says nothing
+    about what a Tavern spell is worth.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
+class AddRandomTavernSpellToHandEffect:
+    """"Get a random Tavern spell", with the filters the cards print.
+
+    ``max_cost`` is "get two **1-Cost** Tavern spells"; ``gives_stats`` is "a
+    random Tavern spell **that gives stats**", which is asked of the spell's
+    own bindings rather than its text.
+    """
+
+    count: int = 1
+    max_cost: int = 0
+    gives_stats: bool = False
+
+
+@dataclass(frozen=True)
+class DiscoverTavernSpellEffect:
+    """"Discover a Tavern spell" — three offered, the seat keeps one."""
+
+
+@dataclass(frozen=True)
+class CastRandomTavernSpellEffect:
+    """"Cast a random Tavern spell (targets this if possible)."
+
+    Cast, not acquired: it never reaches hand and costs nothing. ``self_target``
+    is the parenthetical — a spell that needs a minion takes the caster.
+    """
+
+    self_target: bool = True
+
+
+@dataclass(frozen=True)
+class CopyLastTavernSpellEffect:
+    """"Get a copy of the last Tavern spell you cast." Nothing cast, nothing
+    copied — the seat remembers which one, not that one was cast."""
+
+
+@dataclass(frozen=True)
 class RaiseStandingBonusEffect:
     """Open or raise a "this game" bonus on the seat.
 
@@ -1063,6 +1117,11 @@ Effect = Union[
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
     RaiseStandingBonusEffect,
+    IncreaseTavernSpellBonusEffect,
+    AddRandomTavernSpellToHandEffect,
+    DiscoverTavernSpellEffect,
+    CastRandomTavernSpellEffect,
+    CopyLastTavernSpellEffect,
     PlayBloodGemsOnAttackerEffect,
     RepeatPerCountEffect,
     PlaceFishbaitEffect,
@@ -1189,6 +1248,11 @@ __all__ = [
     "BuffPlacedMinionEffect",
     "ScopeKind",
     "RaiseStandingBonusEffect",
+    "IncreaseTavernSpellBonusEffect",
+    "AddRandomTavernSpellToHandEffect",
+    "DiscoverTavernSpellEffect",
+    "CastRandomTavernSpellEffect",
+    "CopyLastTavernSpellEffect",
     "PlayBloodGemsOnAttackerEffect",
     "RepeatPerCountEffect",
     "PlaceFishbaitEffect",
