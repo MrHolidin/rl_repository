@@ -502,8 +502,10 @@ class ShopTriggers:
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):
             spell = self._patch.tavern_spells.get(effect.card_id)
-            slot = first_free_hand_slot(player) if spell is not None else None
-            if slot is not None:
+            for _ in range(max(1, int(effect.count))):
+                slot = first_free_hand_slot(player) if spell is not None else None
+                if slot is None:
+                    break
                 player.hand[slot] = spell
         elif isinstance(effect, ReduceTavernSpellCostEffect):
             player.tavern_spell_cost_delta -= int(effect.amount)

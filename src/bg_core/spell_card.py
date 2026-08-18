@@ -35,6 +35,10 @@ class SpellCard:
     #: False for a Blood Gem and for the triple-reward discover reward, neither
     #: of which is ever offered in the tavern.
     is_tavern_spell: bool = False
+    #: Whether the tavern ever *offers* it. Distinct from the flag above: Pointy
+    #: Arrow is a Tavern spell that only ever arrives from a deathrattle, so it
+    #: counts for "whenever you cast a Tavern spell" and is never on the counter.
+    in_pool: bool = False
     #: Only consumed by the triple-reward-discover spell today (which tavern
     #: tier its Discover offers). Real spell content is expected to leave this
     #: at 0 and drive behavior through ``abilities`` instead.

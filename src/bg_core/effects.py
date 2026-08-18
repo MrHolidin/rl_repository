@@ -786,13 +786,16 @@ class GiveLockboxEffect:
 
 @dataclass(frozen=True)
 class AddTavernSpellToHandEffect:
-    """Put a named Tavern spell in hand ("Battlecry: Get a Tavern Coin").
+    """Put a named spell in hand ("Battlecry: Get a Tavern Coin").
 
     Names the card rather than rolling one: these battlecries print which spell
-    they hand over. A package that does not carry it hands over nothing.
+    they hand over. Not only Tavern spells — Slimy Shield and Gem Day are plain
+    spells handed over the same way — so the package must carry the card, and
+    one that does not hands over nothing.
     """
 
     card_id: str
+    count: int = 1
 
 
 @dataclass(frozen=True)

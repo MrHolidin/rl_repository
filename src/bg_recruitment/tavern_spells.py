@@ -79,7 +79,7 @@ def tavern_spell_pool(tavern_tier: int, *, patch: PatchContext) -> List[str]:
     return sorted(
         card_id
         for card_id, spell in ctx.tavern_spells.items()
-        if spell.is_tavern_spell and 1 <= spell.tier <= int(tavern_tier)
+        if spell.in_pool and 1 <= spell.tier <= int(tavern_tier)
     )
 
 

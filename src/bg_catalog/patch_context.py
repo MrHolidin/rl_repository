@@ -16,7 +16,7 @@ from src.bg_catalog.patch_catalog import (
     load_patch_catalog,
     is_duos_only_card_id,
     load_tavern_minions,
-    load_tavern_spells,
+    load_spells,
     minion_by_id,
     minion_from_tavern_record,
     race_from_hs_string,
@@ -399,8 +399,8 @@ def _build_tavern_spells(
     catalog_path: Path,
     spell_effects: Mapping[str, Tuple[Ability, ...]],
 ) -> Dict[str, SpellCard]:
-    """The tavern-spell catalog: every ``tavernSpells`` row the package carries,
-    plus the triple-reward Discover, which is not one of them.
+    """The spell catalog: every ``spells`` row the package carries, plus the
+    triple-reward Discover, which is not one of them.
 
     Bound the same way minions are — the package's ``SPELL_EFFECTS`` supplies
     the abilities, and a row with no binding is a card that exists, costs what
@@ -414,7 +414,7 @@ def _build_tavern_spells(
             name="Discover (Triple Reward)",
         ),
     }
-    for rec in load_tavern_spells(catalog_path):
+    for rec in load_spells(catalog_path):
         out[rec.id] = SpellCard(
             card_id=rec.id,
             name=rec.name,
@@ -422,7 +422,10 @@ def _build_tavern_spells(
             tier=rec.tier,
             abilities=tuple(spell_effects.get(rec.id, ())),
             dbf_id=rec.dbf_id,
-            is_tavern_spell=True,
+            # Two different questions: what listeners count it as, and whether
+            # the tavern ever offers it.
+            is_tavern_spell=rec.is_tavern_spell,
+            in_pool=rec.in_pool,
         )
     return out
 

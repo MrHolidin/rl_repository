@@ -51317,7 +51317,4533 @@
       "goldenDbfId": null
     }
   ],
-  "tavernSpells": [
+  "spells": [
+    {
+      "dbfId": 70136,
+      "id": "BG20_GEM",
+      "name": "Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130698,
+      "id": "BG20_GEM_DivineShield",
+      "name": "Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1. If it's a Quilboar, also give it <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 73635,
+      "id": "BG20_GEM_No_Impact",
+      "name": "Blood Gem No Impact",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130554,
+      "id": "BG20_GEM_No_Impact_No_Target",
+      "name": "Blood Gem No Impact No Target",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130700,
+      "id": "BG20_GEM_Reborn",
+      "name": "Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1. If it's a Quilboar, also give it <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130699,
+      "id": "BG20_GEM_Taunt",
+      "name": "Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1. If it's a Quilboar, also give it <b>Taunt</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 72652,
+      "id": "BG20_GEMt",
+      "name": "Mass Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give all friendly minions +0/+0.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 72671,
+      "id": "BG20_HERO_202pt",
+      "name": "Shift your Hero Power",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Power of the Storm effect",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101576,
+      "id": "BG21_HERO_000_Buddy_Gt",
+      "name": "Offensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +4 Attack\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101567,
+      "id": "BG21_HERO_000_Buddyt",
+      "name": "Offensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +1 Attack\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101575,
+      "id": "BG21_HERO_000_Buddyt2",
+      "name": "Defensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +1 Health\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105899,
+      "id": "BG21_HERO_000_Buddyt3",
+      "name": "Offensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +2 Attack\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105900,
+      "id": "BG21_HERO_000_Buddyt4",
+      "name": "Defensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +2 Health\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101577,
+      "id": "BG21_HERO_000_Buddyt_Gt2",
+      "name": "Defensive Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives an\nextra +4 Health\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104923,
+      "id": "BG21_HERO_000p_t1",
+      "name": "United Stance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]'Conviction' gives stats\nto an extra friendly\nminion this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101319,
+      "id": "BG22_BuddySpell",
+      "name": "Buy Your Buddy",
+      "cost": 24,
+      "set": "BATTLEGROUNDS",
+      "text": "Get your Buddy!\n<i>(Win/Tie - Costs 3 less)\n(Loss - Costs 2 less)</i>",
+      "mechanics": [
+        "TWINSPELL"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101320,
+      "id": "BG22_BuddySpell_2",
+      "name": "Buy 2 Buddies",
+      "cost": 24,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 Buddies!\n<i>(Win/Tie - Costs 3 less)\n(Loss - Costs 2 less)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80867,
+      "id": "BG22_HERO_001p_t1_s",
+      "name": "Earth Invocation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give 4 random friendly minions \"<b>Deathrattle:</b> Summon a 1/1 Elemental.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80868,
+      "id": "BG22_HERO_001p_t2_s",
+      "name": "Fire Invocation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Double your left-most minion's Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80869,
+      "id": "BG22_HERO_001p_t3_s",
+      "name": "Water Invocation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your right-most minion <b>Divine Shield</b> and <b>Taunt</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80870,
+      "id": "BG22_HERO_001p_t4_s",
+      "name": "Lightning Invocation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Deal 1 damage to 5\nrandom enemy minions.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 83919,
+      "id": "BG23_000_Gt",
+      "name": "Mini-Trident",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +4 Attack\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 83914,
+      "id": "BG23_000t",
+      "name": "Mini-Trident",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +2 Attack\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 83991,
+      "id": "BG23_004_Gt",
+      "name": "Angler's Lure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +4/+12 and <b>Taunt</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 83988,
+      "id": "BG23_004t",
+      "name": "Angler's Lure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+6 and <b>Taunt</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 84379,
+      "id": "BG23_007_Gt",
+      "name": "Undersea Mount",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +4/+4.\nIf it's a Naga, also give it\n<b>Windfury</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 84374,
+      "id": "BG23_007t",
+      "name": "Undersea Mount",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +2/+2.\nIf it's a Naga, also give it\n<b>Windfury</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 85856,
+      "id": "BG23_008_Gt",
+      "name": "Glowing Crown",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion <b>Divine Shield</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 84362,
+      "id": "BG23_008t",
+      "name": "Glowing Crown",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion <b>Divine Shield</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 86987,
+      "id": "BG23_015_Gt",
+      "name": "Azshara's Hatchery",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> 2 Naga.",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 86981,
+      "id": "BG23_015t",
+      "name": "Azshara's Hatchery",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Naga.",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92260,
+      "id": "BG23_018t",
+      "name": "Darkgaze Mass Blood Gem",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give certain friendly minions +0/+0.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101580,
+      "id": "BG24_HERO_100_Buddy_Gt",
+      "name": "Hefty Coin Pouch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 16 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101579,
+      "id": "BG24_HERO_100_Buddyt",
+      "name": "Coin Pouch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 8 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89641,
+      "id": "BG24_Quest_112",
+      "name": "Track the Footprints",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Have the Tavern <b>Refreshed</b> 0 times.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89643,
+      "id": "BG24_Quest_114",
+      "name": "Assemble a Lineup",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Summon 0 minions.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89958,
+      "id": "BG24_Quest_120",
+      "name": "Unmask the Culprit",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Lose or tie 0 combats.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92548,
+      "id": "BG24_Quest_123",
+      "name": "Find the Murder Weapon",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Increase a friendly minion's stats 0 times.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92549,
+      "id": "BG24_Quest_124",
+      "name": "Reenact the Murder",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Have 0 friendly minions die.",
+      "mechanics": [
+        "QUEST",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92550,
+      "id": "BG24_Quest_125",
+      "name": "Sort It All Out",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Quest:</b> Order your minions\nfrom lowest to highest\nAttack for 0 combats.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 95940,
+      "id": "BG24_Quest_126",
+      "name": "Follow the Money",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Spend 0 Gold.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 90328,
+      "id": "BG24_Quest_151",
+      "name": "Unlikely Duo",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Buy 14 0 or 0.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89011,
+      "id": "BG24_Quest_311",
+      "name": "Cry for Help",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Play 0 <b>Battlecry</b> minions.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89037,
+      "id": "BG24_Quest_313",
+      "name": "Invite the Guests",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Buy 0 minions.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89044,
+      "id": "BG24_Quest_314",
+      "name": "Dust for Prints",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Add 0 cards to your hand.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89052,
+      "id": "BG24_Quest_318",
+      "name": "Witness Protection",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Have a friendly <b>Taunt</b> minion attacked 0 times.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 89057,
+      "id": "BG24_Quest_320",
+      "name": "Exhume the Bones",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Trigger 0 friendly <b>Deathrattles</b>.",
+      "mechanics": [
+        "QUEST",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 96153,
+      "id": "BG24_Quest_328",
+      "name": "Close the Case",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Win the game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97674,
+      "id": "BG24_Quest_351",
+      "name": "Hire an Investigator",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> End your turn with unspent Gold 0 times.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97743,
+      "id": "BG24_Quest_352",
+      "name": "Crack the Case",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Have friendly minions attack 0 times.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 93324,
+      "id": "BG24_Quest_Bob",
+      "name": "An Investigation!",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "In 3 turns, choose one of three <b>Quests</b>!",
+      "mechanics": [
+        "SIDE_QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92966,
+      "id": "BG24_QuestsPlayerEnch_t",
+      "name": "Discover Quest + Reward [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Quest and Reward pair. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97659,
+      "id": "BG24_Reward_715t",
+      "name": "Mega Horn",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +5/+5 and <b>Taunt</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97661,
+      "id": "BG24_Reward_715t2",
+      "name": "Blazing Blades",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +5/+5 and <b>Windfury</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97662,
+      "id": "BG24_Reward_715t3",
+      "name": "Bunker Plating",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +5/+5 and <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97663,
+      "id": "BG24_Reward_715t4",
+      "name": "Death Rewinder",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +5/+5 and <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "REBORN"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97967,
+      "id": "BG24_Reward_718t",
+      "name": "Kidnap Sack",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a non-Golden card to move to your hand.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 97754,
+      "id": "BG24_Reward_719t",
+      "name": "The Golden Hammer",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Make a friendly minion Golden until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 96866,
+      "id": "BG25_044t",
+      "name": "Gold-Gun",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Make a friendly Pirate or\nNaga Golden until next turn\n<i>(except Greta Gold-Gun)</i>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 101275,
+      "id": "BG26_171_Gt",
+      "name": "Just Keep Swimming",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion\n+6/+8 and <b>Stealth</b>\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100139,
+      "id": "BG26_171t",
+      "name": "Just Keep Swimming",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion\n+3/+4 and <b>Stealth</b>\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100947,
+      "id": "BG26_355_Gt",
+      "name": "Boogie Down",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger a friendly minion's <b>Battlecry</b> twice.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100948,
+      "id": "BG26_355_Gt2",
+      "name": "Partner Up",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> 2\n<b>Battlecry</b> minions.",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100945,
+      "id": "BG26_355t",
+      "name": "Boogie Down",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger a friendly minion's <b>Battlecry</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100946,
+      "id": "BG26_355t2",
+      "name": "Partner Up",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a\n<b>Battlecry</b> minion.",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 98885,
+      "id": "BG26_501_Gt",
+      "name": "Sick Riffs",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion stats equal to twice your Tier until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 98881,
+      "id": "BG26_501t",
+      "name": "Sick Riffs",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion stats equal to your Tier\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 98918,
+      "id": "BG26_502_Gt",
+      "name": "Deep Blues",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +4/+4 until next turn. Improve your future Deep Blues.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 98916,
+      "id": "BG26_502t",
+      "name": "Deep Blues",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+2 until next turn. Improve your future Deep Blues.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 98914,
+      "id": "BG26_813t",
+      "name": "The Goldenizer",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Make a friendly minion Golden.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105863,
+      "id": "BG27_002t",
+      "name": "Slimy Shield",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1 and <b>Taunt</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105950,
+      "id": "BG27_004_Gt",
+      "name": "Crab Mount",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion\n\"<b>Deathrattle:</b> Summon a\n6/4 Crab\" until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105949,
+      "id": "BG27_004t",
+      "name": "Crab Mount",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion\n\"<b>Deathrattle:</b> Summon a\n3/2 Crab\" until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105948,
+      "id": "BG27_012_Gt",
+      "name": "Sea Summoning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion.\nAdd two minions of its type to the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105947,
+      "id": "BG27_012t",
+      "name": "Sea Summoning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion.\nAdd a minion of its type to the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108913,
+      "id": "BG27_084_Gt",
+      "name": "Sprightly Sprucing",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Beast +2/+2\nand <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108916,
+      "id": "BG27_084_Gt2",
+      "name": "Sprightly Support",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Beast +8 Attack and <b>Windfury</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108911,
+      "id": "BG27_084t",
+      "name": "Sprightly Sprucing",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Beast +1/+1\nand <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108914,
+      "id": "BG27_084t2",
+      "name": "Sprightly Support",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Beast +4 Attack and <b>Windfury</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 103071,
+      "id": "BG27_514t",
+      "name": "Siren's Song",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion in the Tavern to get a copy of\n<i>(except Sea Witch Zar'jira).</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 103076,
+      "id": "BG27_514t_G",
+      "name": "Siren's Song",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion in the\nTavern to get 2 copies of\n<i>(except Sea Witch Zar'jira).</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 103188,
+      "id": "BG27_Anomaly_101t",
+      "name": "Triple Reward",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion\nfrom <b>Tier 0</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 102077,
+      "id": "BG27_Anomaly_302t",
+      "name": "Piggy Bank",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 1 Gold.\n<i>(Improves each turn!)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 107185,
+      "id": "BG27_Anomaly_574t2",
+      "name": "Consolation Coin Pouch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Gain 3 Gold.\n<i>(There were no available\nminions to <b>Discover</b>.)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106634,
+      "id": "BG27_Anomaly_575t",
+      "name": "Eleventh Hour",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Secret:</b> When your hero\ntakes fatal damage in\ncombat, prevent it and gain\n11 Gold next turn instead.",
+      "mechanics": [
+        "SECRET"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 102094,
+      "id": "BG27_Anomaly_755t",
+      "name": "Triple Reward",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tier 0 Darkmoon Prize.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106474,
+      "id": "BG27_Anomaly_803t",
+      "name": "Anomalous Evidence Activation [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Anomalous Evidence - Choose from 2 Quest Rewards. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104658,
+      "id": "BG27_Quest_800",
+      "name": "Burn the Evidence",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Sell 0 minions.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104661,
+      "id": "BG27_Quest_801",
+      "name": "Pressure the Authorities",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Get your warband to 28\ntotal Attack.",
+      "mechanics": [
+        "QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104660,
+      "id": "BG27_Quest_802",
+      "name": "Round Up the Suspects",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Destroy 0 enemy minions.",
+      "mechanics": [
+        "QUEST",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104725,
+      "id": "BG27_Reward_504t",
+      "name": "Accelerator",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Transform a minion into one from a Tier higher.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105679,
+      "id": "BG28_405_Gt",
+      "name": "Sunken Spells",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> 2 Tavern spells.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105678,
+      "id": "BG28_405t",
+      "name": "Sunken Spells",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tavern spell.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120497,
+      "id": "BG28_521t",
+      "name": "Consolation Coin",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Gain 1 Gold.\n<i>(There were no available\n  minions of a valid type.)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 110350,
+      "id": "BG28_Quest_500",
+      "name": "Fill the Cauldron",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Quest:</b> Cast 0 spells.",
+      "mechanics": [
+        "QUEST",
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108521,
+      "id": "BG29_870_Gt",
+      "name": "Surging Scales",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger a friendly minion's <b>Battlecry</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 108520,
+      "id": "BG29_870t",
+      "name": "Surging Scales",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Trigger a friendly\nminion's <b>Battlecry</b>\ntwice.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113407,
+      "id": "BG29_879t",
+      "name": "Shell Out",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion in the Tavern. Give its stats to a random friendly minion until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113408,
+      "id": "BG29_879t_G",
+      "name": "Shell Out",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion in the Tavern. Give double its stats to a random friendly minion until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115440,
+      "id": "BG30_110_Gt",
+      "name": "Malevolent Mirage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Triple the Attack of all minions in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115441,
+      "id": "BG30_110_Gt2",
+      "name": "Mellow Mirage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Triple the Health of all minions in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115442,
+      "id": "BG30_110t",
+      "name": "Malevolent Mirage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Double the Attack of all minions in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115443,
+      "id": "BG30_110t2",
+      "name": "Mellow Mirage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Double the Health of all minions in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114102,
+      "id": "BG30_117_Gt",
+      "name": "Escape Eruption",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Choose One -</b> Give your minions +8 Attack; or +8 Health.",
+      "mechanics": [
+        "CHOOSE_ONE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114387,
+      "id": "BG30_117_Gt2",
+      "name": "Trudge through Lava",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions\n+8 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114389,
+      "id": "BG30_117_Gt3",
+      "name": "Use Supplies",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions\n+8 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114101,
+      "id": "BG30_117t",
+      "name": "Escape Eruption",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Choose One -</b> Give your minions +4 Attack; or +4 Health.",
+      "mechanics": [
+        "CHOOSE_ONE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114383,
+      "id": "BG30_117t2",
+      "name": "Trudge through Lava",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions\n+4 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114386,
+      "id": "BG30_117t3",
+      "name": "Use Supplies",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions\n+4 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113909,
+      "id": "BG30_123_Gt",
+      "name": "Dig In",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Blood Gems</b> give an extra +2/+2 this game.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113910,
+      "id": "BG30_123_Gt2",
+      "name": "Fill Your Plate",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 8 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113907,
+      "id": "BG30_123t",
+      "name": "Dig In",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Blood Gems</b> give an extra +1/+1 this game.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113908,
+      "id": "BG30_123t2",
+      "name": "Fill Your Plate",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 4 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114092,
+      "id": "BG30_128_Gt",
+      "name": "Sharpen Glass",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Triple this minion's Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114093,
+      "id": "BG30_128_Gt2",
+      "name": "Polish Glass",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Triple this minion's Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114090,
+      "id": "BG30_128t",
+      "name": "Sharpen Glass",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Double this minion's Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114091,
+      "id": "BG30_128t2",
+      "name": "Polish Glass",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Double this minion's Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117865,
+      "id": "BG30_929_Gt",
+      "name": "Slip and Slide",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Refresh</b> the Tavern with two extra Tavern spells that cost (1) less.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117864,
+      "id": "BG30_929t",
+      "name": "Slip and Slide",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Refresh</b> the Tavern with an extra Tavern spell that costs (1) less.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 112813,
+      "id": "BG30_MagicItem_416t",
+      "name": "Token of the Old Gods",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion. Then choose a minion from a Tier higher to transform it into.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 112401,
+      "id": "BG30_MagicItem_429t",
+      "name": "Demonblood Gourd",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a friendly minion. It consumes a random minion in the Tavern to gain its stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117803,
+      "id": "BG30_MagicItem_703t",
+      "name": "Mystery Cube Activation [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Mystery Cube - Choose from 2 Trinkets. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117945,
+      "id": "BG30_MagicItem_714t",
+      "name": "Harvested Pearl",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +30/+30\nuntil next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115942,
+      "id": "BG31_144_Gt",
+      "name": "Divine Adaptation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain +6 Attack and <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115943,
+      "id": "BG31_144_Gt2",
+      "name": "Deadly Adaptation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain +6 Health and <b>Venomous</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "VENOMOUS"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115940,
+      "id": "BG31_144t",
+      "name": "Divine Adaptation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain +3 Attack and <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115941,
+      "id": "BG31_144t2",
+      "name": "Deadly Adaptation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain +3 Health and <b>Venomous</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "VENOMOUS"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116202,
+      "id": "BG31_320_Gt",
+      "name": "Take the Gems",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 4 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116203,
+      "id": "BG31_320_Gt2",
+      "name": "Mine Deeper",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 Gem Days.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116200,
+      "id": "BG31_320t",
+      "name": "Take the Gems",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116201,
+      "id": "BG31_320t2",
+      "name": "Mine Deeper",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a Gem Day.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116213,
+      "id": "BG31_325_Gt",
+      "name": "Instant Infusion",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 6 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116214,
+      "id": "BG31_325_Gt2",
+      "name": "Deep Infusion",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain \"<b>Deathrattle:</b> Get 4 <b>Blood Gems</b>.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116210,
+      "id": "BG31_325t",
+      "name": "Instant Infusion",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 3 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116211,
+      "id": "BG31_325t2",
+      "name": "Deep Infusion",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain \"<b>Deathrattle:</b> Get 2 <b>Blood Gems</b>.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116438,
+      "id": "BG31_326t",
+      "name": "Arm Day",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Blood Gems</b> give an extra +1 Attack this game.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116439,
+      "id": "BG31_326t2",
+      "name": "Leg Day",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Blood Gems</b> give an extra +1 Health this game.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115902,
+      "id": "BG31_825_Gt",
+      "name": "Nearby Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 4 Gold next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115904,
+      "id": "BG31_825_Gt2",
+      "name": "Faraway Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 8 Gold in two turns.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115901,
+      "id": "BG31_825t",
+      "name": "Nearby Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 2 Gold next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115903,
+      "id": "BG31_825t2",
+      "name": "Faraway Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 4 Gold in two turns.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120897,
+      "id": "BG31_830_Gt",
+      "name": "Reinvigoration",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +4/+4.\nIf it's a Naga, also give it <b>Reborn</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120896,
+      "id": "BG31_830t",
+      "name": "Reinvigoration",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+2.\nIf it's a Naga, also give it <b>Reborn</b> until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115917,
+      "id": "BG31_842_Gt",
+      "name": "Nether Energy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give minions in the Tavern +8/+8 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115918,
+      "id": "BG31_842_Gt2",
+      "name": "Nether Greed",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Consume all minions in the Tavern to gain double their stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115915,
+      "id": "BG31_842t",
+      "name": "Nether Energy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give minions in the Tavern +4/+4 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115916,
+      "id": "BG31_842t2",
+      "name": "Nether Greed",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Consume all minions in the Tavern to gain their stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117568,
+      "id": "BG31_880t",
+      "name": "Allied Mace",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +3/+1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117569,
+      "id": "BG31_880t2",
+      "name": "Allied Buckler",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+3.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117575,
+      "id": "BG31_881t",
+      "name": "Hurry Up",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117576,
+      "id": "BG31_881t2",
+      "name": "Do It Later",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the start of your next turn, give your minions +2/+2 twice.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117593,
+      "id": "BG31_884t",
+      "name": "The High Road",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a random Tier 6 minion.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117594,
+      "id": "BG31_884t2",
+      "name": "The Low Road",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get two random Tier 5 minions.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117585,
+      "id": "BG31_886t",
+      "name": "All For One",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +6/+6 twice.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117586,
+      "id": "BG31_886t2",
+      "name": "One For All",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115911,
+      "id": "BG31_890t",
+      "name": "Way of the Mage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tavern spell of your Tier.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 115912,
+      "id": "BG31_890t2",
+      "name": "Way of the Warrior",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion of your Tier.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116596,
+      "id": "BG31_893",
+      "name": "Gem Day",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Choose One - </b>Your <b>Blood Gems</b> give an extra +1 Attack this game;\nor +1 Health.",
+      "mechanics": [
+        "CHOOSE_ONE"
+      ],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116480,
+      "id": "BG31_920_Gt",
+      "name": "Evolving Strategy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get two random Tier 1 Naga.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116478,
+      "id": "BG31_920t",
+      "name": "Evolving Strategy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a random Tier 1 Naga.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116113,
+      "id": "BG31_924_Gt",
+      "name": "Thaumaturgy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +2/+2\nuntil next turn. <i>(Improved\nby every 4 spells you've\ncast this game!)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 116111,
+      "id": "BG31_924t",
+      "name": "Thaumaturgy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +1/+1\nuntil next turn. <i>(Improved\nby every 4 spells you've\ncast this game!)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 118698,
+      "id": "BG31_Anomaly_102t",
+      "name": "Evolving Scroll",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Each turn this is in your hand, transform it into a random Tavern spell of a higher Tier.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 118675,
+      "id": "BG31_Anomaly_115t",
+      "name": "Magic Prize",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tavern spell\nfrom <b>Tier 0</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 119776,
+      "id": "BG31_Anomaly_124t4",
+      "name": "Golden Arrow",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion in the\nTavern. Make it Golden.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121720,
+      "id": "BG32_237_Gt",
+      "name": "Pristine Lilies",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +2 Attack this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121722,
+      "id": "BG32_237_Gt2",
+      "name": "Giant Dewdrop",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +2 Health this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121719,
+      "id": "BG32_237t",
+      "name": "Pristine Lilies",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +1 Attack this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121721,
+      "id": "BG32_237t2",
+      "name": "Giant Dewdrop",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +1 Health this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121480,
+      "id": "BG32_835_Gt",
+      "name": "Meditation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +2/+2 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121479,
+      "id": "BG32_835t",
+      "name": "Meditation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +1/+1 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121944,
+      "id": "BG32_MagicItem_205t",
+      "name": "Coin Pouch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 3 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 121139,
+      "id": "BG32_MagicItem_892t",
+      "name": "Vibrant Bubble",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a Murloc a random\n<b>Bonus Keyword</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122260,
+      "id": "BG33_319_Gt",
+      "name": "Rime or Reason",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 random Tavern spells that give stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122259,
+      "id": "BG33_319t",
+      "name": "Rime or Reason",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a random Tavern spell that gives stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126884,
+      "id": "BG33_Anomaly_008_Discover",
+      "name": "Discover Quest + Fixed Buddy [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Quest and Reward pair. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126883,
+      "id": "BG33_Anomaly_008_Quest",
+      "name": "An Investigation!",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "In 3 turns, choose one of three <b>Quests</b>!",
+      "mechanics": [
+        "SIDE_QUEST"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123601,
+      "id": "BG33_Reward_006t",
+      "name": "Rushing Winds",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion <b>Windfury</b> and <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123617,
+      "id": "BG33_Reward_012t",
+      "name": "Coin Pouch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 5 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129425,
+      "id": "BG34_407_Gt",
+      "name": "Veteran's Tactics",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions +4/+2 for each different <b>Bonus Keyword</b> in your warband.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129424,
+      "id": "BG34_407t",
+      "name": "Veteran's Tactics",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your minions +2/+1 for each different <b>Bonus Keyword</b> in your warband.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126179,
+      "id": "BG34_BlackMarket_Skip",
+      "name": "Exit the Timewarped Tavern",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Casts When Bought.</b>\n<i>Save your Chronum for the next <b>Timewarp</b>!</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SHADOW",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126518,
+      "id": "BG34_Giant_035t",
+      "name": "Timewarped Crown",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion\n<b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 128719,
+      "id": "BG34_Giant_035t_G",
+      "name": "Timewarped Crown",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion\n<b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127424,
+      "id": "BG34_Giant_210_Gt",
+      "name": "Timewarped Shoal",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +4/+4 for each friendly Naga.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127248,
+      "id": "BG34_Giant_210t",
+      "name": "Timewarped Shoal",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+2 for each friendly Naga.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127425,
+      "id": "BG34_Giant_212_Gt",
+      "name": "Timewarped Eelectrify",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion\n+24 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127251,
+      "id": "BG34_Giant_212t",
+      "name": "Timewarped Eelectrify",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion\n+12 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127873,
+      "id": "BG34_Giant_324_Gt",
+      "name": "Timewarped Summoning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion. Transform all minions in the Tavern into ones of its type, keeping Tiers.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127851,
+      "id": "BG34_Giant_324t",
+      "name": "Timewarped Summoning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion. Transform all minions in the Tavern into ones of its type, keeping Tiers.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 128924,
+      "id": "BG34_Giant_671t",
+      "name": "Timewarped Zerus Activation [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Timewarped Zerus - <b>Discover</b> Timewarped minion [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 131415,
+      "id": "BG35_Anomaly_001t",
+      "name": "Fly the Flag",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion from\nTier 6 or below.\nAdd plain copies of it to\nYOUR minion pool.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 131136,
+      "id": "BG35_MagicItem_306t",
+      "name": "Jailer Sticker",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Destroy a friendly Undead to get a random Undead.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 131134,
+      "id": "BG35_MagicItem_733t",
+      "name": "Jailer Sticker",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Destroy a friendly Undead to get\n2 random Undead.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 131310,
+      "id": "BG35_MagicItem_755t",
+      "name": "Chillmere Mosaic",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Refresh</b> the Tavern with\n<b>Battlecry</b> minions.\nThey cost (1).",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY",
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130856,
+      "id": "BG35_MagicItem_812t",
+      "name": "Triple Prize",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tier 3 Darkmoon Prize.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130853,
+      "id": "BG35_MagicItem_817t",
+      "name": "Duplicating Lens",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion from Tier 3 or below. Get a plain copy of it.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 131315,
+      "id": "BG35_MagicItem_838t",
+      "name": "Double Stitch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a friendly minion. Double its stats and lock it in your hand for 1 turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130909,
+      "id": "BG35_MagicItem_872t",
+      "name": "Ophidian Staff",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Beast +2/+2 and <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132643,
+      "id": "BG36_330_Gt",
+      "name": "Hug the Wall",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 4 free <b>Refreshes</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132645,
+      "id": "BG36_330_Gt2",
+      "name": "Nick the Gems",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 6 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132642,
+      "id": "BG36_330t",
+      "name": "Hug the Wall",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 2 free <b>Refreshes</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132644,
+      "id": "BG36_330t2",
+      "name": "Nick the Gems",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 3 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132648,
+      "id": "BG36_332_Gt",
+      "name": "Ensnare the Target",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 random Quilboar.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132650,
+      "id": "BG36_332_Gt2",
+      "name": "Collect the Bounty",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Increase your maximum Gold by 2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132647,
+      "id": "BG36_332t",
+      "name": "Ensnare the Target",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a random Quilboar.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132649,
+      "id": "BG36_332t2",
+      "name": "Collect the Bounty",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Increase your maximum Gold by 1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132943,
+      "id": "BG36_341_Gt",
+      "name": "Brandish the Flail",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Play 6 <b>Blood Gems</b> on all friendly minions.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132944,
+      "id": "BG36_341_Gt2",
+      "name": "Full-on Barrage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Cast Blood Gem Barrage 6 times.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132941,
+      "id": "BG36_341t",
+      "name": "Brandish the Flail",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Play 3 <b>Blood Gems</b> on all friendly minions.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132942,
+      "id": "BG36_341t2",
+      "name": "Full-on Barrage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Cast Blood Gem Barrage 3 times.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132766,
+      "id": "BG36_520t",
+      "name": "Lockbox",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Unplayable.</b> In 5 turns,\nbreak this open and get a\nrandom Golden minion\nwith a type! <i>(5 turns left!)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133396,
+      "id": "BG36_MagicItem_208t",
+      "name": "Floating Candle Set",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger a friendly minion's <b>Deathrattle</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132180,
+      "id": "BG36_MidGameEffect_000",
+      "name": "Dark Gifts!",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion of your Tier with a <b>Dark Gift</b>!",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132192,
+      "id": "BG36_MidGameEffect_000t",
+      "name": "Offensive Sacrifice",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Deathrattle:</b> Give this minion's Attack to another friendly minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132208,
+      "id": "BG36_MidGameEffect_000t10",
+      "name": "Echoing Voice",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of your turn, trigger this minion's <b>Battlecries</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132485,
+      "id": "BG36_MidGameEffect_000t11",
+      "name": "Double Vision",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get an extra copy of this.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132276,
+      "id": "BG36_MidGameEffect_000t12",
+      "name": "Persisting Horror",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Reborn</b>. Is <b>Reborn</b> with full stats and <b>Bonus Keyword</b>s.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132279,
+      "id": "BG36_MidGameEffect_000t13",
+      "name": "Harpy's Talons",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Divine Shield</b>, <b>Windfury</b>",
+      "mechanics": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132441,
+      "id": "BG36_MidGameEffect_000t14",
+      "name": "Gilding",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "This is Golden, but doesn't give a Triple Reward.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132442,
+      "id": "BG36_MidGameEffect_000t15",
+      "name": "Toreth's Blessing",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "This minion's <b>Divine Shield</b> takes 2 more hits to break.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132443,
+      "id": "BG36_MidGameEffect_000t16",
+      "name": "Jaws of Death",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Trigger this minion's <b>Deathrattles</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132445,
+      "id": "BG36_MidGameEffect_000t18",
+      "name": "Replication",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of every 2 turns, get a plain copy of this.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132200,
+      "id": "BG36_MidGameEffect_000t2",
+      "name": "Defensive Sacrifice",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Deathrattle:</b> Give this minion's max Health to another friendly minion.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132448,
+      "id": "BG36_MidGameEffect_000t21",
+      "name": "Time Turning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "This minion's end of turn effects also trigger at start of turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132790,
+      "id": "BG36_MidGameEffect_000t22",
+      "name": "Amalgamation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has all minion types.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132553,
+      "id": "BG36_MidGameEffect_000t28",
+      "name": "Battle Scars",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +3/+3 for each <b>Battlecry</b> you've triggered this game. (0)",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133476,
+      "id": "BG36_MidGameEffect_000t28t",
+      "name": "Battle Scars",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +2/+2 for each <b>Battlecry</b> you've triggered this game. (0)",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132554,
+      "id": "BG36_MidGameEffect_000t29",
+      "name": "Death's Embrace",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +2/+2 for each <b>Deathrattle</b> you've triggered this game. (0)",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133478,
+      "id": "BG36_MidGameEffect_000t29t",
+      "name": "Death's Embrace",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +1/+1 for each <b>Deathrattle</b> you've triggered this game. (0)",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132201,
+      "id": "BG36_MidGameEffect_000t3",
+      "name": "Charisma",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Rally:</b> Get a random minion of your most common type.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132555,
+      "id": "BG36_MidGameEffect_000t30",
+      "name": "Spell Siphon",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +3/+3 for each Tavern spell you've cast this game. (0)",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133480,
+      "id": "BG36_MidGameEffect_000t30t",
+      "name": "Spell Siphon",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Has +2/+2 for each Tavern spell you've cast this game. (0)",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132202,
+      "id": "BG36_MidGameEffect_000t4",
+      "name": "Incubation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "+2/+2. In 2 turns, double this minion's stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132203,
+      "id": "BG36_MidGameEffect_000t5",
+      "name": "Mystic Essence",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Deathrattle:</b> Get a random Tavern spell.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132732,
+      "id": "BG36_MidGameEffect_000t50",
+      "name": "Tarecgosa's Blessing",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Permanently keeps stats and <b><b>Bonus Keyword</b>s</b> gained in combat.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132733,
+      "id": "BG36_MidGameEffect_000t51",
+      "name": "Steady Growth",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of your turn, gain +0/+0.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132734,
+      "id": "BG36_MidGameEffect_000t52",
+      "name": "Fresh Perspective",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Deathrattle:</b> Gain 2 free <b>Refreshes</b>.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132833,
+      "id": "BG36_MidGameEffect_000t60",
+      "name": "Invulnerability",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Immune</b> while attacking.",
+      "mechanics": [],
+      "referencedTags": [
+        "IMMUNE"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132835,
+      "id": "BG36_MidGameEffect_000t61",
+      "name": "Golemancy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Deathrattle:</b> Summon a Golem with this minion's stats.",
+      "mechanics": [
+        "DEATHRATTLE"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133310,
+      "id": "BG36_MidGameEffect_000t62",
+      "name": "Sunken Persistence",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "This minion's <b>Spellcrafts</b> are permanent.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_SPELLCRAFT_ID"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133361,
+      "id": "BG36_MidGameEffect_000t64",
+      "name": "Dexterity",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Whenever you play a card, gain +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133457,
+      "id": "BG36_MidGameEffect_000t64t",
+      "name": "Dexterity",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Whenever you play a card, gain +4/+4.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133344,
+      "id": "BG36_MidGameEffect_000t65",
+      "name": "Polarization",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of your turn, <b>Magnetize</b> a random Mech to this.",
+      "mechanics": [],
+      "referencedTags": [
+        "MAGNETIC"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133351,
+      "id": "BG36_MidGameEffect_000t66",
+      "name": "Demonology",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Rally:</b> Add a <b>Fodder</b> to your next 3 <b>Refreshes</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY",
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133353,
+      "id": "BG36_MidGameEffect_000t69",
+      "name": "Toxicity",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Venomous</b>",
+      "mechanics": [
+        "VENOMOUS"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132205,
+      "id": "BG36_MidGameEffect_000t7",
+      "name": "Resistance",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Double this minion's Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133359,
+      "id": "BG36_MidGameEffect_000t71",
+      "name": "Hostility",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Double this minion's Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133363,
+      "id": "BG36_MidGameEffect_000t72",
+      "name": "Titanic Strength",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "+1000 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133421,
+      "id": "BG36_MidGameEffect_000t73",
+      "name": "Fortitude",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "+4/+4.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133423,
+      "id": "BG36_MidGameEffect_000t74",
+      "name": "Sharpened Sword",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Whenever you play a card, gain +2 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133424,
+      "id": "BG36_MidGameEffect_000t75",
+      "name": "Toughened Shield",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Whenever you play a card, gain +2 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133472,
+      "id": "BG36_MidGameEffect_000t79",
+      "name": "Furtiveness",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Stealth</b>",
+      "mechanics": [
+        "STEALTH"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133474,
+      "id": "BG36_MidGameEffect_000t80",
+      "name": "Consanguinity",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Rally:</b> Get 2 <b>Blood Gems</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY",
+        "BACON_BLOOD_GEM_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133482,
+      "id": "BG36_MidGameEffect_000t81",
+      "name": "Transcendence",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Triple this minion's stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 133860,
+      "id": "BG36_MidGameEffect_000t82",
+      "name": "Affinity",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of every 2 turns, get a random minion of this type.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132207,
+      "id": "BG36_MidGameEffect_000t9",
+      "name": "Admiration",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Gain the stats of the minion to the left.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 132252,
+      "id": "BG36_MidGameEffect_010",
+      "name": "Battlegrounds Dark Gift [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Add minion bonuses to cards",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 119425,
+      "id": "BGDUO20_GEM_No_Impact",
+      "name": "Blood Gem No Impact From Teammate [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 119352,
+      "id": "BGDUO31_201s",
+      "name": "Gathering Stormer Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives you Gold. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 119403,
+      "id": "BGDUO31_202s",
+      "name": "Loyal Mobster Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Plays a Blood Gem (size of your teammate's Gems) on your minions. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117350,
+      "id": "BGDUO31_205_gs",
+      "name": "Selfless Sightseer Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Increase your maximum Gold by 2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117349,
+      "id": "BGDUO31_205s",
+      "name": "Selfless Sightseer Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Increase your maximum Gold by 1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117364,
+      "id": "BGDUO31_206_Gs",
+      "name": "Oceanfloor Rummager Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives +2 Attack for each bonus keyword in your team's warbands. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117363,
+      "id": "BGDUO31_206s",
+      "name": "Oceanfloor Rummager Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives +1 Attack for each bonus keyword in your team's warbands. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117366,
+      "id": "BGDUO31_207_Gs",
+      "name": "Wheeled Crewmate Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Reduce the Cost of upgrading this teammate's Tavern by 2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117365,
+      "id": "BGDUO31_207s",
+      "name": "Wheeled Crewmate Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Reduce the Cost of upgrading this teammate's Tavern by 1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 119510,
+      "id": "BGDUO31_208_Teammate_Trigger",
+      "name": "Scribbling Teammate Trigger [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": null,
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117504,
+      "id": "BGDUO31_209t",
+      "name": "Private Selection",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion.\nGet a different random\nminion of its type, then\n<b>Pass</b> it.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117505,
+      "id": "BGDUO31_209t_G",
+      "name": "Private Selection",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion.\nGet 2 different random\nminions of its type, then\n<b>Pass</b> them.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117447,
+      "id": "BGDUO31_210s",
+      "name": "Two-Faced Doomguard Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives your minions +3/+3. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123843,
+      "id": "BGDUO33_150t",
+      "name": "Dark Dazzler on Teammate [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Ensures the Dark Dazzler player ench on your teammate.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123845,
+      "id": "BGDUO33_150t2",
+      "name": "Dark Dazzler Activation [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Teammate",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106448,
+      "id": "BGDUO_107_Gs",
+      "name": "Doting Dracthyr Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives your minions +2 Attack. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106441,
+      "id": "BGDUO_107s",
+      "name": "Doting Dracthyr Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives your minions +1 Attack. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106471,
+      "id": "BGDUO_109_Gs",
+      "name": "Support System Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives 2 friendly minions <b>Divine Shield</b>. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104562,
+      "id": "BGDUO_109s",
+      "name": "Support System Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives a friendly minion <b>Divine Shield</b>. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106466,
+      "id": "BGDUO_110_Gs",
+      "name": "Feisty Freshwater Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Makes your next 4 <b>Refreshes</b> cost (0). [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104626,
+      "id": "BGDUO_110s",
+      "name": "Feisty Freshwater Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Makes your next 2 <b>Refreshes</b> cost (0). [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 106464,
+      "id": "BGDUO_118_Gs",
+      "name": "Plunder Pal Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives you 2 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104543,
+      "id": "BGDUO_118s",
+      "name": "Plunder Pal Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives you 1 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105807,
+      "id": "BGDUO_119s",
+      "name": "Orc-estra Conductor Teammate Trigger [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Increments your Orc-estra Conductor player ench. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105838,
+      "id": "BGDUO_120_Gt",
+      "name": "Well Wishes",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Pass</b> a non-Golden minion <i>(except Well Wisher)</i>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105836,
+      "id": "BGDUO_120t",
+      "name": "Well Wishes",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Pass</b> a non-Golden minion <i>(except Well Wisher)</i>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 109414,
+      "id": "BGDUO_121_Gs",
+      "name": "Man'ari Messenger Golden Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives Tavern minions +2/+2. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 109413,
+      "id": "BGDUO_121s",
+      "name": "Man'ari Messenger Spell [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gives Tavern minions +1/+1. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113332,
+      "id": "BGDUO_HERO_222t",
+      "name": "[DNT] Cho Gall HP Decrement",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Decrement Double Trouble for teammate.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117954,
+      "id": "BGDUO_MagicItem_002t",
+      "name": "Cho'gall Sticker on teammate [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Whenever your team plays a Golden minion, both you and your teammate get a Triple Reward.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117992,
+      "id": "BGDUO_MagicItem_002t2",
+      "name": "Cho'gall Sticker Activation [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger Teammate",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114364,
+      "id": "BGS_200t",
+      "name": "Warden's Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 1 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65230,
+      "id": "BGS_Treasures_000",
+      "name": "Big Banana",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122906,
+      "id": "BG_EX1_014t",
+      "name": "Bananas",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122908,
+      "id": "BG_TB_006",
+      "name": "Big Banana",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +2/+2.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 72675,
+      "id": "TB_BaconShop_CheckTriples",
+      "name": "Check Triples",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "3ofKindCheck [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80433,
+      "id": "TB_BaconShop_HERO_35_Buddy_t1",
+      "name": "Mysterybox",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]For the rest of the game,\nyour Hero Power triggers\nan extra time when used.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80434,
+      "id": "TB_BaconShop_HERO_35_Buddy_t2",
+      "name": "Hand of Fate",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 random\nDarkmoon Prizes.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80435,
+      "id": "TB_BaconShop_HERO_35_Buddy_t3",
+      "name": "Curse of Flesh",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "A random friendly minion gains the stats of another friendly minion.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80437,
+      "id": "TB_BaconShop_HERO_35_Buddy_t5",
+      "name": "Devouring Hunger",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Consume all minions in\nthe Tavern and give their\nstats to your minions.\nThen <b>Refresh</b> it.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 80438,
+      "id": "TB_BaconShop_HERO_35_Buddy_t6",
+      "name": "Rod of Roasting",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Cast 'Pyrobuff' randomly to give minions +10/+10 until one hits your bartender or hero.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 93390,
+      "id": "TB_BaconShop_HERO_35_Buddy_t7",
+      "name": "Mysterybox",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Make a random minion in the Tavern Golden.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 93391,
+      "id": "TB_BaconShop_HERO_35_Buddy_t8",
+      "name": "Mindflayer Goggles",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Cast 4 random Tavern spells.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58596,
+      "id": "TB_BaconShop_HP_008a",
+      "name": "Gold Coin",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 1 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 59816,
+      "id": "TB_BaconShop_HP_038t",
+      "name": "Wild Banana",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly Beast +1/+1.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 60265,
+      "id": "TB_BaconShop_HP_047t",
+      "name": "Recruitment Map",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion\nfrom <b>Tier 0</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 94063,
+      "id": "TB_BaconShop_HP_080t",
+      "name": "Consolation Coin",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Gain 1 Gold.\n<i>(Your opponent had\nno minions.)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 64484,
+      "id": "TB_BaconShop_HP_101t2",
+      "name": "Prize",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion\nfrom <b>Tier 0</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 59604,
+      "id": "TB_BaconShop_Triples_01",
+      "name": "Triple Reward",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion\nfrom <b>Tier 0</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 78548,
+      "id": "TB_BaconShop_UpdateDmgCap",
+      "name": "Update Damage Cap [DNT]",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Checks if any players are dead and updates the Damage Cap tag on the GameEntity accordingly. [DNT]",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 114365,
+      "id": "TB_BaconUps_256t",
+      "name": "Warden's Treasure",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 2 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": "SPELLCRAFT",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58499,
+      "id": "TB_Bacon_Secrets_01",
+      "name": "Venomstrike Trap",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When one of your minions is attacked, summon a 2/3 <b>Poisonous</b> Cobra.",
+      "mechanics": [],
+      "referencedTags": [
+        "POISONOUS",
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123353,
+      "id": "TB_Bacon_Secrets_01b",
+      "name": "Better Venomstrike Trap",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Secret:</b> When one of your\nminions is attacked,\nsummon a 2/3 <b>Poisonous</b>\nCobra and give it <b>Reborn</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "POISONOUS",
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58500,
+      "id": "TB_Bacon_Secrets_02",
+      "name": "Snake Trap",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When one of your minions is attacked, summon three 1/1 Snakes.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58502,
+      "id": "TB_Bacon_Secrets_04",
+      "name": "Splitting Image",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When one of your minions is attacked, summon a copy of it.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58503,
+      "id": "TB_Bacon_Secrets_05",
+      "name": "Effigy",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When a friendly minion dies, summon a random minion with the same Cost.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58505,
+      "id": "TB_Bacon_Secrets_07",
+      "name": "Autodefense Matrix",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When one of your minions is attacked, give it <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123357,
+      "id": "TB_Bacon_Secrets_07b",
+      "name": "Better Autodefense Matrix",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Secret:</b> When one of your\nminions is attacked, give it\n<b>Divine Shield</b>. It takes 2 hits\nto break this combat.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58507,
+      "id": "TB_Bacon_Secrets_08",
+      "name": "Avenge",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When one of your minions dies, give a random friendly minion +3/+2.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58509,
+      "id": "TB_Bacon_Secrets_10",
+      "name": "Redemption",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When a friendly minion dies, return it to life with 1 Health.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123359,
+      "id": "TB_Bacon_Secrets_10b",
+      "name": "Better Redemption",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When a friendly minion dies, return it to life with full Health and enchantments.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58510,
+      "id": "TB_Bacon_Secrets_11",
+      "name": "Hand of Salvation",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When your second minion dies in a turn, return it to life.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 58512,
+      "id": "TB_Bacon_Secrets_12",
+      "name": "Ice Block",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When your hero takes fatal damage, prevent it and become <b>Immune</b> this turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "IMMUNE",
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 70114,
+      "id": "TB_Bacon_Secrets_13",
+      "name": "Competitive Spirit",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When your turn starts, give your minions +1/+1.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104758,
+      "id": "TB_Bacon_Secrets_14",
+      "name": "Reckoning",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> After an enemy minion deals 3 or more damage, destroy it.",
+      "mechanics": [
+        "SECRET"
+      ],
+      "referencedTags": [],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 113420,
+      "id": "TB_Bacon_Secrets_15",
+      "name": "Pack Tactics",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When a friendly minion is attacked, summon a 3/3 copy.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123361,
+      "id": "TB_Bacon_Secrets_15b",
+      "name": "Better Pack Tactics",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Secret:</b> When a friendly minion is attacked, summon a copy of it.",
+      "mechanics": [],
+      "referencedTags": [
+        "SECRET"
+      ],
+      "tier": null,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
     {
       "dbfId": 103791,
       "id": "BG28_503",
@@ -51330,7 +55856,8 @@
         "TAUNT"
       ],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 103793,
@@ -51342,7 +55869,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104502,
@@ -51354,7 +55882,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104436,
@@ -51366,7 +55895,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 105752,
@@ -51378,7 +55908,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 105903,
@@ -51390,7 +55921,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 117567,
@@ -51404,7 +55936,77 @@
       ],
       "referencedTags": [],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 120259,
+      "id": "BG31_HERO_801pta",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +6 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120260,
+      "id": "BG31_HERO_801ptb",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +6 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120261,
+      "id": "BG31_HERO_801ptc",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n3 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120262,
+      "id": "BG31_HERO_801ptd",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +2 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 1,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120263,
+      "id": "BG31_HERO_801pte",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+1/+1.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 1,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
     },
     {
       "dbfId": 122864,
@@ -51418,7 +56020,155 @@
         "DISCOVER"
       ],
       "tier": 1,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 126155,
+      "id": "BG34_Treasure_901",
+      "name": "Gruul Rules",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion \"At the end of your turn, gain +2/+2.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65232,
+      "id": "BGS_Treasures_001",
+      "name": "Pocket Change",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 Tavern Coins.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65236,
+      "id": "BGS_Treasures_004",
+      "name": "Gacha Gift",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tier 1 minion.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65239,
+      "id": "BGS_Treasures_007",
+      "name": "Might of Stormwind",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give all friendly minions Attack equal to your Tier.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65254,
+      "id": "BGS_Treasures_013",
+      "name": "The Good Stuff",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give minions in the Tavern +1/+1 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66427,
+      "id": "BGS_Treasures_029",
+      "name": "Rocking and Rolling",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "For the rest of the game, gain 1 free <b>Refresh</b> at the start of each turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66463,
+      "id": "BGS_Treasures_033",
+      "name": "New Recruit",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "The Tavern offers an extra minion with +2/+2 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92337,
+      "id": "BGS_Treasures_040",
+      "name": "Banana Bunch",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get 2 Tavern Dish Bananas.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129192,
+      "id": "BGS_Treasures_100",
+      "name": "Unfurled Codex",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a random Tavern spell that costs (2) or more.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129551,
+      "id": "BGS_Treasures_110",
+      "name": "Crystallization",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your Tavern spells give an extra +1/+1 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 100596,
+      "id": "EBG_Spell_014",
+      "name": "Pointy Arrow",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion\n+4 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 1,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 105664,
@@ -51430,7 +56180,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104559,
@@ -51442,7 +56193,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104029,
@@ -51454,7 +56206,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104446,
@@ -51468,7 +56221,90 @@
         "BACON_REFRESH_TOOLTIP"
       ],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 105269,
+      "id": "BG28_885",
+      "name": "Lantern Light",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion stats equal to your Tier.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120285,
+      "id": "BG31_HERO_801pta2",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +8 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120291,
+      "id": "BG31_HERO_801ptb2",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +8 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120297,
+      "id": "BG31_HERO_801ptc2",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n6 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120313,
+      "id": "BG31_HERO_801ptd2",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +3 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 2,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120319,
+      "id": "BG31_HERO_801pte2",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+2/+2.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 2,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
     },
     {
       "dbfId": 127288,
@@ -51482,7 +56318,49 @@
         "DISCOVER"
       ],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 126160,
+      "id": "BG34_Treasure_906",
+      "name": "The Bouncer",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion +6/+6 and <b>Taunt</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126406,
+      "id": "BG34_Treasure_930",
+      "name": "Timewarped Enchanted Lasso",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Steal all minions from the Tavern, then Refresh it.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126229,
+      "id": "BG34_Trinket_1st_Spell",
+      "name": "Buy a Lesser Trinket",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose from 4 Lesser <b>Trinket</b>s to buy.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": "LESSER_TRINKET",
+      "isPoolSpell": false
     },
     {
       "dbfId": 131152,
@@ -51494,7 +56372,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 133369,
@@ -51506,7 +56385,150 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 2,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 107943,
+      "id": "BGDUO_124",
+      "name": "Recruitment Program",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Get a random minion of\nyour teammate's most\ncommon type, then <b>Pass</b> it.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": 2,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65238,
+      "id": "BGS_Treasures_006",
+      "name": "Evolving Tavern",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Replace all cards in the Tavern with ones of a Tier higher.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65246,
+      "id": "BGS_Treasures_009",
+      "name": "Gruul Rules",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion \"At the end of your turn, gain +4/+4.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65248,
+      "id": "BGS_Treasures_010",
+      "name": "Time Thief",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion from your last opponent's warband.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65250,
+      "id": "BGS_Treasures_012",
+      "name": "On the House",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion of your Tier.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65256,
+      "id": "BGS_Treasures_014",
+      "name": "The Unlimited Coin",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 1 Gold.\nReturn this to your hand at end of turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65262,
+      "id": "BGS_Treasures_018",
+      "name": "I'm Still Just a Rat in a Cage",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +2 Attack,\nthen double its Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65380,
+      "id": "BGS_Treasures_026",
+      "name": "The Bouncer",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion <b>Taunt</b>, then double its Health.",
+      "mechanics": [],
+      "referencedTags": [
+        "TAUNT"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66458,
+      "id": "BGS_Treasures_030",
+      "name": "Big Brann Play",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Battlecries</b> trigger an extra time this turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129193,
+      "id": "BGS_Treasures_101",
+      "name": "Mageroyal Blossom",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tavern spell of your Tier.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 2,
+      "spellSchool": null,
+      "isPoolSpell": false
     },
     {
       "dbfId": 109230,
@@ -51518,7 +56540,36 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 105635,
+      "id": "BG28_513",
+      "name": "Reckless Investment",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 3 Gold.\nNext turn, lose 2 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105665,
+      "id": "BG28_519",
+      "name": "Fleeting Vigor",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Give your minions +2/+1.",
+      "mechanics": [
+        "START_OF_COMBAT"
+      ],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 105667,
@@ -51532,7 +56583,8 @@
         "TAUNT"
       ],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 105669,
@@ -51546,7 +56598,23 @@
         "DISCOVER"
       ],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 132367,
+      "id": "BG28_521t2",
+      "name": "Corrupted Planar Telescope",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion of your most common type with a Dark Gift",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 103779,
@@ -51558,7 +56626,21 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 104440,
+      "id": "BG28_814",
+      "name": "Echoing Roar",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion \"At the end of your turn, gain +2/+2.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 105267,
@@ -51570,7 +56652,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 105276,
@@ -51582,7 +56665,21 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 112884,
+      "id": "BG30_800",
+      "name": "Cry Foul",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a plain copy of a random minion from your last opponent's warband.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 113901,
@@ -51594,7 +56691,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 119470,
@@ -51608,7 +56706,8 @@
         "BACON_PASS_TOOLTIP"
       ],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 117573,
@@ -51622,7 +56721,131 @@
       ],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 120286,
+      "id": "BG31_HERO_801pta3",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +11 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120292,
+      "id": "BG31_HERO_801ptb3",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +11 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120298,
+      "id": "BG31_HERO_801ptc3",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n9 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120314,
+      "id": "BG31_HERO_801ptd3",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +4 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 3,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120320,
+      "id": "BG31_HERO_801pte3",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+4/+4.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 3,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120940,
+      "id": "BG32_337",
+      "name": "Seafood Stew",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +1/+1. Repeat for each different <b>Bonus Keyword</b> in your warband.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122489,
+      "id": "BG33_112",
+      "name": "Haunted Carapace",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Your minions have +3/+1 until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122748,
+      "id": "BG33_112t",
+      "name": "Haunted Carapace",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Your minions have +0/+0 until next turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 122448,
+      "id": "BG33_248",
+      "name": "Nimble Wingbeat",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Dragon +8 Health and <b>Windfury</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "WINDFURY"
+      ],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 122182,
@@ -51634,7 +56857,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 122183,
@@ -51646,7 +56870,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 122184,
@@ -51658,7 +56883,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 122185,
@@ -51670,7 +56896,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 122186,
@@ -51682,7 +56909,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 122862,
@@ -51694,7 +56922,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 126676,
@@ -51709,7 +56938,319 @@
         "BACON_BLOOD_GEM_TOOLTIP"
       ],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 126237,
+      "id": "BG34_HeroPowerSpell_003",
+      "name": "Power of Al'Akir",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Swatting Insects'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "TAUNT",
+        "WINDFURY"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126266,
+      "id": "BG34_HeroPowerSpell_005",
+      "name": "Power of Elise",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Lead Explorer'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126267,
+      "id": "BG34_HeroPowerSpell_006",
+      "name": "Power of George",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Boon of Light'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126269,
+      "id": "BG34_HeroPowerSpell_008",
+      "name": "Power of Shudderwock",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Snicker-Snack'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126270,
+      "id": "BG34_HeroPowerSpell_009",
+      "name": "Power of Teron",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Rapid\nReanimation' your\nsecond Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126271,
+      "id": "BG34_HeroPowerSpell_010",
+      "name": "Power of the Lich King",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Reborn Rites'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126273,
+      "id": "BG34_HeroPowerSpell_012",
+      "name": "Power of Zephrys",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Three Wishes'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126276,
+      "id": "BG34_HeroPowerSpell_015",
+      "name": "Power of Guff",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Natural Balance'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127400,
+      "id": "BG34_HeroPowerSpell_016",
+      "name": "Power of Flurgl",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Gone Fishing'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127401,
+      "id": "BG34_HeroPowerSpell_017",
+      "name": "Power of Sylvanas",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Reclaimed Souls'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127402,
+      "id": "BG34_HeroPowerSpell_018",
+      "name": "Power of Tavish",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Lock and Load'\nyour second Hero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127740,
+      "id": "BG34_HeroPowerSpell_022",
+      "name": "Power of Rakanishu",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Casts When Bought</b>\nMake 'Tavern\nLighting' your second\nHero Power.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127323,
+      "id": "BG34_Treasure_300",
+      "name": "Timewarped Investment",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Casts When Bought.</b>\nGain 1 extra Chronum at your next <b>Timewarp.</b>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127324,
+      "id": "BG34_Treasure_301",
+      "name": "Timewarped Beanstalk",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a 1-Cost card from the Major <b>Timewarp.</b> Lock it in your hand for 1 turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127965,
+      "id": "BG34_Treasure_606",
+      "name": "Timewarped Big Winner!",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Tier 3 Darkmoon Prize.\nRepeat at the start of every three turns.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127967,
+      "id": "BG34_Treasure_607",
+      "name": "Timewarped Trainee",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Get a random minion\neach from Tiers 1, 2,\nand 3.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127968,
+      "id": "BG34_Treasure_608",
+      "name": "Timewarped Ring",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Get a Shiny Ring. Repeat at the start of each turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127970,
+      "id": "BG34_Treasure_609",
+      "name": "Timewarped Lasso",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Get an Enchanted Lasso. Repeat at the start of each turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127972,
+      "id": "BG34_Treasure_610",
+      "name": "Timewarped Scroll",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Each turn this is in your hand, transform into a random 2-Cost card from the Minor <b>Timewarp</b>.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129090,
+      "id": "BG34_Treasure_620",
+      "name": "Timewarped Apples",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "After the Tavern is <b>Refreshed</b> this game, cast Them Apples.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126154,
+      "id": "BG34_Treasure_900",
+      "name": "Timewarped Evolving Tavern",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Get an Evolving Tavern. Repeat at the start of each turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126262,
+      "id": "BG34_Treasure_917",
+      "name": "Timewarped New Recruit",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give minions in the Tavern +2/+2 this game. The Tavern always has 7 cards this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126230,
+      "id": "BG34_Trinket_2nd_Spell",
+      "name": "Deprecated",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Deprecated -- Use XXX <b>Trinket</b>  or XXX <b>Trinket</b>2 instead.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": "LESSER_TRINKET",
+      "isPoolSpell": false
     },
     {
       "dbfId": 133711,
@@ -51721,7 +57262,167 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 3,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 107918,
+      "id": "BGDUO_123",
+      "name": "Catch!",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your minions +2\nAttack. <i>(Improves by +2\nAttack after this is\n <b>Passed</b>!)</i>",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": 3,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65249,
+      "id": "BGS_Treasures_011",
+      "name": "Training Session",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a new Hero Power.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65259,
+      "id": "BGS_Treasures_015",
+      "name": "Buy the Holy Light",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion +10 Attack and <b>Divine Shield</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65264,
+      "id": "BGS_Treasures_019",
+      "name": "B.A.N.A.N.A.S.",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Fill your hand with Tavern Dish Bananas.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65265,
+      "id": "BGS_Treasures_020",
+      "name": "Top Shelf",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion\nfrom a Tier higher\n<i>(up to Tier 7)</i>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66495,
+      "id": "BGS_Treasures_034",
+      "name": "Repeat Customer",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Return a friendly non-Golden minion to your hand. Give it +6/+6.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66947,
+      "id": "BGS_Treasures_037",
+      "name": "All That Glitters",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Make a random minion in the Tavern Golden.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 92336,
+      "id": "BGS_Treasures_039",
+      "name": "Mindflayer Goggles",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Steal all cards from the Tavern, then <b>Refresh</b> it.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129198,
+      "id": "BGS_Treasures_104",
+      "name": "Reserve Prices",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Tavern spells cost (1) less this turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 3,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104027,
+      "id": "BG28_509",
+      "name": "Brann's Blessing",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Battlecries</b> trigger twice until next turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 110383,
+      "id": "BG28_600",
+      "name": "Scavenge for Parts",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "At the end of your turn, get a random <b>Magnetic</b> minion. Lasts 3 turns.",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "MAGNETIC"
+      ],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 110400,
@@ -51733,7 +57434,23 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 110409,
+      "id": "BG28_602",
+      "name": "Guzzle the Goop",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]At the end of your turn,\ngive your Dragons +4\nAttack. Lasts 3 turns.",
+      "mechanics": [
+        "END_OF_TURN_TRIGGER"
+      ],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 110401,
@@ -51749,7 +57466,8 @@
         "TAUNT"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 110406,
@@ -51763,7 +57481,38 @@
         "BACON_SPELLCRAFT_ID"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 110471,
+      "id": "BG28_609",
+      "name": "Plunder Seeker",
+      "cost": 7,
+      "set": "BATTLEGROUNDS",
+      "text": "Steal a random card from the Tavern for each Pirate you control.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 110679,
+      "id": "BG28_641",
+      "name": "Toxic Tumbleweed",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Summon a 1/1 Tumbling Assassin with <b>Venomous</b>.\nIt attacks immediately.",
+      "mechanics": [
+        "START_OF_COMBAT"
+      ],
+      "referencedTags": [
+        "VENOMOUS"
+      ],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 110642,
@@ -51777,7 +57526,21 @@
         "BACON_BLOOD_GEM_TOOLTIP"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 104438,
+      "id": "BG28_812",
+      "name": "Ritual of Growth",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Replace all cards in\nthe Tavern with ones\nof a Tier higher.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 104445,
@@ -51791,7 +57554,23 @@
         "TAUNT"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 104461,
+      "id": "BG28_843",
+      "name": "Titus' Tribute",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Your <b>Deathrattles</b> trigger twice until\nnext turn.",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 104472,
@@ -51803,7 +57582,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 105271,
@@ -51815,7 +57595,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 117670,
@@ -51827,7 +57608,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 115910,
@@ -51843,7 +57625,116 @@
         "DISCOVER"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 115900,
+      "id": "BG31_891",
+      "name": "Marauder's Contract",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Steal a random Pirate from the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120287,
+      "id": "BG31_HERO_801pta4",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +15 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120293,
+      "id": "BG31_HERO_801ptb4",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +15 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120309,
+      "id": "BG31_HERO_801ptc4",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n18 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120315,
+      "id": "BG31_HERO_801ptd4",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +5 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120321,
+      "id": "BG31_HERO_801pte4",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+7/+7.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120265,
+      "id": "BG31_HERO_801ptf",
+      "name": "Advanced Construction",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"1 Battlecruiser Upgrade\nyou buy each turn is free.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120442,
+      "id": "BG32_814",
+      "name": "Align the Elements",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give Elementals in the Tavern +3/+3\nthis game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 120900,
@@ -51855,7 +57746,36 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 123553,
+      "id": "BG33_819",
+      "name": "Raptor's Revenge",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Avenge (4):</b> Get a\nrandom Beast.\nLasts 1 turn.",
+      "mechanics": [
+        "AVENGE"
+      ],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 123643,
+      "id": "BG33_898",
+      "name": "Murky's Fish",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a Murloc +1/+1. Repeat for each Murloc you control.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 126909,
@@ -51869,7 +57789,8 @@
         "BACON_REFRESH_TOOLTIP"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 126957,
@@ -51883,7 +57804,8 @@
         "DISCOVER"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 131218,
@@ -51895,7 +57817,34 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 130310,
+      "id": "BG35_910",
+      "name": "Conflagration",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a minion +4/+4. <i>(Improved by each Elemental you played this turn!)</i>",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 130311,
+      "id": "BG35_911",
+      "name": "Arcane Absorption",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly Elemental half the stats of the highest-Health minion in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 130312,
@@ -51907,7 +57856,21 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 131153,
+      "id": "BG35_952",
+      "name": "Back to Back",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +4/+4.\nYour future Back to Backs\ngive an extra +4/+4.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 132995,
@@ -51921,7 +57884,8 @@
         "DIVINE_SHIELD"
       ],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 132903,
@@ -51933,7 +57897,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 133371,
@@ -51945,7 +57910,121 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 4,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 105250,
+      "id": "BGDUO_113",
+      "name": "Portal in a Bottle",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Pass</b> a non-Golden minion.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_PASS_TOOLTIP"
+      ],
+      "tier": 4,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65260,
+      "id": "BGS_Treasures_016",
+      "name": "Raise the Stakes",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Make a friendly minion Golden and return it to your hand.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65270,
+      "id": "BGS_Treasures_022",
+      "name": "Friends and Family Discount",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Minions in the Tavern cost (2) this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65277,
+      "id": "BGS_Treasures_023",
+      "name": "Open Bar",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 5 free <b>Refreshes</b>. At the start of each turn, gain 5 more.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 65274,
+      "id": "BGS_Treasures_025",
+      "name": "Fresh Tab",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Gain 12 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66424,
+      "id": "BGS_Treasures_028",
+      "name": "Give a Dog a Bone",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Give a friendly minion <b>Divine Shield</b>, <b>Windfury</b>, and +15/+15.",
+      "mechanics": [],
+      "referencedTags": [
+        "DIVINE_SHIELD",
+        "WINDFURY"
+      ],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 66460,
+      "id": "BGS_Treasures_032",
+      "name": "Big Winner!",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Darkmoon Prize from each of the previous Prize Tiers.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129197,
+      "id": "BGS_Treasures_106",
+      "name": "Gorgeous Goblet",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "Fill your hand with random Tavern spells.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 4,
+      "spellSchool": null,
+      "isPoolSpell": false
     },
     {
       "dbfId": 103785,
@@ -51957,7 +58036,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104560,
@@ -51971,7 +58051,8 @@
       ],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 110412,
@@ -51983,7 +58064,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 110407,
@@ -51995,7 +58077,36 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 110631,
+      "id": "BG28_612",
+      "name": "Fluidity",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Swap a friendly\nnon-Golden minion with a\nrandom one in the Tavern.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104465,
+      "id": "BG28_821",
+      "name": "Top of the Beanstalk",
+      "cost": 5,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a minion from <b>Tavern Tier 6</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 104448,
@@ -52007,7 +58118,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104494,
@@ -52021,7 +58133,36 @@
         "BACON_REFRESH_TOOLTIP"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 104534,
+      "id": "BG28_870",
+      "name": "Jaws of Fate",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "Spin the Wheel of Yogg-Saron.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 104535,
+      "id": "BG28_871",
+      "name": "Buddy Up",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a Buddy.",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 105265,
@@ -52037,7 +58178,36 @@
         "DEATHRATTLE"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 105266,
+      "id": "BG28_883",
+      "name": "Dreamer's Embrace",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Trigger a friendly minion's <b>Battlecry</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "BATTLECRY"
+      ],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 105905,
+      "id": "BG28_955",
+      "name": "Primal Staff",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Your end of turn effects trigger twice this turn.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 105264,
@@ -52053,7 +58223,8 @@
         "BATTLECRY"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 117671,
@@ -52067,7 +58238,8 @@
         "DISCOVER"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 119471,
@@ -52081,7 +58253,8 @@
         "BACON_PASS_TOOLTIP"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 117584,
@@ -52095,7 +58268,105 @@
       ],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 120288,
+      "id": "BG31_HERO_801pta5",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +20 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120294,
+      "id": "BG31_HERO_801ptb5",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +20 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120310,
+      "id": "BG31_HERO_801ptc5",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n24 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120316,
+      "id": "BG31_HERO_801ptd5",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +6 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120322,
+      "id": "BG31_HERO_801pte5",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+10/+10.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120325,
+      "id": "BG31_HERO_801ptf2",
+      "name": "Advanced Construction",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"1 Battlecruiser Upgrade\nyou buy each turn is free.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120272,
+      "id": "BG31_HERO_801pth",
+      "name": "Fortified Bunker",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"At the end of your turn,\nget a random <b>Magnetic</b>\nMech.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "MAGNETIC"
+      ],
+      "tier": 5,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
     },
     {
       "dbfId": 122899,
@@ -52109,7 +58380,8 @@
         "DIVINE_SHIELD"
       ],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 127503,
@@ -52123,7 +58395,8 @@
       ],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 127506,
@@ -52135,7 +58408,250 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 127423,
+      "id": "BG34_Treasure_302",
+      "name": "Timewarped Cloning Device",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a friendly minion. Summon an exact copy of it.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129289,
+      "id": "BG34_Treasure_625",
+      "name": "Timewarped Secrecy",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Discover</b> a Golden\nTier 7 minion.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126156,
+      "id": "BG34_Treasure_902",
+      "name": "Timewarped Master Thief",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Discover</b> a minion from\nyour warband <i>last game!</i>\nIt keeps its stats and\n<b><b>Bonus Keyword</b>s</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126157,
+      "id": "BG34_Treasure_903",
+      "name": "Timewarped On the House",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> 3 minions from your Tier.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126159,
+      "id": "BG34_Treasure_905",
+      "name": "Timewarped Rat in a Cage",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give a minion +2/+2,\nthen double its stats.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126165,
+      "id": "BG34_Treasure_912",
+      "name": "Timewarped B.A.N.A.N.A.S.",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Fill your hand with Tavern\nDish Bananas. Your\nTavern spells give an\nextra +3/+3 this game.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127774,
+      "id": "BG34_Treasure_919",
+      "name": "Timewarped Ritual",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> two Tier 7 minions.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126397,
+      "id": "BG34_Treasure_932",
+      "name": "Timewarped Strike Oil",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "Increase your maximum Gold by 4. Gain 4 Gold.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126398,
+      "id": "BG34_Treasure_933",
+      "name": "Timewarped Evolution",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion.\n<b>Discover</b> a Tier 6 minion\nto transform it into.\nSet its stats to 30/30.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126399,
+      "id": "BG34_Treasure_934",
+      "name": "Timewarped Armor Stash",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Casts When Bought</b>\nGain 10 Armor.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126401,
+      "id": "BG34_Treasure_937",
+      "name": "Timewarped Corpse",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a <b>Deathrattle</b> minion from Tier 5 or higher. Give it <b><b>Reborn</b>.</b>",
+      "mechanics": [
+        "DISCOVER"
+      ],
+      "referencedTags": [
+        "DEATHRATTLE",
+        "REBORN"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 126404,
+      "id": "BG34_Treasure_940",
+      "name": "Timewarped Chef's Choice",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a minion. Get a random minion of the same type from Tiers 4, 5, and 6.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127513,
+      "id": "BG34_Treasure_950",
+      "name": "Timewarped Special",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Fill your hand with random <b>Spellcraft</b> spells.",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_SPELLCRAFT_ID"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127706,
+      "id": "BG34_Treasure_951",
+      "name": "Timewarped Conch",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a friendly Murloc. Summon an exact copy of it.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127709,
+      "id": "BG34_Treasure_953",
+      "name": "Timewarped Revelation",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Discover</b> a 1-Cost and\n2-Cost minion from the\nMinor <b>Timewarp</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127865,
+      "id": "BG34_Treasure_955",
+      "name": "Timewarped Goldenizer",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Choose a minion.\nMake it Golden.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 128015,
+      "id": "BG34_Treasure_966",
+      "name": "Timewarped Thief",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Discover</b> a minion from\nyour warband <i>last game!</i>\nSet its stats to 20/20.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 5,
+      "spellSchool": null,
+      "isPoolSpell": false
     },
     {
       "dbfId": 130713,
@@ -52147,7 +58663,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 100899,
@@ -52159,7 +58676,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 100910,
@@ -52173,7 +58691,8 @@
       ],
       "referencedTags": [],
       "tier": 5,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 109232,
@@ -52185,7 +58704,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 6,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 104601,
@@ -52197,7 +58717,40 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 6,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 113902,
+      "id": "BG30_802",
+      "name": "Knockoff Wisdomball",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "Your next 2 <b>Refreshes</b> are helpful! <i>(2 left!)</i>",
+      "mechanics": [
+        "TRIGGER_VISUAL"
+      ],
+      "referencedTags": [
+        "BACON_REFRESH_TOOLTIP"
+      ],
+      "tier": 6,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 117592,
+      "id": "BG31_884",
+      "name": "The Road Less Traveled",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]<b>Choose One - </b>Get a\nrandom Tier 6 minion; or\nGet two random Tier 5\nminions.",
+      "mechanics": [
+        "CHOOSE_ONE"
+      ],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 116221,
@@ -52211,7 +58764,150 @@
         "DISCOVER"
       ],
       "tier": 6,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 120289,
+      "id": "BG31_HERO_801pta6",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +28 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120295,
+      "id": "BG31_HERO_801ptb6",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +28 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120311,
+      "id": "BG31_HERO_801ptc6",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n30 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120317,
+      "id": "BG31_HERO_801ptd6",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +8 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120323,
+      "id": "BG31_HERO_801pte6",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+15/+15.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120326,
+      "id": "BG31_HERO_801ptf3",
+      "name": "Advanced Construction",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"1 Battlecruiser Upgrade\nyou buy each turn is free.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120331,
+      "id": "BG31_HERO_801pth2",
+      "name": "Fortified Bunker",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"At the end of your turn,\nget a random <b>Magnetic</b>\nMech.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "MAGNETIC"
+      ],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120275,
+      "id": "BG31_HERO_801pti",
+      "name": "Missile Pod",
+      "cost": 5,
+      "set": "BATTLEGROUNDS",
+      "text": "Make your Battlecruiser's Yamato Cannon trigger twice.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120277,
+      "id": "BG31_HERO_801ptj",
+      "name": "Ultra-Capacitor",
+      "cost": 6,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n<b>Reborn</b> and \"This is\n<b>Reborn</b> with full Health\nand enchantments.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 6,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 127642,
+      "id": "BG34_991",
+      "name": "Hand of Deios",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Start of Combat:</b> Trigger a random friendly <b>Battlecry</b>, <b>Deathrattle</b>, and <b>Rally</b>.",
+      "mechanics": [
+        "START_OF_COMBAT"
+      ],
+      "referencedTags": [
+        "BATTLECRY",
+        "BACON_RALLY",
+        "DEATHRATTLE"
+      ],
+      "tier": 6,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 100601,
@@ -52223,7 +58919,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 6,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 100911,
@@ -52237,7 +58934,8 @@
         "BACON_REFRESH_TOOLTIP"
       ],
       "tier": 6,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 103796,
@@ -52251,7 +58949,8 @@
         "DIVINE_SHIELD"
       ],
       "tier": 7,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     },
     {
       "dbfId": 119599,
@@ -52265,7 +58964,21 @@
       ],
       "referencedTags": [],
       "tier": 7,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 119603,
+      "id": "BG31_895",
+      "name": "Blade of Ambition",
+      "cost": 7,
+      "set": "BATTLEGROUNDS",
+      "text": "Choose a friendly minion. Set its Attack and Health to match the highest in your warband.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 119718,
@@ -52279,7 +58992,146 @@
         "DISCOVER"
       ],
       "tier": 7,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
+    },
+    {
+      "dbfId": 120290,
+      "id": "BG31_HERO_801pta7",
+      "name": "Hyperflight Rotors",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +40 Attack.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120296,
+      "id": "BG31_HERO_801ptb7",
+      "name": "Smart Servos",
+      "cost": 1,
+      "set": "BATTLEGROUNDS",
+      "text": "Give your Battlecruiser +40 Health.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120312,
+      "id": "BG31_HERO_801ptc7",
+      "name": "Yamato Cannon",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Start of Combat:</b> Deal\n40 damage to the highest-\nHealth enemy minion.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120318,
+      "id": "BG31_HERO_801ptd7",
+      "name": "Advanced Ballistics",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Rally:</b> Give your other\nminions +10 Attack.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "BACON_RALLY"
+      ],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120324,
+      "id": "BG31_HERO_801pte7",
+      "name": "Caduceus Reactor",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"<b>Deathrattle:</b> Give your\nleft-most minion\n+25/+25.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "DEATHRATTLE"
+      ],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120327,
+      "id": "BG31_HERO_801ptf4",
+      "name": "Advanced Construction",
+      "cost": 0,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"1 Battlecruiser Upgrade\nyou buy each turn is free.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120332,
+      "id": "BG31_HERO_801pth3",
+      "name": "Fortified Bunker",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n\"At the end of your turn,\nget a random <b>Magnetic</b>\nMech.\"",
+      "mechanics": [],
+      "referencedTags": [
+        "MAGNETIC"
+      ],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120333,
+      "id": "BG31_HERO_801pti2",
+      "name": "Missile Pod",
+      "cost": 3,
+      "set": "BATTLEGROUNDS",
+      "text": "Make your Battlecruiser's Yamato Cannon trigger twice.",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 120334,
+      "id": "BG31_HERO_801ptj2",
+      "name": "Ultra-Capacitor",
+      "cost": 4,
+      "set": "BATTLEGROUNDS",
+      "text": "[x]Give your Battlecruiser\n<b>Reborn</b> and \"This is\n<b>Reborn</b> with full Health\nand enchantments.\"",
+      "mechanics": [],
+      "referencedTags": [],
+      "tier": 7,
+      "spellSchool": "UPGRADE",
+      "isPoolSpell": false
+    },
+    {
+      "dbfId": 129430,
+      "id": "BG34_270",
+      "name": "Time Snap",
+      "cost": 2,
+      "set": "BATTLEGROUNDS",
+      "text": "<b>Discover</b> a 1-Cost minion from the Major <b>Timewarp</b>.",
+      "mechanics": [],
+      "referencedTags": [
+        "DISCOVER"
+      ],
+      "tier": 7,
+      "spellSchool": "TAVERN",
+      "isPoolSpell": false
     },
     {
       "dbfId": 130527,
@@ -52291,7 +59143,8 @@
       "mechanics": [],
       "referencedTags": [],
       "tier": 7,
-      "spellSchool": "TAVERN"
+      "spellSchool": "TAVERN",
+      "isPoolSpell": true
     }
   ],
   "trinkets": [

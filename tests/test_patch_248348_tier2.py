@@ -637,3 +637,96 @@ def test_every_kind_of_spell_counts_toward_the_improvement(patch):
 
     play_tavern_spell_from_hand(player, 0, rng=np.random.default_rng(0), patch=patch)
     assert player.game_counts[SPELLS_CAST] == 2
+
+
+# --------------------------------------------------------------------------- #
+# The three cards that hand over a spell the tavern never sells
+# --------------------------------------------------------------------------- #
+
+
+def test_metallic_hunter_leaves_a_pointy_arrow(patch, triggers):
+    hunter = _card(patch, "BG32_170")
+    player = _player(patch, [hunter])
+    triggers.fire_on_sell(hunter, player)  # its deathrattle effect, fired directly
+    triggers.apply_shop_effect(player, hunter, hunter.abilities[0].effect, None)
+    got = [c for c in player.hand if c is not None]
+    assert got and got[0].card_id == "EBG_Spell_014"
+
+
+def test_a_pointy_arrow_is_a_tavern_spell_but_never_on_the_counter(patch):
+    """Two different questions, and this card answers them differently."""
+    from src.bg_recruitment.tavern_spells import tavern_spell_pool
+
+    arrow = patch.tavern_spells["EBG_Spell_014"]
+    assert arrow.is_tavern_spell and not arrow.in_pool
+    assert "EBG_Spell_014" not in tavern_spell_pool(6, patch=patch)
+
+
+def test_a_slimy_shield_is_no_kind_of_tavern_spell(patch):
+    shield = patch.tavern_spells["BG27_002t"]
+    assert not shield.is_tavern_spell and not shield.in_pool
+
+
+def test_oozeling_gladiator_hands_over_two_shields(patch, triggers):
+    ooze = _card(patch, "BG27_002")
+    player = _player(patch, [ooze])
+    triggers.fire_on_place(ooze, player, None)
+    got = [c for c in player.hand if c is not None]
+    assert len(got) == 2 and all(c.card_id == "BG27_002t" for c in got)
+
+
+def test_a_slimy_shield_gives_taunt_when_cast(patch):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    target = Minion(card_id="t", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [target])
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG27_002t"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=target,
+    )
+    assert (target.raw_attack, target.max_health) == (2, 2)
+    assert Keyword.TAUNT in target.all_keywords
+
+
+def test_crater_miner_takes_the_gems_or_the_gem_day(patch, triggers):
+    from src.bg_recruitment.choose_one import resolve_choose_one
+    from src.bg_recruitment.blood_gems import is_blood_gem
+
+    miner = _card(patch, "BG31_320")
+    player = _player(patch, [miner])
+    triggers.fire_on_place(miner, player, None)
+    resolve_choose_one(
+        player,
+        0,
+        apply_effect=lambda src, eff: triggers.apply_shop_effect(player, src, eff, None),
+    )
+    assert sum(1 for c in player.hand if c is not None and is_blood_gem(c)) == 2
+
+    other = _player(patch, [_card(patch, "BG31_320")])
+    triggers.fire_on_place(other.board[0], other, None)
+    resolve_choose_one(
+        other,
+        1,
+        apply_effect=lambda src, eff: triggers.apply_shop_effect(other, src, eff, None),
+    )
+    assert any(c is not None and c.card_id == "BG31_893" for c in other.hand)
+
+
+def test_a_gem_day_raises_what_a_gem_is_worth(patch):
+    from src.bg_recruitment.blood_gems import play_blood_gem_on
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    target = Minion(card_id="t", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [target])
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG31_893"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        choose_one_option=0,
+    )
+    play_blood_gem_on(player, target)
+    assert (target.raw_attack, target.max_health) == (3, 2)  # +2/+1 instead of +1/+1

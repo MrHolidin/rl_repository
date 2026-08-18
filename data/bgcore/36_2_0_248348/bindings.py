@@ -37,6 +37,7 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     ChooseOneEffect,
     ConsumeTavernMinionEffect,
+    IncreaseBloodGemBonusEffect,
     CreateSpellcraftSpellEffect,
     DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
@@ -257,6 +258,25 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     # "Improves" — a seat tally the card multiplies itself by. The level starts
     # at one, so an unimproved card is worth exactly what it prints, and the
     # bump comes *after* the effect it improves, because the cards say "future".
+    "BG32_170": (  # Metallic Hunter — Deathrattle: get a Pointy Arrow
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="EBG_Spell_014")),
+    ),
+    "BG27_002": (  # Oozeling Gladiator — Battlecry: get two Slimy Shields
+        Ability(
+            Trigger.ON_PLACE,
+            AddTavernSpellToHandEffect(card_id="BG27_002t", count=2),
+        ),
+    ),
+    "BG31_320": (  # Crater Miner — Choose One: 2 Blood Gems; or a Gem Day
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=GainBloodGemsEffect(count=2),
+                second=AddTavernSpellToHandEffect(card_id="BG31_893"),
+            ),
+        ),
+    ),
+    # The Gem Day card itself: its whole text is the Choose One it offers.
     "BG31_816": (  # Fire Baller — sell: your minions +1 Attack, and Ballers improve
         Ability(
             Trigger.ON_SELL,
@@ -413,6 +433,32 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
 #: battlecry, so every ability here hangs off ``Trigger.ON_PLACE`` — it fires
 #: when the card is cast, which for a spell is the only thing it ever does.
 SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
+    # ---------------------------------------------------- spells handed out
+    # Not sold in the tavern; these arrive from a minion that names them.
+    "EBG_Spell_014": (  # Pointy Arrow — give a minion +4 Attack
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(attack=4, health=0, exclude_self=False),
+        ),
+    ),
+    "BG27_002t": (  # Slimy Shield — give a minion +1/+1 and Taunt
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(
+                attack=1, health=1, exclude_self=False, grant_keyword=Keyword.TAUNT
+            ),
+        ),
+    ),
+    "BG31_893": (  # Gem Day — Choose One: your Blood Gems give +1 Attack; or +1 Health
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=IncreaseBloodGemBonusEffect(attack=1, health=0),
+                second=IncreaseBloodGemBonusEffect(attack=0, health=1),
+            ),
+        ),
+    ),
+
     # ------------------------------------------------------------------ tier 1
     "BG28_810": (  # Tavern Coin — Gain 1 Gold
         Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=1)),

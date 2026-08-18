@@ -115,13 +115,19 @@ def load_tavern_minions(path: Optional[Path] = None) -> List[TavernMinionRecord]
 
 
 @dataclass(frozen=True)
-class TavernSpellRecord:
-    """One row of the catalog's ``tavernSpells`` section.
+class SpellRecord:
+    """One row of the catalog's ``spells`` section.
 
     Its own record and not a :class:`TavernMinionRecord` with empty stats: a
     spell has a tier and a cost and nothing else a minion has, and the cost is
     load-bearing here in a way a minion's never is — a minion always costs the
     ruleset's buy price, a spell costs what is printed on it.
+
+    Two flags, because the cards ask both questions and they are not the same
+    one. ``is_tavern_spell`` is what "whenever you cast a Tavern spell" counts,
+    and it is a property of the card; ``in_pool`` is whether the tavern ever
+    offers it. Pointy Arrow is a Tavern spell that only ever arrives from a
+    deathrattle, and a Blood Gem is neither.
     """
 
     dbf_id: int
@@ -132,9 +138,15 @@ class TavernSpellRecord:
     text: Optional[str]
     mechanics: FrozenSet[str]
     referenced_tags: FrozenSet[str]
+    school: Optional[str]
+    in_pool: bool
+
+    @property
+    def is_tavern_spell(self) -> bool:
+        return self.school == "TAVERN"
 
     @classmethod
-    def from_row(cls, row: Mapping[str, Any]) -> "TavernSpellRecord":
+    def from_row(cls, row: Mapping[str, Any]) -> "SpellRecord":
         return cls(
             dbf_id=int(row["dbfId"]),
             id=str(row["id"]),
@@ -144,6 +156,8 @@ class TavernSpellRecord:
             text=row.get("text"),
             mechanics=frozenset(row.get("mechanics") or ()),
             referenced_tags=frozenset(row.get("referencedTags") or ()),
+            school=row.get("spellSchool"),
+            in_pool=bool(row.get("isPoolSpell")),
         )
 
 
@@ -159,14 +173,14 @@ def is_duos_only_card_id(card_id: str) -> bool:
     return card_id.startswith("BGDUO")
 
 
-def load_tavern_spells(path: Optional[Path] = None) -> List[TavernSpellRecord]:
-    """The catalog's tavern spells, or nothing on a package that has none.
+def load_spells(path: Optional[Path] = None) -> List[SpellRecord]:
+    """Every spell the package carries, or nothing on a package with none.
 
-    The 2021 packages predate Tavern spells entirely and carry no such section,
-    which is not an error — it is what that patch was.
+    The 2021 packages predate Battlegrounds spells entirely and have no such
+    section, which is not an error — it is what that patch was.
     """
     data = load_patch_catalog(path)
-    return [TavernSpellRecord.from_row(r) for r in data.get("tavernSpells", ())]
+    return [SpellRecord.from_row(r) for r in data.get("spells", ())]
 
 
 def tier_by_dbf_id(path: Optional[Path] = None) -> Dict[int, int]:

@@ -163,16 +163,32 @@ def _row(c: dict, **extra) -> dict:
     return row
 
 
-def collect_tavern_spells(cards: list) -> list[dict]:
-    """Cards bought off the tavern counter (BATTLEGROUND_SPELL, school TAVERN).
+def collect_spells(cards: list) -> list[dict]:
+    """Every Battlegrounds spell, the way ``minions`` carries every minion.
 
-    Not to be confused with a Blood Gem or a Spellcraft spell: those are plain
-    SPELLs that go straight to hand, and cards tell the two apart.
+    Three kinds live here and the flags tell them apart, because the cards do:
+
+    * **offered on the counter** — ``isPoolSpell``, the 75 a seat can buy;
+    * **Tavern spells that are handed out rather than sold** — school TAVERN
+      without the pool flag (Pointy Arrow arrives from a deathrattle). They
+      still count for "whenever you cast a Tavern spell";
+    * **plain spells** — a Blood Gem, a Spellcraft spell, Slimy Shield, Gem Day.
+      No school, never in the tavern, and not a Tavern spell to any listener.
+
+    Emitting only the pool ones is what left three tier-2 cards unbindable: a
+    binding can only name a card the catalog carries, and the tokens these
+    cards hand over were not in it.
     """
     out = [
-        _row(c, tier=c.get("techLevel"), spellSchool=c.get("spellSchool"))
+        _row(
+            c,
+            tier=c.get("techLevel"),
+            spellSchool=c.get("spellSchool"),
+            isPoolSpell=bool(c.get("isBattlegroundsPoolSpell")),
+        )
         for c in cards
-        if c.get("isBattlegroundsPoolSpell")
+        if c.get("set") == "BATTLEGROUNDS"
+        and c.get("type") in ("SPELL", "BATTLEGROUND_SPELL")
     ]
     return sorted(out, key=lambda r: (r["tier"] or 0, r["id"] or ""))
 
@@ -305,7 +321,7 @@ def main() -> None:
     # Non-minion cards, each kind in its own section. Empty on old builds,
     # which is itself the honest answer: 15.6.2 had none of them.
     for key, rows in (
-        ("tavernSpells", collect_tavern_spells(cards)),
+        ("spells", collect_spells(cards)),
         ("trinkets", collect_trinkets(cards)),
         ("heroes", collect_heroes(cards)),
         ("darkGifts", collect_dark_gifts(cards)),
@@ -319,7 +335,7 @@ def main() -> None:
         f.write("\n")
     counts = ", ".join(
         f"{len(payload[k])} {k}"
-        for k in ("tavernSpells", "trinkets", "heroes", "darkGifts")
+        for k in ("spells", "trinkets", "heroes", "darkGifts")
         if k in payload
     )
     print(f"Wrote {len(minions)} minions{', ' + counts if counts else ''} to {args.out}")
