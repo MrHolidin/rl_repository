@@ -374,11 +374,33 @@ def test_expert_aviator_summons_the_biggest_card_in_hand(patch):
     big = _card(patch, "BG23_002")  # Shell Collector 4/3
     player.hand[0], player.hand[1] = small, big
     seat = PlayerCombatSeat(player)
+    # One swing, so only the first pick happens.
     survivors, deaths = _fight(
-        [aviator], [_wall(hp=40)], patch, seats=(seat, PlayerCombatSeat(_player(patch)))
+        [aviator], [_wall(hp=1)], patch, seats=(seat, PlayerCombatSeat(_player(patch)))
     )
     on_board = {m.card_id for m in survivors} | {cid for side, cid in deaths if side == 0}
     assert big.card_id in on_board and small.card_id not in on_board
+
+
+def test_a_card_summoned_from_hand_is_locked_for_the_fight(patch):
+    """It stays in hand, but nothing summons it twice — so a second Rally
+    reaches the next-biggest card instead of repeating the first."""
+    aviator = _card(patch, "BG34_140")
+    player = _player(patch, [aviator])
+    small = _card(patch, "BG25_001")
+    big = _card(patch, "BG23_002")
+    player.hand[0], player.hand[1] = small, big
+    survivors, deaths = _fight(
+        [aviator],
+        [_wall(hp=60)],
+        patch,
+        seats=(PlayerCombatSeat(player), PlayerCombatSeat(_player(patch))),
+    )
+    summoned = [cid for side, cid in deaths if side == 0] + [m.card_id for m in survivors]
+    assert summoned.count(big.card_id) == 1
+    assert summoned.count(small.card_id) == 1
+    # And neither left the hand.
+    assert player.hand[0] is small and player.hand[1] is big
 
 
 def test_the_card_it_summoned_is_still_in_hand(patch):

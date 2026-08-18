@@ -616,32 +616,42 @@ def _summon_best_from_hand(
     Two cards print this at different moments — a Rally and a Start of Combat —
     and it is the same reach either way: the card stays in hand and a copy of it
     joins the fight, carrying whatever the real card had gained.
+
+    A card that has been summoned this fight is locked and this looks past it,
+    so a second Rally reaches the next-biggest rather than the same card twice.
     """
     held = _hand_candidates(rt, side_idx, effect.filter_race)
     if not held:
         return
-    card_id, attack, health = max(held, key=lambda row: row[1])
+    instance_id, card_id, attack, health = max(held, key=lambda row: row[2])
     template = rt.patch.templates.get(card_id)
     if template is None:
         return
     body = copy(template)
     body.bonus_attack += max(0, attack - template.raw_attack)
     body.bonus_health += max(0, health - template.max_health)
-    _summon_beside(
+    if _summon_beside(
         rt, side_idx, source, SummonEffect(token_id=card_id, count=1), template=body
-    )
+    ):
+        rt.hand_summoned[side_idx].add(instance_id)
 
 
 def _hand_candidates(rt: _CombatRuntime, side_idx: int, filter_race):
-    """Hand minions a summon-from-hand may choose, tribe filter applied."""
-    held = rt.seats[side_idx].hand_minion_stats()
-    if filter_race is None:
-        return list(held)
+    """Hand minions a summon-from-hand may still choose.
+
+    Filtered by tribe where the card names one, and by the lock either way: a
+    body already summoned into this fight is not available again.
+    """
+    locked = rt.hand_summoned[side_idx]
     out = []
-    for card_id, attack, health in held:
-        template = rt.patch.templates.get(card_id)
-        if template is not None and minion_matches_tribe(template, filter_race):
-            out.append((card_id, attack, health))
+    for instance_id, card_id, attack, health in rt.seats[side_idx].hand_minions():
+        if instance_id in locked:
+            continue
+        if filter_race is not None:
+            template = rt.patch.templates.get(card_id)
+            if template is None or not minion_matches_tribe(template, filter_race):
+                continue
+        out.append((instance_id, card_id, attack, health))
     return out
 
 

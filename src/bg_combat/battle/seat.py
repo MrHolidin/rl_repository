@@ -52,9 +52,13 @@ class CombatSeat(Protocol):
     def raise_blood_gem_value(self, attack: int, health: int) -> None:
         """"Your Blood Gems give an extra +1/+1 this game", raised in combat."""
 
-    def hand_card_ids(self) -> Tuple[str, ...]:
-        """Card ids held in hand, for the Start of Combat effects that fire from
-        there ("If this minion is in your hand, summon a copy of it")."""
+    def hand_minions(self) -> Tuple[Tuple[int, str, int, int], ...]:
+        """``(instance_id, card_id, attack, health)`` for each minion in hand.
+
+        The instance id is what lets a combat tell two copies of one card apart,
+        which it must: a card summoned from hand is locked for the rest of the
+        fight, and locking by card id would lock the wrong one — or both.
+        """
 
     def gain_blood_gems(self, count: int) -> None:
         """Gems into the owner's hand ("Rally: Get a Blood Gem").
@@ -92,13 +96,6 @@ class CombatSeat(Protocol):
         counted by a death, and the deaths happen here. It has to reach the seat
         rather than the combat copy: the copy is thrown away, and the tally is
         read by Knights in hand, in the tavern, and in every fight after this.
-        """
-
-    def hand_minion_stats(self) -> Tuple[Tuple[str, int, int], ...]:
-        """``(card_id, attack, health)`` for each minion in hand.
-
-        Stats, not just ids, because the cards that read the hand pick by them
-        ("summon the highest-Attack minion from your hand").
         """
 
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
@@ -169,7 +166,7 @@ class RecordingSeat:
         current_attack, current_health = self.gem_value_raise
         self.gem_value_raise = (current_attack + int(attack), current_health + int(health))
 
-    def hand_card_ids(self) -> Tuple[str, ...]:
+    def hand_minions(self) -> Tuple[Tuple[int, str, int, int], ...]:
         """Empty: a seatless combat has two lists of minions and no hand."""
         return ()
 
@@ -197,10 +194,6 @@ class RecordingSeat:
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))
-
-    def hand_minion_stats(self) -> Tuple[Tuple[str, int, int], ...]:
-        """Empty: a seatless combat has no hand."""
-        return ()
 
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
         self.hand_buffs.append((int(attack), int(health)))

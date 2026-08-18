@@ -234,6 +234,11 @@ class _CombatRuntime:
     #: Whether any minion in this combat watches its own Attack for a keyword
     #: latch (Scarlet Survivor). Almost always False, and _sync_health_all runs
     #: on every board change, so the flag keeps that hot path free of a scan.
+    #: Hand cards already summoned into this fight, per side, by instance id.
+    #: A card summoned from hand is locked for the rest of the battle — it does
+    #: not leave the hand, and it cannot be summoned a second time — so a second
+    #: Rally has to reach past it to the next one.
+    hand_summoned: Tuple[set, set] = field(default_factory=lambda: (set(), set()))
     watch_attack_thresholds: bool = False
     health_aura_dirty: List[bool] = field(default_factory=lambda: [True, True])
     health_aura_dr_snapshot: Optional[bool] = None

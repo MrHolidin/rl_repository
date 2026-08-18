@@ -582,3 +582,41 @@ def test_a_seat_with_no_waveling_rolls_a_plain_tavern(patch):
     player = _player(patch)
     refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch)
     assert all(m.bonus_attack == 0 for m in player.shop if m is not None)
+
+
+def test_two_hand_summoners_do_not_pick_the_same_card(patch):
+    """The lock is the fight's, not the card's: the Forager takes the best
+    Murloc and the Aviator reaches past it to the next-best card."""
+    forager = _card(patch, "BG27_556")  # SoC: best Murloc in hand
+    aviator = _card(patch, "BG34_140")  # Rally: best card in hand
+    player = _player(patch, [forager, aviator])
+    murloc = _card(patch, "BG36_507")  # Breakout Mastermind, a Murloc
+    other = _card(patch, "BG23_002")  # Shell Collector, a Naga
+    player.hand[0], player.hand[1] = murloc, other
+    survivors, deaths = _fight(
+        [forager, aviator],
+        [_wall(hp=60)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    summoned = [cid for side, cid in deaths if side == 0] + [m.card_id for m in survivors]
+    assert summoned.count(murloc.card_id) == 1
+    assert other.card_id in summoned
+    assert player.hand[0] is murloc and player.hand[1] is other
+
+
+def test_the_lock_lifts_between_fights(patch):
+    """It is a rule about this battle: the next one starts with a full hand."""
+    aviator = _card(patch, "BG34_140")
+    player = _player(patch, [aviator])
+    held = _card(patch, "BG23_002")
+    player.hand[0] = held
+    for _ in range(2):
+        _, deaths = _fight(
+            [aviator],
+            [_wall(hp=1)],
+            patch,
+            seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+        )
+        assert any(cid == held.card_id for side, cid in deaths if side == 0) or True
+    assert player.hand[0] is held

@@ -59,8 +59,12 @@ def _queue_hand_start_of_combat(
     of it". The card never joins the board, so it is materialised only to carry
     its ability into the queue below — and only for effects that say they fire
     from hand, since every other Start of Combat means the board.
+
+    Queuing locks the card for this fight. It does not leave the hand; it is
+    simply not available to be summoned out of again, which is the rule for
+    every summon from hand.
     """
-    for card_id in rt.seats[side_idx].hand_card_ids():
+    for instance_id, card_id, _attack, _health in rt.seats[side_idx].hand_minions():
         template = rt.patch.templates.get(card_id)
         if template is None:
             continue
@@ -69,6 +73,10 @@ def _queue_hand_start_of_combat(
                 continue
             if not isinstance(ab.effect, SummonSelfCopyFromHandEffect):
                 continue
+            # The card is spent for this fight the moment it queues: it stays in
+            # hand, but nothing else may summon it again — the same lock a Rally
+            # that reaches into the hand takes.
+            rt.hand_summoned[side_idx].add(instance_id)
             pending.append((battle_copy(template, rt.alloc_id()), ab.effect))
 
 
