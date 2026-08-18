@@ -438,7 +438,7 @@ class ShopTriggers:
             if not (effect.scope_kind is ScopeKind.CARD and key is None):
                 raise_standing_bonus(
                     player,
-                    BonusScope(effect.scope_kind, key),
+                    BonusScope(effect.scope_kind, key, effect.scope_max_tier),
                     effect.attack,
                     effect.health,
                 )

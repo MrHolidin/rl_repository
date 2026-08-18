@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from itertools import count as _count
 
@@ -122,11 +122,15 @@ class Minion:
     #: tavern; a general funnel for every buff site is the right home for it
     #: once a second card needs the flag.
     cannot_gain_stats: bool = False
-    #: Stats already absorbed from the owner's standing "this game" bonuses.
-    #: Not a buff of its own — the running total that lets
-    #: ``standing_bonuses.settle`` be idempotent and hook-free.
-    standing_attack: int = 0
-    standing_health: int = 0
+    #: What this card has already absorbed from each of the owner's standing
+    #: "this game" bonuses, as ``(scope, attack, health)`` rows. Per scope and
+    #: not one total, because a bonus is never taken back off: a minion buffed
+    #: on the tavern counter keeps those stats after it is bought, and must
+    #: still be able to take a later raise of a *different* scope.
+    #:
+    #: A tuple rather than a dict to keep every field of this class immutable,
+    #: which is what makes ``__copy__`` a safe shallow clone.
+    standing_absorbed: Tuple[Tuple[Any, int, int], ...] = ()
     # --- "until next turn" ------------------------------------------------
     #: Stats and keywords that expire at the start of the owner's next recruit
     #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").

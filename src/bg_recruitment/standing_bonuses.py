@@ -44,16 +44,17 @@ __all__ = [
 
 
 class BonusScope(tuple):
-    """A ``(kind, key)`` pair, hashable so the seat can key a dict by it.
+    """A ``(kind, key, max_tier)`` triple, hashable so the seat can key a dict.
 
-    A tuple subclass rather than a frozen dataclass because it is used as a
-    dict key on a hot-ish path and it is exactly a pair.
+    ``key`` is the card id for CARD, the tribe for TRIBE, and an *optional*
+    tribe for SHOP; ``max_tier`` is a SHOP-only cap. A tuple subclass rather
+    than a frozen dataclass because it is exactly that and it is a dict key.
     """
 
     __slots__ = ()
 
-    def __new__(cls, kind: ScopeKind, key: Any = None) -> "BonusScope":
-        return super().__new__(cls, (kind, key))
+    def __new__(cls, kind: ScopeKind, key: Any = None, max_tier: int = 0) -> "BonusScope":
+        return super().__new__(cls, (kind, key, int(max_tier)))
 
     @property
     def kind(self) -> ScopeKind:
@@ -63,6 +64,10 @@ class BonusScope(tuple):
     def key(self) -> Any:
         return self[1]
 
+    @property
+    def max_tier(self) -> int:
+        return self[2]
+
 
 def _scope_hits(scope: BonusScope, minion: Minion, *, in_shop: bool) -> bool:
     kind = scope.kind
@@ -71,14 +76,18 @@ def _scope_hits(scope: BonusScope, minion: Minion, *, in_shop: bool) -> bool:
     if kind is ScopeKind.TRIBE:
         return minion_matches_tribe(minion, scope.key)
     if kind is ScopeKind.SHOP:
-        return in_shop
+        if not in_shop:
+            return False
+        if scope.key is not None and not minion_matches_tribe(minion, scope.key):
+            return False
+        return not scope.max_tier or minion.tier <= scope.max_tier
     raise ValueError(f"unhandled ScopeKind {kind!r}")
 
 
 def standing_bonus_for(
     player: PlayerState, minion: Minion, *, in_shop: bool = False
 ) -> Tuple[int, int]:
-    """Everything the seat's table owes ``minion``, summed."""
+    """Everything the seat's table currently offers ``minion``, summed."""
     attack = health = 0
     for scope, (bonus_attack, bonus_health) in player.standing_bonuses.items():
         if _scope_hits(scope, minion, in_shop=in_shop):
@@ -88,23 +97,39 @@ def standing_bonus_for(
 
 
 def _settle_one(player: PlayerState, minion: Minion, *, in_shop: bool) -> None:
-    owed_attack, owed_health = standing_bonus_for(player, minion, in_shop=in_shop)
-    delta_attack = owed_attack - minion.standing_attack
-    delta_health = owed_health - minion.standing_health
-    if not delta_attack and not delta_health:
-        return
-    minion.bonus_attack += delta_attack
-    minion.bonus_health += delta_health
-    minion.standing_attack = owed_attack
-    minion.standing_health = owed_health
+    """Pay ``minion`` whatever the table offers it and it has not had yet.
+
+    Only ever pays. A bonus already absorbed is never reclaimed, which is the
+    rule for the tavern ones: a minion buffed on the counter keeps the stats
+    after it is bought, so once its slot stops being "in the shop" the scope
+    simply stops offering more.
+    """
+    absorbed = dict((row[0], (row[1], row[2])) for row in minion.standing_absorbed)
+    changed = False
+    for scope, (offer_attack, offer_health) in player.standing_bonuses.items():
+        if not _scope_hits(scope, minion, in_shop=in_shop):
+            continue
+        had_attack, had_health = absorbed.get(scope, (0, 0))
+        delta_attack = max(0, offer_attack - had_attack)
+        delta_health = max(0, offer_health - had_health)
+        if not delta_attack and not delta_health:
+            continue
+        minion.bonus_attack += delta_attack
+        minion.bonus_health += delta_health
+        absorbed[scope] = (had_attack + delta_attack, had_health + delta_health)
+        changed = True
+    if changed:
+        minion.standing_absorbed = tuple(
+            (scope, a, h) for scope, (a, h) in absorbed.items()
+        )
 
 
 def settle_standing_bonuses(player: PlayerState) -> None:
     """Hand every card the seat owns whatever the table owes it and it lacks.
 
-    Idempotent: a card that is already square with the table is untouched, so
-    this is safe to call after anything and costs one attribute read per card
-    on a seat that has no standing bonuses — which is most seats, most games.
+    Idempotent: a card already square with the table is untouched, so this is
+    safe to call after anything and costs one attribute read per card on a seat
+    with no standing bonuses — which is most seats, most games.
     """
     if not player.standing_bonuses:
         return

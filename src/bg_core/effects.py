@@ -570,7 +570,10 @@ class ScopeKind(Enum):
     CARD = auto()
     #: A tribe, wherever its members are ("your Undead have +1 Attack").
     TRIBE = auto()
-    #: Whatever is on the tavern counter, now and after every reroll.
+    #: Whatever is on the tavern counter, now and after every reroll. Takes
+    #: the optional filters the printed cards use: a tribe ("give Elementals in
+    #: the Tavern +8/+8") and a tier cap ("minions in the Tavern from Tier 3
+    #: and below"). What it hands out is *kept* when the minion is bought.
     SHOP = auto()
 
 
@@ -592,6 +595,9 @@ class RaiseStandingBonusEffect:
     attack: int = 0
     health: int = 0
     scope_key: Any = None
+    #: SHOP only: cap the tier it reaches ("minions in the Tavern from Tier 3
+    #: and below"). 0 means every tier.
+    scope_max_tier: int = 0
 
 
 @dataclass(frozen=True)
