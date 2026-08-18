@@ -37,7 +37,6 @@ from src.bg_lobby.player import PlayerState
 __all__ = [
     "BonusScope",
     "ScopeKind",
-    "raise_own_standing_bonus",
     "raise_standing_bonus",
     "standing_bonus_for",
     "settle_standing_bonuses",
@@ -142,37 +141,6 @@ def settle_standing_bonuses(player: PlayerState) -> None:
     for card in player.shop:
         if isinstance(card, Minion):
             _settle_one(player, card, in_shop=True)
-
-
-def raise_own_standing_bonus(player: PlayerState, arrived: Minion) -> None:
-    """Fire an arriving minion's own "for each other <me>" raise, once.
-
-    The count is over copies, so exactly one raise per arrival — read off the
-    newcomer rather than off the copies already standing, which would raise once
-    per existing copy and grow quadratically. The newcomer is excluded from the
-    raise it caused, which is how *other* comes out true for every copy at once:
-    N arrivals make N raises, and each copy skips exactly its own.
-    """
-    from src.bg_core.effects import RaiseStandingBonusEffect, Trigger
-
-    for ability in arrived.abilities:
-        if ability.trigger is not Trigger.ON_FRIENDLY_MINION_SUMMONED:
-            continue
-        effect = ability.effect
-        if not isinstance(effect, RaiseStandingBonusEffect):
-            continue
-        key = effect.scope_key if effect.scope_key is not None else arrived.card_id
-        # Bank what the copies before it are already worth *first*, then skip
-        # only the raise its own arrival causes. Without this the newcomer is
-        # excluded from the whole running total rather than from one raise.
-        settle_standing_bonuses(player)
-        raise_standing_bonus(
-            player,
-            BonusScope(effect.scope_kind, key),
-            effect.attack,
-            effect.health,
-            exclude=arrived,
-        )
 
 
 def _mark_absorbed(player: PlayerState, minion: Minion, scope: BonusScope) -> None:

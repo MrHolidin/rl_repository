@@ -51,6 +51,7 @@ from src.bg_core.effects import (
     PlayBloodGemsOnAttackerEffect,
     RaiseStandingBonusEffect,
     ScopeKind,
+    SelfBonusPerGameCount,
     ReduceTavernSpellCostEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
@@ -243,16 +244,20 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "BG_TTN_401": (  # Ancestral Automaton — +3/+2 per other one summoned this game
+    "BG_TTN_401": (  # Ancestral Automaton — +3/+2 per *other* one summoned this game
         Ability(
-            Trigger.ON_FRIENDLY_MINION_SUMMONED,
-            RaiseStandingBonusEffect(scope_kind=ScopeKind.CARD, attack=3, health=2),
+            Trigger.AURA,
+            SelfBonusPerGameCount(counter="summoned", attack_per=3, health_per=2),
         ),
     ),
     "BG25_008": (  # Eternal Knight — +4/+2 per friendly Eternal Knight that died
+        # count_self: a Knight that died is one of the deaths its living copies
+        # count, and it is not around to double-count itself.
         Ability(
-            Trigger.ON_DEATH,
-            RaiseStandingBonusEffect(scope_kind=ScopeKind.CARD, attack=4, health=2),
+            Trigger.AURA,
+            SelfBonusPerGameCount(
+                counter="died", attack_per=4, health_per=2, count_self=True
+            ),
         ),
     ),
     "BG25_011": (  # Nerubian Deathswarmer — your Undead have +1 Attack this game

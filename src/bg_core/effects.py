@@ -632,6 +632,28 @@ class CopyLastTavernSpellEffect:
 
 
 @dataclass(frozen=True)
+class SelfBonusPerGameCount:
+    """Stats scaled by a game-long tally the seat keeps.
+
+    "Has +3/+2 for each other Ancestral Automaton you've summoned this game",
+    "+4/+2 for each friendly Eternal Knight that died this game". Carried on
+    ``Trigger.AURA`` because it is a continuous read, not an event: the card
+    shows the number wherever it is, and the seat's tally is the only state.
+
+    ``subject`` names whose tally to read and defaults to the card's own id —
+    which is what every printing of this shape wants. ``count_self`` is the
+    difference between "for each" and "for each *other*": left False, a copy
+    whose own arrival was counted leaves itself out.
+    """
+
+    counter: str
+    attack_per: int = 0
+    health_per: int = 0
+    subject: str = ""
+    count_self: bool = False
+
+
+@dataclass(frozen=True)
 class RaiseStandingBonusEffect:
     """Open or raise a "this game" bonus on the seat.
 
@@ -1117,6 +1139,7 @@ Effect = Union[
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
     RaiseStandingBonusEffect,
+    SelfBonusPerGameCount,
     IncreaseTavernSpellBonusEffect,
     AddRandomTavernSpellToHandEffect,
     DiscoverTavernSpellEffect,
@@ -1248,6 +1271,7 @@ __all__ = [
     "BuffPlacedMinionEffect",
     "ScopeKind",
     "RaiseStandingBonusEffect",
+    "SelfBonusPerGameCount",
     "IncreaseTavernSpellBonusEffect",
     "AddRandomTavernSpellToHandEffect",
     "DiscoverTavernSpellEffect",

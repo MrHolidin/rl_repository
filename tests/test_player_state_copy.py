@@ -50,6 +50,8 @@ def _distinct_value(f: dataclasses.Field, patch):
         return {Race.MURLOC: 4}
     if name == "bought_tribe_counts":
         return {Race.MURLOC: 2, None: 1}
+    if name == "game_counts":
+        return {"summoned:BG_TTN_401": 3}
     if name == "standing_bonuses":
         from src.bg_core.effects import ScopeKind
         from src.bg_recruitment.standing_bonuses import BonusScope

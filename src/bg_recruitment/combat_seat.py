@@ -27,6 +27,7 @@ from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerState
 
 from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
+from .game_counts import bump_game_count
 from .standing_bonuses import BonusScope, raise_standing_bonus
 
 __all__ = ["PlayerCombatSeat"]
@@ -67,6 +68,9 @@ class PlayerCombatSeat(RecordingSeat):
         raise_standing_bonus(
             self.player, BonusScope(scope_kind, scope_key), attack, health
         )
+
+    def bump_game_count(self, family: str, subject: str) -> None:
+        bump_game_count(self.player, family, subject)
 
     def hand_card_ids(self) -> Tuple[str, ...]:
         """The minions in hand, by card id. Spells are not minions and a Start

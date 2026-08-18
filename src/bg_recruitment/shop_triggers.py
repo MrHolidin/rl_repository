@@ -72,10 +72,10 @@ from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
+from src.bg_recruitment.game_counts import bump_summoned
 from src.bg_recruitment.standing_bonuses import (
     BonusScope,
     ScopeKind,
-    raise_own_standing_bonus,
     raise_standing_bonus,
     settle_standing_bonuses,
 )
@@ -347,7 +347,10 @@ class ShopTriggers:
             self._resolve_triples(player)
 
     def fire_shop_friendly_summoned(self, player: PlayerState, summoned: Minion) -> None:
-        raise_own_standing_bonus(player, summoned)
+        # Every arrival is a summon as the cards use the word — played from
+        # hand, summoned by a deathrattle, opened out of a Lockbox — and this
+        # is the one place all of them come through.
+        bump_summoned(player, summoned)
         for m in player.board:
             if m is summoned:
                 continue

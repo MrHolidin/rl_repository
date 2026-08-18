@@ -144,6 +144,11 @@ class PlayerState:
     #: rather than the table hunting them down — see
     #: ``bg_recruitment/standing_bonuses.py``.
     standing_bonuses: Dict[Any, Tuple[int, int]] = field(default_factory=dict)
+    #: Game-long tallies the cards that say "for each ... this game" read, keyed
+    #: ``"<event>:<subject>"``. The count is the seat's, so a copy in hand reads
+    #: the same number as one on the board — see
+    #: ``bg_recruitment/game_counts.py``.
+    game_counts: Dict[str, int] = field(default_factory=dict)
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.
@@ -331,6 +336,7 @@ def copy_player_state(p: PlayerState) -> PlayerState:
         # Mutable, so the copy needs its own — a shared table would let one
         # seat's Nerubian Deathswarmer buff another seat's Undead.
         "standing_bonuses": dict(p.standing_bonuses),
+        "game_counts": dict(p.game_counts),
         "bought_tribe_counts": dict(p.bought_tribe_counts),
         "pending_choice": (
             PendingChoice(

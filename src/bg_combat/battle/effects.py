@@ -13,6 +13,7 @@ from copy import copy
 from typing import Any, List, Optional, Tuple
 
 from src.bg_catalog.cards import make_minion
+from src.bg_recruitment.game_counts import DIED, SUMMONED
 from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
     AvengeEffect,
@@ -25,7 +26,7 @@ from src.bg_core.effects import (
     AddRandomMinionToHandEffect,
     GainBloodGemsEffect,
     PlayBloodGemsOnAttackerEffect,
-    RaiseStandingBonusEffect,
+    SelfBonusPerGameCount,
     AddRandomMinionToHandOnKillEffect,
     BloodGemTarget,
     IncreaseBloodGemBonusEffect,
@@ -336,20 +337,14 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     summoned = rt.find_minion(e.side_idx, e.instance_id)
     if summoned is None or not summoned.alive:
         return
+    _count_arrival(rt, e.side_idx, summoned)
+
     def grant(minion: BattleMinion, keyword: Keyword) -> None:
         _grant_keyword(rt, e.side_idx, minion, keyword)
 
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):
-        if isinstance(eff, RaiseStandingBonusEffect):
-            # "for each other <me> you've summoned this game" — the tally is
-            # the owner's, so it goes to the seat rather than to this copy.
-            if summoned.card_id == listener.card_id:
-                rt.seats[e.side_idx].raise_standing_bonus(
-                    eff.scope_kind, listener.card_id, eff.attack, eff.health
-                )
-            continue
         apply_summoned_listener(eff, listener, summoned, grant_keyword=grant)
     _sync_health_all(rt)
 
@@ -512,6 +507,7 @@ def _apply_friendly_death_effect(
 def _fire_friendly_minion_died_listeners(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int
 ) -> None:
+    _count_death(rt, dead, side_idx)
     side = rt.side(side_idx)
     for listener, eff in side.listeners(Trigger.ON_FRIENDLY_MINION_DIED, dead):
         if isinstance(eff, AvengeEffect):
@@ -1022,18 +1018,32 @@ def _dr_buff_matching(
     _sync_health_all(rt)
 
 
-def _dr_raise_standing_bonus(
-    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: RaiseStandingBonusEffect
-) -> None:
-    """"Has +4/+2 for each friendly Eternal Knight that died this game."
+def _count_arrival(rt: _CombatRuntime, side_idx: int, arrived: BattleMinion) -> None:
+    """Count a mid-combat summon on the owner's tally, if the card keeps one.
 
-    Scoped to the dead card's own id when the binding leaves the key open, so
-    every other copy — on the board, in hand, still in the tavern — grows.
+    Read off the newcomer, so one arrival counts once however many copies are
+    already standing.
     """
-    key = effect.scope_key if effect.scope_key is not None else dead.card_id
-    rt.seats[side_idx].raise_standing_bonus(
-        effect.scope_kind, key, effect.attack, effect.health
-    )
+    for ability in arrived.abilities:
+        if ability.trigger is not Trigger.AURA:
+            continue
+        eff = ability.effect
+        if isinstance(eff, SelfBonusPerGameCount) and eff.counter == SUMMONED:
+            rt.seats[side_idx].bump_game_count(
+                eff.counter, eff.subject or arrived.card_id
+            )
+
+
+def _count_death(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
+    """Count a death on the owner's tally ("each Eternal Knight that died")."""
+    for ability in dead.abilities:
+        if ability.trigger is not Trigger.AURA:
+            continue
+        eff = ability.effect
+        if isinstance(eff, SelfBonusPerGameCount) and eff.counter == DIED:
+            rt.seats[side_idx].bump_game_count(
+                eff.counter, eff.subject or dead.card_id
+            )
 
 
 def _dr_buff_random_other(
@@ -1135,7 +1145,6 @@ _DEATHRATTLE_HANDLERS = {
     SummonFirstDeadFriendlyMechsThisCombat: _dr_summon_dead_mechs,
     GrantKeywordRandomFriendly: _dr_grant_kw_random,
     GrantKeywordAllFriendlyOfTribe: _dr_grant_kw_all_of_tribe,
-    RaiseStandingBonusEffect: _dr_raise_standing_bonus,
     GainGoldOnDeathEffect: _dr_gain_gold,
 }
 

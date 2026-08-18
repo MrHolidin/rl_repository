@@ -66,12 +66,15 @@ class CombatSeat(Protocol):
     def raise_standing_bonus(
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
-        """Raise a "this game" bonus on the owner, from inside the fight.
+        """Raise a "this game" bonus on the owner, from inside the fight."""
+
+    def bump_game_count(self, family: str, subject: str) -> None:
+        """Count one event on the owner's tally, from inside the fight.
 
         "Has +4/+2 for each friendly Eternal Knight that **died** this game" is
-        raised by a death, and the deaths happen here. It has to reach the seat
-        rather than the combat copy: the copy is thrown away, and the bonus is
-        owed to Knights in hand, in the tavern and in every fight after this.
+        counted by a death, and the deaths happen here. It has to reach the seat
+        rather than the combat copy: the copy is thrown away, and the tally is
+        read by Knights in hand, in the tavern, and in every fight after this.
         """
 
 
@@ -97,6 +100,8 @@ class RecordingSeat:
     blood_gems: int = 0
     #: "This game" bonuses a combat raised, for a seat that has a table.
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
+    #: Events a combat counted, for a seat that keeps tallies.
+    count_bumps: List[Tuple[str, str]] = field(default_factory=list)
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -130,6 +135,9 @@ class RecordingSeat:
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
         self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
+
+    def bump_game_count(self, family: str, subject: str) -> None:
+        self.count_bumps.append((family, subject))
 
 
 __all__ = ["CombatSeat", "PermanentGemGrant", "RecordingSeat"]

@@ -131,6 +131,12 @@ class Minion:
     #: A tuple rather than a dict to keep every field of this class immutable,
     #: which is what makes ``__copy__`` a safe shallow clone.
     standing_absorbed: Tuple[Tuple[Any, int, int], ...] = ()
+    #: Stats currently granted by a game-long tally, so a recompute can apply
+    #: the difference instead of stacking (see ``game_counts``).
+    count_bonus_granted: Tuple[int, int] = (0, 0)
+    #: Whether this card's own arrival is one of the events its tally counted —
+    #: the single subtraction behind "for each **other**".
+    self_counted: bool = False
     # --- "until next turn" ------------------------------------------------
     #: Stats and keywords that expire at the start of the owner's next recruit
     #: phase (Spellcraft: "Give a minion +2/+6 and Taunt until next turn").

@@ -29,6 +29,7 @@
       "RaiseStandingBonusEffect",
       "ReduceTavernSpellCostEffect",
       "RepeatPerCountEffect",
+      "SelfBonusPerGameCount",
       "StealTavernMinionEffect",
       "SummonSelfCopyFromHandEffect"
     ],
