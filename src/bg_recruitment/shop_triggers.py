@@ -48,10 +48,12 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    BumpSeatCounterEffect,
     AddCardToNextRefreshesEffect,
     AddRandomTavernSpellToHandEffect,
     CastRandomTavernSpellEffect,
     CopyLastTavernSpellEffect,
+    DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
     RaiseStandingBonusEffect,
@@ -74,7 +76,11 @@ from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
-from src.bg_recruitment.game_counts import bump_summoned
+from src.bg_recruitment.game_counts import (
+    bump_seat_counter,
+    bump_summoned,
+    improve_level,
+)
 from src.bg_recruitment.standing_bonuses import (
     BonusScope,
     ScopeKind,
@@ -132,8 +138,10 @@ class UnhandledShopEffect(RuntimeError):
 #: Effects that legitimately reach ``apply_shop_effect`` and must do nothing
 #: there, because something upstream already applied them. Each entry is a
 #: claim that can be checked, which is the point of writing them down.
-#: Effects the Tavern-spell module owns end to end.
+#: Effects the Tavern-spell module owns end to end — including the tier
+#: Discover, which is printed on a spell and on a minion alike.
 _TAVERN_SPELL_EFFECTS = (
+    DiscoverMinionAtTierEffect,
     IncreaseTavernSpellBonusEffect,
     AddRandomTavernSpellToHandEffect,
     DiscoverTavernSpellEffect,
@@ -431,10 +439,17 @@ class ShopTriggers:
                 shared_pool=shared_pool,
                 highest_attack=effect.highest_attack,
             )
+        elif isinstance(effect, BumpSeatCounterEffect):
+            bump_seat_counter(player, effect.counter)
         elif isinstance(effect, RepeatPerCountEffect):
-            repeats = int(effect.base_repeats) + count_for_source(
-                effect.source, player.board, tribe=effect.tribe
-            )
+            if effect.counter:
+                # An "improves" card: worth its printed value once, plus once
+                # more per `per` events counted.
+                repeats = improve_level(player, effect.counter, effect.per)
+            else:
+                repeats = int(effect.base_repeats) + count_for_source(
+                    effect.source, player.board, tribe=effect.tribe
+                )
             inner = effect.effect
             for _ in range(max(0, repeats)):
                 if isinstance(inner, BuffAdjacentBattlecry):

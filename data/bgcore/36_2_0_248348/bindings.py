@@ -30,6 +30,7 @@ from src.bg_core.effects import (
     BuffMatching,
     BuffPlacedMinionEffect,
     BuffRandomHandMinionEffect,
+    BumpSeatCounterEffect,
     BuffRandomOtherFriendlyCombat,
     BuffTarget,
     BuffSelf,
@@ -37,6 +38,7 @@ from src.bg_core.effects import (
     ChooseOneEffect,
     ConsumeTavernMinionEffect,
     CreateSpellcraftSpellEffect,
+    DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
     DealHeroDamage,
     DiscoverMinionAtTierEffect,
@@ -249,6 +251,48 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ChooseOneEffect(
                 first=IncreaseTavernSpellBonusEffect(attack=1, health=0),
                 second=IncreaseTavernSpellBonusEffect(attack=0, health=1),
+            ),
+        ),
+    ),
+    # "Improves" — a seat tally the card multiplies itself by. The level starts
+    # at one, so an unimproved card is worth exactly what it prints, and the
+    # bump comes *after* the effect it improves, because the cards say "future".
+    "BG31_816": (  # Fire Baller — sell: your minions +1 Attack, and Ballers improve
+        Ability(
+            Trigger.ON_SELL,
+            RepeatPerCountEffect(
+                counter="ballers_sold",
+                effect=BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=0),
+            ),
+        ),
+        Ability(Trigger.ON_SELL, BumpSeatCounterEffect(counter="ballers_sold")),
+    ),
+    "BG31_818": (  # Snow Baller — the same, in Health, off the same tally
+        Ability(
+            Trigger.ON_SELL,
+            RepeatPerCountEffect(
+                counter="ballers_sold",
+                effect=BuffMatching(BuffTarget.ALL_FRIENDLY, attack=0, health=1),
+            ),
+        ),
+        Ability(Trigger.ON_SELL, BumpSeatCounterEffect(counter="ballers_sold")),
+    ),
+    "BG24_715": (  # Patient Scout — sell: Discover a Tier 1 minion, improving each turn
+        Ability(
+            Trigger.ON_SELL,
+            DiscoverMinionAtTierEffect(tier=1, counter="patient_scout_turns"),
+        ),
+        Ability(Trigger.ON_TURN_END, BumpSeatCounterEffect(counter="patient_scout_turns")),
+    ),
+    "BG31_924": (  # Thaumaturgist — Spellcraft +1/+1, improved every 4 spells cast
+        Ability(
+            Trigger.ON_TURN_START,
+            CreateSpellcraftSpellEffect(
+                buff=GrantTemporaryBuffEffect(attack=1, health=1),
+                card_id="BG31_924t",
+                name="Thaumaturgy",
+                counter="spells_cast:*",
+                per=4,
             ),
         ),
     ),

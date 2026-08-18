@@ -554,3 +554,86 @@ def test_very_hungry_winterfinner_feeds_a_card_in_hand(patch):
         seats=(PlayerCombatSeat(player), PlayerCombatSeat(_player(patch))),
     )
     assert (in_hand.raw_attack, in_hand.max_health) > (1, 1)
+
+
+# --------------------------------------------------------------------------- #
+# "Improves" — a tally the card multiplies itself by
+# --------------------------------------------------------------------------- #
+
+
+def test_the_first_baller_sold_is_worth_what_it_prints(patch, triggers):
+    baller = _card(patch, "BG31_816")  # Fire Baller
+    friend = Minion(card_id="f", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [baller, friend])
+    triggers.fire_on_sell(baller, player)
+    assert friend.raw_attack == 2
+    assert player.game_counts["ballers_sold"] == 1
+
+
+def test_each_baller_sold_makes_the_next_one_bigger(patch, triggers):
+    friend = Minion(card_id="f", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [friend])
+    for _ in range(3):
+        triggers.fire_on_sell(_card(patch, "BG31_816"), player)
+    # 1 + 2 + 3: the level rises after each sale, not before it.
+    assert friend.raw_attack == 1 + 6
+
+
+def test_the_two_ballers_improve_each_other(patch, triggers):
+    """"Improve your future Ballers" — one tally, not one per printing."""
+    friend = Minion(card_id="f", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [friend])
+    triggers.fire_on_sell(_card(patch, "BG31_816"), player)  # +1 Attack, level 1
+    triggers.fire_on_sell(_card(patch, "BG31_818"), player)  # +1 Health, now level 2
+    assert (friend.raw_attack, friend.max_health) == (2, 3)
+
+
+def test_patient_scout_discovers_a_higher_tier_the_longer_it_waits(patch, triggers):
+    scout = _card(patch, "BG24_715")
+    player = _player(patch, [scout], tavern_tier=6)
+    triggers.fire_on_turn_end(player)
+    triggers.fire_on_turn_end(player)
+    triggers.fire_on_sell(scout, player)
+    pc = player.pending_choice
+    assert pc is not None
+    assert all(patch.templates[cid].tier == 3 for cid in pc.options)
+
+
+def test_a_scout_sold_at_once_discovers_tier_one(patch, triggers):
+    scout = _card(patch, "BG24_715")
+    player = _player(patch, [scout], tavern_tier=6)
+    triggers.fire_on_sell(scout, player)
+    assert all(patch.templates[cid].tier == 1 for cid in player.pending_choice.options)
+
+
+def test_thaumaturgist_makes_a_bigger_spell_every_four_casts(patch, triggers):
+    from src.bg_recruitment.game_counts import SPELLS_CAST
+    from src.bg_recruitment.spellcraft import is_spellcraft_spell
+
+    thaum = _card(patch, "BG31_924")
+    player = _player(patch, [thaum])
+
+    triggers.fire_on_turn_start(player)
+    spell = next(c for c in player.hand if c is not None and is_spellcraft_spell(c))
+    assert spell.abilities[0].effect.attack == 1  # unimproved: what it prints
+
+    player.game_counts[SPELLS_CAST] = 4
+    player.hand = [None] * 10
+    triggers.fire_on_turn_start(player)
+    spell = next(c for c in player.hand if c is not None and is_spellcraft_spell(c))
+    assert (spell.abilities[0].effect.attack, spell.abilities[0].effect.health) == (2, 2)
+
+
+def test_every_kind_of_spell_counts_toward_the_improvement(patch):
+    """"Spells you've cast" draws no line between a Gem and a Tavern spell."""
+    from src.bg_recruitment.blood_gems import play_blood_gem_on
+    from src.bg_recruitment.game_counts import SPELLS_CAST
+
+    target = Minion(card_id="t", base_attack=1, base_health=1, tier=1)
+    player = _player(patch, [target])
+    play_blood_gem_on(player, target)
+    player.hand[0] = patch.tavern_spells["BG28_810"]
+    from src.bg_recruitment.tavern_spells import play_tavern_spell_from_hand
+
+    play_tavern_spell_from_hand(player, 0, rng=np.random.default_rng(0), patch=patch)
+    assert player.game_counts[SPELLS_CAST] == 2

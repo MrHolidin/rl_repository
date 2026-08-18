@@ -326,6 +326,7 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "RaiseStandingBonusEffect",
         "SelfBonusPerGameCount",
         "SummonBestFromHandEffect",
+        "BumpSeatCounterEffect",
         "BuffRandomHandMinionEffect",
         "KeepCombatGainsEffect",
         "RewindHeroDamageEffect",

@@ -48,6 +48,29 @@ def is_spellcraft_spell(card) -> bool:
     return isinstance(card, SpellCard) and card.is_spellcraft
 
 
+def _improved_buff(
+    player: PlayerState, effect: CreateSpellcraftSpellEffect
+) -> GrantTemporaryBuffEffect:
+    """The spell's buff at the seat's current level.
+
+    "Give a minion +1/+1 until next turn. (Improved by every 4 spells you've
+    cast this game!)" — the level is read when the spell is *made*, which is
+    what the seat sees on the card in hand.
+    """
+    from dataclasses import replace
+
+    from .game_counts import improve_level
+
+    level = improve_level(player, effect.counter, effect.per)
+    if level == 1:
+        return effect.buff
+    return replace(
+        effect.buff,
+        attack=effect.buff.attack * level,
+        health=effect.buff.health * level,
+    )
+
+
 def make_spellcraft_spell(effect: CreateSpellcraftSpellEffect) -> SpellCard:
     """The card a Spellcraft minion hands you, built from its own text."""
     return SpellCard(
@@ -66,7 +89,11 @@ def give_spellcraft_spell(
     slot = first_free_hand_slot(player)
     if slot is None:
         return False
-    player.hand[slot] = make_spellcraft_spell(effect)
+    from dataclasses import replace
+
+    player.hand[slot] = make_spellcraft_spell(
+        replace(effect, buff=_improved_buff(player, effect))
+    )
     return True
 
 
@@ -115,6 +142,12 @@ def apply_temporary_buff(target: Minion, buff: GrantTemporaryBuffEffect) -> None
     fire_spell_cast_on(target)
 
 
+def _count_spell_cast(player: PlayerState) -> None:
+    from .game_counts import SPELLS_CAST, bump_seat_counter
+
+    bump_seat_counter(player, SPELLS_CAST)
+
+
 def play_spellcraft_spell_from_hand(
     player: PlayerState, hand_index: int, board_index: int
 ) -> None:
@@ -139,6 +172,7 @@ def play_spellcraft_spell_from_hand(
                 f"handler ({card.card_id})"
             )
     player.hand[hand_index] = None
+    _count_spell_cast(player)
 
 
 def expire_temporary_buffs(player: PlayerState) -> None:

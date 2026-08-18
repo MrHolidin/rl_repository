@@ -43,6 +43,7 @@ from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
 
+from .game_counts import SPELLS_CAST, bump_seat_counter, improve_level
 from .hand_slots import first_free_hand_slot
 from .pool_ledger import on_bought_from_shop
 
@@ -269,6 +270,7 @@ def cast_tavern_spell(
             shared_pool=shared_pool,
         )
     player.last_tavern_spell_cast = card.card_id
+    bump_seat_counter(player, SPELLS_CAST)
     _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
 
 
@@ -430,7 +432,7 @@ def _apply_spell_effect(
     if isinstance(effect, DiscoverMinionAtTierEffect):
         _open_tier_discover(
             player,
-            effect.tier,
+            effect.tier * improve_level(player, effect.counter, effect.per),
             rng=rng,
             patch=patch,
             shop_excluded_race=shop_excluded_race,

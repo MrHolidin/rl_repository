@@ -552,10 +552,16 @@ class RepeatPerCountEffect:
     rule is the same whatever is being repeated.
     """
 
-    source: Any
-    effect: Any
+    source: Any = None
+    effect: Any = None
     tribe: Any = None
     base_repeats: int = 1
+    #: Read a seat tally instead of the board ("improved by every 4 spells
+    #: you've cast this game"). The level starts at ``base_repeats`` — one, so
+    #: an unimproved card is worth exactly what it prints — and rises by one per
+    #: ``per`` events counted.
+    counter: str = ""
+    per: int = 1
 
 
 @dataclass(frozen=True)
@@ -629,6 +635,18 @@ class CastRandomTavernSpellEffect:
 class CopyLastTavernSpellEffect:
     """"Get a copy of the last Tavern spell you cast." Nothing cast, nothing
     copied — the seat remembers which one, not that one was cast."""
+
+
+@dataclass(frozen=True)
+class BumpSeatCounterEffect:
+    """Count one event on a named seat tally.
+
+    The other half of "improves": the card that says it improves also says what
+    improves it, and this is that event. Ordered after the effect it improves,
+    because the cards say *future* ("Improve your future Ballers").
+    """
+
+    counter: str
 
 
 @dataclass(frozen=True)
@@ -806,10 +824,13 @@ class DiscoverMinionAtTierEffect:
     """Discover a minion of exactly ``tier`` ("Discover a Tier 1 minion").
 
     Distinct from the triple-reward Discover, which reads its tier off the
-    seat's tavern tier; this one is printed on the card and never moves.
+    seat's tavern tier; this one is printed on the card — and moves only if the
+    card says it improves, in which case ``counter`` multiplies it.
     """
 
     tier: int = 1
+    counter: str = ""
+    per: int = 1
 
 
 @dataclass(frozen=True)
@@ -1046,6 +1067,10 @@ class CreateSpellcraftSpellEffect:
     buff: GrantTemporaryBuffEffect
     card_id: str = ""
     name: str = ""
+    #: "Improved by every 4 spells you've cast this game" — the buff is
+    #: multiplied by the level when the spell is made.
+    counter: str = ""
+    per: int = 1
 
 
 class CountSource(Enum):
@@ -1357,6 +1382,7 @@ __all__ = [
     "BuffPlacedMinionEffect",
     "ScopeKind",
     "RaiseStandingBonusEffect",
+    "BumpSeatCounterEffect",
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
     "KeepCombatGainsEffect",

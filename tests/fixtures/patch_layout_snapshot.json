@@ -12,6 +12,7 @@
       "AvengeEffect",
       "BuffPlacedMinionEffect",
       "BuffRandomHandMinionEffect",
+      "BumpSeatCounterEffect",
       "CastRandomTavernSpellEffect",
       "ChooseOneEffect",
       "ConsumeTavernMinionEffect",

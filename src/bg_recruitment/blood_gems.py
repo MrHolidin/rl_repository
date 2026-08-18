@@ -125,6 +125,11 @@ def play_blood_gem_on(
         # A Gem is a spell, and it was cast at this body.
         fire_spell_cast_on(target)
     refresh_attack_thresholds(player.board)
+    # A Gem is a spell, and "spells you've cast" counts every kind.
+    from .game_counts import SPELLS_CAST, bump_seat_counter
+
+    for _ in range(max(0, int(count))):
+        bump_seat_counter(player, SPELLS_CAST)
 
 
 def can_play_blood_gem(player: PlayerState) -> bool:

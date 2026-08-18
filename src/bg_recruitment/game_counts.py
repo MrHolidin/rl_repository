@@ -35,7 +35,10 @@ __all__ = [
     "SUMMONED",
     "DIED",
     "counter_key",
+    "SPELLS_CAST",
     "bump_game_count",
+    "bump_seat_counter",
+    "improve_level",
     "refresh_count_bonuses",
 ]
 
@@ -45,9 +48,32 @@ __all__ = [
 SUMMONED = "summoned"
 DIED = "died"
 
+#: Every spell this seat has cast — Tavern spells, Spellcraft spells and Blood
+#: Gems alike, because "spells you've cast" draws no distinction between them.
+SPELLS_CAST = "spells_cast:*"
+
 
 def counter_key(family: str, subject: str = "*") -> str:
     return f"{family}:{subject}"
+
+
+def improve_level(player: PlayerState, counter: str, per: int = 1) -> int:
+    """How many times over a card that "improves" is worth its printed value.
+
+    One to start with — an unimproved card is exactly what it prints — and one
+    more per ``per`` events counted. "Improve your future Ballers" counts every
+    sale, so ``per`` is 1; "improved by every 4 spells you've cast this game"
+    counts every spell and divides.
+    """
+    if not counter:
+        return 1
+    return 1 + player.game_counts.get(counter, 0) // max(1, int(per))
+
+
+def bump_seat_counter(player: PlayerState, counter: str) -> None:
+    """Count one event on a named tally, and let the readers catch up."""
+    player.game_counts[counter] = player.game_counts.get(counter, 0) + 1
+    refresh_count_bonuses(player)
 
 
 def _abilities(minion: Minion):

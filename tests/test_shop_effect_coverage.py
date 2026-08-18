@@ -24,6 +24,7 @@ import pytest
 
 from src.bg_catalog.patch_context import load_patch_context
 from src.bg_core.effects import Trigger
+from src.bg_recruitment import shop_triggers
 from src.bg_recruitment.shop_triggers import _HANDLED_ELSEWHERE
 
 PATCH_DIRS = (
@@ -57,13 +58,25 @@ def _branch_types() -> set[str]:
         for n in ast.walk(ast.parse(src))
         if isinstance(n, ast.FunctionDef) and n.name == "apply_shop_effect"
     )
-    return {
+    named = {
         n.args[1].id
         for n in ast.walk(fn)
         if isinstance(n, ast.Call)
         and getattr(n.func, "id", "") == "isinstance"
         and isinstance(n.args[1], ast.Name)
     }
+    # A branch may test against a tuple of classes rather than one class
+    # (``isinstance(effect, _TAVERN_SPELL_EFFECTS)``), and that branch handles
+    # every member. Resolve those to their members instead of reading the
+    # tuple's own name as if it were an effect.
+    out: set[str] = set()
+    for name in named:
+        group = getattr(shop_triggers, name, None)
+        if isinstance(group, tuple):
+            out.update(t.__name__ for t in group)
+        else:
+            out.add(name)
+    return out
 
 
 @pytest.mark.parametrize("patch_dir", PATCH_DIRS)
