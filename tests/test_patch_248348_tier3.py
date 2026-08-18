@@ -454,3 +454,131 @@ def test_a_golden_parrot_starts_its_count_over(patch):
     )
     assert golden.card_id == "BG36_763"
     assert (golden.damage_dealt_total, golden.damage_reward_paid) == (0, False)
+
+
+# --------------------------------------------------------------------------- #
+# The last six
+# --------------------------------------------------------------------------- #
+
+
+def test_devout_hellcaller_grows_when_a_demon_deals_damage(patch):
+    hellcaller = _card(patch, "BG33_155")  # 2/2 Demon
+    hellcaller.bonus_health += 40
+    demon = Minion(card_id="d", base_attack=3, base_health=40, tier=1, race=Race.DEMON)
+    player = _player(patch, [hellcaller, demon])
+    survivors, _ = _fight(
+        [hellcaller, demon],
+        [_wall(hp=6)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    fought = next(m for m in survivors if m.card_id == "BG33_155")
+    assert fought.raw_attack > hellcaller.base_attack
+    # "Permanently": the owner's own body kept it too.
+    assert hellcaller.raw_attack > hellcaller.base_attack
+
+
+def test_a_beast_dealing_damage_does_not_feed_the_hellcaller(patch):
+    hellcaller = _card(patch, "BG33_155")
+    hellcaller.bonus_health += 40
+    beast = Minion(card_id="b", base_attack=3, base_health=40, tier=1, race=Race.BEAST)
+    player = _player(patch, [hellcaller, beast])
+    _fight(
+        [hellcaller, beast],
+        [_wall(hp=6)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    assert hellcaller.raw_attack == hellcaller.base_attack
+
+
+def test_diremuck_forager_summons_the_best_murloc_in_hand(patch):
+    forager = _card(patch, "BG27_556")
+    player = _player(patch, [forager])
+    player.hand[0] = _card(patch, "BG23_002")  # Shell Collector, a Naga
+    player.hand[1] = _card(patch, "BG36_507")  # Breakout Mastermind, a Murloc
+    survivors, deaths = _fight(
+        [forager],
+        [_wall(hp=1)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    on_board = {m.card_id for m in survivors} | {cid for side, cid in deaths if side == 0}
+    assert "BG36_507" in on_board and "BG23_002" not in on_board
+
+
+def test_hired_mount_hands_over_one_of_the_five_chromadrakes(patch):
+    from src.bg_recruitment.activate import activate_minion
+
+    mount = _card(patch, "BG36_240")
+    player = _player(patch, [mount], gold=5)
+    activate_minion(player, 0, rng=np.random.default_rng(3), patch=patch)
+    got = next(c for c in player.hand if c is not None)
+    assert got.card_id in {"BG34_634t", "BG34_635t", "BG34_636t", "BG34_637t", "BG34_638t"}
+    assert player.gold == 3
+
+
+def test_meteorite_crasher_grows_when_an_elemental_is_sold(patch, triggers):
+    crasher = _card(patch, "BG31_843")
+    elemental = Minion(
+        card_id="e", base_attack=1, base_health=1, tier=1, race=Race.ELEMENTAL
+    )
+    player = _player(patch, [crasher, elemental])
+    triggers.fire_on_sell(elemental, player)
+    assert (crasher.raw_attack, crasher.max_health) == (
+        crasher.base_attack + 2,
+        crasher.base_health + 2,
+    )
+
+
+def test_selling_something_else_leaves_the_crasher_alone(patch, triggers):
+    crasher = _card(patch, "BG31_843")
+    beast = Minion(card_id="b", base_attack=1, base_health=1, tier=1, race=Race.BEAST)
+    player = _player(patch, [crasher, beast])
+    triggers.fire_on_sell(beast, player)
+    assert crasher.raw_attack == crasher.base_attack
+
+
+def test_sly_raptor_summons_a_six_six_beast(patch):
+    survivors, deaths = _fight([_card(patch, "BG25_806")], [_wall(atk=20)], patch)
+    summoned = [cid for side, cid in deaths if side == 0 and cid != "BG25_806"]
+    assert summoned, "the deathrattle summoned nothing"
+    beast = patch.templates[summoned[0]]
+    assert beast.race == Race.BEAST
+    # Set, not added: whatever it rolled, it fought as a 6/6.
+
+
+def test_the_raptors_beast_fights_at_six_six(patch):
+    """Set, not added: whatever it rolled, it lands as a 6/6."""
+    # Enough attack to kill the 1/3 Raptor on its swing, little enough health
+    # that the 6/6 it leaves behind finishes the fight and can be inspected.
+    survivors, _ = _fight([_card(patch, "BG25_806")], [_wall(hp=6, atk=3)], patch)
+    summoned = next(m for m in survivors if m.card_id != "BG25_806")
+    assert (summoned.base_attack, summoned.base_health) == (6, 6)
+
+
+def test_waveling_buffs_the_tavern_on_every_roll_from_now_on(patch):
+    from src.bg_recruitment.shop import refresh_shop
+
+    waveling = _card(patch, "BG34_856")
+    player = _player(patch, [waveling])
+    _fight(
+        [waveling],
+        [_wall(atk=20)],
+        patch,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    assert player.refresh_buffs == ((3, 3),)
+
+    for _ in range(2):
+        refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch)
+        buffed = [m for m in player.shop if m is not None and m.bonus_attack >= 3]
+        assert len(buffed) == 1
+
+
+def test_a_seat_with_no_waveling_rolls_a_plain_tavern(patch):
+    from src.bg_recruitment.shop import refresh_shop
+
+    player = _player(patch)
+    refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch)
+    assert all(m.bonus_attack == 0 for m in player.shop if m is not None)

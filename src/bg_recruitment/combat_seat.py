@@ -74,6 +74,11 @@ class PlayerCombatSeat(RecordingSeat):
             self.player, BonusScope(scope_kind, scope_key), attack, health
         )
 
+    def add_refresh_buff(self, attack: int, health: int) -> None:
+        self.player.refresh_buffs = self.player.refresh_buffs + (
+            (int(attack), int(health)),
+        )
+
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         self.player.tavern_spell_bonus_attack += int(attack)
         self.player.tavern_spell_bonus_health += int(health)

@@ -71,6 +71,10 @@ class CombatSeat(Protocol):
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         """"Rally: your Tavern spells give an extra +1 Health this game"."""
 
+    def add_refresh_buff(self, attack: int, health: int) -> None:
+        """"After the Tavern is Refreshed this game, give a random minion in it
+        +3/+3" — a standing promise, so it outlives the body that made it."""
+
     def record_damage_dealt(
         self, instance_id: int, amount: int, threshold: int, reward_card_id: str
     ) -> None:
@@ -131,6 +135,8 @@ class RecordingSeat:
     blood_gems: int = 0
     #: "This game" bonuses a combat raised, for a seat that has a table.
     standing_raises: List[Tuple[object, object, int, int]] = field(default_factory=list)
+    #: Standing tavern-roll buffs a combat promised the owner.
+    refresh_buffs: List[Tuple[int, int]] = field(default_factory=list)
     #: Damage a counting body dealt: (instance_id, amount, threshold, reward).
     damage_dealt: List[Tuple[int, int, int, str]] = field(default_factory=list)
     #: What a combat raised the owner's Tavern-spell bonus by.
@@ -174,6 +180,9 @@ class RecordingSeat:
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
         self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
+
+    def add_refresh_buff(self, attack: int, health: int) -> None:
+        self.refresh_buffs.append((int(attack), int(health)))
 
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         current_attack, current_health = self.tavern_spell_raise

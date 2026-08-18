@@ -7,11 +7,15 @@
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effects": [
       "AddCardToNextRefreshesEffect",
+      "AddRandomCardToHandEffect",
       "AddRandomTavernSpellToHandEffect",
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
       "BuffPlacedMinionEffect",
       "BuffRandomHandMinionEffect",
+      "BuffSelfOnFriendlyDamageEffect",
+      "BuffSelfOnFriendlySoldEffect",
+      "BuffShopOnEveryRefreshEffect",
       "BumpSeatCounterEffect",
       "CastRandomTavernSpellEffect",
       "ChooseOneEffect",
@@ -426,27 +430,27 @@
         }
       },
       "num_pool_ids": 246,
-      "num_pool_indices": 256,
-      "num_templates": 256,
+      "num_pool_indices": 261,
+      "num_templates": 261,
       "obs_fingerprints": {
         "bglike": {
-          "sha256": "8083c26fd26f5f719799ed2f6304259f97d5452310fd6d182603c134cca61d11",
+          "sha256": "5ea565d9fbbabef34f59d78abfc14389726a55a46e6cb771b860da9ca0592a9c",
           "shape": 976
         },
         "bglike_v5": {
-          "sha256": "02fd69e96c7d60f50ecf94a681f4a6b16d247a7ff4c4bf8557ae6e2b6f340148",
+          "sha256": "c4f83d66ad0bf57a2b5292fa32496798c1e32c6bd654b2575040ab9a2d6754cc",
           "shape": 2536
         },
         "bglike_v5_heroes": {
-          "sha256": "f7388e3ab5224bbdc0855c6e56223fbbba3b92ba7746adf7c719fbd836e697c6",
+          "sha256": "f5298f871827193b34e02414360671b586616353ebc866f9b80228ce4538c7c4",
           "shape": 2683
         },
         "bglike_v6_heroes": {
-          "sha256": "2483fff388aec71bbebf19d35f18451f5431cd9638769a94941c026e88c2024a",
+          "sha256": "e197a6df5567fa8af30312ed0aebba3bc35797054ebf6778134b35841b1e1b7f",
           "shape": 1123
         },
         "bglike_v7_pref": {
-          "sha256": "0caaa24b4bbeba2943c5cc55dce0555bc9e78732276b964ec498f92eeba23661",
+          "sha256": "c5b33333f162e70bbdafef517ffc19ce3bf13cd58861911da7da8c08b19bcc37",
           "shape": 1130
         }
       },

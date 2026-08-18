@@ -338,6 +338,20 @@ def refresh_shop(
     # After the roll, not before: the fill above would have rolled straight
     # over a promised card.
     _pay_refresh_promises(player, n, frozen, shared_pool=shared_pool, patch=patch)
+    _pay_refresh_buffs(player, rng=rng)
+
+
+def _pay_refresh_buffs(player: PlayerState, *, rng: np.random.Generator) -> None:
+    """Buff one random minion in the new tavern, once per standing promise."""
+    if not player.refresh_buffs:
+        return
+    for attack, health in player.refresh_buffs:
+        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        if not filled:
+            return
+        target = player.shop[filled[int(rng.integers(0, len(filled)))]]
+        target.bonus_attack += attack
+        target.bonus_health += health
 
 
 def _pay_refresh_promises(

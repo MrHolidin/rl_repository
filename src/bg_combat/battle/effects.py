@@ -28,6 +28,8 @@ from src.bg_core.effects import (
     GainBloodGemsEffect,
     PlayBloodGemsOnAttackerEffect,
     BuffRandomHandMinionEffect,
+    BuffSelfOnFriendlyDamageEffect,
+    BuffShopOnEveryRefreshEffect,
     KeepCombatGainsEffect,
     IncreaseTavernSpellBonusEffect,
     RaiseStandingBonusEffect,
@@ -603,6 +605,46 @@ def _fire_friendly_attack_listeners(
     _sync_health_all(rt)
 
 
+def _summon_best_from_hand(
+    rt: _CombatRuntime,
+    side_idx: int,
+    source: Optional[BattleMinion],
+    effect: SummonBestFromHandEffect,
+) -> None:
+    """Summon the biggest matching card in hand, for this combat only.
+
+    Two cards print this at different moments — a Rally and a Start of Combat —
+    and it is the same reach either way: the card stays in hand and a copy of it
+    joins the fight, carrying whatever the real card had gained.
+    """
+    held = _hand_candidates(rt, side_idx, effect.filter_race)
+    if not held:
+        return
+    card_id, attack, health = max(held, key=lambda row: row[1])
+    template = rt.patch.templates.get(card_id)
+    if template is None:
+        return
+    body = copy(template)
+    body.bonus_attack += max(0, attack - template.raw_attack)
+    body.bonus_health += max(0, health - template.max_health)
+    _summon_beside(
+        rt, side_idx, source, SummonEffect(token_id=card_id, count=1), template=body
+    )
+
+
+def _hand_candidates(rt: _CombatRuntime, side_idx: int, filter_race):
+    """Hand minions a summon-from-hand may choose, tribe filter applied."""
+    held = rt.seats[side_idx].hand_minion_stats()
+    if filter_race is None:
+        return list(held)
+    out = []
+    for card_id, attack, health in held:
+        template = rt.patch.templates.get(card_id)
+        if template is not None and minion_matches_tribe(template, filter_race):
+            out.append((card_id, attack, health))
+    return out
+
+
 def _summon_beside(
     rt: _CombatRuntime,
     side_idx: int,
@@ -697,23 +739,7 @@ def _fire_rally(
             # mid-combat, and a permanent Gem played after it is worth more.
             rt.seats[attacker_side_idx].raise_blood_gem_value(eff.attack, eff.health)
         elif isinstance(eff, SummonBestFromHandEffect):
-            # "for this combat only" is the default here: the summon is a copy
-            # and the card itself never leaves hand.
-            held = rt.seats[attacker_side_idx].hand_minion_stats()
-            if held:
-                card_id, attack, health = max(held, key=lambda row: row[1])
-                template = rt.patch.templates.get(card_id)
-                if template is not None:
-                    body = copy(template)
-                    body.bonus_attack += max(0, attack - template.raw_attack)
-                    body.bonus_health += max(0, health - template.max_health)
-                    _summon_beside(
-                        rt,
-                        attacker_side_idx,
-                        attacker,
-                        SummonEffect(token_id=card_id, count=1),
-                        template=body,
-                    )
+            _summon_best_from_hand(rt, attacker_side_idx, attacker, eff)
         elif isinstance(eff, SummonEffect) and not (
             eff.for_opponent or eff.count_from_source_attack
         ):
@@ -855,10 +881,45 @@ def _handle_shield_lost(rt: _CombatRuntime, e: ShieldLost) -> None:
 
 def _handle_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
     _count_damage_dealt(rt, e)
+    _fire_friendly_damage_listeners(rt, e)
     bm = rt.find_minion(e.victim_side_idx, e.victim_instance_id)
     if bm is not None and bm.alive and e.hp_loss > 0:
         _fire_self_damaged(rt, e.victim_side_idx, bm)
         rt.swing_damage_survivors.append((e.victim_side_idx, e.victim_instance_id))
+
+
+def _fire_friendly_damage_listeners(rt: _CombatRuntime, e: DamageDealt) -> None:
+    """"After another friendly Demon deals damage, gain +1/+2 permanently."
+
+    Damage, not an attack: this fires for anything that hurts an enemy, which
+    is what separates it from ON_FRIENDLY_ATTACK. Permanent gains are written
+    back to the owner's minion as well as to the copy, by the same route
+    Tarecgosa's take.
+    """
+    if e.hp_loss <= 0:
+        return
+    dealer_side = 1 - e.victim_side_idx
+    dealer = rt.find_minion(dealer_side, e.source_instance_id)
+    if dealer is None:
+        return
+    for listener in rt.side(dealer_side).iter_living():
+        if listener is dealer:
+            continue
+        for ability in listener.abilities:
+            eff = ability.effect
+            if not isinstance(eff, BuffSelfOnFriendlyDamageEffect):
+                continue
+            if eff.filter_race is not None and not minion_matches_tribe(
+                dealer, eff.filter_race
+            ):
+                continue
+            listener.bonus_attack += eff.attack
+            listener.bonus_health += eff.health
+            if eff.permanent:
+                rt.seats[dealer_side].keep_combat_gains(
+                    listener.origin_instance_id, eff.attack, eff.health, frozenset()
+                )
+    _sync_health_all(rt)
 
 
 def _count_damage_dealt(rt: _CombatRuntime, e: DamageDealt) -> None:
@@ -963,6 +1024,13 @@ def _dr_summon_random(
             for __ in range(effect.count):
                 cid = pool[int(rt.rng.integers(0, len(pool)))]
                 tok = make_minion(cid, patch=rt.patch)
+                if effect.set_attack or effect.set_health:
+                    # "Set its stats to 6/6" — set, not added, so whatever it
+                    # rolled is replaced rather than improved.
+                    tok.base_attack = effect.set_attack
+                    tok.base_health = effect.set_health
+                    tok.bonus_attack = 0
+                    tok.bonus_health = 0
                 bm = _summon_insert(
                     rt,
                     target_side,
@@ -1112,6 +1180,13 @@ def _count_death(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
             )
 
 
+def _dr_promise_refresh_buff(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffShopOnEveryRefreshEffect
+) -> None:
+    """Waveling: from now on, every tavern roll buffs one minion in it."""
+    rt.seats[side_idx].add_refresh_buff(effect.attack, effect.health)
+
+
 def _dr_buff_hand_minion(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomHandMinionEffect
 ) -> None:
@@ -1221,6 +1296,7 @@ _DEATHRATTLE_HANDLERS = {
     GrantKeywordAllFriendlyOfTribe: _dr_grant_kw_all_of_tribe,
     GainGoldOnDeathEffect: _dr_gain_gold,
     BuffRandomHandMinionEffect: _dr_buff_hand_minion,
+    BuffShopOnEveryRefreshEffect: _dr_promise_refresh_buff,
 }
 
 

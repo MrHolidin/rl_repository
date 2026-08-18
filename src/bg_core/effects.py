@@ -107,6 +107,11 @@ class SummonRandomMinionEffect:
     race_filter: Optional[Any] = None
     exclude_source: bool = True
     for_opponent: bool = False
+    #: Land the summon on these stats instead of its printed ones ("summon a
+    #: random Beast. Set its stats to 6/6"). Set, not added: the card says what
+    #: the body ends up as, whatever it was.
+    set_attack: int = 0
+    set_health: int = 0
 
 
 @dataclass(frozen=True)
@@ -657,6 +662,58 @@ class BumpSeatCounterEffect:
 
 
 @dataclass(frozen=True)
+class AddRandomCardToHandEffect:
+    """One of a named set of cards, at random ("get a random Chromadrake").
+
+    The set is written into the binding because the card names a family the
+    catalog has no flag for — five Chromadrakes, and nothing marks them as such.
+    """
+
+    card_ids: Tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class BuffSelfOnFriendlyDamageEffect:
+    """Grow when another friendly deals damage in combat.
+
+    ``permanent`` is the difference between a body that is bigger for this fight
+    and one that is bigger afterwards — Devout Hellcaller says "permanently", so
+    the gain is written back to the owner's minion as well as to the copy.
+    """
+
+    attack: int = 0
+    health: int = 0
+    filter_race: Optional[Any] = None
+    permanent: bool = True
+
+
+@dataclass(frozen=True)
+class BuffSelfOnFriendlySoldEffect:
+    """Grow when the seat sells a friendly ("after you sell an Elemental").
+
+    Sits on ``Trigger.ON_SELL`` like the sold minion's own effects, and the type
+    is what tells the two apart: this one belongs to a *watcher* on the board,
+    not to the card leaving it.
+    """
+
+    attack: int = 0
+    health: int = 0
+    filter_race: Optional[Any] = None
+
+
+@dataclass(frozen=True)
+class BuffShopOnEveryRefreshEffect:
+    """From now on, every tavern roll buffs one random minion in it.
+
+    "After the Tavern is Refreshed this game" — a standing promise on the seat
+    rather than a one-off, so it outlives the body that made it.
+    """
+
+    attack: int = 0
+    health: int = 0
+
+
+@dataclass(frozen=True)
 class RewardAtDamageDealtEffect:
     """Once this body has dealt ``threshold`` damage, hand the owner a card.
 
@@ -704,8 +761,11 @@ class SummonBestFromHandEffect:
 
     The card stays in hand — what joins the fight is a copy, and it dies with
     the combat like any other. Reads the hand through the seat, the same way
-    ``SummonSelfCopyFromHandEffect`` does.
+    ``SummonSelfCopyFromHandEffect`` does. ``filter_race`` narrows it to one
+    tribe ("the highest-Attack Murloc from your hand").
     """
+
+    filter_race: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -1437,6 +1497,10 @@ __all__ = [
     "BumpSeatCounterEffect",
     "DestroyFriendlyForCopyEffect",
     "RefreshesCostHealthEffect",
+    "AddRandomCardToHandEffect",
+    "BuffSelfOnFriendlyDamageEffect",
+    "BuffSelfOnFriendlySoldEffect",
+    "BuffShopOnEveryRefreshEffect",
     "RewardAtDamageDealtEffect",
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",

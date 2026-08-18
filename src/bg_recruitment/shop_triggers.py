@@ -49,6 +49,9 @@ from src.bg_core.effects import (
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
     BuffPlacedMinionEffect,
+    AddRandomCardToHandEffect,
+    BuffSelfOnFriendlySoldEffect,
+    BuffShopOnEveryRefreshEffect,
     BumpSeatCounterEffect,
     AddCardToNextRefreshesEffect,
     AddRandomTavernSpellToHandEffect,
@@ -103,6 +106,7 @@ from src.bg_recruitment.blood_gems import (
 )
 from src.bg_core.board_helpers import (
     count_for_source,
+    minion_matches_tribe,
     apply_buff_matching,
     apply_summoned_listener,
     grant_keyword,
@@ -161,6 +165,10 @@ _HANDLED_ELSEWHERE = (
     ConsumeFriendlyBattlecry,
     ConsumeTavernMinionEffect,
     DestroyFriendlyForCopyEffect,
+    # fire_on_sell applies this one itself: it belongs to a minion staying
+    # behind rather than to the card being sold, and the dispatcher only ever
+    # sees the card that leaves.
+    BuffSelfOnFriendlySoldEffect,
     # fire_on_place applies these itself and then skips them here: they read
     # and write per-turn counters that Brann must not multiply.
     PogoHopperBattlecry,
@@ -501,6 +509,16 @@ class ShopTriggers:
         elif isinstance(effect, AddCardToNextRefreshesEffect):
             have = player.refresh_promises.get(effect.card_id, 0)
             player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
+        elif isinstance(effect, AddRandomCardToHandEffect):
+            pool = [cid for cid in effect.card_ids if cid in self._patch.templates]
+            slot = first_free_hand_slot(player) if pool else None
+            if slot is not None:
+                pick = pool[int(self._rng.integers(0, len(pool)))]
+                player.hand[slot] = make_minion(pick, patch=self._patch)
+        elif isinstance(effect, BuffShopOnEveryRefreshEffect):
+            player.refresh_buffs = player.refresh_buffs + (
+                (int(effect.attack), int(effect.health)),
+            )
         elif isinstance(effect, GiveLockboxEffect):
             give_lockbox(player, sooner=int(effect.sooner))
         elif isinstance(effect, AddTavernSpellToHandEffect):
@@ -602,6 +620,30 @@ class ShopTriggers:
             if ab.trigger != Trigger.ON_SELL:
                 continue
             self.apply_shop_effect(player, sold, ab.effect, sold)
+        self._fire_friendly_sold(sold, player)
+
+    def _fire_friendly_sold(self, sold: Minion, player: PlayerState) -> None:
+        """Board watchers of a sale ("after you sell an Elemental, gain +2/+2").
+
+        Same trigger as the sold card's own effects and told apart by type: this
+        one belongs to a minion staying behind, and the sold card is what it is
+        watching.
+        """
+        for watcher in player.board:
+            if watcher is sold:
+                continue
+            for ab in watcher.abilities:
+                if ab.trigger != Trigger.ON_SELL:
+                    continue
+                eff = ab.effect
+                if not isinstance(eff, BuffSelfOnFriendlySoldEffect):
+                    continue
+                if eff.filter_race is not None and not minion_matches_tribe(
+                    sold, eff.filter_race
+                ):
+                    continue
+                watcher.bonus_attack += eff.attack
+                watcher.bonus_health += eff.health
 
     def fire_on_friendly_bought(self, bought: Minion, player: PlayerState) -> None:
         if bought.race == Race.PIRATE:

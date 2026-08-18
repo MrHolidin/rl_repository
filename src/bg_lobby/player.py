@@ -156,6 +156,10 @@ class PlayerState:
     #: Reset at turn start from whatever is on the board, so selling the card
     #: takes the discount with it.
     health_refreshes_left: int = 0
+    #: Standing "every roll from now on buffs a random minion in the tavern"
+    #: promises, as ``(attack, health)`` pairs. A tuple, so a seat copy does not
+    #: share the list.
+    refresh_buffs: Tuple[Tuple[int, int], ...] = ()
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.

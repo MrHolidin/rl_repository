@@ -21,6 +21,10 @@ from typing import Dict, FrozenSet, Tuple
 from src.bg_core.effects import (
     Ability,
     BuffAttackerOnFriendlyAttackEffect,
+    AddRandomCardToHandEffect,
+    BuffSelfOnFriendlyDamageEffect,
+    BuffSelfOnFriendlySoldEffect,
+    BuffShopOnEveryRefreshEffect,
     CastRandomTavernSpellEffect,
     DestroyFriendlyForCopyEffect,
     BuffListenerIfSummonedMatches,
@@ -76,7 +80,9 @@ from src.bg_core.effects import (
     RewindHeroDamageEffect,
     RepeatPerCountEffect,
     StealTavernMinionEffect,
+    SummonBestFromHandEffect,
     SummonEffect,
+    SummonRandomMinionEffect,
     SummonSelfCopyFromHandEffect,
     Trigger,
 )
@@ -95,6 +101,13 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BGS_115t",  # Water Droplet 2/2 — Sellemental
         "BG35_150t",  # Demon Fodder — Laboratory Assistant
         "BG25_010t",  # Helping Hand 2/1 Reborn — Handless Forsaken
+        # The five Chromadrakes: out of the tavern pool this patch, still handed
+        # over by Hired Mount, so the package has to carry them.
+        "BG34_634t",
+        "BG34_635t",
+        "BG34_636t",
+        "BG34_637t",
+        "BG34_638t",
     }
 )
 
@@ -650,6 +663,52 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BGS_126": (  # Wildfire Elemental — overkill splashes onto a neighbour
         Ability(Trigger.ON_OVERKILL, DealExcessDamageToAdjacentEffect()),
+    ),
+    "BG33_155": (  # Devout Hellcaller — another friendly Demon deals damage: +1/+2
+        Ability(
+            Trigger.AURA,
+            BuffSelfOnFriendlyDamageEffect(
+                attack=1, health=2, filter_race=Race.DEMON, permanent=True
+            ),
+        ),
+    ),
+    "BG27_556": (  # Diremuck Forager — SoC: the best Murloc in hand, for this fight
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            SummonBestFromHandEffect(filter_race=Race.MURLOC),
+        ),
+    ),
+    "BG36_240": (  # Hired Mount — Activate (2): get a random Chromadrake
+        Ability(
+            Trigger.ON_ACTIVATE,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG34_634t",  # Blue
+                    "BG34_635t",  # Black
+                    "BG34_636t",  # Green
+                    "BG34_637t",  # Bronze
+                    "BG34_638t",  # Red
+                )
+            ),
+            activate_cost=2,
+        ),
+    ),
+    "BG31_843": (  # Meteorite Crasher — after you sell an Elemental, gain +2/+2
+        Ability(
+            Trigger.ON_SELL,
+            BuffSelfOnFriendlySoldEffect(attack=2, health=2, filter_race=Race.ELEMENTAL),
+        ),
+    ),
+    "BG25_806": (  # Sly Raptor — Deathrattle: a random Beast, set to 6/6
+        Ability(
+            Trigger.ON_DEATH,
+            SummonRandomMinionEffect(
+                count=1, race_filter=Race.BEAST, set_attack=6, set_health=6
+            ),
+        ),
+    ),
+    "BG34_856": (  # Waveling — Deathrattle: every roll from now on buffs the tavern
+        Ability(Trigger.ON_DEATH, BuffShopOnEveryRefreshEffect(attack=3, health=3)),
     ),
     "BG36_207": (  # Wolf Pup — Rally: give your *other* minions +4/+2
         Ability(

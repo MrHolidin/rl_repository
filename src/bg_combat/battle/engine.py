@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 from src.bg_core.effects import (
     BuffMatching,
     Keyword,
+    SummonBestFromHandEffect,
     StartOfCombatDamagePerFriendlyTribe,
     SummonSelfCopyFromHandEffect,
     Trigger,
@@ -14,6 +15,7 @@ from src.bg_core.effects import (
 
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .summon import _summon_append
+from .effects import _summon_best_from_hand
 from .events import (
     AttackCompleted,
     BeginAttackExchange,
@@ -145,6 +147,10 @@ def _apply_start_of_combat_effect(
             grant=lambda m, kw: _grant_keyword(rt, side_idx, m, kw),
         )
         _sync_health_all(rt)
+    elif isinstance(eff, SummonBestFromHandEffect):
+        # Same reach as the Rally that summons from hand, at a different moment:
+        # the card stays put and a copy joins the fight.
+        _summon_best_from_hand(rt, side_idx, source, eff)
     elif isinstance(eff, SummonSelfCopyFromHandEffect):
         # ``source`` is the card in hand, made only to carry this trigger; the
         # copy that joins the fight is built from its template like any summon.
