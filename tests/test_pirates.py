@@ -220,3 +220,135 @@ def test_a_golden_minion_is_not_made_golden_twice(patch, triggers):
     player = _player(patch, [sanders, already])
     _place(triggers, player, sanders, forced=already)
     assert (already.base_attack, already.base_health) == before
+
+
+# --------------------------------------------------------------------------- #
+# The last four
+# --------------------------------------------------------------------------- #
+
+
+def test_proud_privateer_casts_a_bounty_twice(patch, triggers):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    privateer = _card(patch, "BG33_825")
+    crew = [_pirate(f"p{i}") for i in range(3)]
+    player = _player(patch, [privateer] + crew)
+    triggers.fire_on_place(privateer, player, None)
+    assert player.bounties_cast_twice
+
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG33_813"],  # Selfish Bounty: left-most +6/+6
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    assert (privateer.raw_attack, privateer.max_health) == (
+        privateer.base_attack + 12,
+        privateer.base_health + 12,
+    )
+
+
+def test_without_the_privateer_a_bounty_casts_once(patch):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    crew = [_pirate(f"p{i}") for i in range(2)]
+    player = _player(patch, crew)
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG33_813"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    assert (crew[0].raw_attack, crew[0].max_health) == (7, 7)
+
+
+def test_an_ordinary_spell_is_not_doubled(patch, triggers):
+    """The promise is about Bounties, and the package says which spells are."""
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    privateer = _card(patch, "BG33_825")
+    target = _pirate()
+    player = _player(patch, [privateer, target], gold=0)
+    triggers.fire_on_place(privateer, player, None)
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_810"],  # Tavern Coin: +1 Gold, not a Bounty
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    assert player.gold == 1
+
+
+def test_silent_deliverer_hands_over_a_golden_tier_four(patch, triggers):
+    deliverer = _card(patch, "BG36_343")
+    player = _player(patch, [deliverer])
+    triggers.fire_on_place(deliverer, player, None)
+    got = next(c for c in player.hand if c is not None)
+    assert got.is_golden and got.tier == 4
+    assert player.pending_choice is None  # nothing merged, nothing owed
+
+
+def test_friendly_bounty_reads_the_board_for_a_tribe(patch):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    board = [_pirate("p1"), _pirate("p2")]
+    board.append(Minion(card_id="b", base_attack=1, base_health=1, tier=1, race=Race.BEAST))
+    player = _player(patch, board)
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG33_814"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    got = next(c for c in player.hand if c is not None)
+    assert got.race == Race.PIRATE
+
+
+def test_a_tribeless_board_names_no_type(patch):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    player = _player(patch, [Minion(card_id="x", base_attack=1, base_health=1, tier=1)])
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG33_814"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    assert all(c is None for c in player.hand)
+
+
+def test_hooktusk_answers_a_discover(patch, triggers):
+    from src.bg_recruitment.discover import resolve_discover_pick
+    from src.bg_recruitment.tavern_spells import open_tavern_spell_discover
+
+    hooktusk = _card(patch, "BG36_344")
+    mate = _pirate("mate")
+    player = _player(patch, [hooktusk, mate], tavern_tier=3)
+    open_tavern_spell_discover(player, rng=np.random.default_rng(0), patch=patch)
+    resolve_discover_pick(
+        player, 0, None, rng=np.random.default_rng(0),
+        on_after_placed=lambda p, m: None, patch=patch,
+    )
+    assert (mate.raw_attack, mate.max_health) == (2, 2)
+    # "your *other* Pirates"
+    assert (hooktusk.raw_attack, hooktusk.max_health) == (
+        hooktusk.base_attack,
+        hooktusk.base_health,
+    )
+
+
+def test_hooktusk_improves_with_golden_minions_played(patch, triggers):
+    from src.bg_recruitment.discover import resolve_discover_pick
+    from src.bg_recruitment.game_counts import GOLDEN_PLAYED
+    from src.bg_recruitment.tavern_spells import open_tavern_spell_discover
+
+    hooktusk = _card(patch, "BG36_344")
+    mate = _pirate("mate")
+    player = _player(patch, [hooktusk, mate], tavern_tier=3)
+    player.game_counts[GOLDEN_PLAYED] = 2
+    open_tavern_spell_discover(player, rng=np.random.default_rng(0), patch=patch)
+    resolve_discover_pick(
+        player, 0, None, rng=np.random.default_rng(0),
+        on_after_placed=lambda p, m: None, patch=patch,
+    )
+    assert (mate.raw_attack, mate.max_health) == (4, 4)  # three times over

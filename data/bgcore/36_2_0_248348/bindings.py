@@ -24,7 +24,10 @@ from src.bg_core.effects import (
     AddRandomCardToHandEffect,
     BuffOnSpellCastOnTribeEffect,
     BuffBoughtMinionEffect,
+    AddRandomGoldenMinionEffect,
+    AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
+    DoubleBountiesEffect,
     MakeFriendlyGoldenEffect,
     ConsumeTavernMinionEffect,
     GoldSpentResponseEffect,
@@ -128,6 +131,19 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG34_636t",
         "BG34_637t",
         "BG34_638t",
+    }
+)
+
+#: The spells this package calls Bounties. A family the card data does not
+#: mark, and one card reads it ("your Bounties cast twice").
+BOUNTY_IDS: FrozenSet[str] = frozenset(
+    {
+        "BG33_811",  # Healthy
+        "BG33_812",  # Hostile
+        "BG33_813",  # Selfish
+        "BG33_814",  # Friendly
+        "BG33_815",  # Wealthy
+        "BG31_886",  # Forest's Bounty
     }
 )
 
@@ -1242,6 +1258,27 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
+    "BG33_825": (  # Proud Privateer — your Bounties cast twice
+        Ability(Trigger.ON_PLACE, DoubleBountiesEffect()),
+    ),
+    "BG36_343": (  # Silent Deliverer — a random Golden Tier 4, owing no Triple
+        Ability(Trigger.ON_PLACE, AddRandomGoldenMinionEffect(tier=4)),
+    ),
+    "BG36_344": (  # Hooktusk — a Discover pays your other Pirates, improving
+        Ability(
+            Trigger.ON_DISCOVERED,
+            RepeatPerCountEffect(
+                counter="golden_played:*",
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE,
+                    tribe=Race.PIRATE,
+                    attack=1,
+                    health=1,
+                    exclude_source=True,
+                ),
+            ),
+        ),
+    ),
     "BG26_814": (  # Lovesick Balladist — a Pirate +1 Health per Gold spent this turn
         Ability(
             Trigger.ON_PLACE,
@@ -1279,6 +1316,20 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG33_815": (  # Wealthy Bounty — gain 2 Gold
         Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=2)),
+    ),
+    "BG33_814": (  # Friendly Bounty — a random minion of your most common type
+        Ability(Trigger.ON_PLACE, AddRandomMinionOfCommonTribeEffect()),
+    ),
+    "BG31_886": (  # Forest's Bounty — Choose One
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=BuffTargetFriendlyBattlecry(
+                    attack=12, health=12, exclude_self=False
+                ),
+                second=BuffMatching(BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+            ),
+        ),
     ),
 
     "BG34_444": (  # Easterly Winds — every roll from now on buffs the tavern

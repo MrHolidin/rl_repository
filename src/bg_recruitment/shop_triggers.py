@@ -13,7 +13,10 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.conditions import ability_condition_met
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
+    AddRandomGoldenMinionEffect,
+    AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
+    DoubleBountiesEffect,
     MakeFriendlyGoldenEffect,
     AdaptSelfRandomEffect,
     AddRandomMinionToShopEffect,
@@ -674,6 +677,40 @@ class ShopTriggers:
         elif isinstance(effect, StatsFromNextBuyEffect):
             if source is not None:
                 source.wants_next_buy_stats = True
+        elif isinstance(effect, DoubleBountiesEffect):
+            player.bounties_cast_twice = True
+        elif isinstance(effect, AddRandomGoldenMinionEffect):
+            from src.bg_catalog.patch_catalog import golden_upgrade_card_id
+
+            catalog = self._patch.patch_dir / "catalog.json"
+            pool = [
+                cid
+                for cid in self._patch.pool_ids
+                if self._patch.templates[cid].tier == effect.tier
+                and golden_upgrade_card_id(cid, catalog) is not None
+            ]
+            slot = first_free_hand_slot(player) if pool else None
+            if slot is not None:
+                pick = pool[int(self._rng.integers(0, len(pool)))]
+                made = make_minion(pick, patch=self._patch)
+                from src.bg_recruitment.targeted_battlecry import make_golden
+
+                make_golden(made, patch=self._patch)
+                player.hand[slot] = made
+        elif isinstance(effect, AddRandomMinionOfCommonTribeEffect):
+            counts: dict = {}
+            for m in player.board:
+                if m.race is not None:
+                    counts[m.race] = counts.get(m.race, 0) + 1
+            if counts:
+                tribe = max(counts.items(), key=lambda kv: kv[1])[0]
+                add_random_minion_to_hand(
+                    player,
+                    tribe,
+                    shop_excluded_race,
+                    rng=self._rng,
+                    patch=self._patch,
+                )
         elif isinstance(effect, DoubleNextMagnetizeEffect):
             if source is not None:
                 source.magnet_doubles_next = True

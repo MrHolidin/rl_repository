@@ -71,12 +71,15 @@ def _pick_eater(
     return player.board[pick]
 
 
-def make_friendly_golden(player: PlayerState, target: Minion, *, patch) -> None:
+def make_golden(target: Minion, *, patch) -> None:
     """Turn ``target`` into its Golden printing, in place.
 
     Not a triple: nothing merged, so no Triple Reward is owed. What the body had
     gained rides along, because the card is being upgraded rather than replaced
     — the golden printing's doubled base plus the bonuses it already carried.
+
+    Takes no seat, so it serves a card being made Golden in hand as readily as
+    one standing on the board.
     """
     from src.bg_catalog.patch_catalog import golden_upgrade_card_id
 
@@ -280,7 +283,7 @@ def apply_targeted_on_place_battlecries(
                 forced=forced_buff_target,
             )
             if target is not None and (not e.max_tier or target.tier <= e.max_tier):
-                make_friendly_golden(player, target, patch=triggers._patch)
+                make_golden(target, patch=triggers._patch)
         elif isinstance(e, DestroyFriendlyForCopyEffect):
             victim = _pick_eater(
                 player,

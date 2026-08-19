@@ -55,6 +55,8 @@ class Trigger(Enum):
     #: Blood Gems, which are the two things the engine lets a seat cast at a
     #: body ("Whenever you cast a spell on this, gain +1 Health").
     ON_TARGETED_BY_SPELL = auto()
+    #: shop: the seat kept a card out of a Discover, whatever offered it.
+    ON_DISCOVERED = auto()
     #: shop: the seat's hero just took combat damage. Listeners may undo it —
     #: which is why they run *before* the health is written, not after.
     ON_HERO_DAMAGE = auto()
@@ -681,6 +683,35 @@ class BuffOnSpellCastOnTribeEffect:
     tribe: Any = None
     attack: int = 0
     health: int = 0
+
+
+@dataclass(frozen=True)
+class DoubleBountiesEffect:
+    """Proud Privateer: this seat's Bounties resolve twice.
+
+    A standing property of the seat rather than a change to the cards: the
+    Bounty in hand is the same card, and casting it is what happens twice.
+    """
+
+
+@dataclass(frozen=True)
+class AddRandomGoldenMinionEffect:
+    """Get a random Golden minion of one tier, owing no Triple Reward.
+
+    Made rather than forged, so nothing is owed — the same distinction
+    :class:`MakeFriendlyGoldenEffect` draws.
+    """
+
+    tier: int = 1
+
+
+@dataclass(frozen=True)
+class AddRandomMinionOfCommonTribeEffect:
+    """Get a random minion of the tribe the seat has most of.
+
+    Ties go to nobody in particular; a board with no tribe at all fetches
+    nothing, because there is no most-common type to name.
+    """
 
 
 @dataclass(frozen=True)
@@ -1692,6 +1723,9 @@ __all__ = [
     "RefreshesCostHealthEffect",
     "BuffOnSpellCastOnTribeEffect",
     "BuffSharedTribeEffect",
+    "DoubleBountiesEffect",
+    "AddRandomGoldenMinionEffect",
+    "AddRandomMinionOfCommonTribeEffect",
     "MakeFriendlyGoldenEffect",
     "BuffTargetPerGoldSpentEffect",
     "BuffBoughtMinionEffect",

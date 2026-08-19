@@ -153,6 +153,30 @@ def roll_pending_modal(
     return PendingChoice(kind, opts, remaining_after, options_pool_reserved=reserved)
 
 
+def _fire_discovered(player: PlayerState, *, patch) -> None:
+    """Board listeners of "after you Discover a card".
+
+    Fired once the pick is in hand, from the one place every Discover resolves,
+    so a card watching for it cannot miss one kind of Discover and see another.
+    """
+    import numpy as _np
+
+    from src.bg_core.effects import Trigger
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    listeners = [
+        (m, ab.effect)
+        for m in list(player.board)
+        for ab in m.abilities
+        if ab.trigger is Trigger.ON_DISCOVERED
+    ]
+    if not listeners:
+        return
+    triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+    for source, effect in listeners:
+        triggers.apply_shop_effect(player, source, effect, placed=None)
+
+
 def resolve_discover_pick(
     player: PlayerState,
     pick_slot: int,
@@ -182,6 +206,8 @@ def resolve_discover_pick(
             # including the shared pool, which only tracks tavern minions.
             player.hand[h] = patch.tavern_spells[choice_token]
             player.pending_choice = None
+            # A Discover is a Discover whatever it offered.
+            _fire_discovered(player, patch=patch)
             return
         picked = make_minion(choice_token, patch=patch)
         player.hand[h] = picked
@@ -193,6 +219,8 @@ def resolve_discover_pick(
         for m in player.board:
             if is_murloc_board_minion(m):
                 apply_adapt_key_to_minion(m, choice_token)
+
+    _fire_discovered(player, patch=patch)
 
     chain_next = extra > 0
     if chain_next:

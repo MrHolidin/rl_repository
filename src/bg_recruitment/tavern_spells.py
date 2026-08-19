@@ -264,6 +264,38 @@ def cast_tavern_spell(
     Everything that follows a cast — the seat's spell bonus, the memory of
     which one it was, the listeners — belongs to the cast, not to the hand.
     """
+    # "Your Bounties cast twice" — the card is unchanged and the cast is what
+    # happens twice, so the whole resolution repeats rather than the numbers
+    # doubling.
+    times = 2 if (player.bounties_cast_twice and card.card_id in patch.bounty_ids) else 1
+    for _ in range(times):
+        _resolve_spell_abilities(
+            player,
+            card,
+            rng=rng,
+            patch=patch,
+            target=target,
+            choose_one_option=choose_one_option,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )
+    player.last_tavern_spell_cast = card.card_id
+    bump_seat_counter(player, SPELLS_CAST)
+    bump_seat_counter(player, TAVERN_SPELLS_CAST)
+    _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
+
+
+def _resolve_spell_abilities(
+    player: PlayerState,
+    card: SpellCard,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    target: Optional[Minion],
+    choose_one_option: int,
+    shop_excluded_race: Optional[Race],
+    shared_pool: Optional[SharedCardPool],
+) -> None:
     for ability in card.abilities:
         if ability.trigger != Trigger.ON_PLACE:
             continue
@@ -277,10 +309,6 @@ def cast_tavern_spell(
             shop_excluded_race=shop_excluded_race,
             shared_pool=shared_pool,
         )
-    player.last_tavern_spell_cast = card.card_id
-    bump_seat_counter(player, SPELLS_CAST)
-    bump_seat_counter(player, TAVERN_SPELLS_CAST)
-    _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
 
 
 def _fire_tavern_spell_cast(

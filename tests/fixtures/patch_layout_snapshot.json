@@ -8,6 +8,8 @@
     "unencoded_effects": [
       "AddCardToNextRefreshesEffect",
       "AddRandomCardToHandEffect",
+      "AddRandomGoldenMinionEffect",
+      "AddRandomMinionOfCommonTribeEffect",
       "AddRandomTavernSpellToHandEffect",
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
@@ -31,6 +33,7 @@
       "DestroyFriendlyForCopyEffect",
       "DiscoverMinionAtTierEffect",
       "DiscoverTavernSpellEffect",
+      "DoubleBountiesEffect",
       "DoubleNextMagnetizeEffect",
       "EchoMagnetizeEffect",
       "FirstSpellcraftIsPermanentEffect",
@@ -66,6 +69,7 @@
       "ON_ACTIVATE",
       "ON_ATTACK",
       "ON_CHOOSE_ONE_PLAYED",
+      "ON_DISCOVERED",
       "ON_HERO_DAMAGE",
       "ON_TARGETED_BY_SPELL",
       "ON_TAVERN_SPELL_CAST"

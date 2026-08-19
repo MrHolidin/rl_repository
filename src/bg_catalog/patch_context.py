@@ -82,6 +82,10 @@ class PatchContext:
     # (triple-reward discover) is built in the shared loader below, not from
     # per-patch data.
     tavern_spells: Mapping[str, SpellCard] = field(default_factory=dict)
+    #: Spells the package calls Bounties. A family the card data does not mark,
+    #: and one card reads it ("your Bounties cast twice"), so the package names
+    #: them the way it names its always-golden cards.
+    bounty_ids: FrozenSet[str] = frozenset()
 
     def make_minion(self, card_id: str) -> Minion:
         from copy import copy
@@ -131,6 +135,7 @@ class PatchContext:
         spell_effects: Dict[str, Tuple[Ability, ...]] = dict(
             getattr(bindings, "SPELL_EFFECTS", {})
         )
+        bounty_ids: FrozenSet[str] = frozenset(getattr(bindings, "BOUNTY_IDS", ()))
 
         templates, descriptions, pool_ids = _build_templates_and_descriptions(
             catalog_path=catalog_path,
@@ -164,6 +169,7 @@ class PatchContext:
             golden_reward_ids=golden_reward_ids,
             token_ids=token_ids,
             keyword_only_pool_ids=keyword_only_pool_ids,
+            bounty_ids=bounty_ids,
             card_index_ids=card_index_ids,
             card_id_to_dense=card_id_to_dense,
             num_pool_indices=len(card_index_ids),
