@@ -148,10 +148,10 @@ def apply_temporary_buff(
     fire_spell_cast_on(target, player=player, patch=patch)
 
 
-def _count_spell_cast(player: PlayerState) -> None:
+def _count_spell_cast(player: PlayerState, *, patch=None) -> None:
     from .game_counts import SPELLS_CAST, bump_seat_counter
 
-    bump_seat_counter(player, SPELLS_CAST)
+    bump_seat_counter(player, SPELLS_CAST, patch=patch)
 
 
 def play_spellcraft_spell_from_hand(
@@ -187,7 +187,7 @@ def play_spellcraft_spell_from_hand(
                 f"patch to resolve ({card.card_id})"
             )
     player.hand[hand_index] = None
-    _count_spell_cast(player)
+    _count_spell_cast(player, patch=patch)
 
 
 def expire_temporary_buffs(player: PlayerState) -> None:

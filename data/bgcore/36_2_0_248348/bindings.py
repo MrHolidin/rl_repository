@@ -34,7 +34,12 @@ from src.bg_core.effects import (
     MakeFriendlyGoldenEffect,
     ConsumeTavernMinionEffect,
     DamageFromOwnAttackEffect,
+    GrantCombinedChooseOneEffect,
     ImmuneWhileAttackingEffect,
+    IncreaseBloodGemBonusEffect,
+    RaiseGoldCapEffect,
+    SpellsCastResponseEffect,
+    SummonGemGolemEffect,
     KeepCombatGainsEffect,
     GoldSpentResponseEffect,
     IncreaseTribeGiftEffect,
@@ -1424,6 +1429,88 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG27_017": (  # Obsidian Ravager — Rally: its Attack to the target and beside
         Ability(Trigger.ON_ATTACK, DamageFromOwnAttackEffect(include_adjacent=True)),
+    ),
+    # -------------------------------------------------- the Quilboar family
+    "BG33_883": (  # Razorfen Vineweaver — Rally: three Gems on itself, for keeps
+        Ability(
+            Trigger.ON_ATTACK,
+            PlayBloodGemsEffect(
+                target=BloodGemTarget.SELF, count=3, permanent=True
+            ),
+        ),
+    ),
+    "BG36_510": (  # Vigilant Bristlemane — a spell on this gems its neighbours
+        Ability(
+            Trigger.ON_TARGETED_BY_SPELL,
+            PlayBloodGemsEffect(target=BloodGemTarget.ADJACENT, count=1),
+        ),
+    ),
+    "BG33_885": (  # Sanguine Refiner — Rally: your Blood Gems give an extra +1/+1
+        Ability(Trigger.ON_ATTACK, IncreaseBloodGemBonusEffect(attack=1, health=1)),
+    ),
+    "BG23_017": (  # Sanguine Champion — Battlecry *and* Deathrattle, the same
+        Ability(Trigger.ON_PLACE, IncreaseBloodGemBonusEffect(attack=1, health=1)),
+        Ability(Trigger.ON_DEATH, IncreaseBloodGemBonusEffect(attack=1, health=1)),
+    ),
+    "BG31_323": (  # Turbo Hogrider — a Choose One played gems your other Quilboar
+        Ability(
+            Trigger.ON_CHOOSE_ONE_PLAYED,
+            PlayBloodGemsEffect(
+                target=BloodGemTarget.ALL_FRIENDLY_QUILBOAR, count=1
+            ),
+        ),
+    ),
+    "BG31_327": (  # Thorned Trailblazer — one Choose One each turn takes both halves
+        # Each turn, not once: the card prints "(1 left!)", which is a charge
+        # that refills rather than a battlecry.
+        Ability(Trigger.ON_TURN_START, GrantCombinedChooseOneEffect(count=1)),
+    ),
+    "BG36_332": (  # Snare Trapper — Choose One: a Quilboar, or a bigger purse
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=AddRandomMinionToHandEffect(tribe=Race.QUILBOAR),
+                second=RaiseGoldCapEffect(amount=1),
+            ),
+        ),
+    ),
+    "BG28_633": (  # Felboar — every three spells, it eats one off the counter
+        Ability(
+            Trigger.AURA,
+            SpellsCastResponseEffect(
+                threshold=3,
+                effect=ConsumeTavernMinionEffect(eater_is_source=True),
+            ),
+        ),
+    ),
+    "BG36_333": (  # Jailbird Juggernaut — Rally: a Golem made of its own Gems
+        Ability(Trigger.ON_ATTACK, SummonGemGolemEffect(token_id="BG36_333")),
+    ),
+    "BG36_341": (  # Veteran Brigand — Choose One: Gems everywhere, or Barrages
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=PlayBloodGemsEffect(
+                    target=BloodGemTarget.ALL_FRIENDLY, count=3
+                ),
+                second=AddTavernSpellToHandEffect(card_id="BG34_689", count=3),
+            ),
+        ),
+    ),
+    "BG36_331": (  # Bramble Tunneler — Rally: a random Choose One card
+        Ability(
+            Trigger.ON_ATTACK,
+            AddRandomCardToHandEffect(
+                card_ids=(
+                    "BG31_893",  # Gem Day
+                    "BG31_880",  # Alliance Flag
+                    "BG31_881",  # Time Management
+                    "BG31_890",  # Boundless Potential
+                    "BG31_886",  # Forest's Bounty
+                    "BG31_884",  # The Road Less Traveled
+                )
+            ),
+        ),
     ),
 }
 

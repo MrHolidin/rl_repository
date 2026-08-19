@@ -130,7 +130,7 @@ def play_blood_gem_on(
     from .game_counts import SPELLS_CAST, bump_seat_counter
 
     for _ in range(max(0, int(count))):
-        bump_seat_counter(player, SPELLS_CAST)
+        bump_seat_counter(player, SPELLS_CAST, patch=patch)
 
 
 def can_play_blood_gem(player: PlayerState) -> bool:

@@ -39,7 +39,15 @@ def apply_combat_hand_adds(
         slot = first_free_hand_slot(player)
         if slot is None:
             break
-        player.hand[slot] = make_minion(cid, patch=patch)
+        # A combat can hand over a spell as readily as a minion — the queue is
+        # card ids, and which catalog they come from is the card's business.
+        player.hand[slot] = (
+            make_minion(cid, patch=patch)
+            if cid in patch.templates
+            else patch.tavern_spells.get(cid)
+        )
+        if player.hand[slot] is None:
+            continue
         added = True
     if not added:
         return

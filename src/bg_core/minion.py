@@ -146,6 +146,9 @@ class Minion:
     magnet_doubles_next: bool = False
     #: Waiting to take the stats of the next minion the seat buys this turn.
     wants_next_buy_stats: bool = False
+    #: Spells the seat has cast while this body watched, for the cards that
+    #: answer every Nth rather than every one.
+    spells_seen: int = 0
     #: Gold the seat has spent while this body watched, for the cards that
     #: answer every Nth coin rather than every purchase.
     gold_spent_seen: int = 0

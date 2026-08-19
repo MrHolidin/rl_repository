@@ -31,6 +31,8 @@ from src.bg_core.effects import (
     BuffSelfOnFriendlyDamageEffect,
     CastSpellAtEffect,
     ImmuneWhileAttackingEffect,
+    AddRandomCardToHandEffect,
+    SummonGemGolemEffect,
     DamageFromOwnAttackEffect,
     BuffShopOnEveryRefreshEffect,
     KeepCombatGainsEffect,
@@ -777,6 +779,32 @@ def _fire_rally(
             _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
+        elif isinstance(eff, AddRandomCardToHandEffect):
+            pool = [
+                cid
+                for cid in eff.card_ids
+                if cid in rt.patch.templates or cid in rt.patch.tavern_spells
+            ]
+            if pool:
+                rt.seats[attacker_side_idx].add_card_to_hand(
+                    pool[int(rt.rng.integers(0, len(pool)))]
+                )
+        elif isinstance(eff, SummonGemGolemEffect):
+            # Its stats are the Gems this body is carrying, which the Gems
+            # already recorded on it — nothing new is counted here.
+            body = make_minion(eff.token_id, patch=rt.patch)
+            body.base_attack = attacker.blood_gem_attack
+            body.base_health = max(1, attacker.blood_gem_health)
+            body.bonus_attack = 0
+            body.bonus_health = 0
+            body.abilities = ()
+            _summon_beside(
+                rt,
+                attacker_side_idx,
+                attacker,
+                SummonEffect(token_id=eff.token_id, count=1),
+                template=body,
+            )
         elif isinstance(eff, CastSpellAtEffect):
             cast_spell_in_combat(rt, attacker_side_idx, attacker, eff.card_id)
         elif isinstance(eff, DamageFromOwnAttackEffect):

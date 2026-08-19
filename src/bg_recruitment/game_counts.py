@@ -83,10 +83,20 @@ def improve_level(player: PlayerState, counter: str, per: int = 1) -> int:
     return 1 + player.game_counts.get(counter, 0) // max(1, int(per))
 
 
-def bump_seat_counter(player: PlayerState, counter: str) -> None:
-    """Count one event on a named tally, and let the readers catch up."""
+def bump_seat_counter(player: PlayerState, counter: str, *, patch=None) -> None:
+    """Count one event on a named tally, and let the readers catch up.
+
+    A spell also wakes the board watchers that answer every Nth spell — a
+    different question from the seat tally, and asked at the same moment.
+    """
     player.game_counts[counter] = player.game_counts.get(counter, 0) + 1
     refresh_count_bonuses(player)
+    if counter == SPELLS_CAST and patch is not None:
+        import numpy as _np
+
+        from .shop_triggers import ShopTriggers
+
+        ShopTriggers(_np.random.default_rng(0), patch=patch).fire_spell_cast(player)
 
 
 def _abilities(minion: Minion):

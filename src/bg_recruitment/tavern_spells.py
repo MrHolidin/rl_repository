@@ -280,7 +280,7 @@ def cast_tavern_spell(
             shared_pool=shared_pool,
         )
     player.last_tavern_spell_cast = card.card_id
-    bump_seat_counter(player, SPELLS_CAST)
+    bump_seat_counter(player, SPELLS_CAST, patch=patch)
     bump_seat_counter(player, TAVERN_SPELLS_CAST)
     _fire_tavern_spell_cast(player, rng=rng, patch=patch, shared_pool=shared_pool)
 

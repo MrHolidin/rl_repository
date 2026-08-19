@@ -1045,6 +1045,49 @@ class KeepCombatGainsEffect:
 
 
 @dataclass(frozen=True)
+class GrantCombinedChooseOneEffect:
+    """The next ``count`` Choose One cards take both halves.
+
+    Thorned Trailblazer prints "(1 left!)", so the charge is handed out each
+    turn rather than once when the card is played.
+    """
+
+    count: int = 1
+
+
+@dataclass(frozen=True)
+class RaiseGoldCapEffect:
+    """Raise the most gold a turn can hand this seat ("increase your maximum
+    Gold by 1")."""
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class SpellsCastResponseEffect:
+    """Answer every ``threshold`` spells the seat casts.
+
+    "(3 left!)" is a countdown that refills, so the running total is the body's
+    own — the same shape the gold and hero-damage watchers take.
+    """
+
+    threshold: int
+    effect: Any = None
+
+
+@dataclass(frozen=True)
+class SummonGemGolemEffect:
+    """Summon a body whose stats are the Blood Gems this minion is carrying.
+
+    Reads ``blood_gem_attack``/``blood_gem_health``, which the Gems already
+    record on whoever they were played on, so nothing new is counted.
+    """
+
+    token_id: str
+    attack_immediately: bool = True
+
+
+@dataclass(frozen=True)
 class ImmuneWhileAttackingEffect:
     """Warpwing: takes no damage from the minion it is swinging at.
 
@@ -1645,6 +1688,10 @@ Effect = Union[
     RaiseStandingBonusEffect,
     SummonBestFromHandEffect,
     BuffRandomHandMinionEffect,
+    GrantCombinedChooseOneEffect,
+    RaiseGoldCapEffect,
+    SpellsCastResponseEffect,
+    SummonGemGolemEffect,
     ImmuneWhileAttackingEffect,
     DamageFromOwnAttackEffect,
     KeepCombatGainsEffect,
@@ -1819,6 +1866,10 @@ __all__ = [
     "RewardAtDamageDealtEffect",
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
+    "GrantCombinedChooseOneEffect",
+    "RaiseGoldCapEffect",
+    "SpellsCastResponseEffect",
+    "SummonGemGolemEffect",
     "ImmuneWhileAttackingEffect",
     "DamageFromOwnAttackEffect",
     "KeepCombatGainsEffect",

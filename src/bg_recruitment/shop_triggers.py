@@ -15,6 +15,9 @@ from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     BuffHandMinionsEffect,
     GiveOwnStatsToHandEffect,
+    GrantCombinedChooseOneEffect,
+    RaiseGoldCapEffect,
+    SpellsCastResponseEffect,
     AddRandomGoldenMinionEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
@@ -95,7 +98,7 @@ from src.bg_core.effects import (
 )
 from src.bg_recruitment.hand_slots import first_free_hand_slot
 from src.bg_recruitment.shop_auras import refresh_attack_thresholds
-from src.bg_recruitment.choose_one import open_choose_one
+from src.bg_recruitment.choose_one import grant_combined_choose_one, open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
 from src.bg_recruitment.game_counts import (
     bump_seat_counter,
@@ -466,6 +469,26 @@ class ShopTriggers:
                     bought.bonus_attack += bought.raw_attack
                     bought.bonus_health += bought.max_health
 
+    def fire_spell_cast(self, player: PlayerState) -> None:
+        """Count a spell against the watchers that answer every Nth.
+
+        Distinct from the tally the "improved by every 4 spells" cards read:
+        that one is the seat's and never resets, this one is each watcher's own
+        countdown, which refills.
+        """
+        for watcher in list(player.board):
+            for ab in watcher.abilities:
+                eff = ab.effect
+                if not isinstance(eff, SpellsCastResponseEffect):
+                    continue
+                watcher.spells_seen += 1
+                times, watcher.spells_seen = divmod(
+                    watcher.spells_seen, max(1, int(eff.threshold))
+                )
+                for _ in range(times):
+                    if eff.effect is not None:
+                        self.apply_shop_effect(player, watcher, eff.effect, placed=None)
+
     def fire_gold_spent(self, player: PlayerState, amount: int) -> None:
         """Count gold leaving the seat, and answer every full threshold.
 
@@ -728,6 +751,12 @@ class ShopTriggers:
             if held and source is not None:
                 held[0].bonus_attack += source.raw_attack
                 held[0].bonus_health += source.max_health
+        elif isinstance(effect, GrantCombinedChooseOneEffect):
+            grant_combined_choose_one(player, effect.count)
+        elif isinstance(effect, RaiseGoldCapEffect):
+            player.ruleset = dataclass_replace(
+                player.ruleset, gold_cap=player.ruleset.gold_cap + int(effect.amount)
+            )
         elif isinstance(effect, DoubleBountiesEffect):
             player.bounties_cast_twice = True
         elif isinstance(effect, AddRandomGoldenMinionEffect):
@@ -1195,6 +1224,11 @@ class ShopTriggers:
                     self.apply_shop_effect(player, source, e, None)
                 elif isinstance(e, CreateSpellcraftSpellEffect):
                     give_spellcraft_spell(player, e)
+                else:
+                    # Same fallthrough fire_on_turn_end grew: anything else this
+                    # trigger can carry goes to the dispatcher, which raises on
+                    # an effect nobody handles rather than dropping it.
+                    self.apply_shop_effect(player, source, e, None)
         for source in list(player.hand):
             if source is None:
                 continue
