@@ -219,10 +219,19 @@ def test_bindings_only_name_cards_the_catalog_has(patch):
     assert spec.loader is not None
     spec.loader.exec_module(mod)
     for card_id in mod.EFFECTS:
+        if card_id.endswith("_G") and card_id[:-2] in patch.pool_ids:
+            # An authored Golden row: read by id when a triple merges, and so
+            # never a template of its own.
+            continue
         assert card_id in patch.templates, card_id
-        # A token can carry an ability of its own (the Sewer Rat leaves a
-        # Half-Shell), so a binding key is a pool card *or* a declared token.
-        assert card_id in patch.pool_ids or card_id in mod.TOKEN_IDS, card_id
+        # A binding key is a pool card, a declared token that carries an
+        # ability of its own (the Sewer Rat leaves a Half-Shell), or the Golden
+        # printing of a pool card whose Golden the doubling rule cannot derive.
+        assert (
+            card_id in patch.pool_ids
+            or card_id in mod.TOKEN_IDS
+            or (card_id.endswith("_G") and card_id[:-2] in patch.pool_ids)
+        ), card_id
     for card_id in mod.KEYWORD_ONLY_POOL_IDS:
         assert card_id in patch.pool_ids, card_id
     for card_id in mod.UNBOUND_NEEDS_ENGINE:

@@ -70,7 +70,7 @@ def _distinct_value(f: dataclasses.Field, patch):
     if name == "hero":
         return None
     if name == "pending_choice":
-        return PendingChoice(PendingChoiceKind.DISCOVER_MURLOC, ("a", "b", "c"), 0, (), None)
+        return PendingChoice(PendingChoiceKind.DISCOVER_TRIBE, ("a", "b", "c"), 0, (), None)
     if name == "shop_frozen":
         return (True, False, False, False, False, False)
     if name == "battle_history":

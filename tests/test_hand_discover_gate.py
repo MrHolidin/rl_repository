@@ -37,7 +37,7 @@ def test_try_open_rejects_full_hand():
     )
     assert not try_open_hand_discover_modal(
         p,
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         ("a", "b", "c"),
         0,
     )
@@ -63,7 +63,7 @@ def test_brann_chain_truncated_to_free_slots():
     p.board.append(placed)
     triggers.fire_on_place(placed, p, None)
     assert p.pending_choice is not None
-    assert p.pending_choice.kind == PendingChoiceKind.DISCOVER_MURLOC
+    assert p.pending_choice.kind == PendingChoiceKind.DISCOVER_TRIBE
     assert p.pending_choice.extra_modals_after == 0
 
 
@@ -81,7 +81,7 @@ def test_discover_pick_triples_after_chain_closed():
         shop_actions_used=0,
     )
     p.pending_choice = PendingChoice(
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         ("recruit", "recruit", "recruit"),
         0,
     )
@@ -94,6 +94,6 @@ def test_discover_pick_triples_after_chain_closed():
 
 
 def test_is_hand_discover_kind():
-    assert is_hand_discover_kind(PendingChoiceKind.DISCOVER_MURLOC)
+    assert is_hand_discover_kind(PendingChoiceKind.DISCOVER_TRIBE)
     assert is_hand_discover_kind(PendingChoiceKind.TRIPLE_REWARD_DISCOVER)
     assert not is_hand_discover_kind(PendingChoiceKind.ADAPT)

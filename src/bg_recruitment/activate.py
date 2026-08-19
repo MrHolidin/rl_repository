@@ -26,6 +26,7 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.effects import (
     Ability,
     BuffTargetFriendlyBattlecry,
+    DestroyFriendlyEffect,
     PlaceFishbaitEffect,
     Trigger,
 )
@@ -128,6 +129,21 @@ def activate_minion(
             # below, and the shop dispatcher has no way to be told which slot.
             if shop_target_index is not None:
                 place_fishbait(player, shop_target_index)
+            continue
+        if isinstance(effect, DestroyFriendlyEffect):
+            # "Activate (1): Give a different friendly Undead Reborn. Then
+            # destroy it to gain +4/+4" names a friendly, the same pick a
+            # battlecry that destroys one makes, so it takes the same route.
+            from src.bg_recruitment.targeted_battlecry import apply_destroy_friendly
+
+            apply_destroy_friendly(
+                player,
+                minion,
+                effect,
+                rng=rng,
+                forced=buff_target,
+                triggers=triggers,
+            )
             continue
         if isinstance(effect, BuffTargetFriendlyBattlecry):
             # "Activate (1): Give another minion +3/+3" names a friendly, so it

@@ -26,7 +26,7 @@ from src.bg_core.effects import (
     CleaveOnAttack,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
@@ -127,7 +127,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "BGS_020": (Ability(Trigger.ON_PLACE, DiscoverMurlocEffect(repeats=1)),),
+    "BGS_020": (Ability(Trigger.ON_PLACE, DiscoverTribeEffect(tribe=Race.MURLOC, repeats=1)),),
     "BGS_031": (Ability(Trigger.ON_PLACE, AdaptAllMurlocsEffect(repeats=1)),),
     "TB_BaconUps_084": (
         Ability(Trigger.ON_PLACE, AdaptAllMurlocsEffect(repeats=2)),

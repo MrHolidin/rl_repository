@@ -59,7 +59,7 @@ from src.bg_core.effects import (
     BuffSelfOnFriendlySoldEffect,
     BuffShopOnEveryRefreshEffect,
     CastRandomTavernSpellEffect,
-    DestroyFriendlyForCopyEffect,
+    DestroyFriendlyEffect,
     BuffListenerIfSummonedMatches,
     DealExcessDamageToAdjacentEffect,
     GrantKeywordRandomFriendly,
@@ -85,7 +85,7 @@ from src.bg_core.effects import (
     ChooseOneEffect,
     Condition,
     ConditionKind,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     ConsumeTavernMinionEffect,
     IncreaseBloodGemBonusEffect,
     CreateSpellcraftSpellEffect,
@@ -123,6 +123,10 @@ from src.bg_core.effects import (
     SummonEffect,
     SummonRandomMinionEffect,
     SummonSelfCopyFromHandEffect,
+    BuffFromSubjectAttackEffect,
+    DevourNeighbourEffect,
+    SummonStashedEffect,
+    AvengeEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -788,7 +792,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG28_303": (  # Disguised Graverobber — destroy a friendly Undead for a plain copy
         Ability(
             Trigger.ON_PLACE,
-            DestroyFriendlyForCopyEffect(filter_race=Race.UNDEAD),
+            DestroyFriendlyEffect(filter_race=Race.UNDEAD),
         ),
     ),
     "BG26_524": (  # Malchezaar — two Refreshes a turn cost Health instead of Gold
@@ -1375,7 +1379,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_020": (  # Primalfin Lookout — with another Murloc out, Discover one
         Ability(
             Trigger.ON_PLACE,
-            DiscoverMurlocEffect(repeats=1),
+            DiscoverTribeEffect(tribe=Race.MURLOC, repeats=1),
             condition=Condition(ConditionKind.OTHER_TRIBE_ON_BOARD, Race.MURLOC),
         ),
     ),
@@ -1599,6 +1603,100 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
                 target=BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=8, health=8
             ),
         ),
+    ),
+    # ----------------------------------------------------- the Undead family
+    # Two threads: bodies traded away for something (a Discover, stats, a
+    # tribe-wide bonus) and bodies that come back. The destroy is one effect
+    # with the payout as a field, and Reborn finally has a trigger.
+    "BG32_340": (  # Maw Caster — destroy a friendly Undead to Discover an Undead
+        Ability(
+            Trigger.ON_PLACE,
+            DestroyFriendlyEffect(
+                filter_race=Race.UNDEAD,
+                get_copy=False,
+                exclude_self=True,
+                then=DiscoverTribeEffect(tribe=Race.UNDEAD, repeats=1),
+            ),
+        ),
+    ),
+    "BG36_511": (  # Dead Bellringer — Reborn onto an Undead, then eat it for +4/+4
+        Ability(
+            Trigger.ON_ACTIVATE,
+            DestroyFriendlyEffect(
+                filter_race=Race.UNDEAD,
+                get_copy=False,
+                exclude_self=True,
+                grant_keyword=Keyword.REBORN,
+                then=BuffSelf(attack=4, health=4),
+            ),
+            activate_cost=1,
+        ),
+    ),
+    "BG34_690": (  # Plaguerunner — Undead +2 Attack this game, +4 out of combat
+        Ability(
+            Trigger.ON_DEATH,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.TRIBE,
+                scope_key=Race.UNDEAD,
+                attack=2,
+                attack_outside_combat=4,
+            ),
+        ),
+    ),
+    "BG34_692": (  # Forsaken Weaver — a Tavern spell raises your Undead for good
+        Ability(
+            Trigger.ON_TAVERN_SPELL_CAST,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.TRIBE, scope_key=Race.UNDEAD, attack=2
+            ),
+        ),
+    ),
+    "BG36_514": (  # Barrier Banshee — a friendly Reborn pays it a shield and +7/+7
+        Ability(
+            Trigger.ON_FRIENDLY_REBORN,
+            BuffSelf(attack=7, health=7, keyword=Keyword.SHIELD),
+        ),
+    ),
+    "BG36_515": (  # Snazzy Phantom — the reborn minion's Attack, onto your right-most Undead
+        Ability(
+            Trigger.ON_FRIENDLY_REBORN,
+            BuffFromSubjectAttackEffect(tribe=Race.UNDEAD, rightmost=True, factor=1),
+        ),
+    ),
+    "BG32_324": (  # Drustfallen Butcher — Avenge (3): get a Butchering
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_DIED,
+            AvengeEffect(count=3, effect=AddTavernSpellToHandEffect(card_id="BG28_604")),
+        ),
+    ),
+    "BG31_835": (  # Deathly Striker — Avenge (4): get an Undead; give it back on death
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_DIED,
+            AvengeEffect(count=4, effect=AddRandomMinionToHandEffect(tribe=Race.UNDEAD)),
+        ),
+        # "Summon *it*" — the card it fetched. Nothing links a hand card back to
+        # the body that fetched it, so this summons the best Undead in hand,
+        # which is that card whenever the seat is not hoarding others.
+        Ability(Trigger.ON_DEATH, SummonBestFromHandEffect(filter_race=Race.UNDEAD)),
+    ),
+    "BG25_009": (  # Eternal Summoner — Reborn; Deathrattle: an Eternal Knight
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG25_008", count=1)),
+    ),
+    "BG31_999": (  # Stitched Salvager — eats its left neighbour, gives it back on death
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            DevourNeighbourEffect(adjacent=False, exclude_same_card=True),
+        ),
+        Ability(Trigger.ON_DEATH, SummonStashedEffect()),
+    ),
+    # The Golden eats *both* neighbours, which is a flag rather than a bigger
+    # number, so nothing derives it.
+    "BG31_999_G": (
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            DevourNeighbourEffect(adjacent=True, exclude_same_card=True),
+        ),
+        Ability(Trigger.ON_DEATH, SummonStashedEffect()),
     ),
 }
 

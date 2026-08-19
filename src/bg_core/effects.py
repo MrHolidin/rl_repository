@@ -79,6 +79,9 @@ class Trigger(Enum):
     #: on its own; see ``src/bg_recruitment/activate.py``. The gold it costs
     #: lives on the ability (``Ability.activate_cost``).
     ON_ACTIVATE = auto()
+    #: A friendly minion came back from Reborn. Combat-only: nothing dies in a
+    #: tavern, so nothing is reborn there either.
+    ON_FRIENDLY_REBORN = auto()
 
 
 class ConditionKind(Enum):
@@ -436,8 +439,16 @@ class DealHeroDamage:
 
 @dataclass(frozen=True)
 class BuffSelf:
+    """Stats onto the card that owns the ability, and optionally a keyword.
+
+    ``keyword`` is Barrier Banshee's "gain Divine Shield and +7/+7" — one clause
+    on the card, so one effect here rather than a second ability whose ordering
+    against this one would be nobody's decision.
+    """
+
     attack: int = 0
     health: int = 0
+    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)
@@ -494,9 +505,16 @@ class CleaveOnAttack:
 
 
 @dataclass(frozen=True)
-class DiscoverMurlocEffect:
-    """Battlecry: Discover a Murloc (tier-weighted pool). ``repeats`` stacks with Brann (product)."""
+class DiscoverTribeEffect:
+    """Discover a minion of one tribe (tier-weighted pool).
 
+    Printed by four cards on four different tribes — Primalfin Lookout wants a
+    Murloc, Maw Caster an Undead, Imposing Percussionist a Demon, Clunker
+    Junker a Mech — and they differ by nothing else. ``repeats`` stacks with
+    Brann (product).
+    """
+
+    tribe: Any = None
     repeats: int = 1
 
 
@@ -1005,12 +1023,19 @@ class RefreshesCostHealthEffect:
 
 
 @dataclass(frozen=True)
-class DestroyFriendlyForCopyEffect:
-    """Destroy a friendly and put a *plain* copy of it in hand.
+class DestroyFriendlyEffect:
+    """Destroy a friendly the seat picks, and pay for it.
 
-    Plain means the printed card: whatever the body had gained — buffs, granted
-    keywords, Blood Gems — does not come with it, which is the whole cost of the
-    trade.
+    Four cards trade a body for something and differ only in what: a plain copy
+    of it in hand (Disguised Graverobber), a Discover (Maw Caster), stats on the
+    card that ate it (Dead Bellringer), a bonus on the whole tribe (Butchering).
+    So the destruction is the effect and the payout is a field.
+
+    ``get_copy`` is the Graverobber's half: *plain* means the printed card, so
+    whatever the body had gained — buffs, granted keywords, Blood Gems — does
+    not come with it, which is the whole cost of that trade. ``then`` is any
+    other payout, applied with the destroyer as its source. ``grant_keyword``
+    is handed to the victim before it goes.
 
     A destroyed minion in the tavern is a death, and is counted as one (Eternal
     Knight reads that tally). It does not fire deathrattles and Reborn does not
@@ -1018,6 +1043,11 @@ class DestroyFriendlyForCopyEffect:
     """
 
     filter_race: Optional[Any] = None
+    get_copy: bool = True
+    grant_keyword: Optional[Keyword] = None
+    then: Any = None
+    #: "a **different** friendly Undead" — the destroyer may not eat itself.
+    exclude_self: bool = False
 
 
 @dataclass(frozen=True)
@@ -1027,10 +1057,12 @@ class SummonBestFromHandEffect:
     The card stays in hand — what joins the fight is a copy, and it dies with
     the combat like any other. Reads the hand through the seat, the same way
     ``SummonSelfCopyFromHandEffect`` does. ``filter_race`` narrows it to one
-    tribe ("the highest-Attack Murloc from your hand").
+    tribe ("the highest-Attack Murloc from your hand"), and ``count`` is the
+    Golden that summons two of them.
     """
 
     filter_race: Optional[Any] = None
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -1101,6 +1133,42 @@ class TriggerLeftmostDeathrattleEffect:
     killing it (Deathstrider). ``repeats`` is the Golden's "twice"."""
 
     repeats: int = 1
+
+
+@dataclass(frozen=True)
+class DevourNeighbourEffect:
+    """Start of Combat: destroy a neighbour and keep it to give back on death.
+
+    Stitched Salvager's two clauses are one mechanism: the destroy stashes an
+    exact copy on this body, and ``SummonStashedEffect`` on its deathrattle
+    hands the stash back. ``adjacent`` is the Golden's "destroy adjacent
+    minions" — the same reach, both sides.
+
+    ``exclude_same_card`` is the "(Except Stitched Salvager.)" on the card: a
+    second copy of it standing to the left is not food.
+    """
+
+    adjacent: bool = False
+    exclude_same_card: bool = True
+
+
+@dataclass(frozen=True)
+class SummonStashedEffect:
+    """Deathrattle: summon back whatever this body stashed (Stitched Salvager)."""
+
+
+@dataclass(frozen=True)
+class BuffFromSubjectAttackEffect:
+    """Hand a friendly stats equal to the event subject's Attack.
+
+    Snazzy Phantom reads the Attack of the minion that was just Reborn and pays
+    its right-most Undead with it; ``factor`` is the Golden's "double its
+    Attack".
+    """
+
+    tribe: Any = None
+    rightmost: bool = True
+    factor: int = 1
 
 
 @dataclass(frozen=True)
@@ -1258,6 +1326,11 @@ class RaiseStandingBonusEffect:
     #: SHOP only: cap the tier it reaches ("minions in the Tavern from Tier 3
     #: and below"). 0 means every tier.
     scope_max_tier: int = 0
+    #: What it raises instead when it fires outside a fight ("+2 Attack this
+    #: game. (+4 if triggered outside combat!)"). 0 means the same either way —
+    #: Plaguerunner is the only card that pays two prices.
+    attack_outside_combat: int = 0
+    health_outside_combat: int = 0
 
 
 @dataclass(frozen=True)
@@ -1643,11 +1716,14 @@ class AddRandomMinionToHandEffect:
     River Skipper). Left ``None`` the draw is the usual one — anything up to the
     seat's own tavern tier — which is what every card without a printed tier
     means. It is deliberately not in ``_GOLDEN_INT_FIELDS``: a golden printing
-    hands out two cards of the same tier, never one of a higher tier.
+    hands out two cards of the same tier, never one of a higher tier. ``count``
+    is the field that carries that "two" — and it *is* on the scaler's list,
+    which is the whole difference between the pair.
     """
 
     tribe: Optional[Any] = None
     tier: Optional[int] = None
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -1712,7 +1788,7 @@ Effect = Union[
     SummonFirstDeadFriendlyMechsThisCombat,
     ZappTargeting,
     CleaveOnAttack,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     AdaptAllMurlocsEffect,
     AdaptSelfRandomEffect,
     TriggerRandomFriendlyDeathrattleEffect,
@@ -1743,6 +1819,9 @@ Effect = Union[
     MultiplySummonedAttackEffect,
     GiveOwnStatsToSummonedEffect,
     TriggerLeftmostDeathrattleEffect,
+    BuffFromSubjectAttackEffect,
+    SummonStashedEffect,
+    DevourNeighbourEffect,
     RaiseGoldCapEffect,
     SpellsCastResponseEffect,
     SummonGemGolemEffect,
@@ -1864,7 +1943,7 @@ __all__ = [
     "SummonFirstDeadFriendlyMechsThisCombat",
     "ZappTargeting",
     "CleaveOnAttack",
-    "DiscoverMurlocEffect",
+    "DiscoverTribeEffect",
     "AdaptAllMurlocsEffect",
     "AdaptSelfRandomEffect",
     "TriggerRandomFriendlyDeathrattleEffect",
@@ -1896,7 +1975,7 @@ __all__ = [
     "ScopeKind",
     "RaiseStandingBonusEffect",
     "BumpSeatCounterEffect",
-    "DestroyFriendlyForCopyEffect",
+    "DestroyFriendlyEffect",
     "RefreshesCostHealthEffect",
     "BuffOnSpellCastOnTribeEffect",
     "BuffSharedTribeEffect",
@@ -1929,6 +2008,9 @@ __all__ = [
     "MultiplySummonedAttackEffect",
     "GiveOwnStatsToSummonedEffect",
     "TriggerLeftmostDeathrattleEffect",
+    "BuffFromSubjectAttackEffect",
+    "SummonStashedEffect",
+    "DevourNeighbourEffect",
     "RaiseGoldCapEffect",
     "SpellsCastResponseEffect",
     "SummonGemGolemEffect",

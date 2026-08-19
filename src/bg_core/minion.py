@@ -150,6 +150,10 @@ class Minion:
     #: Attack and improve this permanently"). Per body, not per printing: two
     #: Leviathans improve separately, and a golden built from three starts over.
     self_improves: int = 0
+    #: Bodies this minion ate at the start of the fight and owes back on death
+    #: (Stitched Salvager). Copies, so what they had gained comes back with
+    #: them — "an exact copy" and not the printed card.
+    stashed_bodies: tuple = ()
     #: Charges left on a per-combat "N times" ability, spent as they are used.
     #: Lives on the combat copy, so it refills with every fight.
     combat_uses_left: int = -1

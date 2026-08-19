@@ -250,7 +250,7 @@ class ElementalHeuristicBot(HeuristicBot):
                 continue
             tok = pc.options[i]
             if pc.kind in (
-                PendingChoiceKind.DISCOVER_MURLOC,
+                PendingChoiceKind.DISCOVER_TRIBE,
                 PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
             ):
                 patch = env._game._patch if hasattr(env, "_game") else env.patch

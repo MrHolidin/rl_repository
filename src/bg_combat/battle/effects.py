@@ -17,12 +17,16 @@ from copy import copy
 from src.bg_recruitment.game_counts import DIED, SUMMONED
 from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
+    AddTavernSpellToHandEffect,
     AvengeEffect,
     BuffMatching,
     BuffTarget,
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
+    BuffFromSubjectAttackEffect,
+    DevourNeighbourEffect,
+    SummonStashedEffect,
     BuffRandomOtherFriendlyCombat,
     AddRandomMinionToHandEffect,
     GainBloodGemsEffect,
@@ -82,6 +86,7 @@ from .events import (
 from .state import BattleMinion, BattleSide, _CombatRuntime
 from src.bg_core.board_helpers import (
     apply_buff_matching,
+    apply_buff_self,
     apply_summoned_listener,
     grant_keyword_random,
     index_of,
@@ -405,8 +410,7 @@ def _fire_friendly_kill_listeners(
         Trigger.ON_FRIENDLY_KILL, killer_tpl, exclude_subject=False
     ):
         if isinstance(eff, BuffSelf):
-            listener.bonus_attack += eff.attack
-            listener.bonus_health += eff.health
+            _apply_buff_self(rt, killer_side_idx, listener, eff)
     _sync_health_all(rt)
 
 
@@ -531,8 +535,7 @@ def _apply_friendly_death_effect(
     rt: _CombatRuntime, listener: BattleMinion, eff, dead: BattleMinion, side_idx: int
 ) -> None:
     if isinstance(eff, BuffSelf):
-        listener.bonus_attack += eff.attack
-        listener.bonus_health += eff.health
+        _apply_buff_self(rt, side_idx, listener, eff)
     elif isinstance(eff, DealDamageRandomEnemyMinion):
         for _ in range(max(1, eff.repeats)):
             _deal_random_enemy_minion_damage(rt, side_idx, eff.amount)
@@ -544,6 +547,13 @@ def _apply_friendly_death_effect(
             attack=eff.attack,
             health=eff.health,
         )
+    elif isinstance(eff, AddRandomMinionToHandEffect):
+        # "Avenge (4): Get a random Undead" — into the queue the seat empties
+        # after the fight, the same route a Rally that fetches takes.
+        _queue_random_combat_hand_add(rt, side_idx, eff.tribe)
+    elif isinstance(eff, AddTavernSpellToHandEffect):
+        for _ in range(max(1, eff.count)):
+            rt.seats[side_idx].add_card_to_hand(eff.card_id)
     else:
         raise NotImplementedError(
             f"friendly-death listener {listener.card_id} carries an effect this "
@@ -571,6 +581,22 @@ def _fire_friendly_minion_died_listeners(
 
 def _minion_has_deathrattle(bm: BattleMinion) -> bool:
     return any(ab.trigger == Trigger.ON_DEATH for ab in bm.abilities)
+
+
+def _apply_buff_self(
+    rt: _CombatRuntime, side_idx: int, minion: BattleMinion, effect: BuffSelf
+) -> None:
+    """"Gain +N/+N", and the keyword some printings pair it with.
+
+    Combat's half of the shared applier: the keyword goes through
+    ``_grant_keyword`` so a granted Taunt or Divine Shield is felt by the
+    targeting that runs after it.
+    """
+    apply_buff_self(
+        minion,
+        effect,
+        grant=lambda m, kw: _grant_keyword(rt, side_idx, m, kw),
+    )
 
 
 def _raise_standing_bonus(
@@ -827,8 +853,7 @@ def _fire_rally(
             continue
         eff = ab.effect
         if isinstance(eff, BuffSelf):
-            attacker.bonus_attack += eff.attack
-            attacker.bonus_health += eff.health
+            _apply_buff_self(rt, attacker_side_idx, attacker, eff)
         elif isinstance(eff, BuffMatching):
             # Through the shared applier, not a loop of its own: this branch
             # used to spell out ALL_FRIENDLY by hand and so ignored every field
@@ -999,8 +1024,7 @@ def _fire_when_attacked(
         Trigger.ON_FRIENDLY_WHEN_ATTACKED, victim
     ):
         if isinstance(eff, BuffSelf):
-            listener.bonus_attack += eff.attack
-            listener.bonus_health += eff.health
+            _apply_buff_self(rt, victim_side_idx, listener, eff)
         elif isinstance(eff, BuffAttackedMinionEffect):
             victim.bonus_attack += eff.attack
             victim.bonus_health += eff.health
@@ -1031,8 +1055,7 @@ def _fire_friendly_shield_lost_listeners(
     side = rt.side(victim_side_idx)
     for listener, eff in side.listeners(Trigger.ON_FRIENDLY_SHIELD_LOST, victim):
         if isinstance(eff, BuffSelf):
-            listener.bonus_attack += eff.attack
-            listener.bonus_health += eff.health
+            _apply_buff_self(rt, victim_side_idx, listener, eff)
     _sync_health_all(rt)
 
 
@@ -1162,6 +1185,72 @@ def _dr_summon(
                         )
                     if bm is None:
                         break
+
+
+def _devour_neighbour(
+    rt: _CombatRuntime,
+    side_idx: int,
+    source: BattleMinion,
+    effect: DevourNeighbourEffect,
+) -> None:
+    """Start of Combat: eat a neighbour and keep it for the deathrattle.
+
+    The victim dies properly — its own deathrattle fires, and the board feels
+    the body leave — and an exact copy of it as it stood is stashed on the
+    eater, which is what "an exact copy" means as against the printed card.
+    """
+    side = rt.side(side_idx)
+    living = list(side.iter_living())
+    if source not in living:
+        return
+    at = living.index(source)
+    picks = []
+    if at > 0:
+        picks.append(living[at - 1])
+    if effect.adjacent and at + 1 < len(living):
+        picks.append(living[at + 1])
+    for victim in picks:
+        if effect.exclude_same_card and victim.card_id == source.card_id:
+            continue
+        source.stashed_bodies = source.stashed_bodies + (copy(victim),)
+        _destroy_battle_minion(rt, side_idx, victim)
+
+
+def _destroy_battle_minion(
+    rt: _CombatRuntime, side_idx: int, bm: BattleMinion
+) -> None:
+    """Kill outright: not damage, so a Divine Shield is no answer to it."""
+    if not bm.alive:
+        return
+    bm.damage_taken = bm.max_health + bm.aura_health
+    _mark_health_aura_dirty(rt, side_idx)
+    _sync_health_all(rt)
+    _reap_side(rt, side_idx)
+    _announce_deaths(rt)
+
+
+def _dr_summon_best_from_hand(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: SummonBestFromHandEffect,
+) -> None:
+    """"Deathrattle: Summon it from your hand for this combat only"."""
+    _summon_best_from_hand(rt, side_idx, dead, effect)
+
+
+def _dr_summon_stashed(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: SummonStashedEffect
+) -> None:
+    """Give back what this body ate, beside where it fell."""
+    anchor = dead
+    for body in dead.stashed_bodies:
+        bm = _summon_insert(
+            rt, side_idx, body, _insert_idx_after(rt.side(side_idx), anchor)
+        )
+        if bm is None:
+            return
+        anchor = bm
 
 
 def _dr_summon_random(
@@ -1470,6 +1559,8 @@ _DEATHRATTLE_HANDLERS = {
     BuffRandomHandMinionEffect: _dr_buff_hand_minion,
     BuffShopOnEveryRefreshEffect: _dr_promise_refresh_buff,
     RaiseStandingBonusEffect: _dr_raise_standing_bonus,
+    SummonStashedEffect: _dr_summon_stashed,
+    SummonBestFromHandEffect: _dr_summon_best_from_hand,
 }
 
 
@@ -1602,6 +1693,51 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     if at <= side.cursor:
         side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)
+    _fire_friendly_reborn_listeners(rt, side_idx, bm)
+
+
+def _fire_friendly_reborn_listeners(
+    rt: _CombatRuntime, side_idx: int, reborn: BattleMinion
+) -> None:
+    """"After a friendly minion is Reborn" — fired where Reborn happens.
+
+    Combat only, and one place: nothing dies in a tavern, so nothing is reborn
+    there. The subject is the minion that came back, which is what the Phantom
+    reads its Attack off.
+    """
+    side = rt.side(side_idx)
+    for listener, eff in side.listeners(Trigger.ON_FRIENDLY_REBORN, reborn):
+        if isinstance(eff, BuffSelf):
+            _apply_buff_self(rt, side_idx, listener, eff)
+        elif isinstance(eff, BuffFromSubjectAttackEffect):
+            _buff_from_subject_attack(rt, side_idx, reborn, eff)
+        else:
+            raise KeyError(
+                f"no ON_FRIENDLY_REBORN handler for {type(eff).__name__} "
+                f"(listener {listener.card_id!r})"
+            )
+    _sync_health_all(rt)
+
+
+def _buff_from_subject_attack(
+    rt: _CombatRuntime,
+    side_idx: int,
+    subject: BattleMinion,
+    effect: BuffFromSubjectAttackEffect,
+) -> None:
+    """"Give stats equal to its Attack to your right-most Undead"."""
+    side = rt.side(side_idx)
+    pool = [
+        m
+        for m in side.iter_living()
+        if effect.tribe is None or minion_matches_tribe(m, effect.tribe)
+    ]
+    if not pool:
+        return
+    target = pool[-1] if effect.rightmost else pool[0]
+    amount = (subject.raw_attack + subject.aura_attack) * max(1, effect.factor)
+    target.bonus_attack += amount
+    target.bonus_health += amount
 
 
 def _count_friendlies_of_tribe(side: BattleSide, tribe: Any) -> int:

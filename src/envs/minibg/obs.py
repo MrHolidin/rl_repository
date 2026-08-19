@@ -39,7 +39,7 @@ from src.bg_core.effects import (
     CleaveOnAttack,
     ConsumeFriendlyBattlecry,
     DealExcessDamageToAdjacentEffect,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     GainGoldOnDeathEffect,
     GainGoldThisTurnEffect,
     GrantKeywordAllFriendlyOfTribe,
@@ -186,7 +186,17 @@ assert len(TRIGGER_INDEX) == NUM_TRIGGER_CHANNELS, (
 # invalidates every checkpoint that has one. An ability on such a trigger reads
 # as the unknown id 0.
 UNENCODED_TRIGGERS: frozenset[str] = frozenset(
-    {"ON_ATTACK", "ON_ACTIVATE", "ON_CHOOSE_ONE_PLAYED", "ON_TARGETED_BY_SPELL", "ON_TAVERN_SPELL_CAST", "ON_HERO_DAMAGE", "ON_DISCOVERED", "WHILE_IN_HAND"}
+    {
+        "ON_ATTACK",
+        "ON_ACTIVATE",
+        "ON_CHOOSE_ONE_PLAYED",
+        "ON_TARGETED_BY_SPELL",
+        "ON_TAVERN_SPELL_CAST",
+        "ON_HERO_DAMAGE",
+        "ON_DISCOVERED",
+        "WHILE_IN_HAND",
+        "ON_FRIENDLY_REBORN",
+    }
 )
 
 _missing_triggers = [
@@ -215,7 +225,7 @@ _EFFECT_CLASSES: Tuple[Any, ...] = (
     AttackBonusPerOtherMurlocGlobal,
     BuffSummonedIfRace,
     PogoHopperBattlecry,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     AdaptAllMurlocsEffect,
     BuffTargetFriendlyBattlecry,
     # --- patch 74257 additions ---
@@ -327,7 +337,7 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "SelfBonusPerGameCount",
         "SummonBestFromHandEffect",
         "BumpSeatCounterEffect",
-        "DestroyFriendlyForCopyEffect",
+        "DestroyFriendlyEffect",
         "RefreshesCostHealthEffect",
         "RewardAtDamageDealtEffect",
         "AddRandomCardToHandEffect",
@@ -358,6 +368,9 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "KeepCombatGainsEffect",
         "ImmuneWhileAttackingEffect",
         "RaiseGoldCapEffect",
+        "BuffFromSubjectAttackEffect",
+        "DevourNeighbourEffect",
+        "SummonStashedEffect",
         "MultiplySummonedAttackEffect",
         "GiveOwnStatsToSummonedEffect",
         "TriggerLeftmostDeathrattleEffect",

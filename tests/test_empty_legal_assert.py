@@ -30,7 +30,7 @@ def _shop_state(*, pending: bool, hand_full: bool) -> MiniBGState:
     )
     if pending:
         p.pending_choice = PendingChoice(
-            PendingChoiceKind.DISCOVER_MURLOC,
+            PendingChoiceKind.DISCOVER_TRIBE,
             ("a", "b", "c"),
             0,
         )
@@ -53,7 +53,7 @@ def test_assert_raises_and_logs(tmp_path, monkeypatch):
     assert log.is_file()
     text = log.read_text()
     assert "EMPTY_SHOP_LEGAL" in text
-    assert "DISCOVER_MURLOC" in text
+    assert "DISCOVER_TRIBE" in text
     assert "hand_discover_full_hand" in text or "test" in text
 
 

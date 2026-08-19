@@ -8,14 +8,14 @@ import numpy as np
 
 from src.bg_catalog.patch_context import PatchContext
 
-from src.bg_core.effects import DiscoverMurlocEffect, Trigger
+from src.bg_core.effects import DiscoverTribeEffect, Trigger
 from src.bg_core.minion import Minion, Race
 from .hand_slots import first_free_hand_slot
 from src.bg_recruitment.discover_pool import (
     apply_adapt_key_to_minion,
     is_murloc_board_minion,
     roll_adapt_triple,
-    roll_discover_murloc_triple,
+    roll_discover_tribe_triple,
     roll_triple_reward_discover_triple,
 )
 from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
@@ -31,7 +31,7 @@ from .triples import flush_triple_reward_queue_if_idle, hand_has_free_slot, reso
 
 HAND_DISCOVER_KINDS = frozenset(
     {
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
         PendingChoiceKind.TAVERN_SPELL_DISCOVER,
         PendingChoiceKind.SPELL_DISCOVER,
@@ -54,6 +54,7 @@ def try_open_hand_discover_modal(
     options: tuple,
     extra_modals_after: int,
     *,
+    tribe: Optional[Race] = None,
     shared_pool: Optional[SharedCardPool] = None,
 ) -> bool:
     """Open a hand-discover modal only if the player can take at least one pick now."""
@@ -71,6 +72,7 @@ def try_open_hand_discover_modal(
         options,
         extra_modals_after,
         options_pool_reserved=reserved,
+        discover_tribe=tribe,
     )
     return True
 
@@ -82,6 +84,7 @@ def try_open_hand_discover_chain(
     shop_excluded_race: Optional[Race],
     *,
     rng: np.random.Generator,
+    tribe: Optional[Race] = None,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
 ) -> bool:
@@ -96,6 +99,7 @@ def try_open_hand_discover_chain(
         kind,
         extra_modals_after,
         shop_excluded_race,
+        tribe=tribe,
         shared_pool=shared_pool,
         patch=patch,
     )
@@ -110,7 +114,7 @@ def discover_cards_to_receive(placed: Minion, battlecry_mult: int) -> int:
     for ab in placed.abilities:
         if ab.trigger != Trigger.ON_PLACE:
             continue
-        if isinstance(ab.effect, DiscoverMurlocEffect):
+        if isinstance(ab.effect, DiscoverTribeEffect):
             n_need = max(n_need, battlecry_mult * ab.effect.repeats)
     return n_need
 
@@ -122,14 +126,18 @@ def roll_pending_modal(
     remaining_after: int,
     shop_excluded_race: Optional[Race],
     *,
+    tribe: Optional[Race] = None,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
 ) -> Optional[PendingChoice]:
-    if kind == PendingChoiceKind.DISCOVER_MURLOC:
-        opts = roll_discover_murloc_triple(
+    if kind == PendingChoiceKind.DISCOVER_TRIBE:
+        if tribe is None:
+            raise ValueError("DISCOVER_TRIBE needs the tribe the card printed")
+        opts = roll_discover_tribe_triple(
             rng,
             player.tavern_tier,
             shop_excluded_race,
+            tribe=tribe,
             shared_pool=shared_pool,
             patch=patch,
         )
@@ -150,7 +158,9 @@ def roll_pending_modal(
         if not reserve_discover_options(shared_pool, opts):
             return None
         reserved = True
-    return PendingChoice(kind, opts, remaining_after, options_pool_reserved=reserved)
+    return PendingChoice(
+        kind, opts, remaining_after, options_pool_reserved=reserved, discover_tribe=tribe
+    )
 
 
 def _fire_discovered(player: PlayerState, *, patch) -> None:
@@ -231,6 +241,7 @@ def resolve_discover_pick(
                 extra - 1,
                 shop_excluded_race,
                 rng=rng,
+                tribe=pc.discover_tribe,
                 shared_pool=shared_pool,
                 patch=patch,
             ):
@@ -242,6 +253,7 @@ def resolve_discover_pick(
                 pc.kind,
                 extra - 1,
                 shop_excluded_race,
+                tribe=pc.discover_tribe,
                 shared_pool=shared_pool,
                 patch=patch,
             )

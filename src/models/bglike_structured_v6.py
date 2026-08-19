@@ -4,7 +4,7 @@ per-minion encoder.
 Difference from v3: abilities are **part of the input** to the same conv that
 encodes the rest of the minion's properties (stats / race / keywords /
 triggers-1hot / effect-1hot / card_emb). The slot encoder produces one unified
-vector per minion that already accounts for "DiscoverMurloc with condition
+vector per minion that already accounts for "DiscoverTribe with condition
 OTHER_TRIBE_ON_BOARD: MURLOC + 3/2 stats + Murloc race" as a single entity,
 instead of computing the base slot vector and bolting an ability summary on
 top.
@@ -18,7 +18,7 @@ Mechanically:
     downstream relu+conv2+relu nonlinearities) can directly learn interactions
     between stats and abilities inside one minion.
   * ``pending_to_slot`` is widened the same way for pending options that carry
-    a discoverable card (DISCOVER_MURLOC / TRIPLE_REWARD_DISCOVER); adapt /
+    a discoverable card (DISCOVER_TRIBE / TRIPLE_REWARD_DISCOVER); adapt /
     apply options have zero ability summary by construction (no minion).
   * Both widened layers have **zero-initialized weights** for the new ability
     channels, so v6 reproduces v3 byte-for-byte at step 0. Gradient still

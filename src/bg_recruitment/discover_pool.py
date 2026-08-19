@@ -44,33 +44,39 @@ def _tier_weights(tavern_tier: int, max_tier: int) -> Dict[int, float]:
     return w
 
 
-def murloc_discover_card_ids(*, patch: PatchContext) -> List[str]:
-    tpl = templates(patch=require_patch(patch, where="discover_pool.murloc_discover_card_ids"))
+def tribe_discover_card_ids(tribe: Race, *, patch: PatchContext) -> List[str]:
+    tpl = templates(patch=require_patch(patch, where="discover_pool.tribe_discover_card_ids"))
     return [
         cid
         for cid, m in tpl.items()
-        if not m.is_token and m.race == Race.MURLOC
+        if not m.is_token and m.race == tribe
     ]
 
 
-def roll_discover_murloc_triple(
+def roll_discover_tribe_triple(
     rng: np.random.Generator,
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
     *,
+    tribe: Race,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
 ) -> Optional[Tuple[str, str, str]]:
-    ctx = require_patch(patch, where="discover_pool.roll_discover_murloc_triple")
+    """Three options of one tribe, weighted toward the seat's own tavern tier.
+
+    A tribe left out of the lobby offers nothing, which is the same answer the
+    tavern gives: there are no Undead to Discover in a game without Undead.
+    """
+    ctx = require_patch(patch, where="discover_pool.roll_discover_tribe_triple")
     tpl = ctx.templates
     max_tier = ctx.meta.ruleset.max_tier
     cap = min(max_tier, tavern_tier + 1)
-    if Race.MURLOC in normalize_shop_excluded_races(shop_excluded_race):
+    if tribe in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
         eligible = [
             cid
-            for cid in murloc_discover_card_ids(patch=ctx)
+            for cid in tribe_discover_card_ids(tribe, patch=ctx)
             if tpl[cid].tier <= cap
         ]
     if shared_pool is not None:
@@ -79,7 +85,8 @@ def roll_discover_murloc_triple(
         if shared_pool is not None:
             return None
         raise RuntimeError(
-            f"need at least 3 murlocs for discover (tavern {tavern_tier}), got {len(eligible)}"
+            f"need at least 3 {tribe} for discover (tavern {tavern_tier}), "
+            f"got {len(eligible)}"
         )
     wmap = _tier_weights(tavern_tier, max_tier)
     pool = list(eligible)
@@ -214,9 +221,9 @@ __all__ = [
     "ADAPT_KEYS_ALL",
     "apply_adapt_key_to_minion",
     "is_murloc_board_minion",
-    "murloc_discover_card_ids",
+    "tribe_discover_card_ids",
     "roll_adapt_triple",
-    "roll_discover_murloc_triple",
+    "roll_discover_tribe_triple",
     "roll_triple_reward_discover_at_target_tier",
     "roll_triple_reward_discover_triple",
     "triple_reward_discover_tier",

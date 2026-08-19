@@ -196,8 +196,7 @@ def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
             continue
         eff = ab.effect
         if isinstance(eff, BuffSelf):
-            target.bonus_attack += eff.attack
-            target.bonus_health += eff.health
+            apply_buff_self(target, eff)
         elif player is not None:
             # Anything that writes to the seat rather than to the body goes to
             # the shop dispatcher, which raises on an effect nobody handles.
@@ -337,6 +336,27 @@ def grant_keyword_random(
         return
     for _ in range(max(1, effect.repeats)):
         grant(pool[int(rng.integers(0, len(pool)))], effect.keyword)
+
+
+def apply_buff_self(minion: Minion, effect, *, grant=None) -> None:
+    """"Gain +N/+N", and the keyword some printings pair it with.
+
+    One body because the keyword arrived late: nine sites applied the stats and
+    would each have had to learn about it, and the ninth to be missed is a card
+    that silently ships half its text.
+
+    ``grant`` is how combat hands out a keyword (it has health auras to mark
+    dirty afterwards); the shop has none and passes nothing.
+    """
+    minion.bonus_attack += effect.attack
+    minion.bonus_health += effect.health
+    keyword = getattr(effect, "keyword", None)
+    if keyword is None:
+        return
+    if grant is not None:
+        grant(minion, keyword)
+    else:
+        minion.granted_keywords = minion.granted_keywords | {keyword}
 
 
 def apply_summoned_listener(
@@ -507,6 +527,7 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
+    "apply_buff_self",
     "apply_summoned_listener",
     "apply_attack_thresholds",
     "fire_spell_cast_on",

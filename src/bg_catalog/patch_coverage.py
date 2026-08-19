@@ -123,7 +123,13 @@ def analyze_patch_coverage(
     template_ids = set(patch_ctx.templates.keys())
     for cid in sorted(patch_ctx.effects.keys()):
         if cid not in template_ids:
+            # An authored Golden row is a binding, not a card: the resolver
+            # reads it by id when it merges a triple and never needs a template
+            # for it. Two id shapes carry one — ``TB_BaconUps_*`` on the 2021
+            # packages, ``<id>_G`` on the modern one.
             if cid.startswith("TB_BaconUps_"):
+                continue
+            if cid.endswith("_G") and cid[:-2] in template_ids:
                 continue
             report.issues.append(
                 CoverageIssue(

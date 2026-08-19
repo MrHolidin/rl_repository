@@ -47,7 +47,7 @@ from src.bg_core.effects import (
     TransferAttackToRandomFriendlyEffect,
     SummonRandomAndCopyToHandEffect,
     DealHeroDamage,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     GrantKeywordRandomFriendly,
     GrantListenerKeywordIfSummonedMatches,
     HeroImmuneAura,
@@ -208,7 +208,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BGS_020": (
         Ability(
             Trigger.ON_PLACE,
-            DiscoverMurlocEffect(repeats=1),
+            DiscoverTribeEffect(tribe=Race.MURLOC, repeats=1),
             condition=Condition(ConditionKind.OTHER_TRIBE_ON_BOARD, Race.MURLOC),
         ),
     ),

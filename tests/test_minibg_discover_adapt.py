@@ -3,7 +3,8 @@
 from src.envs.minibg.actions import Action, HAND_SIZE
 from tests.conftest import PATCH_CTX
 from tests.minibg_helpers import make_minion
-from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL, murloc_discover_card_ids
+from src.bg_core.minion import Race
+from src.bg_recruitment.discover_pool import ADAPT_KEYS_ALL, tribe_discover_card_ids
 from src.envs.minibg.game import MiniBGGame
 from src.envs.minibg.state import PendingChoiceKind
 
@@ -21,10 +22,10 @@ def test_primalfin_blocks_shop_until_discover_pick():
     s2 = g.apply_action(s, int(Action.PLAY_HAND_0))
     p2 = s2.players[0]
     assert p2.pending_choice is not None
-    assert p2.pending_choice.kind == PendingChoiceKind.DISCOVER_MURLOC
+    assert p2.pending_choice.kind == PendingChoiceKind.DISCOVER_TRIBE
     assert len(set(p2.pending_choice.options)) == 3
     for cid in p2.pending_choice.options:
-        assert cid in murloc_discover_card_ids(patch=PATCH_CTX)
+        assert cid in tribe_discover_card_ids(Race.MURLOC, patch=PATCH_CTX)
     legal = set(g.legal_actions(s2))
     assert legal == {
         int(Action.DISCOVER_PICK_0),

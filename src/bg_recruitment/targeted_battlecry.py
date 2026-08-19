@@ -13,7 +13,7 @@ from src.bg_core.effects import (
     ConsumeFriendlyBattlecry,
     BuffTargetPerGoldSpentEffect,
     ConsumeTavernMinionEffect,
-    DestroyFriendlyForCopyEffect,
+    DestroyFriendlyEffect,
     MakeFriendlyGoldenEffect,
     Trigger,
 )
@@ -55,15 +55,20 @@ def _pick_eater(
     *,
     rng: np.random.Generator,
     forced: Optional[Minion],
+    exclude_self: bool = False,
 ) -> Optional[Minion]:
     """Which friendly does the eating — the seat's pick, or a random eligible."""
     if forced is not None:
-        return forced if forced in player.board else None
+        if forced not in player.board:
+            return None
+        return None if exclude_self and forced is placed else forced
     caster = caster_ref_from_board_minion(player.board, placed)
     eligible = compute_eligible_buff_target(
         player.board,
         caster,
-        BuffTargetFriendlyBattlecry(filter_race=effect.filter_race, exclude_self=False),
+        BuffTargetFriendlyBattlecry(
+            filter_race=effect.filter_race, exclude_self=exclude_self
+        ),
     )
     if not eligible:
         return None
@@ -107,18 +112,25 @@ def make_golden(target: Minion, *, patch) -> None:
     target.has_shield = target.has_shield or golden.has_shield
 
 
-def destroy_friendly_for_copy(
+def destroy_friendly(
     player: PlayerState,
     victim: Minion,
     *,
     patch,
+    get_copy: bool = True,
+    triggers=None,
 ) -> Optional[Minion]:
-    """Destroy ``victim`` and hand its owner a plain copy of the printed card.
+    """Destroy ``victim``, optionally handing its owner a plain copy.
 
-    Three things a body normally does on the way out, and only one of them
-    happens here. It is *counted* as a death, so "for each Eternal Knight that
-    died this game" sees it. Its deathrattle does not fire and Reborn does not
-    return it: both are combat rules, and this is the recruit phase.
+    Two of the three things a body normally does on the way out happen here. It
+    is *counted* as a death, so "for each Eternal Knight that died this game"
+    sees it, and its deathrattle fires — the modern patch prices that
+    explicitly, since Plaguerunner pays double "if triggered outside combat".
+    Reborn is the one that does not: that is a combat rule.
+
+    Returns the copy when one was made, and ``None`` otherwise — including when
+    the trade could not happen at all, which is why callers that pay for the
+    destruction check ``victim not in player.board`` rather than this.
     """
     from src.bg_catalog.cards import make_minion
 
@@ -126,15 +138,60 @@ def destroy_friendly_for_copy(
 
     if victim not in player.board:
         return None
-    slot = first_free_hand_slot(player)
-    if slot is None:
+    slot = first_free_hand_slot(player) if get_copy else None
+    if get_copy and slot is None:
+        # No room for what the trade pays, so the trade does not happen.
         return None
     player.board.remove(victim)
     bump_died(player, victim)
+    if triggers is not None:
+        triggers.fire_tavern_deathrattle(victim, player)
+    if not get_copy:
+        return None
     # Plain: built from the template, so nothing the body had gained rides along.
     copy = make_minion(victim.card_id, patch=patch)
     player.hand[slot] = copy
     return copy
+
+
+def apply_destroy_friendly(
+    player: PlayerState,
+    source: Optional[Minion],
+    effect,
+    *,
+    rng: np.random.Generator,
+    forced: Optional[Minion] = None,
+    triggers,
+) -> None:
+    """Destroy a friendly the seat picked, then pay what the card prints.
+
+    One body for four cards. The payout runs only if a body actually left the
+    board: a Discover with nothing to feed it is not a Discover, and the
+    Bellringer that finds no Undead gains nothing.
+    """
+    victim = _pick_eater(
+        player,
+        source,
+        ConsumeTavernMinionEffect(filter_race=effect.filter_race),
+        rng=rng,
+        forced=forced,
+        exclude_self=effect.exclude_self,
+    )
+    if victim is None:
+        return
+    if effect.grant_keyword is not None:
+        victim.granted_keywords = victim.granted_keywords | {effect.grant_keyword}
+    destroy_friendly(
+        player,
+        victim,
+        patch=triggers._patch,
+        get_copy=effect.get_copy,
+        triggers=triggers,
+    )
+    if victim in player.board:
+        return  # the trade did not happen (no room for the copy it pays)
+    if effect.then is not None and source is not None:
+        triggers.apply_shop_effect(player, source, effect.then, placed=None)
 
 
 def consume_tavern_minion(
@@ -289,16 +346,15 @@ def apply_targeted_on_place_battlecries(
             )
             if target is not None and (not e.max_tier or target.tier <= e.max_tier):
                 make_golden(target, patch=triggers._patch)
-        elif isinstance(e, DestroyFriendlyForCopyEffect):
-            victim = _pick_eater(
+        elif isinstance(e, DestroyFriendlyEffect):
+            apply_destroy_friendly(
                 player,
                 placed,
-                ConsumeTavernMinionEffect(filter_race=e.filter_race),
+                e,
                 rng=rng,
                 forced=forced_buff_target,
+                triggers=triggers,
             )
-            if victim is not None:
-                destroy_friendly_for_copy(player, victim, patch=triggers._patch)
         elif isinstance(e, ConsumeTavernMinionEffect):
             target = _pick_eater(player, placed, e, rng=rng, forced=forced_buff_target)
             if target is None:

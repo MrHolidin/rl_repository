@@ -32,7 +32,7 @@ def test_discover_pending_stays_legal_when_triple_would_fill_hand():
         rng=g._rng,
     )
     assert p.pending_choice is not None
-    assert p.pending_choice.kind == PendingChoiceKind.DISCOVER_MURLOC
+    assert p.pending_choice.kind == PendingChoiceKind.DISCOVER_TRIBE
     s = MiniBGState(
         players=(p, p),
         round_number=1,

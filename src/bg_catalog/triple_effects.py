@@ -8,6 +8,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
 from src.bg_core.effects import (
     Ability,
+    AvengeEffect,
     BuffSelfFromHeroDamageTaken,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
@@ -40,6 +41,8 @@ _GOLDEN_INT_FIELDS = frozenset(
         "health_per_damage",
         "factor",
         "uses",
+        "attack_outside_combat",
+        "health_outside_combat",
     }
 )
 
@@ -87,6 +90,10 @@ def _should_skip_field(
         # this minion's maximum stats": the numbers printed stay, and the
         # multiple is the only thing that moves.
         return field_name not in ("stat_multiplier", "factor")
+    if field_name == "count" and isinstance(effect, AvengeEffect):
+        # "Avenge (3)" is a countdown, not a payout: the Golden pays more per
+        # trigger and still triggers every three deaths.
+        return True
     if field_name == "count" and hints.get("golden_token"):
         # A golden that summons the Golden token summons the same number of
         # them, not twice as many plain ones.

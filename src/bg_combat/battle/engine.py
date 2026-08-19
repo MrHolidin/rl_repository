@@ -8,6 +8,7 @@ from src.bg_core.effects import (
     BuffMatching,
     CastSpellAtEffect,
     DealDamageAllMinions,
+    DevourNeighbourEffect,
     GainStatsFromHandEffect,
     Keyword,
     RepeatPerCountEffect,
@@ -44,6 +45,7 @@ from .targeting import (
 from .effects import (
     _count_friendlies_of_tribe,
     _deal_random_enemy_minion_damage,
+    _devour_neighbour,
     _enqueue_strike_events,
     _fire_rally,
     _fire_when_attacked,
@@ -177,6 +179,8 @@ def _apply_start_of_combat_effect(
         times = rt.seats[side_idx].improve_level(eff.counter, eff.per)
         for _ in range(max(1, times)):
             _apply_start_of_combat_effect(rt, side_idx, source, eff.effect)
+    elif isinstance(eff, DevourNeighbourEffect):
+        _devour_neighbour(rt, side_idx, source, eff)
     elif isinstance(eff, CastSpellAtEffect):
         cast_spell_in_combat(rt, side_idx, source, eff.card_id)
     elif isinstance(eff, GainStatsFromHandEffect):

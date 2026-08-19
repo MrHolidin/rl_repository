@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import copy as _shallow_copy
-from dataclasses import dataclass, field, fields as _dataclass_fields
+from dataclasses import dataclass, field, fields as _dataclass_fields, replace
 from enum import IntEnum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -57,7 +57,7 @@ class PlayerPhase(IntEnum):
 
 
 class PendingChoiceKind(IntEnum):
-    DISCOVER_MURLOC = 0
+    DISCOVER_TRIBE = 0
     ADAPT = 1
     TRIPLE_REWARD_DISCOVER = 2
     TRANSFORM_SHOP_MINION = 3
@@ -93,6 +93,9 @@ class PendingChoice:
     effects: Tuple[object, ...] = ()
     #: Choose One only: the board minion whose ability opened this.
     source_board_idx: Optional[int] = None
+    #: DISCOVER_TRIBE only: which tribe the options were drawn from, so a
+    #: repeated Discover rolls the same tribe the card printed.
+    discover_tribe: Optional[Race] = None
 
 
 class CasterKind(IntEnum):
@@ -422,17 +425,10 @@ def copy_player_state(p: PlayerState) -> PlayerState:
         "game_counts": dict(p.game_counts),
         "refresh_promises": dict(p.refresh_promises),
         "bought_tribe_counts": dict(p.bought_tribe_counts),
-        "pending_choice": (
-            PendingChoice(
-                pc.kind,
-                pc.options,
-                pc.extra_modals_after,
-                pc.options_pool_reserved,
-                pc.transform_board_idx,
-            )
-            if pc is not None
-            else None
-        ),
+        # replace() rather than a positional rebuild: the old one listed five
+        # of the fields and silently dropped whatever was added after them —
+        # Choose One's two effects, and which tribe a Discover was rolled from.
+        "pending_choice": (replace(pc) if pc is not None else None),
         "placed_minion_board_index": placed_idx,
         "placed_minion_pending_after": remapped_pending,
     }

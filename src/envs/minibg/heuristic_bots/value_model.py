@@ -13,7 +13,7 @@ from src.bg_core.effects import (
     BuffMatching,
     BuffTarget,
     BuffTargetFriendlyBattlecry,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     HeroImmuneAura,
     StatAura,
     SummonEffect,
@@ -143,7 +143,7 @@ def ability_shop_estimate(m: Minion, rounds_left: int, board_len: int) -> float:
         elif tr == Trigger.ON_BUY:
             add += 2.5
         elif tr == Trigger.ON_PLACE:
-            if isinstance(eff, DiscoverMurlocEffect):
+            if isinstance(eff, DiscoverTribeEffect):
                 add += 6.5 * float(eff.repeats)
             elif isinstance(eff, AdaptAllMurlocsEffect):
                 add += 9.0 * float(eff.repeats)

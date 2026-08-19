@@ -329,7 +329,7 @@ def encode_pending_option_abilities(
         return out
     # Only minion-style discover options yield meaningful ability tokens.
     if pc.kind not in (
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
     ):
         return out

@@ -50,13 +50,21 @@ from src.bg_core.effects import (
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
     ConsumeTavernMinionEffect,
-    DestroyFriendlyForCopyEffect,
+    DestroyFriendlyEffect,
     BuffSelfWhenFriendlyBattlecryPlaced,
     BuffSelfWhenFriendlyDeathrattlePlaced,
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
     DealHeroDamage,
-    DiscoverMurlocEffect,
+    TransferAttackToRandomFriendlyEffect,
+    DealDamageAllMinions,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageRandomEnemyMinion,
+    BuffRandomOtherFriendlyCombat,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    SummonRandomAndCopyToHandEffect,
+    SummonRandomMinionEffect,
+    DiscoverTribeEffect,
     Effect,
     GainGoldThisTurnEffect,
     GainGoldNextTurnEffect,
@@ -130,6 +138,7 @@ from src.bg_core.board_helpers import (
     count_for_source,
     minion_matches_tribe,
     apply_buff_matching,
+    apply_buff_self,
     apply_summoned_listener,
     grant_keyword,
     grant_keyword_random,
@@ -143,7 +152,7 @@ from src.bg_recruitment.discover_pool import (
     ADAPT_KEYS_ALL,
     apply_adapt_key_to_minion,
     roll_adapt_triple,
-    roll_discover_murloc_triple,
+    roll_discover_tribe_triple,
 )
 from src.bg_recruitment.shop import (
     add_random_minion_to_hand,
@@ -178,6 +187,21 @@ _TAVERN_SPELL_EFFECTS = (
     CopyLastTavernSpellEffect,
 )
 
+#: Deathrattle effects that only mean something inside a fight. A minion
+#: destroyed in the tavern skips these rather than handing them to a dispatcher
+#: with no board to summon onto and no enemy to damage.
+_COMBAT_ONLY_ON_DEATH = (
+    SummonEffect,
+    SummonRandomMinionEffect,
+    SummonRandomAndCopyToHandEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    BuffRandomOtherFriendlyCombat,
+    DealDamageRandomEnemyMinion,
+    DealDamageLeftmostEnemyMinion,
+    DealDamageAllMinions,
+    TransferAttackToRandomFriendlyEffect,
+)
+
 _HANDLED_ELSEWHERE = (
     # Battlecries needing a target the player picked: applied by
     # bg_recruitment/targeted_battlecry.py off the placement action.
@@ -186,7 +210,7 @@ _HANDLED_ELSEWHERE = (
     BuffTargetFromPiratesBoughtBattlecry,
     ChooseOneEffect,
     ConsumeFriendlyBattlecry,
-    DestroyFriendlyForCopyEffect,
+    DestroyFriendlyEffect,
     BuffTargetPerGoldSpentEffect,
     MakeFriendlyGoldenEffect,
     # fire_on_sell applies this one itself: it belongs to a minion staying
@@ -206,7 +230,6 @@ _HANDLED_ELSEWHERE = (
     BuffRandomFriendlyFromPlacedTierEffect,
     # Open a discover rather than resolve: fire_on_place sets pending_choice.
     AdaptAllMurlocsEffect,
-    DiscoverMurlocEffect,
 )
 
 
@@ -615,8 +638,7 @@ class ShopTriggers:
         elif isinstance(effect, DealHeroDamage):
             self.damage_hero(player, effect.amount)
         elif isinstance(effect, BuffSelf):
-            source.bonus_attack += effect.attack
-            source.bonus_health += effect.health
+            apply_buff_self(source, effect)
         elif isinstance(effect, BuffSelfFromHeroDamageTaken):
             source.bonus_health += (
                 player.hero_damage_taken_total * effect.health_per_damage
@@ -694,12 +716,21 @@ class ShopTriggers:
                 # "for each other <me>" — the card scopes the bonus to itself.
                 key = source.card_id if source is not None else None
             if not (effect.scope_kind is ScopeKind.CARD and key is None):
+                # Everything reaching the shop dispatcher is outside a fight, so
+                # this is where the second price on the card applies.
                 raise_standing_bonus(
                     player,
                     BonusScope(effect.scope_kind, key, effect.scope_max_tier),
-                    effect.attack,
-                    effect.health,
+                    effect.attack_outside_combat or effect.attack,
+                    effect.health_outside_combat or effect.health,
                 )
+        elif isinstance(effect, DiscoverTribeEffect):
+            self.open_tribe_discover(
+                player,
+                effect,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
         elif isinstance(effect, AddCardToNextRefreshesEffect):
             have = player.refresh_promises.get(effect.card_id, 0)
             player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
@@ -955,6 +986,65 @@ class ShopTriggers:
     def _has_deathrattle(minion: Minion) -> bool:
         return any(ab.trigger == Trigger.ON_DEATH for ab in minion.abilities)
 
+    def open_tribe_discover(
+        self,
+        player: PlayerState,
+        effect: DiscoverTribeEffect,
+        *,
+        repeats: int = 1,
+        shop_excluded_race: Optional[Race] = None,
+        shared_pool=None,
+    ) -> None:
+        """Park a "Discover a <tribe>" modal in front of the seat.
+
+        Two cards reach it by different roads — a battlecry that opens it
+        directly, and Maw Caster, which opens it as the payout for a body it
+        destroyed — so it is a method rather than a branch inside the battlecry
+        loop, which is where it used to live and where the second card silently
+        found nothing.
+        """
+        from src.bg_recruitment.discover import try_open_hand_discover_modal
+
+        free_slots = sum(1 for slot in player.hand if slot is None)
+        total = min(max(1, repeats) * max(1, effect.repeats), free_slots)
+        if total <= 0:
+            return
+        opts = roll_discover_tribe_triple(
+            self._rng,
+            player.tavern_tier,
+            shop_excluded_race,
+            tribe=effect.tribe,
+            shared_pool=shared_pool,
+            patch=self._patch,
+        )
+        if opts is None:
+            return
+        try_open_hand_discover_modal(
+            player,
+            PendingChoiceKind.DISCOVER_TRIBE,
+            opts,
+            total - 1,
+            tribe=effect.tribe,
+            shared_pool=shared_pool,
+        )
+
+    def fire_tavern_deathrattle(self, victim: Minion, player: PlayerState) -> None:
+        """A minion destroyed in the tavern leaves its deathrattle behind.
+
+        The modern patch prices this explicitly — Plaguerunner pays double "if
+        triggered outside combat" — so a destroy in the recruit phase is a
+        death that fires, not the silent removal it used to be. Only the effects
+        with a tavern meaning run: a deathrattle that summons has nowhere to
+        summon to, which is a property of the effect and so is declared once in
+        ``_COMBAT_ONLY_ON_DEATH`` rather than guessed at per card.
+        """
+        for ab in victim.abilities:
+            if ab.trigger != Trigger.ON_DEATH:
+                continue
+            if isinstance(ab.effect, _COMBAT_ONLY_ON_DEATH):
+                continue
+            self.apply_shop_effect(player, victim, ab.effect, placed=None)
+
     def fire_on_sell(
         self,
         sold: Minion,
@@ -1047,30 +1137,14 @@ class ShopTriggers:
             if not ability_condition_met(ab, player, player.board, placed=placed):
                 continue
             e = ab.effect
-            if isinstance(e, DiscoverMurlocEffect):
-                free_slots = sum(1 for s in player.hand if s is None)
-                total = min(mult * e.repeats, free_slots)
-                if total <= 0:
-                    return
-                opts = roll_discover_murloc_triple(
-                    self._rng,
-                    player.tavern_tier,
-                    shop_excluded_race,
-                    shared_pool=shared_pool,
-                    patch=self._patch,
-                )
-                if opts is None:
-                    return
-                from src.bg_recruitment.discover import try_open_hand_discover_modal
-
-                if try_open_hand_discover_modal(
+            if isinstance(e, DiscoverTribeEffect):
+                self.open_tribe_discover(
                     player,
-                    PendingChoiceKind.DISCOVER_MURLOC,
-                    opts,
-                    total - 1,
+                    e,
+                    repeats=mult,
+                    shop_excluded_race=shop_excluded_race,
                     shared_pool=shared_pool,
-                ):
-                    return
+                )
                 return
             if isinstance(e, ChooseOneEffect):
                 # Parks the two options and stops here; the pick applies them,

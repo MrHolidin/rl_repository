@@ -11,7 +11,7 @@ Motivation: v2/v3 encode abilities as a per-slot one-hot bitmap inside the slot
 vector (``EFFECT_OFFSET`` block). That collapses **all** abilities on a minion
 into a presence/absence bit per effect class and throws away parameters,
 trigger filter, and ability-level condition gates. For sparse abilities like
-``DiscoverMurlocEffect`` with ``OTHER_TRIBE_ON_BOARD: MURLOC`` (Primalfin
+``DiscoverTribeEffect`` with ``OTHER_TRIBE_ON_BOARD: MURLOC`` (Primalfin
 Lookout), the model can't see the gate, has to infer it indirectly, and ends
 up never engaging — see the discover audit on the v3 checkpoint.
 
@@ -22,7 +22,7 @@ v5 lifts each ability into its own attention token so:
     one token per ability instead of two bits in the same slot vector.
   * Discover options expose abilities the same way live minions do — so the
     DISCOVER_PICK action token attends to "this would give me a 4/3 with
-    DiscoverMurloc", not just to ``card_emb[idx]``.
+    DiscoverTribe", not just to ``card_emb[idx]``.
 
 Implementation:
   * Obs adds a fixed ``(own + shop + hand + pending) * K_ABIL * ABIL_FEAT_DIM``

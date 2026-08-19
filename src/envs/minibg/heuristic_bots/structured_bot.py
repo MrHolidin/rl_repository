@@ -99,7 +99,7 @@ class StructuredHeuristicBot(HeuristicBot):
                 continue
             tok = pc.options[i]
             if pc.kind in (
-                PendingChoiceKind.DISCOVER_MURLOC,
+                PendingChoiceKind.DISCOVER_TRIBE,
                 PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
             ):
                 m = make_minion(tok, patch=env._game._patch)

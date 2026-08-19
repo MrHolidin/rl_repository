@@ -18,7 +18,7 @@ from src.bg_core.effects import (
     BuffTarget,
     DealDamageRandomEnemyMinion,
     DealHeroDamage,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     IncrementShopTribeBonusEffect,
     Keyword,
     MultiplySelfAttackEffect,
@@ -92,7 +92,7 @@ def test_forged_glyph_triple_attack_factor(ctx_74257):
 
 def test_forged_primalfin_two_discovers(ctx_74257):
     eff = _forged("BGS_020", ctx_74257)[0].effect
-    assert isinstance(eff, DiscoverMurlocEffect)
+    assert isinstance(eff, DiscoverTribeEffect)
     assert eff.repeats == 2
 
 

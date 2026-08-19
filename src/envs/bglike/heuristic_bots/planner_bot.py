@@ -58,7 +58,7 @@ from src.bg_core.effects import (
     BuffMatching,
     BuffTarget,
     BuffTargetFriendlyBattlecry,
-    DiscoverMurlocEffect,
+    DiscoverTribeEffect,
     SummonEffect,
     SummonRandomMinionEffect,
     Trigger,
@@ -212,7 +212,7 @@ def _context_free_on_place(m: Minion) -> float:
         if ab.trigger != Trigger.ON_PLACE:
             continue
         eff = ab.effect
-        if isinstance(eff, DiscoverMurlocEffect):
+        if isinstance(eff, DiscoverTribeEffect):
             add += 6.5 * float(eff.repeats)
         elif isinstance(eff, AdaptAllMurlocsEffect):
             add += 9.0 * float(eff.repeats)
@@ -373,7 +373,7 @@ class PlannerHeuristicBot(HeuristicBot):
                     total += (
                         min(int(eff.count), free_slots) * _FRESH_BEST_MEAN[tier] * 0.6
                     )
-            elif isinstance(eff, DiscoverMurlocEffect):
+            elif isinstance(eff, DiscoverTribeEffect):
                 tier = max(1, min(MAX_TIER, p.tavern_tier))
                 total += float(eff.repeats) * _FRESH_BEST_MEAN[tier] * 0.5
             else:
@@ -449,7 +449,7 @@ class PlannerHeuristicBot(HeuristicBot):
                 continue
             tok = pc.options[i]
             if pc.kind in (
-                PendingChoiceKind.DISCOVER_MURLOC,
+                PendingChoiceKind.DISCOVER_TRIBE,
                 PendingChoiceKind.TRIPLE_REWARD_DISCOVER,
             ):
                 patch = env._game._patch if hasattr(env, "_game") else env.patch

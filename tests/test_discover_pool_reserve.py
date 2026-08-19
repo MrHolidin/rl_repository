@@ -39,7 +39,7 @@ def test_discover_pick_succeeds_when_only_reserved_copies_remain():
     player = _player()
     assert try_open_hand_discover_modal(
         player,
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         opts,
         0,
         shared_pool=pool,
@@ -73,7 +73,7 @@ def test_discover_release_unpicked_copies():
     assert pool.remaining_copies("EX1_162") == before - 1
     player = _player()
     player.pending_choice = PendingChoice(
-        PendingChoiceKind.DISCOVER_MURLOC,
+        PendingChoiceKind.DISCOVER_TRIBE,
         opts,
         0,
         options_pool_reserved=True,
