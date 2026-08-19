@@ -25,6 +25,9 @@ from src.bg_core.effects import (
     BuffOnSpellCastOnTribeEffect,
     BuffBoughtMinionEffect,
     AddRandomGoldenMinionEffect,
+    BuffHandMinionsEffect,
+    GainStatsFromHandEffect,
+    GiveOwnStatsToHandEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
     DoubleBountiesEffect,
@@ -71,6 +74,9 @@ from src.bg_core.effects import (
     BuffSelf,
     BuffTargetFriendlyBattlecry,
     ChooseOneEffect,
+    Condition,
+    ConditionKind,
+    DiscoverMurlocEffect,
     ConsumeTavernMinionEffect,
     IncreaseBloodGemBonusEffect,
     CreateSpellcraftSpellEffect,
@@ -1287,6 +1293,71 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG25_034": (  # Captain Sanders — make a friendly from Tier 6 or below Golden
         Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect(max_tier=6)),
+    ),
+    # ---------------------------------------------------- the Murloc family
+    "BG26_137": (  # Bream Counter — while in *hand*, a Murloc played pays it
+        Ability(
+            Trigger.WHILE_IN_HAND,
+            BuffSelf(attack=6, health=6),
+            filter_race=Race.MURLOC,
+        ),
+    ),
+    "BG36_703": (  # Twilight Tidehunter — a spell on this pays the first card in hand
+        Ability(
+            Trigger.ON_TARGETED_BY_SPELL,
+            BuffHandMinionsEffect(attack=6, health=6, leftmost=True),
+        ),
+    ),
+    "BG36_704": (  # Shamanic Tidecaller — a spell on a Murloc pays them all
+        # A board watcher, not a card watching spells cast at itself: the spell
+        # may land on any Murloc. The payload reaches the hand, which flat stats
+        # on the watcher cannot.
+        Ability(
+            Trigger.AURA,
+            BuffOnSpellCastOnTribeEffect(
+                tribe=Race.MURLOC,
+                effect=BuffHandMinionsEffect(
+                    attack=3, health=3, tribe=Race.MURLOC, also_board=True
+                ),
+            ),
+        ),
+    ),
+    "BG33_318": (  # Bile Spitter — Venomous; Rally: another friendly Murloc too
+        Ability(
+            Trigger.ON_ATTACK,
+            GrantKeywordRandomFriendly(Keyword.VENOMOUS, filter_race=Race.MURLOC),
+        ),
+    ),
+    "BG34_142": (  # Costume Enthusiast — SoC: the biggest Attack waiting in hand
+        Ability(Trigger.ON_START_OF_COMBAT, GainStatsFromHandEffect(highest_attack_only=True)),
+    ),
+    "BG26_354": (  # Choral Mrrrglr — SoC: everything waiting in hand
+        Ability(Trigger.ON_START_OF_COMBAT, GainStatsFromHandEffect()),
+    ),
+    "BG34_145": (  # Futurefin — end of turn: its stats to the first card in hand
+        Ability(Trigger.ON_TURN_END, GiveOwnStatsToHandEffect()),
+    ),
+    "BG35_142": (  # Cousin Errgl — end of turn: a Mrrglton, either parent
+        Ability(
+            Trigger.ON_TURN_END,
+            AddRandomCardToHandEffect(card_ids=("BG35_140", "BG35_141")),
+        ),
+    ),
+    "BG33_893": (  # Primitive Painter — a small card played pays your Murlocs
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=2
+            ),
+            filter_max_tier=3,
+        ),
+    ),
+    "BGS_020": (  # Primalfin Lookout — with another Murloc out, Discover one
+        Ability(
+            Trigger.ON_PLACE,
+            DiscoverMurlocEffect(repeats=1),
+            condition=Condition(ConditionKind.OTHER_TRIBE_ON_BOARD, Race.MURLOC),
+        ),
     ),
 }
 

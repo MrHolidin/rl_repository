@@ -55,6 +55,10 @@ class Trigger(Enum):
     #: Blood Gems, which are the two things the engine lets a seat cast at a
     #: body ("Whenever you cast a spell on this, gain +1 Health").
     ON_TARGETED_BY_SPELL = auto()
+    #: shop: this card is in *hand* and something happened on the board
+    #: ("while this is in your hand, after you play a Murloc, gain +6/+6"). The
+    #: only listener in the game that is not on the board.
+    WHILE_IN_HAND = auto()
     #: shop: the seat kept a card out of a Discover, whatever offered it.
     ON_DISCOVERED = auto()
     #: shop: the seat's hero just took combat damage. Listeners may undo it —
@@ -678,11 +682,48 @@ class BuffOnSpellCastOnTribeEffect:
 
     Distinct from ``ON_TARGETED_BY_SPELL``, which is a card watching spells cast
     at *itself*: Torrential Ruiner is watching the board.
+
+    ``effect`` is for the watchers that pay somewhere the flat stats cannot
+    reach — Shamanic Tidecaller pays Murlocs in hand as well as on the board.
     """
 
     tribe: Any = None
     attack: int = 0
     health: int = 0
+    effect: Any = None
+
+
+@dataclass(frozen=True)
+class BuffHandMinionsEffect:
+    """Stats onto minions in the owner's *hand*.
+
+    ``leftmost`` pays only the first ("give the left-most minion in your hand
+    +6/+6"); ``tribe`` narrows it; neither set pays every minion there. The hand
+    is the seat's, so a combat reaching it goes through the seat.
+    """
+
+    attack: int = 0
+    health: int = 0
+    leftmost: bool = False
+    tribe: Any = None
+    also_board: bool = False
+
+
+@dataclass(frozen=True)
+class GainStatsFromHandEffect:
+    """Take stats off the cards waiting in hand.
+
+    Two printings: the biggest Attack in hand (Costume Enthusiast) and the sum
+    of everything there (Choral Mrrrglr). Both are Start of Combat reads, and
+    the hand is reached through the seat.
+    """
+
+    highest_attack_only: bool = False
+
+
+@dataclass(frozen=True)
+class GiveOwnStatsToHandEffect:
+    """Hand this body's stats to the left-most minion in hand (Futurefin)."""
 
 
 @dataclass(frozen=True)
@@ -1634,6 +1675,11 @@ class Ability:
     filter_race: Optional[Any] = None
     condition: Optional[Condition] = None
     filter_victim_keyword: Optional[Keyword] = None
+    #: Fire only for a placed card of this tier or below ("after you play a card
+    #: from Tier 3 or below"). A trigger filter like ``filter_race`` beside it,
+    #: and a field rather than a ConditionKind for the same reason the Battlecry
+    #: requirement is: that vocabulary sizes an embedding table.
+    filter_max_tier: int = 0
     combat_only: bool = False
     #: Gold an ``ON_ACTIVATE`` ability costs to fire. Every printing charges 1
     #: or 2; on any other trigger it is meaningless and stays 0.
@@ -1723,6 +1769,9 @@ __all__ = [
     "RefreshesCostHealthEffect",
     "BuffOnSpellCastOnTribeEffect",
     "BuffSharedTribeEffect",
+    "BuffHandMinionsEffect",
+    "GainStatsFromHandEffect",
+    "GiveOwnStatsToHandEffect",
     "DoubleBountiesEffect",
     "AddRandomGoldenMinionEffect",
     "AddRandomMinionOfCommonTribeEffect",

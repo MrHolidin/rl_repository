@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple
 from src.bg_core.effects import (
     BuffMatching,
     DealDamageAllMinions,
+    GainStatsFromHandEffect,
     Keyword,
     SummonBestFromHandEffect,
     StartOfCombatDamagePerFriendlyTribe,
@@ -164,6 +165,15 @@ def _apply_start_of_combat_effect(
                 if bm is source:
                     continue
                 _deal_damage_to_battle_minion(rt, other_side, bm, eff.amount)
+    elif isinstance(eff, GainStatsFromHandEffect):
+        held = rt.seats[side_idx].hand_minions()
+        if held:
+            if eff.highest_attack_only:
+                source.bonus_attack += max(row[2] for row in held)
+            else:
+                source.bonus_attack += sum(row[2] for row in held)
+                source.bonus_health += sum(row[3] for row in held)
+            _sync_health_all(rt)
     elif isinstance(eff, SummonBestFromHandEffect):
         # Same reach as the Rally that summons from hand, at a different moment:
         # the card stays put and a copy joins the fight.

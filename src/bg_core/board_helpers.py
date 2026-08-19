@@ -190,7 +190,7 @@ def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
     from .effects import BuffOnSpellCastOnTribeEffect, BuffSelf, Trigger
 
     if player is not None:
-        _fire_board_spell_watchers(player, target)
+        _fire_board_spell_watchers(player, target, patch=patch)
     for ab in target.abilities:
         if ab.trigger is not Trigger.ON_TARGETED_BY_SPELL:
             continue
@@ -252,7 +252,7 @@ def apply_attack_thresholds(minion: Minion, attack: int) -> bool:
     return granted
 
 
-def _fire_board_spell_watchers(player, target: Minion) -> None:
+def _fire_board_spell_watchers(player, target: Minion, *, patch=None) -> None:
     """Board listeners of "whenever you cast a spell on a <tribe>".
 
     The watcher is not the target, which is what separates this from
@@ -273,6 +273,14 @@ def _fire_board_spell_watchers(player, target: Minion) -> None:
             for friendly in player.board:
                 friendly.bonus_attack += eff.attack
                 friendly.bonus_health += eff.health
+            if eff.effect is not None and patch is not None:
+                from src.bg_recruitment.shop_triggers import ShopTriggers
+
+                import numpy as _np
+
+                ShopTriggers(_np.random.default_rng(0), patch=patch).apply_shop_effect(
+                    player, watcher, eff.effect, placed=None
+                )
 
 
 def grant_keyword(minion: Minion, keyword) -> bool:

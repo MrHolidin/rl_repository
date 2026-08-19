@@ -13,6 +13,8 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.conditions import ability_condition_met
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
+    BuffHandMinionsEffect,
+    GiveOwnStatsToHandEffect,
     AddRandomGoldenMinionEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
@@ -201,6 +203,29 @@ _HANDLED_ELSEWHERE = (
     AdaptAllMurlocsEffect,
     DiscoverMurlocEffect,
 )
+
+
+def _buff_hand_minions(player: PlayerState, effect) -> None:
+    """Pay the minions in hand this effect reaches.
+
+    Left-most, one tribe, or everything there — and optionally the board too,
+    for the card that says "in your hand and board" in one breath.
+    """
+    held = [c for c in player.hand if isinstance(c, Minion)]
+    if effect.tribe is not None:
+        held = [c for c in held if minion_matches_tribe(c, effect.tribe)]
+    if effect.leftmost:
+        held = held[:1]
+    targets = list(held)
+    if effect.also_board:
+        targets += [
+            m
+            for m in player.board
+            if effect.tribe is None or minion_matches_tribe(m, effect.tribe)
+        ]
+    for card in targets:
+        card.bonus_attack += effect.attack
+        card.bonus_health += effect.health
 
 
 def _amplified_by_gift(player: PlayerState, source: Optional[Minion], effect):
@@ -463,6 +488,25 @@ class ShopTriggers:
                     if eff.effect is not None:
                         self.apply_shop_effect(player, watcher, eff.effect, placed=None)
 
+    def _fire_hand_watchers(self, player: PlayerState, placed: Minion) -> None:
+        """Cards that watch from *hand* ("while this is in your hand, …").
+
+        The only listeners in the game that are not on the board, so they are a
+        pass of their own rather than a branch in the board loop — and the
+        effect is applied to the card in hand, which is where it is standing.
+        """
+        for card in player.hand:
+            if not isinstance(card, Minion):
+                continue
+            for ab in card.abilities:
+                if ab.trigger is not Trigger.WHILE_IN_HAND:
+                    continue
+                if ab.filter_race is not None and placed.race != ab.filter_race:
+                    continue
+                if ab.filter_max_tier and placed.tier > ab.filter_max_tier:
+                    continue
+                self.apply_shop_effect(player, card, ab.effect, placed)
+
     def fire_magnetized(
         self, player: PlayerState, target: Minion, magnet: Minion
     ) -> None:
@@ -677,6 +721,13 @@ class ShopTriggers:
         elif isinstance(effect, StatsFromNextBuyEffect):
             if source is not None:
                 source.wants_next_buy_stats = True
+        elif isinstance(effect, BuffHandMinionsEffect):
+            _buff_hand_minions(player, effect)
+        elif isinstance(effect, GiveOwnStatsToHandEffect):
+            held = [c for c in player.hand if isinstance(c, Minion)]
+            if held and source is not None:
+                held[0].bonus_attack += source.raw_attack
+                held[0].bonus_health += source.max_health
         elif isinstance(effect, DoubleBountiesEffect):
             player.bounties_cast_twice = True
         elif isinstance(effect, AddRandomGoldenMinionEffect):
@@ -999,11 +1050,14 @@ class ShopTriggers:
     def fire_after_friendly_minion_placed(
         self, player: PlayerState, placed: Minion
     ) -> None:
+        self._fire_hand_watchers(player, placed)
         for m in list(player.board):
             for ab in m.abilities:
                 if ab.trigger != Trigger.AFTER_FRIENDLY_MINION_PLACED:
                     continue
                 if ab.filter_race is not None and placed.race != ab.filter_race:
+                    continue
+                if ab.filter_max_tier and placed.tier > ab.filter_max_tier:
                     continue
                 eff = ab.effect
                 if isinstance(eff, MagnetizeTokenEffect):

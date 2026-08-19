@@ -80,6 +80,7 @@ from src.bg_core.board_helpers import (
     grant_keyword_random,
     index_of,
     apply_buff_matching,
+    grant_keyword_random,
     minion_matches_tribe,
 )
 from .auras import (
@@ -730,6 +731,14 @@ def _fire_rally(
             _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
+        elif isinstance(eff, GrantKeywordRandomFriendly):
+            grant_keyword_random(
+                eff,
+                list(side.iter_living()),
+                attacker,
+                rng=rt.rng,
+                grant=lambda m, kw: _grant_keyword(rt, attacker_side_idx, m, kw),
+            )
         elif isinstance(eff, GainBloodGemsEffect):
             # Into hand, not onto a body — the seat holds it until it is played.
             rt.seats[attacker_side_idx].gain_blood_gems(eff.count)

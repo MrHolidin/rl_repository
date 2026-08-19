@@ -14,6 +14,7 @@
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
       "BuffBoughtMinionEffect",
+      "BuffHandMinionsEffect",
       "BuffOnSpellCastOnTribeEffect",
       "BuffPerMagnetizationEffect",
       "BuffPlacedMinionEffect",
@@ -39,7 +40,9 @@
       "FirstSpellcraftIsPermanentEffect",
       "GainBloodGemsEffect",
       "GainGoldNextTurnEffect",
+      "GainStatsFromHandEffect",
       "GiveLockboxEffect",
+      "GiveOwnStatsToHandEffect",
       "GoldSpentResponseEffect",
       "GrantKeywordAtAttackThreshold",
       "GrantTemporaryBuffEffect",
@@ -72,7 +75,8 @@
       "ON_DISCOVERED",
       "ON_HERO_DAMAGE",
       "ON_TARGETED_BY_SPELL",
-      "ON_TAVERN_SPELL_CAST"
+      "ON_TAVERN_SPELL_CAST",
+      "WHILE_IN_HAND"
     ]
   },
   "action_layout": {
