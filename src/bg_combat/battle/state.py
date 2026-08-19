@@ -239,6 +239,9 @@ class _CombatRuntime:
     #: not leave the hand, and it cannot be summoned a second time — so a second
     #: Rally has to reach past it to the next one.
     hand_summoned: Tuple[set, set] = field(default_factory=lambda: (set(), set()))
+    #: The body currently taking a swing, for the cards that are immune only
+    #: while attacking. Set around the exchange and cleared after it.
+    swinging_instance_id: int = -1
     watch_attack_thresholds: bool = False
     health_aura_dirty: List[bool] = field(default_factory=lambda: [True, True])
     health_aura_dr_snapshot: Optional[bool] = None

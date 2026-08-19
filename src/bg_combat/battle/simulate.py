@@ -38,15 +38,32 @@ def _keep_combat_gains(rt: "_CombatRuntime") -> None:
     picks up still dies with the copy, which is what makes a board come out of
     a fight the way it went in.
     """
+    from src.bg_core.board_helpers import minion_matches_tribe
     from src.bg_core.effects import KeepCombatGainsEffect, Trigger
 
     for side_idx in (0, 1):
-        for bm in rt.side(side_idx).iter_living():
-            if not any(
-                ability.trigger is Trigger.AURA
-                and isinstance(ability.effect, KeepCombatGainsEffect)
-                for ability in bm.abilities
-            ):
+        living = list(rt.side(side_idx).iter_living())
+        keepers = set()
+        for i, bm in enumerate(living):
+            for ability in bm.abilities:
+                eff = ability.effect
+                if ability.trigger is not Trigger.AURA or not isinstance(
+                    eff, KeepCombatGainsEffect
+                ):
+                    continue
+                if not eff.adjacent:
+                    keepers.add(bm.instance_id)
+                    continue
+                # Granted to the neighbours instead: Persistent Poet keeps
+                # nothing itself.
+                for j in (i - 1, i + 1):
+                    if 0 <= j < len(living) and (
+                        eff.tribe is None
+                        or minion_matches_tribe(living[j], eff.tribe)
+                    ):
+                        keepers.add(living[j].instance_id)
+        for bm in living:
+            if bm.instance_id not in keepers:
                 continue
             gained_attack = bm.bonus_attack - bm.start_bonus_attack
             gained_health = bm.bonus_health - bm.start_bonus_health

@@ -6,9 +6,11 @@ from typing import List, Optional, Tuple
 
 from src.bg_core.effects import (
     BuffMatching,
+    CastSpellAtEffect,
     DealDamageAllMinions,
     GainStatsFromHandEffect,
     Keyword,
+    RepeatPerCountEffect,
     SummonBestFromHandEffect,
     StartOfCombatDamagePerFriendlyTribe,
     SummonSelfCopyFromHandEffect,
@@ -17,7 +19,11 @@ from src.bg_core.effects import (
 
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .summon import _summon_append
-from .effects import _deal_damage_to_battle_minion, _summon_best_from_hand
+from .effects import (
+    _deal_damage_to_battle_minion,
+    _summon_best_from_hand,
+    cast_spell_in_combat,
+)
 from .events import (
     AttackCompleted,
     BeginAttackExchange,
@@ -165,6 +171,14 @@ def _apply_start_of_combat_effect(
                 if bm is source:
                     continue
                 _deal_damage_to_battle_minion(rt, other_side, bm, eff.amount)
+    elif isinstance(eff, RepeatPerCountEffect):
+        # "Improves permanently after you cast a Tavern spell" — the tally is
+        # the seat's, so the level is asked of it and the inner effect repeats.
+        times = rt.seats[side_idx].improve_level(eff.counter, eff.per)
+        for _ in range(max(1, times)):
+            _apply_start_of_combat_effect(rt, side_idx, source, eff.effect)
+    elif isinstance(eff, CastSpellAtEffect):
+        cast_spell_in_combat(rt, side_idx, source, eff.card_id)
     elif isinstance(eff, GainStatsFromHandEffect):
         held = rt.seats[side_idx].hand_minions()
         if held:
@@ -293,6 +307,23 @@ def _run_attacker_activation(
     battle_field = (rt.side(0), rt.side(1))
     if not _can_attack(attacker, attacker_side, battle_field=battle_field):
         return
+    # Who is swinging, for the cards that are immune only while they are.
+    previous_swinger = rt.swinging_instance_id
+    rt.swinging_instance_id = attacker.instance_id
+    try:
+        _run_swings(rt, attacker, attacker_side_idx, defender_side_idx, attacker_side, battle_field)
+    finally:
+        rt.swinging_instance_id = previous_swinger
+
+
+def _run_swings(
+    rt: _CombatRuntime,
+    attacker: BattleMinion,
+    attacker_side_idx: int,
+    defender_side_idx: int,
+    attacker_side,
+    battle_field,
+) -> None:
     kws = attacker.all_keywords
     if Keyword.MEGA_WINDFURY in kws:
         n_swings = 4

@@ -102,6 +102,11 @@ class PlayerCombatSeat(RecordingSeat):
         if slot is not None and spell is not None:
             self.player.hand[slot] = spell
 
+    def improve_level(self, counter: str, per: int) -> int:
+        from .game_counts import improve_level
+
+        return improve_level(self.player, counter, per)
+
     def bump_game_count(self, family: str, subject: str) -> None:
         bump_game_count(self.player, family, subject)
 

@@ -29,6 +29,9 @@ from src.bg_core.effects import (
     PlayBloodGemsOnAttackerEffect,
     BuffRandomHandMinionEffect,
     BuffSelfOnFriendlyDamageEffect,
+    CastSpellAtEffect,
+    ImmuneWhileAttackingEffect,
+    DamageFromOwnAttackEffect,
     BuffShopOnEveryRefreshEffect,
     KeepCombatGainsEffect,
     IncreaseTavernSpellBonusEffect,
@@ -117,10 +120,24 @@ def hs_race_string(*args, **kwargs):
     return _impl(*args, **kwargs)
 
 
+def _is_immune_attacker(rt: _CombatRuntime, bm: BattleMinion) -> bool:
+    """Whether this body is mid-swing and immune for the duration of it."""
+    if rt.swinging_instance_id != bm.instance_id:
+        return False
+    return any(
+        isinstance(ab.effect, ImmuneWhileAttackingEffect) for ab in bm.abilities
+    )
+
+
 def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
     vic = rt.find_minion(strike.victim_side_idx, strike.victim_instance_id)
     att = rt.find_minion(1 - strike.victim_side_idx, strike.attacker_instance_id)
     if vic is None or not vic.alive or strike.amount <= 0:
+        return
+    if _is_immune_attacker(rt, vic):
+        # "Immune while attacking": the retaliation for its own swing lands on
+        # nothing. Checked here rather than only in the generic damage helper,
+        # because an attack exchange writes its damage itself.
         return
     v_kw = vic.all_keywords
     if vic.has_shield and Keyword.SHIELD in v_kw:
@@ -430,6 +447,9 @@ def _deal_damage_to_battle_minion(
 ) -> None:
     if amount <= 0 or not bm.alive:
         return
+    if _is_immune_attacker(rt, bm):
+        # "Immune while attacking": the swing lands, the answer does not.
+        return
     if bm.has_shield and Keyword.SHIELD in bm.all_keywords:
         bm.has_shield = False
         rt.queue.append(ShieldLost(side_idx, bm.instance_id))
@@ -637,6 +657,32 @@ def _summon_best_from_hand(
         rt.hand_summoned[side_idx].add(instance_id)
 
 
+def cast_spell_in_combat(
+    rt: _CombatRuntime, side_idx: int, source: Optional[BattleMinion], card_id: str
+) -> None:
+    """Resolve a named spell against a combat side.
+
+    Two Dragons cast one mid-fight — a Start of Combat and a Rally — and the
+    spells they cast are board-wide buffs, so what a cast *means* here is the
+    spell's own abilities applied to the living side. The spell is never in
+    anyone's hand and nothing is spent.
+    """
+    spell = rt.patch.tavern_spells.get(card_id)
+    if spell is None:
+        return
+    side = rt.side(side_idx)
+    for ability in spell.abilities:
+        eff = ability.effect
+        if isinstance(eff, BuffMatching):
+            apply_buff_matching(eff, list(side.iter_living()), source)
+        else:
+            raise NotImplementedError(
+                f"spell {card_id} does {type(eff).__name__}, which no combat cast "
+                f"knows how to resolve"
+            )
+    _sync_health_all(rt)
+
+
 def _hand_candidates(rt: _CombatRuntime, side_idx: int, filter_race):
     """Hand minions a summon-from-hand may still choose.
 
@@ -731,6 +777,19 @@ def _fire_rally(
             _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
+        elif isinstance(eff, CastSpellAtEffect):
+            cast_spell_in_combat(rt, attacker_side_idx, attacker, eff.card_id)
+        elif isinstance(eff, DamageFromOwnAttackEffect):
+            amount = attack_value(attacker, side, death_resolution=False)
+            enemy_idx = 1 - attacker_side_idx
+            enemy = rt.side(enemy_idx)
+            living = list(enemy.iter_living())
+            if target in living:
+                hit = [living.index(target)]
+                if eff.include_adjacent:
+                    hit += [i for i in (hit[0] - 1, hit[0] + 1) if 0 <= i < len(living)]
+                for i in sorted(set(hit)):
+                    _deal_damage_to_battle_minion(rt, enemy_idx, living[i], amount)
         elif isinstance(eff, GrantKeywordRandomFriendly):
             grant_keyword_random(
                 eff,

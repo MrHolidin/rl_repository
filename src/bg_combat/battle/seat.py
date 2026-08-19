@@ -89,6 +89,13 @@ class CombatSeat(Protocol):
         not survive the fight to keep it.
         """
 
+    def improve_level(self, counter: str, per: int) -> int:
+        """How many times over a card that improves is worth its printed value.
+
+        Read from inside a fight by the Start of Combat effects that improve —
+        the tally is the owner's, and a combat copy has none.
+        """
+
     def bump_game_count(self, family: str, subject: str) -> None:
         """Count one event on the owner's tally, from inside the fight.
 
@@ -191,6 +198,10 @@ class RecordingSeat:
         self.damage_dealt.append(
             (int(instance_id), int(amount), int(threshold), reward_card_id)
         )
+
+    def improve_level(self, counter: str, per: int) -> int:
+        """One: a seatless combat keeps no tallies, so nothing has improved."""
+        return 1
 
     def bump_game_count(self, family: str, subject: str) -> None:
         self.count_bumps.append((family, subject))

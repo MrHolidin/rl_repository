@@ -33,6 +33,9 @@ from src.bg_core.effects import (
     DoubleBountiesEffect,
     MakeFriendlyGoldenEffect,
     ConsumeTavernMinionEffect,
+    DamageFromOwnAttackEffect,
+    ImmuneWhileAttackingEffect,
+    KeepCombatGainsEffect,
     GoldSpentResponseEffect,
     IncreaseTribeGiftEffect,
     StatsFromNextBuyEffect,
@@ -1359,6 +1362,69 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             condition=Condition(ConditionKind.OTHER_TRIBE_ON_BOARD, Race.MURLOC),
         ),
     ),
+    # ---------------------------------------------------- the Dragon family
+    "BG29_813": (  # Persistent Poet — its neighbours keep what the fight gave them
+        Ability(
+            Trigger.AURA,
+            KeepCombatGainsEffect(adjacent=True, tribe=Race.DRAGON),
+        ),
+    ),
+    "BG36_245": (  # Runic Arcanist — Start of Combat: cast Shiny Ring
+        Ability(Trigger.ON_START_OF_COMBAT, CastSpellAtEffect(card_id="BG28_168")),
+    ),
+    "BG36_241": (  # Crimson Vindicator — Rally: cast Mighty Dragonbreath
+        Ability(Trigger.ON_ATTACK, CastSpellAtEffect(card_id="BG36_246")),
+    ),
+    "BG34_633": (  # Draconic Warden — Battlecry *and* Deathrattle: a Chromadrake
+        Ability(
+            Trigger.ON_PLACE,
+            AddRandomCardToHandEffect(
+                card_ids=("BG34_634t", "BG34_635t", "BG34_636t", "BG34_637t", "BG34_638t")
+            ),
+        ),
+        Ability(
+            Trigger.ON_DEATH,
+            AddRandomCardToHandEffect(
+                card_ids=("BG34_634t", "BG34_635t", "BG34_636t", "BG34_637t", "BG34_638t")
+            ),
+        ),
+    ),
+    "BG32_820": (  # Firescale Hoarder — Battlecry *and* Deathrattle: a Shiny Ring
+        Ability(Trigger.ON_PLACE, AddTavernSpellToHandEffect(card_id="BG28_168")),
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG28_168")),
+    ),
+    "BGS_041": (  # Kalecgos — a Battlecry triggered pays your Dragons
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE,
+                tribe=Race.DRAGON,
+                attack=2,
+                health=2,
+                requires_placed_battlecry=True,
+            ),
+        ),
+    ),
+    "BG32_822": (  # Fire-forged Evoker — SoC: your Dragons +2/+1, improving
+        Ability(
+            Trigger.ON_START_OF_COMBAT,
+            RepeatPerCountEffect(
+                counter="tavern_spells_cast:*",
+                effect=BuffMatching(
+                    BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=2, health=1
+                ),
+            ),
+        ),
+    ),
+    "BG28_595": (  # Ignition Specialist — end of turn: two random Tavern spells
+        Ability(Trigger.ON_TURN_END, AddRandomTavernSpellToHandEffect(count=2)),
+    ),
+    "BG24_004": (  # Warpwing — takes nothing back from what it swings at
+        Ability(Trigger.AURA, ImmuneWhileAttackingEffect()),
+    ),
+    "BG27_017": (  # Obsidian Ravager — Rally: its Attack to the target and beside
+        Ability(Trigger.ON_ATTACK, DamageFromOwnAttackEffect(include_adjacent=True)),
+    ),
 }
 
 
@@ -1366,6 +1432,32 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
 #: battlecry, so every ability here hangs off ``Trigger.ON_PLACE`` — it fires
 #: when the card is cast, which for a spell is the only thing it ever does.
 SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
+    "BG28_168": (  # Shiny Ring — give your minions +1/+1
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=1),
+        ),
+    ),
+    "BG36_246": (  # Mighty Dragonbreath — everyone, then Dragons, then shields
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=1, health=1),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.DRAGON, attack=1, health=1
+            ),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                BuffTarget.FRIENDLY_WITH_KEYWORD, keyword=Keyword.SHIELD,
+                attack=1, health=1,
+            ),
+        ),
+    ),
+
     # ------------------------------------------------------------- Bounties
     "BG33_811": (  # Healthy Bounty — four friendly minions +4 Health
         Ability(

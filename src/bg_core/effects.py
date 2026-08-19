@@ -1035,7 +1035,30 @@ class KeepCombatGainsEffect:
     Everything a combat normally throws away with the copy — stats bought by
     buffs, keywords granted mid-fight — is written back to the owner's real
     minion when the fight ends.
+
+    ``adjacent`` grants it to the neighbours instead of to this body (Persistent
+    Poet), and ``tribe`` narrows who among them.
     """
+
+    adjacent: bool = False
+    tribe: Any = None
+
+
+@dataclass(frozen=True)
+class ImmuneWhileAttackingEffect:
+    """Warpwing: takes no damage from the minion it is swinging at.
+
+    Not a keyword: the keyword channels size an observation every checkpoint
+    reads, and this is one card.
+    """
+
+
+@dataclass(frozen=True)
+class DamageFromOwnAttackEffect:
+    """Deal damage equal to this minion's Attack, to the target and its
+    neighbours (Obsidian Ravager's Rally)."""
+
+    include_adjacent: bool = True
 
 
 @dataclass(frozen=True)
@@ -1622,6 +1645,8 @@ Effect = Union[
     RaiseStandingBonusEffect,
     SummonBestFromHandEffect,
     BuffRandomHandMinionEffect,
+    ImmuneWhileAttackingEffect,
+    DamageFromOwnAttackEffect,
     KeepCombatGainsEffect,
     HeroDamageResponseEffect,
     AddCardToNextRefreshesEffect,
@@ -1794,6 +1819,8 @@ __all__ = [
     "RewardAtDamageDealtEffect",
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
+    "ImmuneWhileAttackingEffect",
+    "DamageFromOwnAttackEffect",
     "KeepCombatGainsEffect",
     "HeroDamageResponseEffect",
     "AddCardToNextRefreshesEffect",

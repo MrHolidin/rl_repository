@@ -356,6 +356,8 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "BuffShopOnEveryRefreshEffect",
         "BuffRandomHandMinionEffect",
         "KeepCombatGainsEffect",
+        "ImmuneWhileAttackingEffect",
+        "DamageFromOwnAttackEffect",
         "HeroDamageResponseEffect",
         "AddCardToNextRefreshesEffect",
         "FirstSpellcraftIsPermanentEffect",
