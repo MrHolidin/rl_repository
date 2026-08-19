@@ -102,6 +102,11 @@ class PlayerCombatSeat(RecordingSeat):
         if slot is not None and spell is not None:
             self.player.hand[slot] = spell
 
+    def improve_body(self, instance_id: int) -> None:
+        body = self._board_minion(instance_id)
+        if body is not None:
+            body.self_improves += 1
+
     def improve_level(self, counter: str, per: int) -> int:
         from .game_counts import improve_level
 

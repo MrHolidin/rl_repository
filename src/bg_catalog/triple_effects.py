@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import fields, replace
+from dataclasses import fields, is_dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
@@ -15,6 +15,7 @@ from src.bg_core.effects import (
     Multiplier,
     MultiplySelfAttackEffect,
     StartOfCombatDamagePerFriendlyTribe,
+    SummonEffect,
     ZappTargeting,
 )
 from src.bg_catalog.golden_catalog import golden_hints_for_card
@@ -48,18 +49,55 @@ _NO_GENERIC_SCALE: Tuple[Type[Effect], ...] = (
 
 
 def _scale_factor(effect: Effect, value: int, hints: Dict[str, Any]) -> int:
+    # "double it" → "triple it" is the one place a golden does not double the
+    # number it prints, and the golden text says so. Read from the hint rather
+    # than from the effect's type: Banana Slamma multiplies a summoned minion's
+    # Attack and reads exactly the same way Rivendare's multiplier does.
+    if hints.get("triple_factor") and value == 2:
+        return 3
     if isinstance(effect, Multiplier):
         return 3 if value == 2 else value
-    if isinstance(effect, MultiplySelfAttackEffect):
-        if hints.get("triple_factor") and value == 2:
-            return 3
-        return value * 2 if value > 0 else value
     return value * 2 if value > 0 else value
+
+
+def _scales_at_the_wrapper(hints: Dict[str, Any]) -> bool:
+    """Whether the golden's change lands on the wrapper rather than inside it.
+
+    "give two friendly Pirates +4/+5 **twice**" keeps the payload's numbers and
+    changes how often it resolves, so the nested effect must be left alone and
+    the wrapper's own ``repeats`` carries the doubling instead.
+    """
+    return bool(hints.get("prefer_repeats"))
+
+
+def _is_effect(value: Any) -> bool:
+    """A nested effect, as opposed to an int, a tribe, or a Minion reference."""
+    return (
+        is_dataclass(value)
+        and not isinstance(value, type)
+        and type(value).__module__ == "src.bg_core.effects"
+    )
 
 
 def _should_skip_field(
     effect: Effect, field_name: str, value: int, hints: Dict[str, Any]
 ) -> bool:
+    if hints.get("double_stats"):
+        # "consume a minion to gain **double** its stats", "give it **double**
+        # this minion's maximum stats": the numbers printed stay, and the
+        # multiple is the only thing that moves.
+        return field_name not in ("stat_multiplier", "factor")
+    if field_name == "count" and hints.get("golden_token"):
+        # A golden that summons the Golden token summons the same number of
+        # them, not twice as many plain ones.
+        return isinstance(effect, SummonEffect)
+    if field_name == "dr_wave_count":
+        # The wave is Rat Pack's lever and only Rat Pack's: its count comes
+        # from its Attack, so doubling the count is not available and the
+        # golden summons the same wave twice instead. On a summon that prints
+        # a fixed count, doubling *both* is doubling twice — a golden "summon
+        # two Beetles" that puts four on the board.
+        return not getattr(effect, "count_from_source_attack", False)
     if field_name == "amount" and isinstance(effect, DealHeroDamage):
         return bool(hints.get("preserve_hero_damage_amount"))
     if hints.get("prefer_repeats"):
@@ -85,6 +123,14 @@ def implicit_triple_golden_effect(
     updates: Dict[str, Any] = {}
     for f in fields(e):
         if f.name not in _GOLDEN_INT_FIELDS:
+            # A wrapper scales by scaling what it wraps: Choose One doubles both
+            # halves, and "repeat this for each X" doubles the thing repeated.
+            # Without this the Golden Tasty Lobster still gave +1/+1.
+            nested = getattr(e, f.name, None)
+            if _is_effect(nested) and not _scales_at_the_wrapper(hints):
+                scaled_nested = implicit_triple_golden_effect(nested, hints)
+                if scaled_nested is not nested:
+                    updates[f.name] = scaled_nested
             continue
         val = getattr(e, f.name)
         if not isinstance(val, int) or val <= 0:
@@ -97,7 +143,17 @@ def implicit_triple_golden_effect(
             updates[f.name] = val * 2
 
     scaled = replace(e, **updates) if updates else e
+    scaled = _apply_golden_token(scaled, hints)
     return _apply_prefer_repeats(scaled, hints)
+
+
+def _apply_golden_token(e: Effect, hints: Dict[str, Any]) -> Effect:
+    """Point a golden's summon at the Golden printing of its token."""
+    if not hints.get("golden_token") or not isinstance(e, SummonEffect):
+        return e
+    if e.token_id.endswith("_G"):
+        return e
+    return replace(e, token_id=e.token_id + "_G")
 
 
 def _apply_prefer_repeats(e: Effect, hints: Dict[str, Any]) -> Effect:

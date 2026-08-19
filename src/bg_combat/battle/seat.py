@@ -108,6 +108,14 @@ class CombatSeat(Protocol):
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
         """Stats onto a random minion in the owner's hand."""
 
+    def improve_body(self, instance_id: int) -> None:
+        """Count one improve on a body that improves *itself* permanently.
+
+        Named by ``instance_id`` for the same reason the damage tally is: the
+        improve belongs to that body, and the copy that earned it inside the
+        fight is thrown away when the fight ends.
+        """
+
     def keep_combat_gains(self, instance_id: int, attack: int, health: int, keywords) -> None:
         """Write a body's combat gains through to the owner's real minion.
 
@@ -151,6 +159,7 @@ class RecordingSeat:
     hand_buffs: List[Tuple[int, int]] = field(default_factory=list)
     #: Combat gains a body asked to keep (instance_id, attack, health, keywords).
     kept_gains: List[Tuple[int, int, int, frozenset]] = field(default_factory=list)
+    body_improves: List[int] = field(default_factory=list)
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -208,6 +217,9 @@ class RecordingSeat:
 
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
         self.hand_buffs.append((int(attack), int(health)))
+
+    def improve_body(self, instance_id: int) -> None:
+        self.body_improves.append(int(instance_id))
 
     def keep_combat_gains(self, instance_id: int, attack: int, health: int, keywords) -> None:
         self.kept_gains.append((int(instance_id), int(attack), int(health), frozenset(keywords)))

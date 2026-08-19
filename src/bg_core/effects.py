@@ -317,11 +317,17 @@ class AttackBonusPerOtherMurlocGlobal:
 
 @dataclass(frozen=True)
 class BuffSummonedIfRace:
-    """When a friendly minion is summoned, buff it if it matches ``tribe`` (Pack Leader, Mama Bear)."""
+    """When a friendly minion is summoned, buff it if it matches ``tribe`` (Pack Leader, Mama Bear).
+
+    ``improves`` is Lurking Leviathan's "and improve this permanently": the
+    payout is multiplied by how many times this body has already paid, and the
+    tally is the body's own rather than the seat's.
+    """
 
     tribe: Any
     attack: int = 0
     health: int = 0
+    improves: bool = False
 
 
 @dataclass(frozen=True)
@@ -593,7 +599,15 @@ class RepeatPerCountEffect:
 
 @dataclass(frozen=True)
 class PlaceFishbaitEffect:
-    """Replace a tavern card with a Fishbait for the left-most Beast to attack."""
+    """Replace a tavern card with a Fishbait for the left-most Beast to attack.
+
+    Two printings. Lurking Lionfish names the slot and stops there. Snarky
+    Shark names none: ``refresh`` rerolls the tavern first, and ``auto_attack``
+    sends the Beast without waiting to be told to.
+    """
+
+    refresh: bool = False
+    auto_attack: bool = False
 
 
 class ScopeKind(Enum):
@@ -814,6 +828,10 @@ class GoldSpentResponseEffect:
 
     threshold: int
     effect: Any = None
+    #: How many times the payload resolves per full threshold. The Golden
+    #: printings say "twice" rather than printing bigger numbers, so this is
+    #: what their doubling has to land on.
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
@@ -1056,6 +1074,36 @@ class GrantCombinedChooseOneEffect:
 
 
 @dataclass(frozen=True)
+class MultiplySummonedAttackEffect:
+    """Multiply the Attack of a friendly summoned in combat (Banana Slamma)."""
+
+    tribe: Any = None
+    factor: int = 2
+
+
+@dataclass(frozen=True)
+class GiveOwnStatsToSummonedEffect:
+    """Hand a summoned friendly this minion's own stats.
+
+    ``charges`` is what the card prints ("3 times per combat"), spent per fight
+    because the count lives on the combat copy. Deliberately not named ``uses``:
+    that name is on the golden scaler's doubling list, and the Golden printing
+    still gets three — it doubles the stats instead, which is ``factor``.
+    """
+
+    charges: int = 0
+    factor: int = 1
+
+
+@dataclass(frozen=True)
+class TriggerLeftmostDeathrattleEffect:
+    """Fire the deathrattle of the left-most friendly that has one, without
+    killing it (Deathstrider). ``repeats`` is the Golden's "twice"."""
+
+    repeats: int = 1
+
+
+@dataclass(frozen=True)
 class RaiseGoldCapEffect:
     """Raise the most gold a turn can hand this seat ("increase your maximum
     Gold by 1")."""
@@ -1159,6 +1207,9 @@ class ConsumeTavernMinionEffect:
     #: Every friendly of ``filter_race`` eats, not one of them ("your Demons
     #: *each* consume a random minion in the Tavern").
     each: bool = False
+    #: What multiple of the eaten minion's stats the eater takes. The Golden
+    #: printing gains *double* the stats of one minion rather than eating two.
+    stat_multiplier: int = 1
     #: The eater is the card carrying this, not one the seat picks — which is
     #: what separates Insatiable Ur'zul from Mind Muck.
     eater_is_source: bool = False
@@ -1689,6 +1740,9 @@ Effect = Union[
     SummonBestFromHandEffect,
     BuffRandomHandMinionEffect,
     GrantCombinedChooseOneEffect,
+    MultiplySummonedAttackEffect,
+    GiveOwnStatsToSummonedEffect,
+    TriggerLeftmostDeathrattleEffect,
     RaiseGoldCapEffect,
     SpellsCastResponseEffect,
     SummonGemGolemEffect,
@@ -1752,6 +1806,11 @@ class Ability:
     #: and a field rather than a ConditionKind for the same reason the Battlecry
     #: requirement is: that vocabulary sizes an embedding table.
     filter_max_tier: int = 0
+    #: Fire only when the subject of the event has a Rally ("whenever a friendly
+    #: **Rally** minion attacks"). A property of the minion the event happened
+    #: to, like ``filter_race`` beside it, so it is checked where every other
+    #: subject filter is rather than inside three effect handlers.
+    filter_subject_rally: bool = False
     combat_only: bool = False
     #: Gold an ``ON_ACTIVATE`` ability costs to fire. Every printing charges 1
     #: or 2; on any other trigger it is meaningless and stays 0.
@@ -1867,6 +1926,9 @@ __all__ = [
     "SummonBestFromHandEffect",
     "BuffRandomHandMinionEffect",
     "GrantCombinedChooseOneEffect",
+    "MultiplySummonedAttackEffect",
+    "GiveOwnStatsToSummonedEffect",
+    "TriggerLeftmostDeathrattleEffect",
     "RaiseGoldCapEffect",
     "SpellsCastResponseEffect",
     "SummonGemGolemEffect",

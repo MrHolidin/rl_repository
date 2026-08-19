@@ -90,6 +90,7 @@ from src.bg_core.effects import (
     IncreaseTribeGiftEffect,
     IncrementShopTribeBonusEffect,
     Keyword,
+    PlaceFishbaitEffect,
     PogoHopperBattlecry,
     ReduceUpgradeCostEffect,
     SetNextRollCostEffect,
@@ -105,6 +106,7 @@ from src.bg_recruitment.game_counts import (
     bump_summoned,
     improve_level,
 )
+from src.bg_recruitment.fishbait import fire_tavern_rally
 from src.bg_recruitment.standing_bonuses import (
     BonusScope,
     ScopeKind,
@@ -507,7 +509,7 @@ class ShopTriggers:
                 times, watcher.gold_spent_seen = divmod(
                     watcher.gold_spent_seen, max(1, int(eff.threshold))
                 )
-                for _ in range(times):
+                for _ in range(times * max(1, int(eff.repeats))):
                     if eff.effect is not None:
                         self.apply_shop_effect(player, watcher, eff.effect, placed=None)
 
@@ -591,6 +593,13 @@ class ShopTriggers:
             self.apply_buff_one_per_listed_tribe(source, effect, player.board)
         elif isinstance(effect, BuffRandomUniqueTribeFriendlies):
             self.apply_buff_random_unique_tribe(source, effect, player.board)
+        elif isinstance(effect, PlaceFishbaitEffect):
+            self.refresh_with_fishbait(
+                player,
+                source,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
         elif isinstance(effect, BuffAllShopOffersEffect):
             buff_all_shop_offers(player, attack=effect.attack, health=effect.health)
         elif isinstance(effect, AddRandomMinionToShopEffect):
@@ -740,6 +749,7 @@ class ShopTriggers:
                         eater,
                         rng=self._rng,
                         highest_health=effect.highest_health,
+                        stat_multiplier=effect.stat_multiplier,
                     )
         elif isinstance(effect, StatsFromNextBuyEffect):
             if source is not None:
@@ -894,6 +904,49 @@ class ShopTriggers:
         settle_standing_bonuses(player)
         refresh_attack_thresholds(player.board)
 
+    def refresh_with_fishbait(
+        self,
+        player: PlayerState,
+        source: Minion,
+        *,
+        shop_excluded_race: Optional[Race] = None,
+        shared_pool=None,
+    ) -> None:
+        """"Refresh the Tavern with a Fishbait. Your left-most Beast attacks it."
+
+        A reroll first, so the bait lands on a fresh counter, and then the
+        exchange the tavern already knows how to run. ``source`` is the card
+        being sold: it is a Beast itself and has not left the board yet, so the
+        swing has to skip it.
+        """
+        from src.bg_recruitment.fishbait import attack_fishbait, place_fishbait
+        from src.bg_recruitment.shop import refresh_shop
+
+        refresh_shop(
+            player,
+            shop_excluded_race,
+            rng=self._rng,
+            shared_pool=shared_pool,
+            patch=self._patch,
+        )
+        slot = next(
+            (i for i, card in enumerate(player.shop) if card is not None),
+            None,
+        )
+        if slot is None:
+            return
+        place_fishbait(player, slot, golden=source.is_golden)
+        attack_fishbait(
+            player,
+            slot,
+            exclude=source,
+            fire_rally=lambda attacker: fire_tavern_rally(
+                player,
+                attacker,
+                lambda src, eff: self.apply_shop_effect(player, src, eff, placed=None),
+            ),
+        )
+
     @staticmethod
     def _has_battlecry(minion: Minion) -> bool:
         return any(ab.trigger == Trigger.ON_PLACE for ab in minion.abilities)
@@ -902,11 +955,25 @@ class ShopTriggers:
     def _has_deathrattle(minion: Minion) -> bool:
         return any(ab.trigger == Trigger.ON_DEATH for ab in minion.abilities)
 
-    def fire_on_sell(self, sold: Minion, player: PlayerState) -> None:
+    def fire_on_sell(
+        self,
+        sold: Minion,
+        player: PlayerState,
+        *,
+        shop_excluded_race: Optional[Race] = None,
+        shared_pool=None,
+    ) -> None:
         for ab in sold.abilities:
             if ab.trigger != Trigger.ON_SELL:
                 continue
-            self.apply_shop_effect(player, sold, ab.effect, sold)
+            self.apply_shop_effect(
+                player,
+                sold,
+                ab.effect,
+                sold,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
         self._fire_friendly_sold(sold, player)
 
     def _fire_friendly_sold(self, sold: Minion, player: PlayerState) -> None:

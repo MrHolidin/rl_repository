@@ -215,7 +215,9 @@ class PlayerTurnEngine:
 
         if int(a.Action.SELL_BOARD_0) <= action_int < int(a.Action.SELL_BOARD_0) + a.BOARD_SIZE:
             def _on_sell(m, p):
-                ctx.triggers.fire_on_sell(m, p)
+                ctx.triggers.fire_on_sell(
+                    m, p, shop_excluded_race=race, shared_pool=ctx.shared_pool
+                )
                 hero_passives.apply_hero_on_sell(  # Dancin' Deryl / Flurgl
                     m,
                     p,

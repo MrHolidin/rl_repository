@@ -264,6 +264,21 @@ def _description_for(
     )
 
 
+def _golden_printing_of(card_id: str, by_id: Mapping[str, object]) -> Optional[str]:
+    """The normal printing ``card_id`` is the Golden of, or None.
+
+    Two id shapes carry it: ``X_G`` for a card, and ``X_Gt`` for a card's token
+    (the Golden Sewer Rat's Half-Shell is ``BG19_010_Gt``, whose plain printing
+    is ``BG19_010t`` — not ``BG19_010_G``).
+    """
+    for suffix, plain in (("_Gt", "t"), ("_G", "")):
+        if card_id.endswith(suffix):
+            base = card_id[: -len(suffix)] + plain
+            if base in by_id:
+                return base
+    return None
+
+
 def _build_templates_and_descriptions(
     *,
     catalog_path: Path,
@@ -316,9 +331,24 @@ def _build_templates_and_descriptions(
     for tid in token_ids:
         rec = by_id[tid]
         base = minion_from_tavern_record(rec)
+        built = _merge_template(tid, base, effects=effects)
+        # A token whose id is the Golden printing of another token *is* golden,
+        # whatever the catalog row's flag says: it carries the doubled stats,
+        # and the cards that count "Golden minions you have" read this flag
+        # rather than the stats. Its abilities are the golden ones too, unless
+        # the package bound this id itself.
+        golden_of = _golden_printing_of(tid, by_id)
+        if golden_of is not None and tid not in effects:
+            built = replace(
+                built,
+                abilities=resolve_triple_forged_abilities(
+                    golden_of, effects, catalog_path=catalog_path
+                ),
+            )
         merged = replace(
-            _merge_template(tid, base, effects=effects),
+            built,
             is_token=True,
+            is_golden=built.is_golden or golden_of is not None,
         )
         desc = _description_for(
             rec,

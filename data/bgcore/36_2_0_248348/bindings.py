@@ -74,6 +74,7 @@ from src.bg_core.effects import (
     BuffAdjacentBattlecry,
     BuffAllShopOffersEffect,
     BuffMatching,
+    BuffSummonedIfRace,
     BuffPlacedMinionEffect,
     BuffRandomHandMinionEffect,
     BumpSeatCounterEffect,
@@ -117,10 +118,13 @@ from src.bg_core.effects import (
     RepeatPerCountEffect,
     StealTavernMinionEffect,
     SummonBestFromHandEffect,
+    GiveOwnStatsToSummonedEffect,
+    MultiplySummonedAttackEffect,
     SummonEffect,
     SummonRandomMinionEffect,
     SummonSelfCopyFromHandEffect,
     Trigger,
+    TriggerLeftmostDeathrattleEffect,
 )
 from src.bg_core.minion import Race
 
@@ -138,6 +142,14 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG35_150t",  # Demon Fodder — Laboratory Assistant
         "BG25_010t",  # Helping Hand 2/1 Reborn — Handless Forsaken
         "BG31_171t",  # Satellite 3/3 — welded on by Spark Snapper
+        "BG19_010",  # Sewer Rat 3/2 — Sewer Lord, and it summons one too
+        "BG19_010_G",  # Golden Sewer Rat, which the Golden Lord summons
+        "BG19_010t",  # Half-Shell 2/3 Taunt — the Rat's deathrattle
+        "BG19_010_Gt",  # Golden Half-Shell 4/6
+        # Golden printings a Golden card summons by name rather than by count:
+        # "Summon a Golden Tasty Lobster", "Summon a Golden Ancestral Automaton".
+        "BG36_202_G",
+        "BG_TTN_401_G",
         # The five Chromadrakes: out of the tavern pool this patch, still handed
         # over by Hired Mount, so the package has to carry them.
         "BG34_634t",
@@ -1509,6 +1521,82 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
                     "BG31_886",  # Forest's Bounty
                     "BG31_884",  # The Road Less Traveled
                 )
+            ),
+        ),
+    ),
+    # ------------------------------------------------------ the Beast family
+    # A tribe that fights by arriving: most of these pay when a minion is
+    # summoned, which is why the shared summon listener grew rather than five
+    # cards each growing their own.
+    "BG26_802": (  # Banana Slamma — a Beast summoned in combat has its Attack doubled
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            MultiplySummonedAttackEffect(tribe=Race.BEAST, factor=2),
+        ),
+    ),
+    "BG34_322": (  # Stalwart Kodo — a summon gets this minion's maximum stats, 3x
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            GiveOwnStatsToSummonedEffect(charges=3, factor=1),
+        ),
+    ),
+    "BG35_602": (  # Lurking Leviathan — +2 Attack to a summoned Beast, improving
+        Ability(
+            Trigger.ON_FRIENDLY_MINION_SUMMONED,
+            BuffSummonedIfRace(tribe=Race.BEAST, attack=2, improves=True),
+        ),
+    ),
+    "BG36_206": (  # Snarky Shark — sold, it refreshes the tavern with a Fishbait
+        Ability(
+            Trigger.ON_SELL,
+            PlaceFishbaitEffect(refresh=True, auto_attack=True),
+        ),
+    ),
+    "BG36_210": (  # Hoarding Hyena — Rally: summon a Tasty Lobster
+        Ability(Trigger.ON_ATTACK, SummonEffect(token_id="BG36_202", count=1)),
+    ),
+    "BG35_604": (  # Sewer Lord — Deathrattle: two Sewer Rats, which leave Half-Shells
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG19_010", count=2)),
+    ),
+    "BG19_010": (  # Sewer Rat (token) — Deathrattle: a 2/3 Taunt Half-Shell
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG19_010t", count=1)),
+    ),
+    # The Golden Rat is written out because its own golden text names the
+    # Half-Shell by stats rather than as Golden, so nothing derives it: without
+    # this the implicit rule would give it two plain Half-Shells.
+    "BG19_010_G": (
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG19_010_Gt", count=1)),
+    ),
+    "BG31_809": (  # Turquoise Skitterer — Deathrattle: Beetles +5/+5 this game, and one
+        Ability(
+            Trigger.ON_DEATH,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.CARD, scope_key="BG28_603t", attack=5, health=5
+            ),
+        ),
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG28_603t", count=1)),
+    ),
+    "BG36_209": (  # Ravaging Scorpid — every friendly attack raises the Beetles
+        Ability(
+            Trigger.ON_FRIENDLY_ATTACK,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.CARD, scope_key="BG28_603t", attack=3, health=3
+            ),
+        ),
+        Ability(Trigger.ON_DEATH, SummonEffect(token_id="BG28_603t", count=1)),
+    ),
+    "BG36_208": (  # Deathstrider — a Rally minion's swing fires your left-most Deathrattle
+        Ability(
+            Trigger.ON_FRIENDLY_ATTACK,
+            TriggerLeftmostDeathrattleEffect(repeats=1),
+            filter_subject_rally=True,
+        ),
+    ),
+    "BGS_018": (  # Goldrinn, the Great Wolf — Deathrattle: your Beasts +8/+8
+        Ability(
+            Trigger.ON_DEATH,
+            BuffMatching(
+                target=BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=8, health=8
             ),
         ),
     ),

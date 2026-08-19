@@ -143,12 +143,16 @@ def consume_tavern_minion(
     *,
     rng: np.random.Generator,
     highest_health: bool = False,
+    stat_multiplier: int = 1,
 ) -> Optional[Minion]:
     """``eater`` eats a minion off the counter and takes its stats.
 
     The stats are the ones the tavern shows, auras included — the same reading
     ``ConsumeFriendlyBattlecry`` takes of a minion it eats off the board. One at
     random unless the card names the biggest.
+
+    ``stat_multiplier`` is the Golden printing that gains *double* the stats of
+    one minion: it eats no more of them, it just takes more from the one.
     """
     filled = [i for i, m in enumerate(player.shop) if m is not None]
     if not filled:
@@ -159,8 +163,9 @@ def consume_tavern_minion(
         idx = filled[int(rng.integers(0, len(filled)))]
     eaten = player.shop[idx]
     attack, health = shop_effective_stats([m for m in player.shop if m is not None], eaten)
-    eater.bonus_attack += attack
-    eater.bonus_health += health
+    factor = max(1, int(stat_multiplier))
+    eater.bonus_attack += attack * factor
+    eater.bonus_health += health * factor
     player.shop[idx] = None
     return eaten
 
@@ -299,7 +304,9 @@ def apply_targeted_on_place_battlecries(
             if target is None:
                 continue
             for _ in range(max(1, e.count)):
-                consume_tavern_minion(player, target, rng=rng)
+                consume_tavern_minion(
+                    player, target, rng=rng, stat_multiplier=e.stat_multiplier
+                )
         elif isinstance(e, ConsumeFriendlyBattlecry):
             if forced_buff_target is not None:
                 if forced_buff_target not in player.board:

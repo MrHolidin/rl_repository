@@ -61,9 +61,17 @@ def make_fishbait(*, golden: bool = False) -> Minion:
     )
 
 
-def leftmost_beast(player: PlayerState) -> Optional[Minion]:
-    """The attacker both cards name: left-most Beast on the board."""
+def leftmost_beast(
+    player: PlayerState, *, exclude: Optional[Minion] = None
+) -> Optional[Minion]:
+    """The attacker both cards name: left-most Beast on the board.
+
+    ``exclude`` is Snarky Shark, which is a Beast and is still standing there
+    when its own sale fires — the swing belongs to a Beast that stays.
+    """
     for minion in player.board:
+        if minion is exclude:
+            continue
         if minion.race in (Race.BEAST, Race.ALL):
             return minion
     return None
@@ -83,6 +91,7 @@ def attack_fishbait(
     shop_index: int,
     *,
     fire_rally: Optional[Callable[[Minion], None]] = None,
+    exclude: Optional[Minion] = None,
 ) -> Optional[Minion]:
     """The left-most Beast attacks the bait in ``shop_index``.
 
@@ -94,7 +103,7 @@ def attack_fishbait(
     if bait is None or bait.card_id != FISHBAIT_CARD_ID:
         raise ValueError(f"tavern slot {shop_index} does not hold a Fishbait")
 
-    attacker = leftmost_beast(player)
+    attacker = leftmost_beast(player, exclude=exclude)
     if attacker is None:
         return None
 

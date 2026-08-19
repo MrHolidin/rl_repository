@@ -146,6 +146,13 @@ class Minion:
     magnet_doubles_next: bool = False
     #: Waiting to take the stats of the next minion the seat buys this turn.
     wants_next_buy_stats: bool = False
+    #: How many times a body that improves *itself* has improved ("give it +2
+    #: Attack and improve this permanently"). Per body, not per printing: two
+    #: Leviathans improve separately, and a golden built from three starts over.
+    self_improves: int = 0
+    #: Charges left on a per-combat "N times" ability, spent as they are used.
+    #: Lives on the combat copy, so it refills with every fight.
+    combat_uses_left: int = -1
     #: Spells the seat has cast while this body watched, for the cards that
     #: answer every Nth rather than every one.
     spells_seen: int = 0

@@ -345,20 +345,30 @@ def apply_summoned_listener(
     summoned: Minion,
     *,
     grant_keyword,
+    improve=None,
+    in_combat: bool = False,
 ) -> None:
-    """One of the three "a friendly minion was summoned" effects.
+    """One of the "a friendly minion was summoned" effects.
 
-    All three gate on the newcomer's tribe and differ only in what happens
-    next: the newcomer gets stats, the listener gets stats, or the listener
-    gets a keyword. Both phases wrote out the same three-branch dispatch with
-    the same tribe check repeated inside each branch.
+    They gate on the newcomer's tribe and differ only in what happens next: the
+    newcomer gets stats, or double its own, or the listener's; the listener gets
+    stats, or a keyword. Both phases wrote out the same dispatch with the same
+    tribe check repeated inside each branch.
+
+    ``in_combat`` gates the ones printed "in combat" (Banana Slamma, Stalwart
+    Kodo). A shop summon fires the same trigger, and without this they would
+    pay there too.
 
     ``grant_keyword`` is the one part they cannot share: combat has to mark
     its health auras dirty afterwards, and the shop has no auras to mark.
+    ``improve`` is the second: a body that improves inside a fight has to write
+    the tally through to the owner's minion, and the shop body *is* the owner's.
     """
     from .effects import (
         BuffListenerIfSummonedMatches,
         BuffSummonedIfRace,
+        MultiplySummonedAttackEffect,
+        GiveOwnStatsToSummonedEffect,
         GrantListenerKeywordIfSummonedMatches,
     )
 
@@ -366,16 +376,41 @@ def apply_summoned_listener(
         effect,
         (
             BuffSummonedIfRace,
+            MultiplySummonedAttackEffect,
+            GiveOwnStatsToSummonedEffect,
             GrantListenerKeywordIfSummonedMatches,
             BuffListenerIfSummonedMatches,
         ),
     ):
         return
-    if not minion_matches_tribe(summoned, effect.tribe):
+    tribe = getattr(effect, "tribe", None)
+    if tribe is not None and not minion_matches_tribe(summoned, tribe):
         return
     if isinstance(effect, BuffSummonedIfRace):
-        summoned.bonus_attack += effect.attack
-        summoned.bonus_health += effect.health
+        level = 1 + listener.self_improves if effect.improves else 1
+        summoned.bonus_attack += effect.attack * level
+        summoned.bonus_health += effect.health * level
+        if effect.improves:
+            listener.self_improves += 1
+            if improve is not None:
+                improve(listener)
+    elif isinstance(effect, MultiplySummonedAttackEffect):
+        if not in_combat:
+            return
+        current = summoned.raw_attack + summoned.aura_attack
+        summoned.bonus_attack += current * max(0, effect.factor - 1)
+    elif isinstance(effect, GiveOwnStatsToSummonedEffect):
+        if not in_combat:
+            return
+        if listener.combat_uses_left < 0:
+            listener.combat_uses_left = int(effect.charges)
+        if listener.combat_uses_left == 0:
+            return
+        if listener.combat_uses_left > 0:
+            listener.combat_uses_left -= 1
+        factor = max(1, int(effect.factor))
+        summoned.bonus_attack += (listener.raw_attack + listener.aura_attack) * factor
+        summoned.bonus_health += listener.max_health * factor
     elif isinstance(effect, GrantListenerKeywordIfSummonedMatches):
         grant_keyword(listener, effect.keyword)
     else:

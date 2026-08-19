@@ -44,6 +44,7 @@
       "GainStatsFromHandEffect",
       "GiveLockboxEffect",
       "GiveOwnStatsToHandEffect",
+      "GiveOwnStatsToSummonedEffect",
       "GoldSpentResponseEffect",
       "GrantCombinedChooseOneEffect",
       "GrantKeywordAtAttackThreshold",
@@ -57,6 +58,7 @@
       "MagnetizeTokenEffect",
       "MagnetizesToTribesEffect",
       "MakeFriendlyGoldenEffect",
+      "MultiplySummonedAttackEffect",
       "PlaceFishbaitEffect",
       "PlayBloodGemsEffect",
       "PlayBloodGemsOnAttackerEffect",
@@ -72,7 +74,8 @@
       "StealTavernMinionEffect",
       "SummonBestFromHandEffect",
       "SummonGemGolemEffect",
-      "SummonSelfCopyFromHandEffect"
+      "SummonSelfCopyFromHandEffect",
+      "TriggerLeftmostDeathrattleEffect"
     ],
     "unencoded_triggers": [
       "ON_ACTIVATE",
@@ -459,27 +462,27 @@
         }
       },
       "num_pool_ids": 246,
-      "num_pool_indices": 262,
-      "num_templates": 262,
+      "num_pool_indices": 268,
+      "num_templates": 268,
       "obs_fingerprints": {
         "bglike": {
-          "sha256": "c317a8e8203dd34fb9ad8aec7a69846a53f0bcca112227a049001296ff8e3c22",
+          "sha256": "36301b39cb4d4255c1b4b8c1980dc2e156142254e988e7230132547284032c3c",
           "shape": 976
         },
         "bglike_v5": {
-          "sha256": "422bfe40dfd2642ecbeb188ef271ca7a51b822a9641eff98b6be8e328ab679e6",
+          "sha256": "51b4d086eef872ffa23e6c10db034ac2c8e9dc9068e9644781377755724eba49",
           "shape": 2536
         },
         "bglike_v5_heroes": {
-          "sha256": "3f81d54b6d395cd81656788407460e0ca2e05c6a997edeaa5f9c936b2dec2c3e",
+          "sha256": "140d5fe172d2297b84fbf94073ccab866e90c6b890588330c414514f16763b7c",
           "shape": 2683
         },
         "bglike_v6_heroes": {
-          "sha256": "20cb3bfb2cc39a5960e5f2358cddebe871024144661e4e2fed05969b65cee521",
+          "sha256": "f2b00cc7e0fa14b7be2e041b57b0b77f6ca89e6d89830255a2dc21528c11f520",
           "shape": 1123
         },
         "bglike_v7_pref": {
-          "sha256": "1d38621cba51f14905c21124666c27de8e495b7273b0b32b587abcd00c4bf4b9",
+          "sha256": "53952f20416eafa6c56cf117ed2676cc9668408e487a94198fdca6276c7a1723",
           "shape": 1130
         }
       },

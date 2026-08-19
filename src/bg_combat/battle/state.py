@@ -154,6 +154,11 @@ class BattleSide:
                         and ab.filter_victim_keyword not in subject.all_keywords
                     ):
                         continue
+                    if ab.filter_subject_rally and not any(
+                        sub_ab.trigger is Trigger.ON_ATTACK
+                        for sub_ab in subject.abilities
+                    ):
+                        continue
                 yield listener, ab.effect
 
     def sync_auras(self, *, death_resolution: bool = False) -> None:

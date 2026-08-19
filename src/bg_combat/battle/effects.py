@@ -63,6 +63,7 @@ from src.bg_core.effects import (
     SummonFirstDeadFriendlyMechsThisCombat,
     SummonOnSelfDamaged,
     SummonRandomOnSelfDamagedEffect,
+    TriggerLeftmostDeathrattleEffect,
     TriggerRandomFriendlyDeathrattleEffect,
     Trigger,
 )
@@ -379,7 +380,16 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):
-        apply_summoned_listener(eff, listener, summoned, grant_keyword=grant)
+        apply_summoned_listener(
+            eff,
+            listener,
+            summoned,
+            grant_keyword=grant,
+            improve=lambda body: rt.seats[e.side_idx].improve_body(
+                body.origin_instance_id
+            ),
+            in_combat=True,
+        )
     _sync_health_all(rt)
 
 
@@ -563,23 +573,67 @@ def _minion_has_deathrattle(bm: BattleMinion) -> bool:
     return any(ab.trigger == Trigger.ON_DEATH for ab in bm.abilities)
 
 
+def _raise_standing_bonus(
+    rt: _CombatRuntime,
+    side_idx: int,
+    effect: RaiseStandingBonusEffect,
+    *,
+    source: Optional[BattleMinion] = None,
+) -> None:
+    """"Your Undead have +2 Attack this game", raised from inside a fight.
+
+    Owed to the seat rather than to this copy, and to Undead the seat has not
+    bought yet — so it goes through the seat and comes back on every body the
+    scope reaches, in this fight and every one after it.
+    """
+    rt.seats[side_idx].raise_standing_bonus(
+        effect.scope_kind,
+        effect.scope_key
+        if effect.scope_key is not None
+        else (source.card_id if source is not None else None),
+        effect.attack,
+        effect.health,
+    )
+
+
 def _trigger_random_friendly_deathrattle(
     rt: _CombatRuntime,
     side_idx: int,
     exclude: Optional[BattleMinion],
     effect: TriggerRandomFriendlyDeathrattleEffect,
 ) -> None:
+    _trigger_friendly_deathrattle(
+        rt,
+        side_idx,
+        exclude if effect.exclude_self else None,
+        repeats=effect.repeats,
+    )
+
+
+def _trigger_friendly_deathrattle(
+    rt: _CombatRuntime,
+    side_idx: int,
+    exclude: Optional[BattleMinion],
+    *,
+    repeats: int = 1,
+    leftmost: bool = False,
+) -> None:
+    """Fire a friendly deathrattle without anything having died.
+
+    Two cards ask for this and differ only in which one: a random one, or the
+    left-most (Deathstrider). The pool is re-read per repeat because a
+    deathrattle can summon, and the newcomer is a candidate for the next one.
+    """
     side = rt.side(side_idx)
-    pool = [
-        m
-        for m in side.iter_living()
-        if (not effect.exclude_self or m is not exclude)
-        and _minion_has_deathrattle(m)
-    ]
-    for _ in range(max(1, effect.repeats)):
+    for _ in range(max(1, repeats)):
+        pool = [
+            m
+            for m in side.iter_living()
+            if m is not exclude and _minion_has_deathrattle(m)
+        ]
         if not pool:
             return
-        pick = pool[int(rt.rng.integers(0, len(pool)))]
+        pick = pool[0] if leftmost else pool[int(rt.rng.integers(0, len(pool)))]
         _fire_deathrattle(rt, pick, side_idx)
 
 
@@ -625,6 +679,17 @@ def _fire_friendly_attack_listeners(
             )
         elif isinstance(eff, BuffMatching):
             apply_buff_matching(eff, list(side.iter_living()), listener)
+        elif isinstance(eff, TriggerLeftmostDeathrattleEffect):
+            _trigger_friendly_deathrattle(
+                rt, attacker_side_idx, None, repeats=eff.repeats, leftmost=True
+            )
+        elif isinstance(eff, RaiseStandingBonusEffect):
+            _raise_standing_bonus(rt, attacker_side_idx, eff, source=listener)
+        else:
+            raise KeyError(
+                f"no ON_FRIENDLY_ATTACK handler for {type(eff).__name__} "
+                f"(listener {listener.card_id!r})"
+            )
     _sync_health_all(rt)
 
 
@@ -830,14 +895,7 @@ def _fire_rally(
             # Into hand, not onto a body — the seat holds it until it is played.
             rt.seats[attacker_side_idx].gain_blood_gems(eff.count)
         elif isinstance(eff, RaiseStandingBonusEffect):
-            # "Rally: your Undead have +2 Attack this game" — owed to the seat,
-            # not to this copy, and to Undead it has not bought yet.
-            rt.seats[attacker_side_idx].raise_standing_bonus(
-                eff.scope_kind,
-                eff.scope_key if eff.scope_key is not None else attacker.card_id,
-                eff.attack,
-                eff.health,
-            )
+            _raise_standing_bonus(rt, attacker_side_idx, eff, source=attacker)
         elif isinstance(eff, IncreaseTavernSpellBonusEffect):
             rt.seats[attacker_side_idx].raise_tavern_spell_bonus(eff.attack, eff.health)
         elif isinstance(eff, IncreaseBloodGemBonusEffect):
@@ -1293,6 +1351,14 @@ def _dr_promise_refresh_buff(
     rt.seats[side_idx].add_refresh_buff(effect.attack, effect.health)
 
 
+def _dr_raise_standing_bonus(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: RaiseStandingBonusEffect
+) -> None:
+    """"Deathrattle: your Beetles have +5/+5 this game" — a seat write, and one
+    the Beetles it summons on the same breath are already reached by."""
+    _raise_standing_bonus(rt, side_idx, effect, source=dead)
+
+
 def _dr_buff_hand_minion(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: BuffRandomHandMinionEffect
 ) -> None:
@@ -1403,6 +1469,7 @@ _DEATHRATTLE_HANDLERS = {
     GainGoldOnDeathEffect: _dr_gain_gold,
     BuffRandomHandMinionEffect: _dr_buff_hand_minion,
     BuffShopOnEveryRefreshEffect: _dr_promise_refresh_buff,
+    RaiseStandingBonusEffect: _dr_raise_standing_bonus,
 }
 
 

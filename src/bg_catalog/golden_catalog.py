@@ -37,6 +37,13 @@ def catalog_golden_hints(normal_text: Optional[str], golden_text: Optional[str])
         hints["triple_factor"] = True
     if "double" in g and "stats" in g:
         hints["double_stats"] = True
+    # "Summon two Sewer Rats" → "Summon two *Golden* Sewer Rats": the golden
+    # upgrades the token rather than summoning more of the plain one, and says
+    # so by naming it Golden where the normal printing does not.
+    if re.search(r"summon\b[^.]*\bgolden\b", g) and not re.search(
+        r"summon\b[^.]*\bgolden\b", n
+    ):
+        hints["golden_token"] = True
 
     if re.search(r"deal 1 damage to your hero", n) and re.search(
         r"deal 1 damage to your hero", g
