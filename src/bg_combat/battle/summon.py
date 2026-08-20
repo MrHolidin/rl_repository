@@ -29,6 +29,11 @@ def _summon_insert(
         return None
     bid = rt.alloc_id()
     bm = battle_copy(template, bid)
+    # "Your Beetles have +2/+1 this game (wherever they are)" — a token that
+    # arrives mid-fight is somewhere, and this is the only place tokens arrive.
+    # Idempotent by the body's own absorbed record, so summoning a *copy* of a
+    # minion that was already paid on the counter does not pay it twice.
+    rt.seats[side_idx].settle_standing_bonus(bm)
     if not rt.watch_attack_thresholds and has_attack_threshold_ability(template):
         rt.watch_attack_thresholds = True
     if at_idx is None or at_idx >= len(side.minions):

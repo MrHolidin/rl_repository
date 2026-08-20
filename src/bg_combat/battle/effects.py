@@ -602,14 +602,33 @@ def _fire_friendly_minion_died_listeners(
     side = rt.side(side_idx)
     for listener, eff in side.listeners(Trigger.ON_FRIENDLY_MINION_DIED, dead):
         if isinstance(eff, AvengeEffect):
-            # Count this death; fire and rearm only when the count is reached.
-            listener.avenge_progress += 1
-            if listener.avenge_progress < max(1, eff.count):
-                continue
-            listener.avenge_progress = 0
-            _apply_friendly_death_effect(rt, listener, eff.effect, dead, side_idx)
-            continue
+            continue  # after the deathrattle — see ``_fire_avenge``
         _apply_friendly_death_effect(rt, listener, eff, dead, side_idx)
+    _sync_health_all(rt)
+
+
+def _fire_avenge(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
+    """Progress every Avenge by this death, and fire the ones that come due.
+
+    A pass of its own, run *after* the dead minion's deathrattle: the order per
+    death is deathrattle, then avenge, then Reborn. It matters in both
+    directions — an Avenge that buffs the board pays a minion the deathrattle
+    just summoned, and an avenger summoned *by* that deathrattle is standing in
+    time to count the death that made it.
+
+    Reading the listeners here rather than before the deathrattle is what makes
+    the second half true, and is deliberate.
+    """
+    side = rt.side(side_idx)
+    for listener, eff in side.listeners(Trigger.ON_FRIENDLY_MINION_DIED, dead):
+        if not isinstance(eff, AvengeEffect):
+            continue
+        # Count this death; fire and rearm only when the count is reached.
+        listener.avenge_progress += 1
+        if listener.avenge_progress < max(1, eff.count):
+            continue
+        listener.avenge_progress = 0
+        _apply_friendly_death_effect(rt, listener, eff.effect, dead, side_idx)
     _sync_health_all(rt)
 
 
@@ -1949,6 +1968,7 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
     # book, for the opposite purpose, and used to find it already emptied.
     _fire_deathrattle(rt, bm, e.side_idx)
     rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
+    _fire_avenge(rt, bm, e.side_idx)
     _try_reborn(rt, e.side_idx, bm)
     _sync_health_all(rt)
 
@@ -1986,7 +2006,7 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     if len(side.minions) >= rt.combat_board_max:
         return  # no slot to come back to
     bm.reborn_consumed = True
-    revived = _reborn_copy(rt, bm)
+    revived = _reborn_copy(rt, side_idx, bm)
     # The body left the board when it died, so Reborn has to put the copy back
     # into the slot it vacated, ahead of whoever slid into it.
     if bm in side.graveyard:
@@ -2000,7 +2020,9 @@ def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
     _fire_friendly_reborn_listeners(rt, side_idx, revived)
 
 
-def _reborn_copy(rt: _CombatRuntime, dead: BattleMinion) -> BattleMinion:
+def _reborn_copy(
+    rt: _CombatRuntime, side_idx: int, dead: BattleMinion
+) -> BattleMinion:
     """The printed card again, at one Health, as a body that has not acted."""
     template = rt.patch.templates.get(dead.card_id)
     fresh = copy(template if template is not None else dead)
@@ -2029,6 +2051,9 @@ def _reborn_copy(rt: _CombatRuntime, dead: BattleMinion) -> BattleMinion:
     fresh.has_shield = Keyword.SHIELD in fresh.all_keywords
     fresh.death_pos = -1
     fresh.death_announced = False
+    # The printed card again — including whatever the seat's "this game" table
+    # owes that card, which the dead body had and the fresh copy has not.
+    rt.seats[side_idx].settle_standing_bonus(fresh)
     fresh.damage_taken = fresh.max_health - 1
     return fresh
 

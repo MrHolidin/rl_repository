@@ -74,9 +74,9 @@ def test_reborn_brings_a_printed_divine_shield_back_up(patch):
 
     seen: list = []
     original = fx._reborn_copy
-    fx._reborn_copy = lambda rt, dead: (
+    fx._reborn_copy = lambda rt, side_idx, dead: (
         lambda fresh: (seen.append(fresh.has_shield), fresh)[1]
-    )(original(rt, dead))
+    )(original(rt, side_idx, dead))
     try:
         body = patch.make_minion("BG_BOT_911")  # printed Divine Shield + Taunt
         body.granted_keywords = frozenset(body.granted_keywords | {Keyword.REBORN})
@@ -725,3 +725,98 @@ def test_the_offers_per_tier_come_from_the_patch(patch):
             continue
         player = _player(patch, tavern_tier=tier)
         assert shop.shop_offers_for_tier(player) == expected
+
+
+# --------------------------------------------------------------------------- #
+# "This game" bonuses reach a body summoned mid-combat
+# --------------------------------------------------------------------------- #
+
+
+def _seat_for(player):
+    from src.bg_recruitment.combat_seat import PlayerCombatSeat
+
+    return PlayerCombatSeat(player)
+
+
+def test_a_token_summoned_in_combat_carries_the_seats_this_game_bonus(patch):
+    """Forest Rover prints "wherever they are" — a Beetle summoned by a
+    deathrattle is somewhere, and Beetles exist only as combat summons."""
+    from src.bg_combat.battle.seat import RecordingSeat
+    from src.bg_core.effects import ScopeKind
+    from src.bg_recruitment.standing_bonuses import (
+        BonusScope,
+        raise_standing_bonus,
+        settle_standing_bonuses,
+    )
+
+    player = _player(patch, [patch.make_minion("BG31_801")])
+    raise_standing_bonus(player, BonusScope(ScopeKind.CARD, "BG28_603t"), 2, 1)
+    settle_standing_bonuses(player)
+
+    out: list = []
+    simulate_battle(
+        [patch.make_minion("BG31_801")],
+        [_plain("killer", 40, 1)],
+        p0_has_initiative=False,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        p0_board_out=out,
+        seats=(_seat_for(player), RecordingSeat()),
+    )
+    beetle = next(m for m in out if m.card_id == "BG28_603t")
+    assert (beetle.raw_attack, beetle.max_health) == (4, 3)
+
+
+def test_a_summoned_copy_of_a_paid_minion_is_not_paid_twice(patch):
+    """Idempotent by the body's own absorbed record, which the copy carries."""
+    from src.bg_combat.battle.seat import RecordingSeat
+    from src.bg_combat.battle.state import BattleSide, _CombatRuntime, battle_copy
+    from src.bg_combat.battle.summon import _summon_append
+    from src.bg_core.effects import ScopeKind
+    from src.bg_recruitment.standing_bonuses import (
+        BonusScope,
+        raise_standing_bonus,
+        settle_standing_bonuses,
+    )
+
+    body = patch.make_minion("BG28_603t")
+    player = _player(patch, [body])
+    raise_standing_bonus(player, BonusScope(ScopeKind.CARD, "BG28_603t"), 2, 1)
+    settle_standing_bonuses(player)
+    assert (body.raw_attack, body.max_health) == (4, 3)
+
+    rt = _CombatRuntime(
+        sides=(BattleSide([]), BattleSide([])),
+        rng=np.random.default_rng(0),
+        combat_board_max=7,
+        damage_cap=15,
+        patch=patch,
+        seats=(_seat_for(player), RecordingSeat()),
+    )
+    clone = _summon_append(rt, 0, body)
+    assert (clone.raw_attack, clone.max_health) == (4, 3)
+
+
+# --------------------------------------------------------------------------- #
+# Death order: deathrattle, then Avenge, then Reborn
+# --------------------------------------------------------------------------- #
+
+
+def test_avenge_fires_after_the_dead_minions_deathrattle(patch):
+    from src.bg_combat.battle import effects as fx
+
+    order: list = []
+    fire_dr, fire_av = fx._fire_deathrattle, fx._fire_avenge
+    fx._fire_deathrattle = lambda *a, **k: (order.append("dr"), fire_dr(*a, **k))[1]
+    fx._fire_avenge = lambda *a, **k: (order.append("avenge"), fire_av(*a, **k))[1]
+    try:
+        simulate_battle(
+            [_plain("victim", 0, 1)],
+            [_plain("killer", 40, 40)],
+            p0_has_initiative=False,
+            rng=np.random.default_rng(0),
+            patch=patch,
+        )
+    finally:
+        fx._fire_deathrattle, fx._fire_avenge = fire_dr, fire_av
+    assert order[:2] == ["dr", "avenge"]

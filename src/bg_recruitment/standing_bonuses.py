@@ -39,6 +39,7 @@ __all__ = [
     "ScopeKind",
     "raise_standing_bonus",
     "standing_bonus_for",
+    "settle_one_standing_bonus",
     "settle_standing_bonuses",
 ]
 
@@ -122,6 +123,19 @@ def _settle_one(player: PlayerState, minion: Minion, *, in_shop: bool) -> None:
         minion.standing_absorbed = tuple(
             (scope, a, h) for scope, (a, h) in absorbed.items()
         )
+
+
+def settle_one_standing_bonus(player: PlayerState, minion: Minion) -> None:
+    """Pay one body, wherever it is standing — including inside a fight.
+
+    The zone-scoped bonuses ("minions **in the Tavern**") do not reach it, and
+    nothing else needs to know where it is. Public because combat needs it: a
+    token summoned mid-fight is a minion the seat owns, and "wherever they are"
+    is printed on the cards that raise these.
+    """
+    if not player.standing_bonuses:
+        return
+    _settle_one(player, minion, in_shop=False)
 
 
 def settle_standing_bonuses(player: PlayerState) -> None:

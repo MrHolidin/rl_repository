@@ -72,6 +72,17 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def settle_standing_bonus(self, minion: object) -> None:
+        """Pay a body whatever the owner's "this game" table already owes it.
+
+        Read rather than write, and the mirror of the one above. A token
+        summoned mid-fight is a minion the seat owns, and every card that
+        raises one of these prints *wherever they are* — a Beetle that arrives
+        by deathrattle carries Forest Rover's +2/+1 the same as one bought off
+        the counter. Idempotent, because each body records what it has already
+        absorbed, so a summoned *copy* of a paid minion is not paid twice.
+        """
+
     def raise_tavern_spell_bonus(self, attack: int, health: int) -> None:
         """"Rally: your Tavern spells give an extra +1 Health this game"."""
 
@@ -206,6 +217,9 @@ class RecordingSeat:
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
         self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
+
+    def settle_standing_bonus(self, minion: object) -> None:
+        """Nothing: a seatless combat has no table to owe anything from."""
 
     def add_refresh_buff(self, attack: int, health: int) -> None:
         self.refresh_buffs.append((int(attack), int(health)))

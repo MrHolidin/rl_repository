@@ -29,7 +29,11 @@ from src.bg_lobby.player import PlayerState
 from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
 from .game_counts import bump_game_count
 from .hand_slots import first_free_hand_slot
-from .standing_bonuses import BonusScope, raise_standing_bonus
+from .standing_bonuses import (
+    BonusScope,
+    raise_standing_bonus,
+    settle_one_standing_bonus,
+)
 
 __all__ = ["PlayerCombatSeat"]
 
@@ -73,6 +77,9 @@ class PlayerCombatSeat(RecordingSeat):
         raise_standing_bonus(
             self.player, BonusScope(scope_kind, scope_key), attack, health
         )
+
+    def settle_standing_bonus(self, minion: object) -> None:
+        settle_one_standing_bonus(self.player, minion)
 
     def add_refresh_buff(self, attack: int, health: int) -> None:
         self.player.refresh_buffs = self.player.refresh_buffs + (
