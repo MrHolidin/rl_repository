@@ -132,17 +132,21 @@ class BattleSide:
         either catalog pairs a filter with a trigger whose site ignored it, but
         the next one to do so would have been silently ignored.
 
-        A listener does not hear an event about itself, except for
-        ON_FRIENDLY_KILL: the killer is a friendly minion and hears its own
-        kill. That is the one caller passing ``exclude_subject=False``.
+        Whether a listener hears an event about *itself* is the card's own
+        business, and the catalog says which: "whenever a friendly minion
+        attacks" includes the watcher, "whenever **another** friendly Dragon
+        attacks" does not. The triggers whose plain reading is inclusive pass
+        ``exclude_subject=False`` and let ``Ability.excludes_self`` mark the
+        exceptions; the rest exclude the subject outright, because a minion
+        cannot avenge its own death or answer its own arrival.
         """
         from src.bg_core.board_helpers import minion_matches_tribe
 
         for listener in self.iter_living():
-            if exclude_subject and listener is subject:
-                continue
             for ab in listener.abilities:
                 if ab.trigger != trigger:
+                    continue
+                if listener is subject and (exclude_subject or ab.excludes_self):
                     continue
                 if subject is not None:
                     if ab.filter_race is not None and not minion_matches_tribe(

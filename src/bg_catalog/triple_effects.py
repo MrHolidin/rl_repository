@@ -41,6 +41,7 @@ _GOLDEN_INT_FIELDS = frozenset(
         "health_per_damage",
         "factor",
         "uses",
+        "limit",
         "attack_outside_combat",
         "health_outside_combat",
     }
@@ -76,7 +77,11 @@ def _scales_at_the_wrapper(hints: Dict[str, Any], effect: Effect) -> bool:
 
 
 def _has_repeats(effect: Effect) -> bool:
-    return any(f.name == "repeats" for f in fields(effect))
+    return _has_field(effect, "repeats")
+
+
+def _has_field(effect: Effect, name: str) -> bool:
+    return any(f.name == name for f in fields(effect))
 
 
 def _scales_something_else(effect: Effect) -> bool:
@@ -121,6 +126,16 @@ def _should_skip_field(
         # how often they land. Houndmaster's golden is +4/+4 once, and doubling
         # both would be four times the card.
         return True
+    if field_name == "limit":
+        # A cap on how many bodies an effect reaches. It moves only when the
+        # Golden says so in words ("give **two** other friendly Dragons"), the
+        # way `repeats` does — otherwise a Golden that just pays more would
+        # quietly reach further as well.
+        return not hints.get("more_targets")
+    if hints.get("more_targets") and _has_field(effect, "limit"):
+        # The Golden reaches one more body and pays each of them what the plain
+        # printing pays: the count moves, the numbers do not.
+        return field_name != "limit"
     if hints.get("repeats_only"):
         # Reached by recursion under "twice": the wrapper had no resolutions to
         # count, so the repeat belongs to what it wraps and nothing else there

@@ -291,9 +291,15 @@ class DealDamageLeftmostEnemyMinion:
 
 @dataclass(frozen=True)
 class DealDamageAllMinions:
-    """Combat deathrattle: deal ``amount`` to every alive minion on both sides."""
+    """Combat deathrattle: deal ``amount`` to every alive minion on both sides.
+
+    ``repeats`` is the Golden's "twice", which is two separate instances and
+    not one of double size — a Divine Shield eats one of them and the other
+    still lands.
+    """
 
     amount: int
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
@@ -1411,9 +1417,15 @@ class ImmuneWhileAttackingEffect:
 @dataclass(frozen=True)
 class DamageFromOwnAttackEffect:
     """Deal damage equal to this minion's Attack, to the target and its
-    neighbours (Obsidian Ravager's Rally)."""
+    neighbours (Obsidian Ravager's Rally).
+
+    ``adjacent_count`` is how many neighbours: the plain printing says "**an**
+    adjacent minion" and the Golden "its **neighbors**", which is the whole
+    difference between the two.
+    """
 
     include_adjacent: bool = True
+    adjacent_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -2107,6 +2119,11 @@ class Ability:
     #: to, like ``filter_race`` beside it, so it is checked where every other
     #: subject filter is rather than inside three effect handlers.
     filter_subject_rally: bool = False
+    #: "Whenever **another** friendly Dragon attacks" — the word the catalog
+    #: uses when a watcher does not hear its own event. Plain "a friendly
+    #: minion" includes the watcher, which is why this is the exception and
+    #: not the rule.
+    excludes_self: bool = False
     combat_only: bool = False
     #: Gold an ``ON_ACTIVATE`` ability costs to fire. Every printing charges 1
     #: or 2; on any other trigger it is meaningless and stays 0.

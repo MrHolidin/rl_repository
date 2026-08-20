@@ -167,12 +167,15 @@ def _apply_start_of_combat_effect(
         _sync_health_all(rt)
     elif isinstance(eff, DealDamageAllMinions):
         # "Start of Combat: deal 3 damage to all other minions" — every body in
-        # the fight but the one that said so.
-        for other_side in (0, 1):
-            for bm in list(rt.side(other_side).iter_living()):
-                if bm is source:
-                    continue
-                _deal_damage_to_battle_minion(rt, other_side, bm, eff.amount)
+        # the fight but the one that said so. The Golden says "twice", which is
+        # two passes and not one of double size: a Divine Shield eats one of
+        # them and the second still lands.
+        for _ in range(max(1, eff.repeats)):
+            for other_side in (0, 1):
+                for bm in list(rt.side(other_side).iter_living()):
+                    if bm is source:
+                        continue
+                    _deal_damage_to_battle_minion(rt, other_side, bm, eff.amount)
     elif isinstance(eff, RepeatPerCountEffect):
         # "Improves permanently after you cast a Tavern spell" — the tally is
         # the seat's, so the level is asked of it and the inner effect repeats.

@@ -223,8 +223,9 @@ def test_ravaging_scorpid_raises_the_beetles_on_every_swing(patch):
     beetle = _card(patch, "BG28_603t")
     player.board = [beetle]
     settle_standing_bonuses(player)
-    # Three swings landed before the wall fell, at +3/+3 apiece.
-    assert (beetle.raw_attack, beetle.max_health) == (11, 11)
+    # Seven swings landed before the wall fell, at +3/+3 apiece — the Scorpid's
+    # own among them, because "a friendly minion" is true of the one swinging.
+    assert (beetle.raw_attack, beetle.max_health) == (23, 23)
 
 
 def test_deathstrider_fires_the_left_most_deathrattle(patch):

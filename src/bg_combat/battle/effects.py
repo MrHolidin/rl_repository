@@ -718,7 +718,11 @@ def _fire_friendly_attack_listeners(
     rt: _CombatRuntime, attacker: BattleMinion, attacker_side_idx: int
 ) -> None:
     side = rt.side(attacker_side_idx)
-    for listener, eff in side.listeners(Trigger.ON_FRIENDLY_ATTACK, attacker):
+    # "After a friendly minion attacks" is true of the one that just swung, so
+    # a watcher hears its own attack unless its card says "another".
+    for listener, eff in side.listeners(
+        Trigger.ON_FRIENDLY_ATTACK, attacker, exclude_subject=False
+    ):
         if isinstance(eff, BuffAttackerOnFriendlyAttackEffect):
             if not minion_matches_tribe(attacker, eff.tribe):
                 continue
@@ -936,9 +940,15 @@ def _fire_rally(
             enemy = rt.side(enemy_idx)
             living = list(enemy.iter_living())
             if target in living:
-                hit = [living.index(target)]
+                at = living.index(target)
+                hit = [at]
                 if eff.include_adjacent:
-                    hit += [i for i in (hit[0] - 1, hit[0] + 1) if 0 <= i < len(living)]
+                    sides = [i for i in (at - 1, at + 1) if 0 <= i < len(living)]
+                    if len(sides) > max(1, eff.adjacent_count):
+                        # "**an** adjacent minion" — one of the two, and the
+                        # card does not say which, so the fight picks.
+                        sides = [sides[int(rt.rng.integers(0, len(sides)))]]
+                    hit += sides
                 for i in sorted(set(hit)):
                     _deal_damage_to_battle_minion(rt, enemy_idx, living[i], amount)
         elif isinstance(eff, BuffOnePerListedTribeFriendly):
@@ -1552,7 +1562,8 @@ def _dr_damage_all(
     rep_dr = 0
     while rep_dr < _deathrattle_multiplier(side):
         rep_dr += 1
-        _deal_damage_all_minions(rt, effect.amount)
+        for _ in range(max(1, effect.repeats)):
+            _deal_damage_all_minions(rt, effect.amount)
 
 
 def _dr_transfer_attack(
@@ -1995,7 +2006,10 @@ def _fire_friendly_reborn_listeners(
     reads its Attack off.
     """
     side = rt.side(side_idx)
-    for listener, eff in side.listeners(Trigger.ON_FRIENDLY_REBORN, reborn):
+    # Same reading: a minion that comes back is "a friendly minion Reborn".
+    for listener, eff in side.listeners(
+        Trigger.ON_FRIENDLY_REBORN, reborn, exclude_subject=False
+    ):
         if isinstance(eff, BuffSelf):
             _apply_buff_self(rt, side_idx, listener, eff)
         elif isinstance(eff, BuffFromSubjectAttackEffect):

@@ -508,7 +508,11 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BG33_430": (  # Prodigious Tusker — another friendly attacks, gem it
-        Ability(Trigger.ON_FRIENDLY_ATTACK, PlayBloodGemsOnAttackerEffect(count=1)),
+        Ability(
+            Trigger.ON_FRIENDLY_ATTACK,
+            PlayBloodGemsOnAttackerEffect(count=1),
+            excludes_self=True,  # "whenever **another** friendly minion"
+        ),
     ),
     "BG36_354": (  # Decoy Conjurer — Activate (2): steal the biggest tavern minion
         Ability(
@@ -670,6 +674,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_FRIENDLY_ATTACK,
             BuffAttackerOnFriendlyAttackEffect(Race.DRAGON, attack=3, health=1),
+            excludes_self=True,  # "whenever **another** friendly Dragon"
         ),
     ),
     "BG32_841": (  # Sand Swirler — your Elementals give an extra +1 Attack
@@ -1451,6 +1456,14 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG27_017": (  # Obsidian Ravager — Rally: its Attack to the target and beside
         Ability(Trigger.ON_ATTACK, DamageFromOwnAttackEffect(include_adjacent=True)),
+    ),
+    # The Golden reaches "its **neighbors**" where the plain printing reaches
+    # "**an** adjacent minion" — a word, not a number, so nothing derives it.
+    "BG27_017_G": (
+        Ability(
+            Trigger.ON_ATTACK,
+            DamageFromOwnAttackEffect(include_adjacent=True, adjacent_count=2),
+        ),
     ),
     # -------------------------------------------------- the Quilboar family
     "BG33_883": (  # Razorfen Vineweaver — Rally: three Gems on itself, for keeps

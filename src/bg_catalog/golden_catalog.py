@@ -40,6 +40,10 @@ def catalog_golden_hints(normal_text: Optional[str], golden_text: Optional[str])
     # "Summon two Sewer Rats" → "Summon two *Golden* Sewer Rats": the golden
     # upgrades the token rather than summoning more of the plain one, and says
     # so by naming it Golden where the normal printing does not.
+    # "Give **another** friendly Dragon +2/+2" -> "Give **two other** friendly
+    # Dragons +2/+2": the upgrade is a second target, and the numbers stay.
+    if re.search(r"\b(two|three)\b", g) and not re.search(r"\b(two|three)\b", n):
+        hints["more_targets"] = True
     if re.search(r"summon\b[^.]*\bgolden\b", g) and not re.search(
         r"summon\b[^.]*\bgolden\b", n
     ):

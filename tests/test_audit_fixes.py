@@ -212,3 +212,110 @@ def test_a_choose_one_pick_resolves_the_half_it_named(patch, pick, expected):
     PlayerTurnEngine().apply(player, int(A.Action.DISCOVER_PICK_0) + pick, ctx)
     assert [c.card_id for c in player.hand if c is not None] == expected
     assert player.pending_choice is None
+
+
+# --------------------------------------------------------------------------- #
+# "A friendly minion" includes the one it is talking about
+# --------------------------------------------------------------------------- #
+
+
+def test_a_watcher_hears_its_own_attack(patch):
+    """Cage Gnawer is "whenever **a** friendly Beast attacks", and is one."""
+    gnawer = patch.make_minion("BG36_211")  # printed 2/7 Beast
+    gnawer.bonus_health += 50
+    survivors: list = []
+    simulate_battle(
+        [gnawer],
+        [_plain("wall", 0, 200)],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        p0_board_out=survivors,
+    )
+    assert survivors[0].raw_attack > 2
+
+
+def test_a_watcher_that_says_another_does_not(patch):
+    """Roaring Recruiter is "whenever **another** friendly Dragon attacks"."""
+    recruiter = patch.make_minion("BG29_816")  # printed 2/8 Dragon
+    recruiter.bonus_health += 50
+    survivors: list = []
+    simulate_battle(
+        [recruiter],
+        [_plain("wall", 0, 200)],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        p0_board_out=survivors,
+    )
+    assert survivors[0].raw_attack == 2
+
+
+# --------------------------------------------------------------------------- #
+# Goldens whose upgrade is not a bigger number
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("card_id", ["BG24_500", "BG29_810"])
+def test_a_golden_that_reaches_one_more_body_keeps_its_numbers(patch, card_id):
+    """"Give **two** other friendly Dragons +2/+2" — the count moves, not the buff."""
+    (plain,) = patch.effects[card_id]
+    (golden,) = patch.triple_merge_golden_abilities(card_id)
+    assert golden.effect.limit == plain.effect.limit + 1
+    assert (golden.effect.attack, golden.effect.health) == (
+        plain.effect.attack,
+        plain.effect.health,
+    )
+    assert golden.effect.grant_keyword is plain.effect.grant_keyword
+
+
+def test_a_limit_does_not_move_when_the_golden_says_nothing_about_it(patch):
+    """Tasty Lobster's Golden pays double; it still reaches two Beasts."""
+    (plain, _bump) = patch.effects["BG36_202"]
+    (golden, _g_bump) = patch.triple_merge_golden_abilities("BG36_202")
+    assert golden.effect.effect.limit == plain.effect.effect.limit
+
+
+@pytest.mark.parametrize(
+    "patch_dir,card_id",
+    [
+        ("data/bgcore/36_2_0_248348", "BG36_620"),  # Boom-in-a-Box
+        ("data/bgcore/19_6_0_74257", "FP1_024"),  # Unstable Ghoul
+    ],
+)
+def test_a_golden_that_says_twice_deals_two_instances(patch_dir, card_id):
+    """One Divine Shield eats one instance, not the whole doubled hit."""
+    ctx = PatchContext.load(Path(patch_dir))
+    (plain,) = [a for a in ctx.effects[card_id] if hasattr(a.effect, "repeats")]
+    (golden,) = [
+        a for a in ctx.triple_merge_golden_abilities(card_id)
+        if hasattr(a.effect, "repeats")
+    ]
+    assert golden.effect.amount == plain.effect.amount
+    assert golden.effect.repeats == 2
+
+
+def test_obsidian_ravager_hits_one_neighbour_and_its_golden_hits_both(patch):
+    from src.bg_core.effects import Keyword as _Kw
+
+    def splashed(golden: bool, seed: int):
+        ravager = patch.make_minion("BG27_017")
+        if golden:
+            ravager.abilities = patch.triple_merge_golden_abilities("BG27_017")
+        ravager.bonus_attack += 5
+        ravager.bonus_health += 500
+        enemies = [_plain(f"e{i}", 0, 100000) for i in range(3)]
+        enemies[1].keywords = frozenset({_Kw.TAUNT})  # force the middle target
+        out: list = []
+        simulate_battle(
+            [ravager], enemies,
+            p0_has_initiative=True,
+            rng=np.random.default_rng(seed),
+            patch=patch,
+            p1_board_out=out,
+            max_attacks=1,
+        )
+        return sum(1 for m in out if m.damage_taken)
+
+    assert {splashed(False, s) for s in range(6)} == {2}
+    assert {splashed(True, s) for s in range(6)} == {3}
