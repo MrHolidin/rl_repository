@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from typing import Any, Optional, Sequence, Tuple
 
 from copy import copy
@@ -514,7 +516,9 @@ def apply_summoned_listener(
         listener.bonus_health += effect.health
 
 
-def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1, grant=None) -> None:
+def apply_buff_matching(
+    effect, minions, source=None, *, repeats: int = 1, grant=None, rng=None
+) -> None:
     """Apply a ``BuffMatching`` to everyone on ``minions`` it reaches.
 
     One body for what the shop and combat each spelled out. Everything they
@@ -523,10 +527,15 @@ def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1, grant
     settles its auras afterwards at the call site, which is the one thing that
     genuinely has no shop equivalent.
 
-    ``limit`` stops after that many matches in board order ("your left-most
-    Dragon"), and ``grant_keyword`` hands one out to everyone reached; ``grant``
-    is how combat injects its own granting function, which marks the health
-    auras dirty. Positions are supplied to the predicate now, so the positional
+    ``limit`` caps how many of the eligible bodies are paid, and ``leftmost``
+    says which ones: the first in board order for "your **left-most** Dragon",
+    and that many at random for "give **two** friendly Beasts", which is what
+    the plain wording means. Without an ``rng`` the random case falls back to
+    board order, so a caller with no generator degrades rather than raises.
+
+    ``grant_keyword`` hands a keyword out to everyone reached; ``grant`` is how
+    combat injects its own granting function, which marks the health auras
+    dirty. Positions are supplied to the predicate now, so the positional
     ``ADJACENT`` target works here too rather than silently matching nobody.
 
     ``source`` is passed through to the predicate, which excludes it only for
@@ -540,20 +549,27 @@ def apply_buff_matching(effect, minions, source=None, *, repeats: int = 1, grant
     keyword = getattr(effect, "grant_keyword", None)
     give = grant if grant is not None else grant_keyword
     idx_source = index_of(minions, source) if source is not None else None
+    leftmost = bool(getattr(effect, "leftmost", False))
     for _ in range(max(1, repeats)):
-        hit = 0
-        for i, m in enumerate(minions):
-            if not buff_matching_hits(
+        eligible = [
+            m
+            for i, m in enumerate(minions)
+            if buff_matching_hits(
                 effect, m, source, idx_candidate=i, idx_source=idx_source
-            ):
-                continue
+            )
+        ]
+        if limit and len(eligible) > limit:
+            if leftmost or rng is None:
+                eligible = eligible[:limit]
+            else:
+                picked = rng.choice(len(eligible), size=limit, replace=False)
+                chosen = {int(i) for i in np.atleast_1d(picked)}
+                eligible = [m for i, m in enumerate(eligible) if i in chosen]
+        for m in eligible:
             m.bonus_attack += effect.attack
             m.bonus_health += effect.health
             if keyword is not None:
                 give(m, keyword)
-            hit += 1
-            if limit and hit >= limit:
-                break
 
 
 def count_for_source(

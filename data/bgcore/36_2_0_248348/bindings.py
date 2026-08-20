@@ -551,7 +551,8 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
                 tribe=Race.DRAGON,
                 attack=1,
                 health=2,
-                limit=1,  # "your left-most Dragon"
+                limit=1,
+                leftmost=True,  # "your **left-most** Dragon"
                 grant_keyword=Keyword.WINDFURY,
             ),
         ),
@@ -1984,7 +1985,13 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG33_813": (  # Selfish Bounty — your left-most minion +6/+6
         Ability(
             Trigger.ON_PLACE,
-            BuffMatching(BuffTarget.ALL_FRIENDLY, attack=6, health=6, limit=1),
+            BuffMatching(
+                BuffTarget.ALL_FRIENDLY,
+                attack=6,
+                health=6,
+                limit=1,
+                leftmost=True,  # "your **left-most** minion"
+            ),
         ),
     ),
     "BG33_815": (  # Wealthy Bounty — gain 2 Gold

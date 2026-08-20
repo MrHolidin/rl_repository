@@ -236,6 +236,11 @@ class BuffMatching:
     #: stays open, so a Beast summoned later is paid too. Without it the card
     #: reads as a one-off snapshot of whoever happened to be standing there.
     lasting: bool = False
+    #: Which of the eligible bodies a ``limit`` keeps: the first in board order
+    #: ("your **left-most** Dragon") or that many at random ("give **two**
+    #: friendly Beasts"). Random is the default because that is what the plain
+    #: wording means, and "left-most" is the case the card marks.
+    leftmost: bool = False
 
 
 @dataclass(frozen=True)

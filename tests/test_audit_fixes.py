@@ -423,3 +423,67 @@ def test_humming_bird_pays_a_beast_summoned_later(patch):
 
     assert summoned_stats(with_bird=False) == [(2, 2)]
     assert summoned_stats(with_bird=True) == [(3, 2)]
+
+
+# --------------------------------------------------------------------------- #
+# The 36.2.0 numbers
+# --------------------------------------------------------------------------- #
+
+
+def test_the_tavern_stops_at_tier_six(patch):
+    from src.bg_player_turn.engine import PlayerTurnEngine
+
+    rs = patch.meta.ruleset
+    assert rs.max_tier == 6
+    engine = PlayerTurnEngine()
+    at_six = _player(patch, tavern_tier=6, gold=99)
+    at_five = _player(patch, tavern_tier=5, gold=99)
+    assert int(A.Action.LEVEL_UP) in engine.legal_actions(at_five, rs)
+    assert int(A.Action.LEVEL_UP) not in engine.legal_actions(at_six, rs)
+
+
+def test_the_upgrade_ladder_is_the_patchs_own(patch):
+    """28.2 cut 4->5 from 11 to 10; 34.2 put a Gold back on 4->5 and on 5->6."""
+    rs = patch.meta.ruleset
+    assert {t: rs.level_up_cost(t) for t in range(1, 6)} == {
+        1: 5, 2: 7, 3: 8, 4: 11, 5: 12
+    }
+
+
+def test_a_triple_at_the_top_discovers_at_the_top(patch):
+    from src.bg_recruitment.discover_pool import triple_reward_discover_tier
+
+    assert triple_reward_discover_tier(5, patch=patch) == 6
+    assert triple_reward_discover_tier(6, patch=patch) == 6
+
+
+# --------------------------------------------------------------------------- #
+# "Give N friendly minions" picks N of them, not the first N
+# --------------------------------------------------------------------------- #
+
+
+def _bounty_hits(patch, spell_id, seed, n_board=6):
+    board = [_plain(f"m{i}") for i in range(n_board)]
+    player = _player(patch, board=board)
+    triggers = ShopTriggers(np.random.default_rng(seed), patch=patch)
+    for ability in patch.tavern_spells[spell_id].abilities:
+        triggers.apply_shop_effect(player, None, ability.effect, placed=None)
+    return tuple(m.max_health > 1 or m.raw_attack > 1 for m in board)
+
+
+def test_four_friendly_minions_is_four_at_random(patch):
+    seen = {_bounty_hits(patch, "BG33_811", seed) for seed in range(8)}
+    assert len(seen) > 1  # not the same four every time
+    assert all(sum(hits) == 4 for hits in seen)
+
+
+def test_your_left_most_minion_is_always_the_left_most(patch):
+    seen = {_bounty_hits(patch, "BG33_813", seed, n_board=4) for seed in range(6)}
+    assert seen == {(True, False, False, False)}
+
+
+def test_a_positional_buff_in_combat_stays_positional(patch):
+    """Thousandth Paper Drake says "your **left-most** Dragon"."""
+    (ability,) = patch.effects["BG29_810"]
+    assert ability.effect.leftmost is True
+    assert patch.effects["BG24_500"][0].effect.leftmost is False

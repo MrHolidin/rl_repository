@@ -438,7 +438,7 @@ class ShopTriggers:
         source: Minion,
         effect: BuffMatching,
     ) -> None:
-        apply_buff_matching(effect, player.board, source)
+        apply_buff_matching(effect, player.board, source, rng=self._rng)
 
     def apply_grant_keyword_random(
         self,

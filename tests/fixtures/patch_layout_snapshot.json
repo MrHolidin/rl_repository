@@ -553,13 +553,12 @@
           "1": 5,
           "2": 7,
           "3": 8,
-          "4": 9,
-          "5": 10,
-          "6": 11
+          "4": 11,
+          "5": 12
         },
         "level_up_discount_per_round": 1,
         "max_rounds": 50,
-        "max_tier": 7,
+        "max_tier": 6,
         "roll_cost": 1,
         "sell_reward": 1,
         "starting_health": 40

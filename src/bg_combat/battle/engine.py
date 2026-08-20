@@ -167,6 +167,7 @@ def _apply_start_of_combat_effect(
             rt.side(side_idx).minions,
             source,
             grant=lambda m, kw: _grant_keyword(rt, side_idx, m, kw),
+            rng=rt.rng,
         )
         _sync_health_all(rt)
     elif isinstance(eff, DealDamageAllMinions):

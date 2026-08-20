@@ -398,7 +398,7 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     for lasting in rt.lasting_buffs[e.side_idx]:
         # "For the rest of this combat, your Beasts have +1 Attack" — the
         # newcomer is a Beast the buff has not paid yet.
-        apply_buff_matching(lasting, [summoned], None, grant=grant)
+        apply_buff_matching(lasting, [summoned], None, grant=grant, rng=rt.rng)
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):
@@ -740,7 +740,7 @@ def _fire_friendly_attack_listeners(
                 PlayBloodGemsEffect(target=BloodGemTarget.SELF, count=eff.count),
             )
         elif isinstance(eff, BuffMatching):
-            apply_buff_matching(eff, list(side.iter_living()), listener)
+            apply_buff_matching(eff, list(side.iter_living()), listener, rng=rt.rng)
         elif isinstance(eff, TriggerLeftmostDeathrattleEffect):
             _trigger_friendly_deathrattle(
                 rt, attacker_side_idx, None, repeats=eff.repeats, leftmost=True
@@ -805,7 +805,7 @@ def cast_spell_in_combat(
     for ability in spell.abilities:
         eff = ability.effect
         if isinstance(eff, BuffMatching):
-            apply_buff_matching(eff, list(side.iter_living()), source)
+            apply_buff_matching(eff, list(side.iter_living()), source, rng=rt.rng)
         else:
             raise NotImplementedError(
                 f"spell {card_id} does {type(eff).__name__}, which no combat cast "
@@ -897,7 +897,7 @@ def _fire_rally(
             # used to spell out ALL_FRIENDLY by hand and so ignored every field
             # BuffMatching has grown since — limit, grant_keyword, and the
             # exclude_source that "give your *other* minions" is made of.
-            apply_buff_matching(eff, list(side.iter_living()), attacker)
+            apply_buff_matching(eff, list(side.iter_living()), attacker, rng=rt.rng)
         elif isinstance(eff, DealDamageRandomEnemyMinion):
             for _ in range(max(1, eff.repeats)):
                 _deal_random_enemy_minion_damage(rt, attacker_side_idx, eff.amount)
@@ -1640,7 +1640,7 @@ def _dr_buff_matching(
 ) -> None:
     side = rt.side(side_idx)
     apply_buff_matching(
-        effect, side.minions, dead, repeats=_deathrattle_multiplier(side)
+        effect, side.minions, dead, repeats=_deathrattle_multiplier(side), rng=rt.rng
     )
     _sync_health_all(rt)
 
@@ -1893,7 +1893,7 @@ def _handle_overkill(rt: _CombatRuntime, e: Overkill) -> None:
         # OTHER_OF_TRIBE only, for the same reason as the ALL_FRIENDLY branch
         # above: this used to be reachable by exactly one effect class.
         elif isinstance(eff, BuffMatching) and eff.target is BuffTarget.OTHER_OF_TRIBE:
-            apply_buff_matching(eff, rt.side(e.attacker_side_idx).minions, att)
+            apply_buff_matching(eff, rt.side(e.attacker_side_idx).minions, att, rng=rt.rng)
             _sync_health_all(rt)
 
 
