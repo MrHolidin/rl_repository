@@ -1285,6 +1285,40 @@ def test_wildfire_golden_hits_both_adjacent():
 
 
 def test_herald_of_flame_overkill_damages_leftmost_enemy():
+    """Overkill on the Herald's *own* swing: the excess splashes and both die.
+
+    The boards are equal so ``p0_has_initiative`` decides who swings — with an
+    uneven board the side holding more minions goes first, which used to leave
+    the Herald counter-swinging and overkilling off the opponent's turn.
+    """
+    ctx = PatchContext.load(PATCH_74257)
+    herald = ctx.make_minion("BGS_032")
+    herald.base_attack = 10
+    partner = make_minion("recruit")
+    partner.base_health = 40
+    left = make_minion("recruit")
+    left.base_health = 1
+    right = make_minion("recruit")
+    right.base_health = 3
+    p1_out: list = []
+    simulate_battle(
+        [herald, partner],
+        [left, right],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=ctx,
+        p1_board_out=p1_out,
+        max_attacks=1,
+    )
+    assert len(p1_out) == 0
+
+
+def test_overkill_does_not_fire_on_the_defenders_answer():
+    """"Overkill: …" is printed on a swing the minion makes.
+
+    Herald of Flame counter-swinging into a 1-Health attacker kills it, but a
+    counter is not an attack, so nothing splashes and the second enemy lives.
+    """
     ctx = PatchContext.load(PATCH_74257)
     herald = ctx.make_minion("BGS_032")
     herald.base_attack = 10
@@ -1302,7 +1336,7 @@ def test_herald_of_flame_overkill_damages_leftmost_enemy():
         p1_board_out=p1_out,
         max_attacks=1,
     )
-    assert len(p1_out) == 0
+    assert [m.max_health - m.damage_taken for m in p1_out] == [3]
 
 
 def test_deflect_o_bot_ignores_shop_mechanic_summons():

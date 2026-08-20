@@ -85,7 +85,9 @@ def _fight(board_0, board_1, patch, seed=0, seats=None):
     "card_id,token,count",
     [
         ("BG30_125", "BG_ICC_026t", 3),  # Cadaver Caretaker -> three Skeletons
-        ("BG25_010", "BG25_010t", 1),  # Handless Forsaken -> a Helping Hand
+        # Handless Forsaken -> a Helping Hand, which has Reborn and so dies
+        # twice: once as itself and once as the fresh copy Reborn brings back.
+        ("BG25_010", "BG25_010t", 2),
     ],
 )
 def test_a_deathrattle_summons_what_it_names(patch, card_id, token, count):

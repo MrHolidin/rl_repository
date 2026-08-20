@@ -290,6 +290,9 @@ def _run_single_swing(
             attacker.instance_id,
             attacker_side_idx,
             d_dmg,
+            # The defender's answer, not a swing of its own: it damages and can
+            # kill, but it cannot overkill.
+            is_attack=False,
         )
     )
     rt.queue.append(

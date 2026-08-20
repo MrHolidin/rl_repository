@@ -192,7 +192,7 @@ def _enqueue_strike_events(rt: _CombatRuntime, strike: DamageStrike) -> None:
             poison,
         ),
     ]
-    if strike.amount > hp_before and hp_before > 0:
+    if strike.is_attack and strike.amount > hp_before and hp_before > 0:
         trailing.append(
             Overkill(
                 strike.victim_side_idx,
@@ -1118,9 +1118,14 @@ def _fire_friendly_shield_lost_listeners(
 
 
 def _handle_shield_lost(rt: _CombatRuntime, e: ShieldLost) -> None:
+    """A Divine Shield popped — which is damage *prevented*, not damage taken.
+
+    So the shield-lost listeners fire and the damage listeners do not: a card
+    that answers "whenever this takes damage" has nothing to answer, because
+    the shield is exactly what stopped the damage happening.
+    """
     bm = rt.find_minion(e.victim_side_idx, e.victim_instance_id)
     if bm is not None:
-        _fire_self_damaged(rt, e.victim_side_idx, bm)
         _fire_friendly_shield_lost_listeners(rt, e.victim_side_idx, bm)
 
 
@@ -1914,25 +1919,70 @@ def _strip_reborn_keyword(bm: BattleMinion) -> None:
 
 
 def _try_reborn(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> None:
+    """Reborn: a *fresh copy of the printed card*, at one Health.
+
+    Not the same body revived. What the dead one had gained — buffs, granted
+    keywords, Blood Gems — stays dead with it, and a printed Divine Shield
+    comes back up because the copy has never been hit. This engine used to
+    revive the body itself, which kept every enchantment and left a spent
+    shield spent.
+
+    The card pool says so in as many words: Sinrunner Blanchy is *"Reborn. This
+    is Reborn with full stats and Bonus Keywords"* and Wannabe Gargoyle *"This
+    is Reborn with full Attack"* — printings that mean nothing unless the plain
+    rule loses both.
+    """
     if not _minion_has_reborn(bm):
         return
     side = rt.side(side_idx)
     if len(side.minions) >= rt.combat_board_max:
         return  # no slot to come back to
     bm.reborn_consumed = True
-    _strip_reborn_keyword(bm)
-    bm.damage_taken = bm.max_health + bm.aura_health - 1
-    # The body left the board when it died, so Reborn has to put it back --
+    revived = _reborn_copy(rt, bm)
+    # The body left the board when it died, so Reborn has to put the copy back
     # into the slot it vacated, ahead of whoever slid into it.
     if bm in side.graveyard:
         side.graveyard.remove(bm)
     at = bm.death_pos if 0 <= bm.death_pos <= len(side.minions) else len(side.minions)
-    side.minions.insert(at, bm)
+    side.minions.insert(at, revived)
     bm.death_pos = -1
     if at <= side.cursor:
         side.cursor += 1
     _mark_health_aura_dirty(rt, side_idx)
-    _fire_friendly_reborn_listeners(rt, side_idx, bm)
+    _fire_friendly_reborn_listeners(rt, side_idx, revived)
+
+
+def _reborn_copy(rt: _CombatRuntime, dead: BattleMinion) -> BattleMinion:
+    """The printed card again, at one Health, as a body that has not acted."""
+    template = rt.patch.templates.get(dead.card_id)
+    fresh = copy(template if template is not None else dead)
+    if template is None:
+        # A body with no template to go back to (a synthetic one in a test):
+        # the best available reading of "the printed card" is what it started
+        # the fight as, so only the gains it made in the fight are dropped.
+        fresh.bonus_attack = dead.start_bonus_attack
+        fresh.bonus_health = dead.start_bonus_health
+        fresh.keywords = dead.start_keywords
+        fresh.granted_keywords = frozenset()
+    fresh.is_golden = dead.is_golden
+    fresh.instance_id = rt.alloc_id()
+    # It is still the owner's card, so anything writing back after the fight
+    # finds the body it came from.
+    fresh.origin_instance_id = dead.origin_instance_id
+    fresh.start_bonus_attack = fresh.bonus_attack
+    fresh.start_bonus_health = fresh.bonus_health
+    fresh.start_keywords = fresh.keywords
+    _strip_reborn_keyword(fresh)
+    fresh.reborn_consumed = True
+    fresh.deathrattle_fired = False
+    fresh.venom_spent = False
+    fresh.avenge_progress = 0
+    fresh.damage_taken = 0
+    fresh.has_shield = Keyword.SHIELD in fresh.all_keywords
+    fresh.death_pos = -1
+    fresh.death_announced = False
+    fresh.damage_taken = fresh.max_health - 1
+    return fresh
 
 
 def _fire_friendly_reborn_listeners(

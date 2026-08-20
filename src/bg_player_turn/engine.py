@@ -56,10 +56,11 @@ class PlayerTurnEngine:
                     for slot in range(min(n_offers, a.MAX_SHOP_SLOTS))
                     if player.shop[slot] is not None
                 ]
+            # Choose One offers two, every other kind three. Offering a third
+            # on a two-option choice is an action that can only crash.
+            n_options = len(pc.options) if pc.options else 3
             return [
-                int(a.Action.DISCOVER_PICK_0),
-                int(a.Action.DISCOVER_PICK_1),
-                int(a.Action.DISCOVER_PICK_2),
+                int(a.Action.DISCOVER_PICK_0) + i for i in range(min(3, n_options))
             ]
 
         actions: List[int] = []
@@ -175,6 +176,42 @@ class PlayerTurnEngine:
             if not a.is_discover_pick_game_action(action_int):
                 raise ValueError(
                     f"Expected DISCOVER_PICK_* while pending_choice, got {action_int}"
+                )
+            if pc.kind is PendingChoiceKind.CHOOSE_ONE:
+                # Its own resolver, which has existed and been tested since the
+                # keyword was built — nothing ever routed a pick to it, so every
+                # Choose One card fell through to the Discover path and either
+                # dropped the chosen half or raised on an option that is not a
+                # card id.
+                from src.bg_recruitment.choose_one import (
+                    fire_choose_one_played,
+                    resolve_choose_one,
+                )
+
+                resolve_choose_one(
+                    player,
+                    a.discover_pick_index(action_int),
+                    apply_effect=lambda src, eff: ctx.triggers.apply_shop_effect(
+                        player,
+                        src,
+                        eff,
+                        placed=src,
+                        shop_excluded_race=race,
+                        shared_pool=ctx.shared_pool,
+                    ),
+                    fire_played_listeners=lambda p: fire_choose_one_played(
+                        p,
+                        lambda src, eff: ctx.triggers.apply_shop_effect(
+                            player, src, eff, placed=None
+                        ),
+                    ),
+                )
+                recruitment_triples.resolve_triples_loop(
+                    player, shared_pool=ctx.shared_pool, patch=ctx.patch
+                )
+                return (
+                    player.pending_choice is None
+                    and player.placed_minion_pending_after is None
                 )
             recruitment_discover.resolve_discover_pick(
                 player,

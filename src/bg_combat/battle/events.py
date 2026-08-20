@@ -64,6 +64,10 @@ class DamageStrike:
     victim_instance_id: int
     victim_side_idx: int
     amount: int
+    #: Whether this is the swing its dealer made, as against the defender's
+    #: answer to it. Overkill is printed "After **this attacks** and kills a
+    #: minion", so only a real swing can overkill.
+    is_attack: bool = True
 
 
 BattleEvent = Union[
