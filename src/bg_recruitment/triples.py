@@ -74,6 +74,18 @@ def make_forged_golden_minion(normal_card_id: str, *, patch: PatchContext) -> Mi
     )
 
 
+def _gained_keywords(minion: Minion, ctx: PatchContext) -> frozenset:
+    """Keywords this body picked up, as against the ones it was printed with.
+
+    A grant lands in ``keywords`` on some paths and ``granted_keywords`` on
+    others, so both are read and the printing is subtracted rather than one
+    field trusted to hold everything.
+    """
+    have = frozenset(minion.keywords | minion.granted_keywords)
+    printed = ctx.templates.get(minion.card_id)
+    return have - frozenset(printed.keywords) if printed is not None else have
+
+
 def merge_three_non_golden_into_golden(
     card_id: str,
     a: Minion,
@@ -84,17 +96,15 @@ def merge_three_non_golden_into_golden(
 ) -> Minion:
     ctx = require_patch(patch, where="triples.merge_three_non_golden_into_golden")
     tpl = ctx.templates[card_id]
-    merged_kw = (
-        a.keywords
-        | a.granted_keywords
-        | b.keywords
-        | b.granted_keywords
-        | c.keywords
-        | c.granted_keywords
-    )
-    shield = a.has_shield or b.has_shield or c.has_shield or (
-        Keyword.SHIELD in merged_kw
-    )
+    # What the Golden is printed with, plus whatever the three bodies *gained*
+    # beyond their own printings. For three of a kind those are the same set,
+    # which is why this read like a plain union until a card could triple with
+    # a pair of something else: Elemental of Surprise is printed with Divine
+    # Shield, and a golden Sellemental made with one has no business having it.
+    merged_kw = frozenset(tpl.keywords)
+    for body in (a, b, c):
+        merged_kw |= _gained_keywords(body, ctx)
+    shield = Keyword.SHIELD in merged_kw
     forged_kw = forged_golden_keywords(
         card_id,
         frozenset(merged_kw),

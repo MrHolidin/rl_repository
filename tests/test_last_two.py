@@ -175,6 +175,71 @@ def test_the_wildcard_pairs_with_the_tavern_pool_intact(patch):
     assert pool.remaining_copies("BG26_175") == before_wild + 1
 
 
+def test_a_wild_triple_carries_what_every_body_gained(patch):
+    """Bonus stats are summed across all three, the odd body included."""
+    pair = [_card(patch, "BGS_115"), _card(patch, "BGS_115")]
+    pair[0].bonus_attack += 5
+    wild = _card(patch, "BG26_175")
+    wild.bonus_health += 7
+    player = _player(patch, board=pair + [wild])
+    resolve_triples_loop(player, patch=patch)
+    merged = next(c for c in player.hand if c is not None and c.card_id == "BGS_115")
+    tpl = patch.templates["BGS_115"]
+    assert merged.raw_attack == tpl.base_attack * 2 + 5
+    assert merged.max_health == tpl.base_health * 2 + 7
+
+
+def test_a_wild_triple_does_not_carry_the_odd_bodys_printing(patch):
+    """Elemental of Surprise is printed with Divine Shield; a golden
+    Sellemental made with one has no business having it."""
+    from src.bg_core.effects import Keyword
+
+    pair = [_card(patch, "BGS_115"), _card(patch, "BGS_115")]
+    wild = _card(patch, "BG26_175")
+    assert Keyword.SHIELD in wild.all_keywords
+    player = _player(patch, board=pair + [wild])
+    resolve_triples_loop(player, patch=patch)
+    merged = next(c for c in player.hand if c is not None and c.card_id == "BGS_115")
+    assert Keyword.SHIELD not in merged.all_keywords
+    assert not merged.has_shield
+
+
+def test_a_wild_triple_does_carry_what_the_odd_body_was_granted(patch):
+    """A keyword it picked up in play is a gain like any other."""
+    from src.bg_core.effects import Keyword
+
+    pair = [_card(patch, "BGS_115"), _card(patch, "BGS_115")]
+    wild = _card(patch, "BG26_175")
+    wild.granted_keywords = frozenset({Keyword.TAUNT})
+    player = _player(patch, board=pair + [wild])
+    resolve_triples_loop(player, patch=patch)
+    merged = next(c for c in player.hand if c is not None and c.card_id == "BGS_115")
+    assert Keyword.TAUNT in merged.all_keywords
+
+
+def test_an_ordinary_triple_keeps_its_own_printed_keywords(patch):
+    from src.bg_core.effects import Keyword
+
+    player = _player(patch, board=[_card(patch, "BG26_175") for _ in range(3)])
+    resolve_triples_loop(player, patch=patch)
+    merged = next(c for c in player.hand if c is not None and c.card_id == "BG26_175")
+    assert Keyword.SHIELD in merged.all_keywords and merged.has_shield
+
+
+def test_an_ordinary_triple_still_carries_a_granted_keyword(patch):
+    """A Taunt handed out by Houndmaster lands in ``keywords``, not
+    ``granted_keywords`` — which is why the printing is subtracted rather than
+    one field trusted to hold every gain."""
+    from src.bg_core.effects import Keyword
+
+    bodies = [_card(patch, "BGS_115") for _ in range(3)]
+    bodies[1].keywords = frozenset(bodies[1].keywords | {Keyword.TAUNT})
+    player = _player(patch, board=bodies)
+    resolve_triples_loop(player, patch=patch)
+    merged = next(c for c in player.hand if c is not None and c.card_id == "BGS_115")
+    assert Keyword.TAUNT in merged.all_keywords
+
+
 def test_a_golden_elemental_does_not_complete_a_pair(patch):
     """Only a body that could triple at all is a candidate."""
     pair = [_card(patch, "BGS_115"), _card(patch, "BGS_115")]
