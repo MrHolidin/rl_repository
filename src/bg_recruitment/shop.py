@@ -164,6 +164,7 @@ def add_random_minion_to_hand(
     patch: PatchContext,
     tier: Optional[int] = None,
     keyword=None,
+    exclude_card_id: Optional[str] = None,
 ) -> None:
     """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot.
 
@@ -187,6 +188,7 @@ def add_random_minion_to_hand(
         if (tribe is None or minion_matches_tribe(patch.templates[cid], tribe))
         and (tier is None or patch.templates[cid].tier == int(tier))
         and (keyword is None or keyword in patch.templates[cid].keywords)
+        and cid != exclude_card_id
     ]
     if not pool:
         return

@@ -15,6 +15,7 @@
       "AddRandomGoldenMinionEffect",
       "AddRandomMinionOfCommonTribeEffect",
       "AddRandomTavernSpellToHandEffect",
+      "AddSharedTribeMinionEffect",
       "AddTavernSpellToHandEffect",
       "AvengeEffect",
       "BuffBoughtMinionEffect",

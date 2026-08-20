@@ -56,6 +56,7 @@ from src.bg_core.effects import (
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
     DealHeroDamage,
+    AddSharedTribeMinionEffect,
     CopyTavernMinionEffect,
     DealHeroDamagePerTierEffect,
     TransferAttackToRandomFriendlyEffect,
@@ -753,6 +754,20 @@ class ShopTriggers:
                 shop_excluded_race=shop_excluded_race,
                 shared_pool=shared_pool,
             )
+        elif isinstance(effect, AddSharedTribeMinionEffect):
+            # ``source`` is the minion the spell was cast at; its tribe is the
+            # whole instruction, which is why no named tribe can stand in.
+            if source is None or source.race is None:
+                return
+            for _ in range(max(1, effect.count)):
+                add_random_minion_to_hand(
+                    player,
+                    source.race,
+                    shop_excluded_race,
+                    rng=self._rng,
+                    patch=self._patch,
+                    exclude_card_id=source.card_id if effect.exclude_target else None,
+                )
         elif isinstance(effect, CopyTavernMinionEffect):
             # ``source`` is the minion the spell was cast at — the tavern body
             # being copied. It stays where it is; only a copy changes hands.

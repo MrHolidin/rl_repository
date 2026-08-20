@@ -487,3 +487,65 @@ def test_a_positional_buff_in_combat_stays_positional(patch):
     (ability,) = patch.effects["BG29_810"]
     assert ability.effect.leftmost is True
     assert patch.effects["BG24_500"][0].effect.leftmost is False
+
+
+# --------------------------------------------------------------------------- #
+# Three kinds of Discover, three tier rules
+# --------------------------------------------------------------------------- #
+
+
+def _tribe_discover_tiers(patch, tavern_tier, tribe, rolls=200):
+    from src.bg_recruitment.discover_pool import roll_discover_tribe_triple
+
+    rng = np.random.default_rng(0)
+    seen = set()
+    for _ in range(rolls):
+        for cid in roll_discover_tribe_triple(
+            rng, tavern_tier, None, tribe=tribe, patch=patch
+        ):
+            seen.add(patch.templates[cid].tier)
+    return seen
+
+
+@pytest.mark.parametrize("tavern_tier", [1, 3, 4, 5, 6])
+def test_a_tribe_discover_never_reaches_above_the_seat(patch, tavern_tier):
+    """A bare "Discover a Beast" prints no tier, so it takes the default."""
+    from src.bg_core.minion import Race as _R
+
+    assert max(_tribe_discover_tiers(patch, tavern_tier, _R.BEAST)) <= tavern_tier
+
+
+def test_a_tribe_discover_offers_what_there_is(patch):
+    """Capped at the seat, Tier 1 holds only two Beasts — two options, not an error."""
+    from src.bg_recruitment.discover_pool import roll_discover_tribe_triple
+    from src.bg_core.minion import Race as _R
+
+    opts = roll_discover_tribe_triple(
+        np.random.default_rng(0), 1, None, tribe=_R.BEAST, patch=patch
+    )
+    assert 0 < len(opts) < 3
+
+
+def test_the_triple_reward_is_one_tier_up_and_fixed_when_placed(patch):
+    """The other rule: +1, and snapshotted so a later upgrade cannot move it."""
+    from src.bg_recruitment.discover_pool import triple_reward_discover_tier
+    from src.bg_recruitment.triples import resolve_triples_loop
+
+    assert {t: triple_reward_discover_tier(t, patch=patch) for t in range(1, 7)} == {
+        1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 6
+    }
+    player = _player(patch, tavern_tier=3)
+    player.board = [patch.make_minion("BGS_115") for _ in range(3)]
+    resolve_triples_loop(player, patch=patch)
+    reward = next(
+        c for c in player.hand if c is not None and getattr(c, "triple_discover_tier", 0)
+    )
+    assert reward.triple_discover_tier == 4
+    player.tavern_tier = 6  # upgrading afterwards does not move it
+    assert reward.triple_discover_tier == 4
+
+
+def test_a_printed_tier_discover_ignores_the_seat(patch):
+    """"Discover a Tier 1 minion" is a Tier 1 minion at any tavern tier."""
+    (ability,) = patch.tavern_spells["BG33_101"].abilities
+    assert ability.effect.tier == 1

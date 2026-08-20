@@ -373,6 +373,7 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "RetriggerFriendlyAbilityEffect",
         "DealHeroDamagePerTierEffect",
         "CopyTavernMinionEffect",
+        "AddSharedTribeMinionEffect",
         "TriplesWithAnyOfTribeEffect",
         "GainStatsFromTavernEffect",
         "ElementalsPlayedResponseEffect",

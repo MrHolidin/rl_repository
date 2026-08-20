@@ -143,6 +143,7 @@ from src.bg_core.effects import (
     CopyTargetingSpellEffect,
     CopyTavernMinionEffect,
     TriplesWithAnyOfTribeEffect,
+    AddSharedTribeMinionEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -2049,6 +2050,45 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     # ------------------------------------------------------------------ tier 1
     "BG28_810": (  # Tavern Coin — Gain 1 Gold
         Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=1)),
+    ),
+    "BG36_624": (  # Repair Job — give a minion +4/+8
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(attack=4, health=8, exclude_self=False),
+        ),
+    ),
+    "BG35_149": (  # Deepwater Clan — a minion +2/+2, and your Murlocs +2/+2
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(attack=2, health=2, exclude_self=False),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                target=BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.MURLOC, attack=2, health=2
+            ),
+        ),
+    ),
+    "BG28_604": (  # Butchering — eat an Undead, and the rest gain for the game
+        Ability(
+            Trigger.ON_PLACE,
+            DestroyFriendlyEffect(
+                filter_race=Race.UNDEAD,
+                get_copy=False,
+                then=RaiseStandingBonusEffect(
+                    scope_kind=ScopeKind.TRIBE, scope_key=Race.UNDEAD, attack=5
+                ),
+            ),
+        ),
+    ),
+    "BG36_880": (  # Methodical Madness — a Demon eats two off the counter
+        Ability(
+            Trigger.ON_PLACE,
+            ConsumeTavernMinionEffect(filter_race=Race.DEMON, count=2),
+        ),
+    ),
+    "BG28_518": (  # Chef's Choice — a different minion of the target's own type
+        Ability(Trigger.ON_PLACE, AddSharedTribeMinionEffect(count=1)),
     ),
     "BG28_503": (  # Fortify — give a minion +3 Health and Taunt
         Ability(

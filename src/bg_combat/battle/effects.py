@@ -28,6 +28,7 @@ from src.bg_core.effects import (
     BuffAdjacentOnAttackedEffect,
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
+    AddSharedTribeMinionEffect,
     BuffFromSubjectAttackEffect,
     RepeatPerCountEffect,
     IncreaseTribeGiftEffect,
@@ -437,6 +438,7 @@ def _queue_random_combat_hand_add(
     tribe: Optional[Any],
     tier: Optional[int] = None,
     keyword: Optional[Any] = None,
+    exclude_card_id: Optional[str] = None,
 ) -> None:
     """"Get a random <tribe> / Tier N minion", from inside a fight.
 
@@ -446,7 +448,7 @@ def _queue_random_combat_hand_add(
     """
     race_hs = hs_race_string(tribe)
     pool = summon_pool_for(
-        tier, False, False, race_hs, None, patch=rt.patch, keyword=keyword
+        tier, False, False, race_hs, exclude_card_id, patch=rt.patch, keyword=keyword
     )
     if not pool:
         return
@@ -789,14 +791,21 @@ def _summon_best_from_hand(
 
 
 def cast_spell_in_combat(
-    rt: _CombatRuntime, side_idx: int, source: Optional[BattleMinion], card_id: str
+    rt: _CombatRuntime,
+    side_idx: int,
+    source: Optional[BattleMinion],
+    card_id: str,
+    target: Optional[BattleMinion] = None,
 ) -> None:
     """Resolve a named spell against a combat side.
 
-    Two Dragons cast one mid-fight — a Start of Combat and a Rally — and the
-    spells they cast are board-wide buffs, so what a cast *means* here is the
-    spell's own abilities applied to the living side. The spell is never in
+    Several cards cast one mid-fight — Start of Combat and Rally alike — and
+    most of those spells are board-wide buffs, so what a cast *means* here is
+    the spell's own abilities applied to the living side. The spell is never in
     anyone's hand and nothing is spent.
+
+    ``target`` is the body a positional cast was aimed at ("cast Chef's Choice
+    on the minion to the right"), for the spells that read it.
     """
     spell = rt.patch.tavern_spells.get(card_id)
     if spell is None:
@@ -806,6 +815,18 @@ def cast_spell_in_combat(
         eff = ability.effect
         if isinstance(eff, BuffMatching):
             apply_buff_matching(eff, list(side.iter_living()), source, rng=rt.rng)
+        elif isinstance(eff, AddSharedTribeMinionEffect):
+            # "Get a different minion of the same type" — the type is the
+            # target's, and the card lands in hand after the fight.
+            aimed = target if target is not None else source
+            if aimed is not None and aimed.race is not None:
+                for _ in range(max(1, eff.count)):
+                    _queue_random_combat_hand_add(
+                        rt,
+                        side_idx,
+                        aimed.race,
+                        exclude_card_id=aimed.card_id if eff.exclude_target else None,
+                    )
         else:
             raise NotImplementedError(
                 f"spell {card_id} does {type(eff).__name__}, which no combat cast "
@@ -937,7 +958,19 @@ def _fire_rally(
                 template=body,
             )
         elif isinstance(eff, CastSpellAtEffect):
-            cast_spell_in_combat(rt, attacker_side_idx, attacker, eff.card_id)
+            # "Cast Chef's Choice on the minion to the right" — the position is
+            # read from where the caster stands, the same as in the tavern.
+            aimed = attacker
+            if eff.to_the_right or eff.adjacent:
+                living = list(side.iter_living())
+                if attacker in living:
+                    at = living.index(attacker)
+                    if at + 1 < len(living):
+                        aimed = living[at + 1]
+            for _ in range(max(1, eff.repeats)):
+                cast_spell_in_combat(
+                    rt, attacker_side_idx, attacker, eff.card_id, target=aimed
+                )
         elif isinstance(eff, DamageFromOwnAttackEffect):
             amount = attack_value(attacker, side, death_resolution=False)
             enemy_idx = 1 - attacker_side_idx

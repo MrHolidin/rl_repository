@@ -1222,6 +1222,19 @@ class SummonStashedEffect:
 
 
 @dataclass(frozen=True)
+class AddSharedTribeMinionEffect:
+    """Get a *different* minion of the same type as the one this was cast at.
+
+    Sibling of :class:`BuffSharedTribeEffect`: the tribe is read off the target
+    rather than named, which is what no fixed ``AddRandomMinionToHandEffect``
+    can say. ``exclude_target`` is the "**different**" the card prints.
+    """
+
+    count: int = 1
+    exclude_target: bool = True
+
+
+@dataclass(frozen=True)
 class CopyTavernMinionEffect:
     """Get a copy of a minion still on the counter, leaving it there.
 
@@ -2056,6 +2069,7 @@ Effect = Union[
     StripKeywordsFromTargetEffect,
     GainTargetAttackEffect,
     SetStatsEffect,
+    AddSharedTribeMinionEffect,
     CopyTavernMinionEffect,
     TriplesWithAnyOfTribeEffect,
     DealHeroDamagePerTierEffect,
@@ -2262,6 +2276,7 @@ __all__ = [
     "StripKeywordsFromTargetEffect",
     "GainTargetAttackEffect",
     "SetStatsEffect",
+    "AddSharedTribeMinionEffect",
     "CopyTavernMinionEffect",
     "TriplesWithAnyOfTribeEffect",
     "DealHeroDamagePerTierEffect",

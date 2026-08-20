@@ -61,8 +61,13 @@ def roll_discover_tribe_triple(
     tribe: Race,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
-) -> Optional[Tuple[str, str, str]]:
-    """Three options of one tribe, weighted toward the seat's own tavern tier.
+) -> Optional[Tuple[str, ...]]:
+    """Up to three options of one tribe, at the seat's own tavern tier or below.
+
+    Not one tier up: that is the Triple Reward's rule and only its rule. A
+    Discover printed on a card reaches above the seat only when the card says
+    so ("from a Tier higher"), and a bare "Discover a <tribe>" says nothing, so
+    it takes the default.
 
     A tribe left out of the lobby offers nothing, which is the same answer the
     tavern gives: there are no Undead to Discover in a game without Undead.
@@ -70,7 +75,7 @@ def roll_discover_tribe_triple(
     ctx = require_patch(patch, where="discover_pool.roll_discover_tribe_triple")
     tpl = ctx.templates
     max_tier = ctx.meta.ruleset.max_tier
-    cap = min(max_tier, tavern_tier + 1)
+    cap = min(max_tier, tavern_tier)
     if tribe in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
@@ -81,22 +86,20 @@ def roll_discover_tribe_triple(
         ]
     if shared_pool is not None:
         eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
-    if len(eligible) < 3:
-        if shared_pool is not None:
-            return None
-        raise RuntimeError(
-            f"need at least 3 {tribe} for discover (tavern {tavern_tier}), "
-            f"got {len(eligible)}"
-        )
+    if not eligible:
+        return None
+    # Fewer than three is a real outcome, not an error: capped at the seat's
+    # own tier there are only two Tier-1 Beasts in the whole pool. The modal
+    # offers what there is, and the legal mask offers that many picks.
     wmap = _tier_weights(tavern_tier, max_tier)
     pool = list(eligible)
     picks: List[str] = []
-    for _ in range(3):
+    for _ in range(min(3, len(pool))):
         w = np.array([wmap.get(tpl[cid].tier, 0.1) for cid in pool], dtype=np.float64)
         w = w / w.sum()
         j = int(rng.choice(len(pool), p=w))
         picks.append(pool.pop(j))
-    return (picks[0], picks[1], picks[2])
+    return tuple(picks)
 
 
 def roll_adapt_triple(rng: np.random.Generator) -> Tuple[str, str, str]:
