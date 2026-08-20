@@ -540,6 +540,10 @@ class MultiplierKind(Enum):
     #: Balinda Stonehearth: casts of a spell aimed at a friendly minion, shop
     #: only — a spell cast from inside a fight has no seat to aim from.
     TARGETED_SPELL = auto()
+    #: Proud Privateer: casts of a Bounty. An aura like the rest of them, which
+    #: is what "your Bounties cast twice" is — the Privateer has to still be
+    #: standing, and the Golden says three times rather than four.
+    BOUNTY = auto()
 
 
 @dataclass(frozen=True)
@@ -851,15 +855,6 @@ class GainStatsFromHandEffect:
 @dataclass(frozen=True)
 class GiveOwnStatsToHandEffect:
     """Hand this body's stats to the left-most minion in hand (Futurefin)."""
-
-
-@dataclass(frozen=True)
-class DoubleBountiesEffect:
-    """Proud Privateer: this seat's Bounties resolve twice.
-
-    A standing property of the seat rather than a change to the cards: the
-    Bounty in hand is the same card, and casting it is what happens twice.
-    """
 
 
 @dataclass(frozen=True)
@@ -2307,7 +2302,6 @@ __all__ = [
     "BuffHandMinionsEffect",
     "GainStatsFromHandEffect",
     "GiveOwnStatsToHandEffect",
-    "DoubleBountiesEffect",
     "AddRandomGoldenMinionEffect",
     "AddRandomMinionOfCommonTribeEffect",
     "MakeFriendlyGoldenEffect",

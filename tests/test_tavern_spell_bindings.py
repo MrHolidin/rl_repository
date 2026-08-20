@@ -180,11 +180,18 @@ def test_contracted_corpse_offers_only_deathrattles(patch):
 
 
 def test_hired_headhunter_offers_only_battlecries(patch):
+    """"A Battlecry minion" is the catalog tag *or* a binding that fires on
+    play — the tag is missing on a few, Choose One cards among them."""
+    from src.envs.minibg.summon_pool import record_has_battlecry
+
     tags = _catalog_mechanics(patch)
     player = _cast(patch, "BG28_GIL_836", _player(patch))
     options = player.pending_choice.options
     assert options
-    assert all("BATTLECRY" in tags[cid] for cid in options)
+    assert all(
+        record_has_battlecry(cid, frozenset(tags[cid]), patch.effects)
+        for cid in options
+    )
 
 
 def test_planar_telescope_reads_the_board_for_its_tribe(patch):

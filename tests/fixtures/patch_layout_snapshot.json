@@ -7,6 +7,7 @@
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effect_variants": [
       "BuffMatching.FRIENDLY_GOLDEN",
+      "Multiplier.BOUNTY",
       "Multiplier.END_OF_TURN",
       "Multiplier.TARGETED_SPELL",
       "StatAura.FRIENDLY_GOLDEN"
@@ -48,7 +49,6 @@
       "DevourNeighbourEffect",
       "DiscoverMinionAtTierEffect",
       "DiscoverTavernSpellEffect",
-      "DoubleBountiesEffect",
       "DoubleNextMagnetizeEffect",
       "EchoMagnetizeEffect",
       "ElementalsPlayedResponseEffect",

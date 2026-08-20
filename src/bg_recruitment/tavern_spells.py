@@ -303,8 +303,13 @@ def cast_tavern_spell(
     # whole resolution runs again rather than the numbers doubling. Both read
     # at once, and they compose: a Bounty aimed at a friendly under Balinda
     # casts four times.
-    times = 2 if (player.bounties_cast_twice and card.card_id in patch.bounty_ids) else 1
-    if target is not None:
+    times = 1
+    if card.card_id in patch.bounty_ids:
+        times = max(1, multiplier_for(player.board, MultiplierKind.BOUNTY))
+    if target is not None and target in player.board:
+        # "Your spells that **target friendly minions** cast twice" — a minion
+        # on the counter is not friendly, and buying it later does not make the
+        # spell retroactively doubled.
         times *= max(1, multiplier_for(player.board, MultiplierKind.TARGETED_SPELL))
     for _ in range(times):
         _resolve_spell_abilities(

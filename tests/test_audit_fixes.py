@@ -943,3 +943,110 @@ def test_an_until_next_turn_buff_expires_on_a_minion_in_the_tavern(patch):
     assert offered.raw_attack == 3
     expire_temporary_buffs(player)
     assert offered.raw_attack == 1
+
+
+# --------------------------------------------------------------------------- #
+# Whose multiplier it is, and where a spell can reach
+# --------------------------------------------------------------------------- #
+
+
+def _cast_spell(patch, player, spell_id, target=None):
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells[spell_id],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=target,
+    )
+
+
+def _bounty_gold(patch, board):
+    player = _player(patch, board)
+    before = player.gold
+    _cast_spell(patch, player, "BG33_815")  # Wealthy Bounty: gain 2 Gold
+    return player.gold - before
+
+
+def test_proud_privateer_only_doubles_while_it_stands(patch):
+    """"Your Bounties cast twice" is an ongoing effect of the body in play, not
+    a promise the seat keeps after it is sold."""
+    assert _bounty_gold(patch, []) == 2
+    assert _bounty_gold(patch, [patch.make_minion("BG33_825")]) == 4
+
+
+def test_a_golden_privateer_casts_a_bounty_three_times(patch):
+    from src.bg_recruitment.targeted_battlecry import make_golden
+
+    privateer = patch.make_minion("BG33_825")
+    make_golden(privateer, patch=patch)
+    assert _bounty_gold(patch, [privateer]) == 6
+
+
+def test_balinda_does_not_double_a_spell_aimed_at_the_tavern(patch):
+    """"Your spells that target **friendly** minions cast twice" — a minion on
+    the counter is not friendly."""
+    on_board = _plain("mine", 1, 1)
+    player = _player(patch, [patch.make_minion("BG35_883"), on_board])
+    _cast_spell(patch, player, "BG28_897", target=on_board)  # +2/+2
+    assert (on_board.raw_attack, on_board.max_health) == (5, 5)
+
+    offered = _plain("theirs", 1, 1)
+    player = _player(patch, [patch.make_minion("BG35_883")])
+    player.shop[0] = offered
+    _cast_spell(patch, player, "BG28_897", target=offered)
+    assert (offered.raw_attack, offered.max_health) == (3, 3)
+
+
+def test_a_blood_gem_can_land_on_a_minion_in_the_tavern(patch):
+    """Patch 27.4.0.185749 — the fix for the empty-board soft-lock."""
+    from src.bg_recruitment.blood_gems import (
+        can_play_blood_gem,
+        give_blood_gems,
+        play_blood_gem_from_hand,
+    )
+
+    player = _player(patch)
+    give_blood_gems(player, 1)
+    offered = _plain("on-the-counter", 1, 1)
+    player.shop[0] = offered
+    assert can_play_blood_gem(player)
+    slot = next(i for i, c in enumerate(player.hand) if c is not None)
+    play_blood_gem_from_hand(player, slot, shop_index=0)
+    assert (offered.raw_attack, offered.max_health) == (2, 2)
+
+
+def test_a_gem_with_nowhere_to_land_still_waits_in_hand(patch):
+    from src.bg_recruitment.blood_gems import can_play_blood_gem, give_blood_gems
+
+    player = _player(patch)
+    give_blood_gems(player, 1)
+    assert not can_play_blood_gem(player)
+    assert any(c is not None for c in player.hand)
+
+
+def test_a_count_scaled_minion_is_already_grown_on_the_counter(patch):
+    """"+4/+2 for each friendly Eternal Knight that died this game" — a Knight
+    rolled onto the counter after five have died is a 24/12 there, not the 4/2
+    it prints and corrects itself to once bought."""
+    from src.bg_recruitment.game_counts import DIED, bump_game_count
+    from src.bg_recruitment.shop import refresh_shop
+
+    counts: dict = {}
+    seed_player = _player(patch)
+    for _ in range(5):
+        bump_game_count(seed_player, DIED, "BG25_008")
+    counts = dict(seed_player.game_counts)
+
+    for seed in range(200):
+        player = _player(patch)
+        player.game_counts = dict(counts)
+        refresh_shop(player, None, rng=np.random.default_rng(seed), patch=patch)
+        rolled = next(
+            (m for m in player.shop if m is not None and m.card_id == "BG25_008"), None
+        )
+        if rolled is not None:
+            assert (rolled.raw_attack, rolled.max_health) == (24, 12)
+            return
+    pytest.skip("no Eternal Knight rolled in 200 shops")

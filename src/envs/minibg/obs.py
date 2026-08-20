@@ -348,7 +348,6 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "IncreaseTribeGiftEffect",
         "BuffBoughtMinionEffect",
         "MakeFriendlyGoldenEffect",
-        "DoubleBountiesEffect",
         "BuffHandMinionsEffect",
         "GainStatsFromHandEffect",
         "GiveOwnStatsToHandEffect",
@@ -456,6 +455,7 @@ UNENCODED_EFFECT_VARIANTS: frozenset = frozenset(
     {
         (Multiplier, MultiplierKind.END_OF_TURN),
         (Multiplier, MultiplierKind.TARGETED_SPELL),
+        (Multiplier, MultiplierKind.BOUNTY),
         (BuffMatching, BuffTarget.FRIENDLY_GOLDEN),
         (StatAura, BuffTarget.FRIENDLY_GOLDEN),
     }

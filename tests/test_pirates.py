@@ -234,7 +234,6 @@ def test_proud_privateer_casts_a_bounty_twice(patch, triggers):
     crew = [_pirate(f"p{i}") for i in range(3)]
     player = _player(patch, [privateer] + crew)
     triggers.fire_on_place(privateer, player, None)
-    assert player.bounties_cast_twice
 
     cast_tavern_spell(
         player,

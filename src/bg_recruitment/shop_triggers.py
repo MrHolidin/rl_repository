@@ -21,7 +21,6 @@ from src.bg_core.effects import (
     AddRandomGoldenMinionEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
-    DoubleBountiesEffect,
     MakeFriendlyGoldenEffect,
     AdaptSelfRandomEffect,
     AddRandomMinionToShopEffect,
@@ -899,8 +898,6 @@ class ShopTriggers:
             player.ruleset = dataclass_replace(
                 player.ruleset, gold_cap=player.ruleset.gold_cap + int(effect.amount)
             )
-        elif isinstance(effect, DoubleBountiesEffect):
-            player.bounties_cast_twice = True
         elif isinstance(effect, AddRandomGoldenMinionEffect):
             from src.bg_catalog.patch_catalog import golden_upgrade_card_id
 

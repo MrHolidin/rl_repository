@@ -213,8 +213,6 @@ class PlayerState:
     #: running totals the "(5 Gold left!)" cards keep on themselves — this one
     #: is read by the cards improved by *this turn's* spending.
     gold_spent_this_turn: int = 0
-    #: Proud Privateer: this seat's Bounties resolve twice.
-    bounties_cast_twice: bool = False
     hero_damage_taken_total: int = 0
     pogo_hoppers_played: int = 0
     # Hero (passive power). ``None`` ⇒ classic no-hero seat (default; identical

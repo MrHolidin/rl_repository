@@ -13,6 +13,7 @@ from src.bg_core.minion import Minion, Race
 from src.bg_lobby.shared_pool import SharedCardPool
 
 from src.bg_recruitment.hand_slots import first_free_hand_slot
+from src.bg_recruitment.game_counts import refresh_count_bonuses
 from src.bg_recruitment.standing_bonuses import settle_standing_bonuses
 from src.bg_recruitment.tavern_spells import offer_tavern_spells
 from src.envs.minibg.actions import MAX_SHOP_SLOTS, shop_offers_count
@@ -284,12 +285,19 @@ def fill_shop_slot(
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
 ) -> None:
-    """Roll one offer into ``slot``, then square it with the seat's standing
-    "this game" bonuses.
+    """Roll one offer into ``slot``, then square it with everything the seat
+    owes a minion that has just arrived.
 
     A wrapper because the roll has three exits — Ysera's forced tribe, the
     shared-pool draw and the plain one — and a minion landing on the counter is
     owed those bonuses however it got there.
+
+    Two tables, not one. The "this game" bonuses are the seat's; the game-long
+    tallies are the card's own ("+4/+2 for each friendly Eternal Knight that
+    died this game"), and a Knight rolled onto the counter after five have died
+    is a 24/12 there, not the 4/2 it prints. It used to correct itself on
+    purchase, which is a strange thing for the shop to show and a strange thing
+    for the cards that read the counter to see.
     """
     _roll_shop_slot(
         player,
@@ -300,6 +308,7 @@ def fill_shop_slot(
         patch=patch,
     )
     settle_standing_bonuses(player)
+    refresh_count_bonuses(player)
 
 
 def _roll_shop_slot(

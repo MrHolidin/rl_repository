@@ -30,7 +30,6 @@ from src.bg_core.effects import (
     GiveOwnStatsToHandEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
-    DoubleBountiesEffect,
     MakeFriendlyGoldenEffect,
     ConsumeTavernMinionEffect,
     DamageFromOwnAttackEffect,
@@ -1310,7 +1309,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BG33_825": (  # Proud Privateer — your Bounties cast twice
-        Ability(Trigger.ON_PLACE, DoubleBountiesEffect()),
+        Ability(Trigger.AURA, Multiplier(MultiplierKind.BOUNTY, factor=2)),
     ),
     "BG36_343": (  # Silent Deliverer — a random Golden Tier 4, owing no Triple
         Ability(Trigger.ON_PLACE, AddRandomGoldenMinionEffect(tier=4)),

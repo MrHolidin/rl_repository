@@ -137,21 +137,29 @@ def play_blood_gem_on(
 def can_play_blood_gem(player: PlayerState) -> bool:
     """Whether a Gem in hand can be played at all — i.e. is there a target.
 
-    A Gem with no minion to land on is not discarded and does not fizzle: it
-    stays in hand, unplayable, and keeps taking up the slot. That is a real
-    Battlegrounds state, reported often enough to have its own bug threads — a
-    hand full of Gems and an empty board leaves a seat with nothing it can do.
-    Legality belongs here rather than in the play call, which raises.
+    The tavern counts. Patch 27.4.0.185749: *"Blood Gems can now target minions
+    in the Tavern, not just friendly minions"* — which was the fix for the
+    empty-board soft-lock this used to describe as correct: a hand full of Gems
+    and no board left a seat with nothing it could do.
+
+    A Gem with genuinely nowhere to land is still not discarded and does not
+    fizzle; it stays in hand, unplayable, taking up the slot. Legality belongs
+    here rather than in the play call, which raises.
     """
-    return bool(player.board)
+    return bool(player.board) or any(m is not None for m in player.shop)
 
 
 def play_blood_gem_from_hand(
     player: PlayerState,
     hand_index: int,
-    board_index: int,
+    board_index: Optional[int] = None,
+    *,
+    shop_index: Optional[int] = None,
 ) -> None:
-    """Play the Gem in ``hand_index`` onto the board minion at ``board_index``.
+    """Play the Gem in ``hand_index`` onto a minion the seat names.
+
+    Usually a friendly on the board; ``shop_index`` names one still on the
+    counter instead, which a Gem has reached since 27.4.0.185749.
 
     The engine-side half of playing a Gem. Choosing the target is the caller's
     business — the flat action space has no Gem action yet, and giving it one
@@ -160,11 +168,17 @@ def play_blood_gem_from_hand(
     card = player.hand[hand_index] if 0 <= hand_index < len(player.hand) else None
     if not is_blood_gem(card):
         raise ValueError(f"hand slot {hand_index} does not hold a Blood Gem: {card!r}")
-    if not 0 <= board_index < len(player.board):
-        raise ValueError(f"no minion at board index {board_index} to receive the Gem")
+    if shop_index is not None:
+        if not 0 <= shop_index < len(player.shop) or player.shop[shop_index] is None:
+            raise ValueError(f"no minion in tavern slot {shop_index} to receive the Gem")
+        target = player.shop[shop_index]
+    else:
+        if board_index is None or not 0 <= board_index < len(player.board):
+            raise ValueError(f"no minion at board index {board_index} to receive the Gem")
+        target = player.board[board_index]
     play_blood_gem_on(
         player,
-        player.board[board_index],
+        target,
         quilboar_keyword=card.blood_gem_quilboar_keyword,
     )
     player.hand[hand_index] = None
