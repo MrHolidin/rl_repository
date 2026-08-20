@@ -1,4 +1,10 @@
-"""Faceless Taverngoer: pick a shop offer to transform into."""
+"""Transforming a body into a different card, keeping what the card says to.
+
+Two shapes, and the difference is what survives. Faceless Taverngoer becomes a
+shop offer outright — a fresh printing, nothing carried. Robust Evolution
+becomes a random card from a Tier higher and *keeps its stats*, which is the
+whole reason anyone casts it.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +14,77 @@ import numpy as np
 
 from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext
+from src.bg_core.effects import Keyword
+from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PendingChoice, PendingChoiceKind, PlayerState
 
 
 def filled_shop_slot_indices(player: PlayerState) -> Tuple[int, ...]:
     return tuple(i for i, m in enumerate(player.shop) if m is not None)
+
+
+def transform_to_higher_tier(
+    minion: Minion,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    tiers_up: int = 1,
+    shop_excluded_race: Optional[Race] = None,
+    shared_pool=None,
+) -> bool:
+    """Turn ``minion`` into a random card from ``tiers_up`` Tiers higher.
+
+    In place, the way ``make_golden`` is: the body keeps its identity as far as
+    the rest of the game is concerned (a spell aimed at it still hits, a hand
+    slot still holds it), it is simply a different card now.
+
+    The stats it had are folded into the new card's printing rather than left
+    as bonuses. What granted them — a game-long tally, Blood Gems, a magnet —
+    belonged to the card that is gone, and leaving those records behind would
+    let the tally that fed the old card claw its own contribution back out of
+    the new one. The seat's "this game" table is the exception: what the body
+    already absorbed it keeps absorbed, so a scope it still matches does not
+    pay twice and one it now matches for the first time pays once.
+
+    Returns False when there is no card at that Tier to become — a Tier-7 body
+    has nowhere higher to go.
+    """
+    from src.bg_recruitment.discover_pool import draw_from_pool, shop_pool_for_tier
+
+    target_tier = int(minion.tier) + max(1, int(tiers_up))
+    eligible = shop_pool_for_tier(
+        target_tier, shop_excluded_race=shop_excluded_race, patch=patch
+    )
+    if shared_pool is not None:
+        eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
+    if not eligible:
+        return False
+    fresh = make_minion(
+        draw_from_pool(rng, eligible, 1, shared_pool=shared_pool)[0], patch=patch
+    )
+    attack, health = minion.raw_attack, minion.max_health
+    minion.card_id = fresh.card_id
+    minion.name = fresh.name
+    minion.tier = fresh.tier
+    minion.race = fresh.race
+    minion.keywords = fresh.keywords
+    minion.granted_keywords = frozenset()
+    minion.temp_keywords = frozenset()
+    minion.abilities = fresh.abilities
+    minion.is_golden = fresh.is_golden
+    minion.is_token = fresh.is_token
+    minion.dbf_id = fresh.dbf_id
+    minion.base_attack, minion.base_health = attack, health
+    minion.bonus_attack = minion.bonus_health = 0
+    minion.temp_attack = minion.temp_health = 0
+    minion.count_bonus_granted = (0, 0)
+    minion.self_counted = False
+    minion.blood_gem_attack = minion.blood_gem_health = 0
+    minion.magnetized_count = 0
+    minion.magnet_attack = minion.magnet_health = 0
+    minion.magnet_abilities = ()
+    minion.has_shield = Keyword.SHIELD in minion.all_keywords
+    return True
 
 
 def apply_transform_into_shop_minion(

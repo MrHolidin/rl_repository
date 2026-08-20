@@ -19,6 +19,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 from src.bg_catalog.patch_catalog import minion_by_id, minion_from_tavern_record
+from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.minion import Minion
 from src.bg_recruitment.effect_modal import (
     _apply_buff_target,
@@ -100,7 +101,11 @@ def make_golden(target: Minion, *, patch) -> None:
     golden = minion_from_tavern_record(
         minion_by_id(patch.patch_dir / "catalog.json")[golden_id]
     )
-    target.card_id = golden.card_id
+    # The card id stays the plain one, which is what a forged Golden carries
+    # too: ``is_golden`` is the difference between the two printings, and the
+    # lobby pool, the triple scan and the templates are all keyed on the plain
+    # id. Taking the ``_G`` id here made every made-Golden a card no pool had
+    # heard of, so selling one released three copies into a phantom entry.
     target.base_attack = golden.base_attack
     target.base_health = golden.base_health
     target.keywords = golden.keywords
@@ -194,6 +199,57 @@ def apply_destroy_friendly(
         return  # the trade did not happen (no room for the copy it pays)
     if effect.then is not None and source is not None:
         triggers.apply_shop_effect(player, source, effect.then, placed=None)
+
+
+def apply_sell_friendly_for_stats(
+    player: PlayerState,
+    victim: Optional[Minion],
+    effect,
+    *,
+    rng: np.random.Generator,
+    triggers,
+    shop_excluded_race=None,
+    shared_pool=None,
+) -> None:
+    """Sell ``victim``, then hand its stats to whoever the card names.
+
+    Sold, not eaten: the seat is paid and the card goes back to the pool, and
+    everything that watches a sale sees one. The stats are read first, because
+    an "after you sell a friendly" ability can change the board they would
+    otherwise be read off.
+
+    The sale happens whether or not there is anyone left to inherit — a card
+    that says "sell a friendly minion" has already done that much by the time
+    it looks for the recipient.
+    """
+    from src.bg_recruitment.economy import sell_from_board
+    from src.bg_recruitment.triples import resolve_triples_loop
+
+    if victim is None or victim not in player.board:
+        return
+    attack, health = victim.raw_attack, victim.max_health
+    sell_from_board(
+        player,
+        player.board.index(victim),
+        on_sell=lambda m, p: triggers.fire_on_sell(
+            m, p, shop_excluded_race=shop_excluded_race, shared_pool=shared_pool
+        ),
+        on_triples=lambda p: resolve_triples_loop(
+            p, shared_pool=shared_pool, patch=triggers._patch
+        ),
+        shared_pool=shared_pool,
+    )
+    eligible = [
+        m
+        for m in player.board
+        if effect.recipient_tribe is None
+        or minion_matches_tribe(m, effect.recipient_tribe)
+    ]
+    if not eligible:
+        return
+    heir = eligible[0] if effect.leftmost else eligible[int(rng.integers(0, len(eligible)))]
+    heir.bonus_attack += attack
+    heir.bonus_health += health
 
 
 def consume_tavern_minion(

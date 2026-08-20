@@ -879,13 +879,49 @@ class AddRandomMinionOfCommonTribeEffect:
 
 @dataclass(frozen=True)
 class MakeFriendlyGoldenEffect:
-    """Turn a friendly into its Golden printing.
+    """Turn a minion into its Golden printing.
 
     ``max_tier`` is the cap the card prints ("from Tier 6 or below"). The copy
     gives no Triple Reward, because nothing was tripled — it was made.
+
+    ``in_tavern`` moves the whole thing to the counter: "make a **random**
+    minion **in the Tavern** Golden" names neither a friendly nor a chooser,
+    and the minion is only yours if you go on to buy it.
     """
 
     max_tier: int = 0
+    in_tavern: bool = False
+
+
+@dataclass(frozen=True)
+class TransformToHigherTierEffect:
+    """Become a random minion from a Tier higher, keeping this body's stats.
+
+    "It keeps its stats" is the whole of the trade: the Attack and Health ride
+    across to a card the seat did not pay for, and everything else — the text,
+    the tribe, the tier — belongs to the new card. Which is why what carried
+    the stats over is folded into the printing rather than left as buffs: the
+    tallies and Gems that granted them are the old card's business.
+    """
+
+    tiers_up: int = 1
+
+
+@dataclass(frozen=True)
+class SellFriendlyForStatsEffect:
+    """Sell a friendly the seat names; another body inherits its stats.
+
+    Sold rather than destroyed, which the two cards printing it say in as many
+    words: the seat is paid the sale price and the card goes back to the lobby
+    pool. ``recipient_tribe`` and ``leftmost`` are who inherits — "your
+    left-most Elemental", or a random friendly.
+
+    The stats are read before the sale, because an "after you sell" ability may
+    well change the board it is read off.
+    """
+
+    recipient_tribe: Optional[Any] = None
+    leftmost: bool = False
 
 
 @dataclass(frozen=True)
@@ -2276,6 +2312,8 @@ __all__ = [
     "ConsumeFriendlyBattlecry",
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
+    "TransformToHigherTierEffect",
+    "SellFriendlyForStatsEffect",
     "GrantKeywordAllFriendlyOfTribe",
     "BloodGemTarget",
     "GainBloodGemsEffect",

@@ -86,6 +86,7 @@
       "RetriggerFriendlyAbilityEffect",
       "RewardAtDamageDealtEffect",
       "SelfBonusPerGameCount",
+      "SellFriendlyForStatsEffect",
       "SellValueEffect",
       "SetArmorEffect",
       "SetStatsEffect",
@@ -97,6 +98,7 @@
       "SummonGemGolemEffect",
       "SummonSelfCopyFromHandEffect",
       "SummonStashedEffect",
+      "TransformToHigherTierEffect",
       "TriggerLeftmostDeathrattleEffect",
       "TriplesWithAnyOfTribeEffect"
     ],

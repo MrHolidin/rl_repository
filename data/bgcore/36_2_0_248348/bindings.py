@@ -31,6 +31,8 @@ from src.bg_core.effects import (
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
     MakeFriendlyGoldenEffect,
+    SellFriendlyForStatsEffect,
+    TransformToHigherTierEffect,
     ConsumeTavernMinionEffect,
     DamageFromOwnAttackEffect,
     GrantCombinedChooseOneEffect,
@@ -2305,6 +2307,25 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_PLACE,
             AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
         ),
+    ),
+    # ------------------------------- a body traded for what it becomes
+    "BG28_830": (  # Golden Touch — a random minion on the counter goes Golden
+        Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect(in_tavern=True)),
+    ),
+    "EBG_Spell_017": (  # Eyes of the Earth Mother — a friendly Tier 4 or below
+        Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect(max_tier=4)),
+    ),
+    "BG30_804": (  # Robust Evolution — a Tier higher, keeping its stats
+        Ability(Trigger.ON_PLACE, TransformToHigherTierEffect()),
+    ),
+    "BG33_899": (  # Mounting Avalanche — sold, and your left-most Elemental grows
+        Ability(
+            Trigger.ON_PLACE,
+            SellFriendlyForStatsEffect(recipient_tribe=Race.ELEMENTAL, leftmost=True),
+        ),
+    ),
+    "EBG_Spell_032": (  # Channel the Devourer — sold, and a random friendly grows
+        Ability(Trigger.ON_PLACE, SellFriendlyForStatsEffect()),
     ),
     "BG28_606": (  # Spitescale Special — three random Spellcraft spells
         Ability(

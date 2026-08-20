@@ -59,7 +59,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 24
+    assert len(inert) <= 19
 
 
 def test_defenders_rites(patch):
@@ -321,3 +321,133 @@ def test_spitescale_special_draws_from_the_spellcraft_pool(patch):
     assert len(got) == 3
     assert all(c.card_id in spellcraft_spell_ids(patch) for c in got)
     assert not any(patch.tavern_spells[c.card_id].in_pool for c in got)
+
+
+# ------------------------------- a body traded for what it becomes
+
+
+def _inert(patch, card_id="BGS_119"):
+    """A body with no text of its own — Crackling Cyclone is keywords only.
+
+    Worth insisting on: the first draft of these probes used Charging Czarina,
+    whose "whenever you cast a Tavern spell" buffs the board every time and
+    made every number below look wrong.
+    """
+    return patch.make_minion(card_id)
+
+
+def test_golden_touch_makes_a_tavern_minion_golden(patch):
+    offer = _inert(patch)
+    player = _player(patch)
+    player.shop[0] = offer
+    printed = patch.templates[offer.card_id]
+    _cast(patch, "BG28_830", player)
+    assert offer.is_golden
+    assert offer.raw_attack == printed.base_attack * 2
+    assert offer.max_health == printed.base_health * 2
+
+
+def test_a_golden_offer_takes_the_two_copies_it_now_stands_for(patch):
+    """The slot reserved one when it was filled; clearing it releases three."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+
+    pool = build_initial_shared_pool(patch=patch)
+    offer = _inert(patch)
+    player = _player(patch)
+    player.shop[0] = offer
+    before = pool.remaining_copies(offer.card_id)
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_830"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        shared_pool=pool,
+    )
+    assert pool.remaining_copies(offer.card_id) == before - 2
+
+
+def test_a_made_golden_keeps_the_plain_card_id(patch):
+    """A forged Golden carries it, and the pool and the triple scan are keyed
+    on it — ``is_golden`` is the whole difference between the printings."""
+    from src.bg_recruitment.targeted_battlecry import make_golden
+
+    body = _inert(patch)
+    make_golden(body, patch=patch)
+    assert body.is_golden and body.card_id == "BGS_119"
+
+
+def test_eyes_of_the_earth_mother_respects_the_printed_cap(patch):
+    low = _inert(patch)  # Tier 1
+    player = _player(patch, [low])
+    _cast(patch, "EBG_Spell_017", player, low)
+    assert low.is_golden
+
+    high = patch.make_minion("BG25_354")  # Tier 5
+    player = _player(patch, [high])
+    _cast(patch, "EBG_Spell_017", player, high)
+    assert not high.is_golden
+
+
+def test_robust_evolution_keeps_the_stats_and_takes_the_card(patch):
+    body = _inert(patch)
+    body.bonus_attack, body.bonus_health = 10, 10
+    attack, health = body.raw_attack, body.max_health
+    _cast(patch, "BG30_804", _player(patch, [body]), body)
+    assert body.card_id != "BGS_119"
+    assert patch.templates[body.card_id].tier == 2
+    assert (body.raw_attack, body.max_health) == (attack, health)
+
+
+def test_robust_evolution_on_a_tier_seven_body_does_nothing(patch):
+    top = next(c for c in patch.pool_ids if patch.templates[c].tier == 7)
+    body = patch.make_minion(top)
+    _cast(patch, "BG30_804", _player(patch, [body]), body)
+    assert body.card_id == top
+
+
+def test_mounting_avalanche_sells_and_pays_the_left_most_elemental(patch):
+    elemental = next(
+        c for c in patch.pool_ids if patch.templates[c].race is Race.ELEMENTAL
+    )
+    left, right = patch.make_minion(elemental), patch.make_minion(elemental)
+    victim = _inert(patch)
+    victim.bonus_attack, victim.bonus_health = 5, 5
+    attack, health = victim.raw_attack, victim.max_health
+    printed = patch.templates[elemental]
+    player = _player(patch, [left, victim, right])
+    gold = player.gold
+
+    _cast(patch, "BG33_899", player, victim)
+    assert victim not in player.board
+    assert player.gold == gold + 1  # sold, not destroyed
+    assert (left.raw_attack, left.max_health) == (
+        printed.base_attack + attack,
+        printed.base_health + health,
+    )
+    assert (right.raw_attack, right.max_health) == (
+        printed.base_attack,
+        printed.base_health,
+    )
+
+
+def test_mounting_avalanche_still_sells_with_no_elemental_to_pay(patch):
+    victim, other = _inert(patch), _inert(patch)
+    player = _player(patch, [victim, other])
+    gold = player.gold
+    _cast(patch, "BG33_899", player, victim)
+    assert player.board == [other]
+    assert player.gold == gold + 1
+
+
+def test_channel_the_devourer_pays_a_friendly_that_is_left(patch):
+    victim, heir = _inert(patch), _inert(patch)
+    victim.bonus_attack, victim.bonus_health = 7, 7
+    attack, health = victim.raw_attack, victim.max_health
+    printed = patch.templates[heir.card_id]
+    player = _player(patch, [victim, heir])
+    _cast(patch, "EBG_Spell_032", player, victim)
+    assert player.board == [heir]
+    assert (heir.raw_attack, heir.max_health) == (
+        printed.base_attack + attack,
+        printed.base_health + health,
+    )

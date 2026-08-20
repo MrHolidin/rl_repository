@@ -37,8 +37,11 @@ from src.bg_core.effects import (
     DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
+    MakeFriendlyGoldenEffect,
     MultiplierKind,
     RaiseStandingBonusEffect,
+    SellFriendlyForStatsEffect,
+    TransformToHigherTierEffect,
     StealTavernMinionEffect,
     Trigger,
 )
@@ -473,6 +476,63 @@ def _apply_spell_effect(
         )
         return
 
+    if isinstance(effect, MakeFriendlyGoldenEffect):
+        from src.bg_recruitment.targeted_battlecry import make_golden
+
+        if effect.in_tavern:
+            # "a **random** minion in the Tavern" — the seat names nobody.
+            filled = [i for i, m in enumerate(player.shop) if m is not None]
+            if not filled:
+                return
+            offer = player.shop[filled[int(rng.integers(0, len(filled)))]]
+            # A Golden offer is three copies of the card standing on the
+            # counter, and the slot reserved one when it was filled. Take the
+            # other two first: clearing the slot later releases as many as the
+            # body is worth, so a Golden the lobby could not cover would hand
+            # back copies that were never lent.
+            if _reserve_golden_upgrade(shared_pool, offer):
+                make_golden(offer, patch=patch)
+            return
+        chosen = target if target is not None else _random_friendly(player, rng)
+        if chosen is None:
+            return
+        if effect.max_tier and chosen.tier > effect.max_tier:
+            return
+        make_golden(chosen, patch=patch)
+        return
+
+    if isinstance(effect, TransformToHigherTierEffect):
+        from src.bg_recruitment.faceless import transform_to_higher_tier
+
+        chosen = target if target is not None else _random_friendly(player, rng)
+        if chosen is None:
+            return
+        transform_to_higher_tier(
+            chosen,
+            rng=rng,
+            patch=patch,
+            tiers_up=effect.tiers_up,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )
+        return
+
+    if isinstance(effect, SellFriendlyForStatsEffect):
+        from .shop_triggers import ShopTriggers as _ShopTriggers
+        from src.bg_recruitment.targeted_battlecry import apply_sell_friendly_for_stats
+
+        victim = target if target in player.board else _random_friendly(player, rng)
+        apply_sell_friendly_for_stats(
+            player,
+            victim,
+            effect,
+            rng=rng,
+            triggers=_ShopTriggers(rng, patch=patch),
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )
+        return
+
     if isinstance(effect, BuffAllShopOffersEffect):
         extra_attack, extra_health = tavern_spell_bonus(player)
         effect = replace(
@@ -585,6 +645,37 @@ def _apply_spell_effect(
         shop_excluded_race=shop_excluded_race,
         shared_pool=shared_pool,
     )
+
+
+def _random_friendly(player: PlayerState, rng: np.random.Generator) -> Optional[Minion]:
+    """A friendly at random — what a targeted spell falls back to with no pick.
+
+    Same arrangement every other targeted effect has: the seat's choice when it
+    made one, a legal target otherwise.
+    """
+    if not player.board:
+        return None
+    return player.board[int(rng.integers(0, len(player.board)))]
+
+
+def _reserve_golden_upgrade(shared_pool, offer: Minion) -> bool:
+    """Take the two extra copies a made-Golden offer would stand for.
+
+    Whether the lobby can cover them, in other words. With no pool to ask the
+    answer is yes: a seat playing without shared accounting has nothing to run
+    out of. Anything taken is put back when the answer is no, so a refusal
+    leaves the ledger where it was.
+    """
+    if shared_pool is None:
+        return True
+    taken = 0
+    while taken < 2 and shared_pool.try_reserve_offer(offer.card_id):
+        taken += 1
+    if taken == 2:
+        return True
+    if taken:
+        shared_pool.release_offer(offer.card_id, taken)
+    return False
 
 
 def _positional_targets(player: PlayerState, source: Minion, effect) -> List[Minion]:
