@@ -38,8 +38,11 @@ from src.bg_core.effects import (
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
     MakeFriendlyGoldenEffect,
+    BloodGemsOnEveryRefreshEffect,
     MultiplierKind,
     PromiseNextTurnEffect,
+    RefreshWithTavernSpellsEffect,
+    RefreshWithTribeEffect,
     RaiseStandingBonusEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
@@ -155,6 +158,7 @@ def offer_tavern_spells(
     rng: np.random.Generator,
     patch: PatchContext,
     card_ids: Optional[Sequence[str]] = None,
+    count: Optional[int] = None,
 ) -> Tuple[SpellCard, ...]:
     """Put this tavern's Tavern spells on the counter.
 
@@ -169,7 +173,10 @@ def offer_tavern_spells(
     """
     ctx = require_patch(patch, where="tavern_spells.offer_tavern_spells")
     if card_ids is None:
-        want = max(0, int(player.ruleset.tavern_spells_per_roll))
+        want = max(
+            0,
+            int(player.ruleset.tavern_spells_per_roll if count is None else count),
+        )
         pool = tavern_spell_pool(player.tavern_tier, patch=ctx)
         picks: List[str] = []
         for _ in range(min(want, len(pool))):
@@ -481,6 +488,37 @@ def _apply_spell_effect(
             effect.attack,
             effect.health,
         )
+        return
+
+    if isinstance(effect, RefreshWithTavernSpellsEffect):
+        from src.bg_recruitment.shop import clear_shop_slot, effective_shop_offers_count
+
+        # The minion row goes back to the lobby, and the counter shows as many
+        # spells as it was showing cards.
+        want = effective_shop_offers_count(player)
+        for slot in range(len(player.shop)):
+            clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
+        offer_tavern_spells(player, rng=rng, patch=patch, count=want)
+        return
+
+    if isinstance(effect, RefreshWithTribeEffect):
+        from src.bg_recruitment.shop import refresh_shop
+
+        if target is None or target.race is None:
+            return
+        refresh_shop(
+            player,
+            shop_excluded_race,
+            rng=rng,
+            shared_pool=shared_pool,
+            frozen_slots=player.shop_frozen,
+            patch=patch,
+            tribe=target.race,
+        )
+        return
+
+    if isinstance(effect, BloodGemsOnEveryRefreshEffect):
+        player.refresh_blood_gems += max(1, int(effect.count))
         return
 
     if isinstance(effect, PromiseNextTurnEffect):

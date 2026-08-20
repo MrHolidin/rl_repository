@@ -168,6 +168,10 @@ class PlayerState:
     #: promises, as ``(attack, health)`` pairs. A tuple, so a seat copy does not
     #: share the list.
     refresh_buffs: Tuple[Tuple[int, int], ...] = ()
+    #: Blood Gems played on every minion the Tavern shows, after every roll,
+    #: for the rest of the game (Blood Gem Barrage). A count rather than a list
+    #: because the promises are identical and only ever add up.
+    refresh_blood_gems: int = 0
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.

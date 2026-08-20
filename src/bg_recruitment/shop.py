@@ -284,6 +284,7 @@ def fill_shop_slot(
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
+    tribe: Optional[Race] = None,
 ) -> None:
     """Roll one offer into ``slot``, then square it with everything the seat
     owes a minion that has just arrived.
@@ -306,6 +307,7 @@ def fill_shop_slot(
         rng=rng,
         shared_pool=shared_pool,
         patch=patch,
+        tribe=tribe,
     )
     settle_standing_bonuses(player)
     refresh_count_bonuses(player)
@@ -319,10 +321,12 @@ def _roll_shop_slot(
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
+    tribe: Optional[Race] = None,
 ) -> None:
     """Roll one offer into ``slot``; shared pool reserves on display."""
-    # Ysera: the extra slot(s) beyond the tier's base count are always Dragons.
-    forced_tribe = _hero_forced_slot_tribe(player, slot)
+    # The card that named a tribe for the whole counter outranks the hero's
+    # own extra slot: it asked for this roll, and it asked for one type.
+    forced_tribe = tribe or _hero_forced_slot_tribe(player, slot)
     if forced_tribe is not None and _fill_forced_tribe_slot(
         player, slot, forced_tribe, shop_excluded_race, rng=rng, shared_pool=shared_pool, patch=patch
     ):
@@ -389,8 +393,13 @@ def refresh_shop(
     shared_pool: Optional[SharedCardPool] = None,
     frozen_slots: Optional[Sequence[bool]] = None,
     patch: PatchContext,
+    tribe: Optional[Race] = None,
 ) -> None:
     """Full reroll of active offer slots (frozen slots kept).
+
+    ``tribe`` is the card that names one for the whole counter ("Refresh the
+    Tavern with minions of its type"), and outranks the hero's own forced slot
+    for the roll it asked for.
 
     A new tavern also puts a Tavern spell on the counter, *beside* the minions
     rather than in place of one: a tier-1 tavern shows three minions and a
@@ -420,11 +429,13 @@ def refresh_shop(
                 rng=rng,
                 shared_pool=shared_pool,
                 patch=patch,
+                tribe=tribe,
             )
     # After the roll, not before: the fill above would have rolled straight
     # over a promised card.
     _pay_refresh_promises(player, n, frozen, shared_pool=shared_pool, patch=patch)
     _pay_refresh_buffs(player, rng=rng)
+    _pay_refresh_blood_gems(player, patch=patch)
 
 
 def _pay_refresh_buffs(player: PlayerState, *, rng: np.random.Generator) -> None:
@@ -438,6 +449,24 @@ def _pay_refresh_buffs(player: PlayerState, *, rng: np.random.Generator) -> None
         target = player.shop[filled[int(rng.integers(0, len(filled)))]]
         target.bonus_attack += attack
         target.bonus_health += health
+
+
+def _pay_refresh_blood_gems(player: PlayerState, *, patch: PatchContext) -> None:
+    """Play the promised Gems on everything the new Tavern shows.
+
+    Gems rather than plain stats, which is what "+1/+1 worth of Blood Gems"
+    says: the cards that count Gems on a body, and the Quilboar printings a Gem
+    can carry, both need these to be the real thing.
+    """
+    if player.refresh_blood_gems <= 0:
+        return
+    from src.bg_recruitment.blood_gems import play_blood_gem_on
+
+    for offer in player.shop:
+        if offer is not None:
+            play_blood_gem_on(
+                player, offer, count=player.refresh_blood_gems, patch=patch
+            )
 
 
 def _pay_refresh_promises(

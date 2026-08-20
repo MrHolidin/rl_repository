@@ -898,6 +898,38 @@ class MakeFriendlyGoldenEffect:
 
 
 @dataclass(frozen=True)
+class RefreshWithTavernSpellsEffect:
+    """Roll the Tavern, and let what it shows be Tavern spells.
+
+    The minion row goes back to the pool and the counter offers as many spells
+    as it was showing cards. One number rather than two, because the spell slot
+    beside the minion row is part of the Tavern as well and this refreshes all
+    of it.
+    """
+
+
+@dataclass(frozen=True)
+class RefreshWithTribeEffect:
+    """Roll the Tavern with every offer of one tribe.
+
+    The tribe is the chosen minion's, so there is nothing to roll without one —
+    and nothing to roll for a minion with no type.
+    """
+
+
+@dataclass(frozen=True)
+class BloodGemsOnEveryRefreshEffect:
+    """From now on, every Tavern roll plays Blood Gems on what it shows.
+
+    "After the Tavern is Refreshed **this game**" — a standing promise on the
+    seat, the same shape as the buff-one-minion version beside it, and Gems
+    rather than stats because the cards that count Gems should see these.
+    """
+
+    count: int = 1
+
+
+@dataclass(frozen=True)
 class PromiseNextTurnEffect:
     """Hold an effect until the start of the seat's own next turn.
 
@@ -2371,6 +2403,9 @@ __all__ = [
     "TransformIntoShopMinionEffect",
     "TransformToHigherTierEffect",
     "PromiseNextTurnEffect",
+    "RefreshWithTavernSpellsEffect",
+    "RefreshWithTribeEffect",
+    "BloodGemsOnEveryRefreshEffect",
     "SetEnemyHealthEffect",
     "MultiplyFriendlyAttackEffect",
     "GainNearestEnemyStatsEffect",

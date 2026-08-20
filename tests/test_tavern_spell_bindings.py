@@ -60,7 +60,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 13
+    assert len(inert) <= 10
 
 
 def test_defenders_rites(patch):
@@ -618,3 +618,76 @@ def test_time_management_takes_its_pay_now_or_twice_later(patch):
     assert (later.raw_attack, later.max_health) == (1, 1)
     _turn_start(patch, player)
     assert (later.raw_attack, later.max_health) == (5, 5)
+
+
+# ------------------------------------- rolling the Tavern sideways
+
+
+def _rolled(patch, player, seed=0, pool=None):
+    from src.bg_recruitment.shop import refresh_shop
+
+    refresh_shop(
+        player, None, rng=np.random.default_rng(seed), shared_pool=pool, patch=patch
+    )
+    return player
+
+
+def test_saloons_finest_puts_spells_where_the_minions_were(patch):
+    player = _rolled(patch, _player(patch))
+    assert sum(1 for m in player.shop if m is not None) > 0
+    _cast(patch, "BG28_849", player)
+    assert all(m is None for m in player.shop)
+    assert len(player.tavern_spell_offers) == 6
+
+
+def test_saloons_finest_gives_the_minions_back_to_the_lobby(patch):
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _rolled(patch, _player(patch), pool=pool)
+    offered = [m.card_id for m in player.shop if m is not None]
+    before = {cid: pool.remaining_copies(cid) for cid in offered}
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_849"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        shared_pool=pool,
+    )
+    for cid in set(offered):
+        assert pool.remaining_copies(cid) == before[cid] + offered.count(cid)
+
+
+def test_lost_staff_rolls_a_counter_of_one_type(patch):
+    player = _rolled(patch, _player(patch), seed=1)
+    target = _m("mine", 1, 1)
+    target.race = Race.MURLOC
+    player.board.append(target)
+    _cast(patch, "EBG_Spell_038", player, target)
+    offers = [m for m in player.shop if m is not None]
+    assert offers
+    assert all(m.race is Race.MURLOC for m in offers)
+
+
+def test_lost_staff_aimed_at_a_tribeless_minion_rolls_nothing(patch):
+    player = _rolled(patch, _player(patch), seed=1)
+    before = [m.card_id for m in player.shop if m is not None]
+    target = _m("mine", 1, 1)
+    player.board.append(target)
+    _cast(patch, "EBG_Spell_038", player, target)
+    assert [m.card_id for m in player.shop if m is not None] == before
+
+
+def test_blood_gem_barrage_pays_every_later_roll(patch):
+    player = _player(patch)
+    _cast(patch, "BG34_689", player)
+    assert player.refresh_blood_gems == 1
+    for seed in (2, 3):
+        _rolled(patch, player, seed=seed)
+        offers = [m for m in player.shop if m is not None]
+        assert offers
+        for offer in offers:
+            printed = patch.templates[offer.card_id]
+            assert offer.raw_attack == printed.base_attack + 1
+            # Gems, not stats: the cards that count them have to see these.
+            assert (offer.blood_gem_attack, offer.blood_gem_health) == (1, 1)

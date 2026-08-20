@@ -30,10 +30,13 @@ from src.bg_core.effects import (
     GiveOwnStatsToHandEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
+    BloodGemsOnEveryRefreshEffect,
     Condition,
     ConditionKind,
     GainNearestEnemyStatsEffect,
     PromiseNextTurnEffect,
+    RefreshWithTavernSpellsEffect,
+    RefreshWithTribeEffect,
     MakeFriendlyGoldenEffect,
     MultiplyFriendlyAttackEffect,
     SetEnemyHealthEffect,
@@ -2314,6 +2317,17 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
         ),
     ),
+    # ------------------------------------- rolling the Tavern sideways
+    "BG28_849": (  # Saloon's Finest — the counter shows Tavern spells
+        Ability(Trigger.ON_PLACE, RefreshWithTavernSpellsEffect()),
+    ),
+    "EBG_Spell_038": (  # Lost Staff of Hamuul — a counter of one chosen type
+        Ability(Trigger.ON_PLACE, RefreshWithTribeEffect()),
+    ),
+    "BG34_689": (  # Blood Gem Barrage — every later roll, Gems on the counter
+        Ability(Trigger.ON_PLACE, BloodGemsOnEveryRefreshEffect(count=1)),
+    ),
+
     # ------------------------------ promises that come due next turn
     "BG28_884": (  # Overconfidence — 3 Gold on a win, 1 on a tie
         Ability(
