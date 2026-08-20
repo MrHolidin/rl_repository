@@ -44,7 +44,7 @@ def build_summon_pool(
     patch_dir: str,
     keyword_name: Optional[str] = None,
 ) -> tuple[str, ...]:
-    from src.bg_catalog.patch_catalog import load_tavern_minions
+    from src.bg_catalog.patch_catalog import is_duos_only_card_id, load_tavern_minions
 
     ctx = PatchContext.load(Path(patch_dir))
     catalog = ctx.patch_dir / "catalog.json"
@@ -54,6 +54,11 @@ def build_summon_pool(
         if not rec.is_bacon_pool or rec.is_golden:
             continue
         if cid in ctx.token_ids or cid in ctx.golden_reward_ids:
+            continue
+        if is_duos_only_card_id(cid):
+            # The same filter PatchContext applies when it builds templates. A
+            # Duos card has none, so rolling one here is a summon of something
+            # that cannot be made — which is how Ghastcoiler took a fight down.
             continue
         if exclude_card_id is not None and cid == exclude_card_id:
             continue

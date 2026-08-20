@@ -975,6 +975,12 @@ def _fire_rally(
             _raise_standing_bonus(rt, attacker_side_idx, eff, source=attacker)
         elif isinstance(eff, IncreaseTavernSpellBonusEffect):
             rt.seats[attacker_side_idx].raise_tavern_spell_bonus(eff.attack, eff.health)
+        elif isinstance(eff, IncreaseTribeGiftEffect):
+            # "Rally: your Elementals give an extra +1/+2 this game" — owed to
+            # the seat, and to Elementals it has not played yet.
+            rt.seats[attacker_side_idx].raise_tribe_gift(
+                eff.tribe, eff.attack, eff.health
+            )
         elif isinstance(eff, IncreaseBloodGemBonusEffect):
             # "Rally: Your Blood Gems give an extra +1/+1 this game" — raised
             # mid-combat, and a permanent Gem played after it is worth more.
