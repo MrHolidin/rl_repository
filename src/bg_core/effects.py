@@ -91,8 +91,17 @@ class ConditionKind(Enum):
 
 @dataclass(frozen=True)
 class Condition:
+    """A precondition on an ability.
+
+    ``negate`` reads the same test the other way ("if you **lost** your last
+    combat"). A field rather than a second ConditionKind: that enum sizes an
+    embedding table every trained network carries, and an inverse is not a new
+    question.
+    """
+
     kind: ConditionKind
     tribe: Optional[Any] = None
+    negate: bool = False
 
 
 @dataclass(frozen=True)
@@ -480,6 +489,11 @@ class MultiplierKind(Enum):
     DEATHRATTLE = auto()
     #: Khadgar: summon iterations, both phases
     SUMMON = auto()
+    #: Drakkari Enchanter: ON_TURN_END executions, shop only
+    END_OF_TURN = auto()
+    #: Balinda Stonehearth: casts of a spell aimed at a friendly minion, shop
+    #: only — a spell cast from inside a fight has no seat to aim from.
+    TARGETED_SPELL = auto()
 
 
 @dataclass(frozen=True)
@@ -676,7 +690,12 @@ class AddRandomTavernSpellToHandEffect:
 
 @dataclass(frozen=True)
 class DiscoverTavernSpellEffect:
-    """"Discover a Tavern spell" — three offered, the seat keeps one."""
+    """"Discover a Tavern spell" — three offered, the seat keeps one.
+
+    ``repeats`` is the Golden that opens the modal twice.
+    """
+
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
@@ -693,7 +712,12 @@ class CastRandomTavernSpellEffect:
 @dataclass(frozen=True)
 class CopyLastTavernSpellEffect:
     """"Get a copy of the last Tavern spell you cast." Nothing cast, nothing
-    copied — the seat remembers which one, not that one was cast."""
+    copied — the seat remembers which one, not that one was cast.
+
+    ``count`` is the Golden that hands over two of them.
+    """
+
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -1155,6 +1179,57 @@ class DevourNeighbourEffect:
 @dataclass(frozen=True)
 class SummonStashedEffect:
     """Deathrattle: summon back whatever this body stashed (Stitched Salvager)."""
+
+
+@dataclass(frozen=True)
+class SellValueEffect:
+    """What this minion sells for, when the card prints a price of its own.
+
+    Freedealing Gambler prints one flat; Tortollan Blue Shell prints one behind
+    a condition, which is why this is an ability rather than the plain
+    ``Minion.sell_value`` field the catalog text fills in.
+    """
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class SetStatsEffect:
+    """Set a friendly's stats outright ("set another minion's stats to 40/40").
+
+    Not a buff: what the body was is discarded, which is the whole point on a
+    1/1 and the whole cost on a 60/60.
+    """
+
+    attack: int = 0
+    health: int = 0
+    exclude_self: bool = True
+
+
+@dataclass(frozen=True)
+class GainTargetAttackEffect:
+    """Rally: take the Attack of whoever this is swinging at (Heroic Underdog).
+
+    ``factor`` is the Golden's "double the target's Attack".
+    """
+
+    factor: int = 1
+
+
+@dataclass(frozen=True)
+class StripKeywordsFromTargetEffect:
+    """Rally: take keywords off the minion this is swinging at.
+
+    Sin'dorei Straight Shot removes Reborn and Taunt, which is a removal and
+    not a grant: the target keeps everything else it had.
+    """
+
+    keywords: tuple = ()
+
+
+@dataclass(frozen=True)
+class DestroyKillerEffect:
+    """Deathrattle: destroy whatever killed this (Leeroy the Reckless)."""
 
 
 @dataclass(frozen=True)
@@ -1820,6 +1895,11 @@ Effect = Union[
     GiveOwnStatsToSummonedEffect,
     TriggerLeftmostDeathrattleEffect,
     BuffFromSubjectAttackEffect,
+    DestroyKillerEffect,
+    StripKeywordsFromTargetEffect,
+    GainTargetAttackEffect,
+    SetStatsEffect,
+    SellValueEffect,
     SummonStashedEffect,
     DevourNeighbourEffect,
     RaiseGoldCapEffect,
@@ -2009,6 +2089,11 @@ __all__ = [
     "GiveOwnStatsToSummonedEffect",
     "TriggerLeftmostDeathrattleEffect",
     "BuffFromSubjectAttackEffect",
+    "DestroyKillerEffect",
+    "StripKeywordsFromTargetEffect",
+    "GainTargetAttackEffect",
+    "SetStatsEffect",
+    "SellValueEffect",
     "SummonStashedEffect",
     "DevourNeighbourEffect",
     "RaiseGoldCapEffect",

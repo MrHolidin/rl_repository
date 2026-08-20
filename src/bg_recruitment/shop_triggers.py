@@ -906,14 +906,15 @@ class ShopTriggers:
             # every later turn hands you another (fire_on_turn_start).
             give_spellcraft_spell(player, effect)
         elif isinstance(effect, AddRandomMinionToHandEffect):
-            add_random_minion_to_hand(
-                player,
-                effect.tribe,
-                shop_excluded_race,
-                rng=self._rng,
-                patch=self._patch,
-                tier=effect.tier,
-            )
+            for _ in range(max(1, effect.count)):
+                add_random_minion_to_hand(
+                    player,
+                    effect.tribe,
+                    shop_excluded_race,
+                    rng=self._rng,
+                    patch=self._patch,
+                    tier=effect.tier,
+                )
         elif isinstance(effect, GainBloodGemsEffect):
             give_blood_gems(
                 player, effect.count, quilboar_keyword=effect.quilboar_keyword
@@ -1301,6 +1302,14 @@ class ShopTriggers:
     def fire_on_turn_end(self, player: PlayerState) -> None:
         # A Spellcraft spell is worth exactly the turn it was made for.
         discard_spellcraft_spells(player)
+        # "Your end of turn effects trigger twice" (Drakkari Enchanter) — read
+        # once, before anything fires, so a card that leaves the board partway
+        # through does not change how often the rest of the pass runs.
+        times = multiplier_for(player.board, MultiplierKind.END_OF_TURN)
+        for _ in range(max(1, times)):
+            self._fire_on_turn_end_pass(player)
+
+    def _fire_on_turn_end_pass(self, player: PlayerState) -> None:
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_END:

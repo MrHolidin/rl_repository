@@ -97,6 +97,12 @@ def _ability_token_vocabularies() -> Dict[str, Any]:
         "NUM_KEYWORD_IDS": int(obs_v5.NUM_KEYWORD_IDS),
         "unencoded_effects": sorted(minibg_obs.UNENCODED_EFFECTS),
         "unencoded_triggers": sorted(minibg_obs.UNENCODED_TRIGGERS),
+        # One variant of an otherwise-encoded effect. Pinned for the mirror
+        # reason the lists above are: quietly *encoding* one grows the table.
+        "unencoded_effect_variants": sorted(
+            f"{cls.__name__}.{variant.name}"
+            for cls, variant in minibg_obs.UNENCODED_EFFECT_VARIANTS
+        ),
     }
 
 

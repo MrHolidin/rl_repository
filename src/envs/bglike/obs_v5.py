@@ -45,6 +45,7 @@ from src.envs.minibg.obs import (
     RACE_ONEHOT_DIM,
     TRIGGER_INDEX,
     UNENCODED_EFFECTS,
+    UNENCODED_EFFECT_VARIANTS,
     UNENCODED_TRIGGERS,
     _RACE_ORDER,
     effect_signature,
@@ -171,10 +172,13 @@ def _effect_id(effect_obj) -> int:
     collapse to the padding id and be silently masked out of attention, so we
     fail loudly instead. ``_EFFECT_CLASSES`` is kept complete by the import-time
     guard in ``minibg.obs``."""
-    idx = EFFECT_INDEX.get(effect_signature(effect_obj))
+    sig = effect_signature(effect_obj)
+    idx = EFFECT_INDEX.get(sig)
     if idx is None:
         if type(effect_obj).__name__ in UNENCODED_EFFECTS:
             return 0  # deliberately outside the frozen vocabulary
+        if sig in UNENCODED_EFFECT_VARIANTS:
+            return 0  # one variant of an otherwise-encoded effect
         raise KeyError(
             f"effect {type(effect_obj).__name__} not in EFFECT_INDEX; "
             "add it to _EFFECT_CLASSES (minibg.obs), or to UNENCODED_EFFECTS "

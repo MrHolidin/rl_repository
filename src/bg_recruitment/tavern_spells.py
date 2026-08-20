@@ -37,10 +37,11 @@ from src.bg_core.effects import (
     DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
+    MultiplierKind,
     StealTavernMinionEffect,
     Trigger,
 )
-from src.bg_core.board_helpers import minion_matches_tribe
+from src.bg_core.board_helpers import minion_matches_tribe, multiplier_for
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerPhase, PlayerState
@@ -109,8 +110,23 @@ def spell_gives_stats(spell: SpellCard) -> bool:
 
 
 def tavern_spell_bonus(player: PlayerState) -> Tuple[int, int]:
-    """Extra stats this seat's Tavern spells hand out beyond the printed ones."""
-    return (int(player.tavern_spell_bonus_attack), int(player.tavern_spell_bonus_health))
+    """Extra stats this seat's Tavern spells hand out beyond the printed ones.
+
+    Two sources, added: what the seat has banked "this game" (Intrepid Botanist
+    and its kin, which keep paying after the card is gone) and what a body
+    standing on the board says right now (Humon'gozz, which stops the moment it
+    is sold — an aura, not a promise).
+    """
+    attack = int(player.tavern_spell_bonus_attack)
+    health = int(player.tavern_spell_bonus_health)
+    for minion in player.board:
+        for ab in minion.abilities:
+            if ab.trigger is Trigger.AURA and isinstance(
+                ab.effect, IncreaseTavernSpellBonusEffect
+            ):
+                attack += int(ab.effect.attack)
+                health += int(ab.effect.health)
+    return (attack, health)
 
 
 def effective_tavern_spell_cost(player: PlayerState, spell: SpellCard) -> int:
@@ -264,10 +280,14 @@ def cast_tavern_spell(
     Everything that follows a cast — the seat's spell bonus, the memory of
     which one it was, the listeners — belongs to the cast, not to the hand.
     """
-    # "Your Bounties cast twice" — the card is unchanged and the cast is what
-    # happens twice, so the whole resolution repeats rather than the numbers
-    # doubling.
+    # "Your Bounties cast twice", "your spells that target friendly minions
+    # cast twice" — the card is unchanged and the cast is what repeats, so the
+    # whole resolution runs again rather than the numbers doubling. Both read
+    # at once, and they compose: a Bounty aimed at a friendly under Balinda
+    # casts four times.
     times = 2 if (player.bounties_cast_twice and card.card_id in patch.bounty_ids) else 1
+    if target is not None:
+        times *= max(1, multiplier_for(player.board, MultiplierKind.TARGETED_SPELL))
     for _ in range(times):
         _resolve_spell_abilities(
             player,
@@ -435,7 +455,8 @@ def _apply_spell_effect(
     if isinstance(effect, CopyLastTavernSpellEffect):
         last = player.last_tavern_spell_cast
         if last is not None:
-            _give_spell(player, patch.tavern_spells.get(last))
+            for _ in range(max(1, effect.count)):
+                _give_spell(player, patch.tavern_spells.get(last))
         return
 
     if isinstance(effect, CastRandomTavernSpellEffect):
@@ -488,7 +509,9 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, DiscoverTavernSpellEffect):
-        open_tavern_spell_discover(player, rng=rng, patch=patch)
+        open_tavern_spell_discover(
+            player, rng=rng, patch=patch, repeats=effect.repeats
+        )
         return
 
     if isinstance(effect, DiscoverMinionAtTierEffect):
@@ -603,6 +626,7 @@ def open_tavern_spell_discover(
     *,
     rng: np.random.Generator,
     patch: PatchContext,
+    repeats: int = 1,
 ) -> bool:
     """"Discover a Tavern spell": three offered, the seat keeps one.
 
@@ -623,7 +647,7 @@ def open_tavern_spell_discover(
     for _ in range(3):
         picks.append(remaining.pop(int(rng.integers(0, len(remaining)))))
     return try_open_hand_discover_modal(
-        player, PendingChoiceKind.SPELL_DISCOVER, tuple(picks), 0
+        player, PendingChoiceKind.SPELL_DISCOVER, tuple(picks), max(1, repeats) - 1
     )
 
 

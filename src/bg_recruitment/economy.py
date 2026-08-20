@@ -20,12 +20,28 @@ from src.envs.minibg.actions import (
 from src.bg_lobby.player import PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
 
+from src.bg_core.conditions import condition_met
+from src.bg_core.effects import SellValueEffect, Trigger
+
 from .hand_slots import first_free_hand_slot
 from .pool_ledger import on_sell_minion
 from .shop import clear_shop_slot, fill_shop_slot, refresh_shop, tavern_card_pool
 
 
-def effective_sell_reward(minion: Minion) -> int:
+def effective_sell_reward(minion: Minion, player: Optional[PlayerState] = None) -> int:
+    """What this minion is worth on the way out.
+
+    Three prices, most specific first: one the card prints behind a condition
+    (Tortollan Blue Shell, which needs the seat to answer it), one the card
+    prints flat, and the ruleset's.
+    """
+    for ab in minion.abilities:
+        if ab.trigger is not Trigger.AURA or not isinstance(ab.effect, SellValueEffect):
+            continue
+        if ab.condition is not None:
+            if player is None or not condition_met(ab.condition, player, player.board):
+                continue
+        return int(ab.effect.amount)
     if minion.sell_value is not None:
         return int(minion.sell_value)
     return SELL_REWARD
@@ -152,7 +168,7 @@ def sell_from_board(
         on_sell(sold, player)
     on_sell_minion(shared_pool, sold)
     del player.board[pos]
-    player.gold += effective_sell_reward(sold)
+    player.gold += effective_sell_reward(sold, player)
     on_triples(player)
 
 

@@ -25,6 +25,9 @@ from src.bg_core.effects import (
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
     BuffFromSubjectAttackEffect,
+    DestroyKillerEffect,
+    GainTargetAttackEffect,
+    StripKeywordsFromTargetEffect,
     DevourNeighbourEffect,
     SummonStashedEffect,
     BuffRandomOtherFriendlyCombat,
@@ -415,10 +418,16 @@ def _fire_friendly_kill_listeners(
 
 
 def _queue_random_combat_hand_add(
-    rt: _CombatRuntime, side_idx: int, tribe: Optional[Any]
+    rt: _CombatRuntime, side_idx: int, tribe: Optional[Any], tier: Optional[int] = None
 ) -> None:
+    """"Get a random <tribe> / Tier N minion", from inside a fight.
+
+    ``tier`` is not optional decoration: Highkeeper Ra prints "a random Tier 6
+    minion" and this used to hand over whatever the pool offered, which on a
+    Rally meant a Tier 3.
+    """
     race_hs = hs_race_string(tribe)
-    pool = summon_pool_for(None, False, False, race_hs, None, patch=rt.patch)
+    pool = summon_pool_for(tier, False, False, race_hs, None, patch=rt.patch)
     if not pool:
         return
     cid = pool[int(rt.rng.integers(0, len(pool)))]
@@ -550,7 +559,8 @@ def _apply_friendly_death_effect(
     elif isinstance(eff, AddRandomMinionToHandEffect):
         # "Avenge (4): Get a random Undead" — into the queue the seat empties
         # after the fight, the same route a Rally that fetches takes.
-        _queue_random_combat_hand_add(rt, side_idx, eff.tribe)
+        for _ in range(max(1, eff.count)):
+            _queue_random_combat_hand_add(rt, side_idx, eff.tribe, eff.tier)
     elif isinstance(eff, AddTavernSpellToHandEffect):
         for _ in range(max(1, eff.count)):
             rt.seats[side_idx].add_card_to_hand(eff.card_id)
@@ -734,19 +744,21 @@ def _summon_best_from_hand(
     A card that has been summoned this fight is locked and this looks past it,
     so a second Rally reaches the next-biggest rather than the same card twice.
     """
-    held = _hand_candidates(rt, side_idx, effect.filter_race)
-    if not held:
-        return
-    instance_id, card_id, attack, health = max(held, key=lambda row: row[2])
-    template = rt.patch.templates.get(card_id)
-    if template is None:
-        return
-    body = copy(template)
-    body.bonus_attack += max(0, attack - template.raw_attack)
-    body.bonus_health += max(0, health - template.max_health)
-    if _summon_beside(
-        rt, side_idx, source, SummonEffect(token_id=card_id, count=1), template=body
-    ):
+    for _ in range(max(1, effect.count)):
+        held = _hand_candidates(rt, side_idx, effect.filter_race)
+        if not held:
+            return
+        instance_id, card_id, attack, health = max(held, key=lambda row: row[2])
+        template = rt.patch.templates.get(card_id)
+        if template is None:
+            return
+        body = copy(template)
+        body.bonus_attack += max(0, attack - template.raw_attack)
+        body.bonus_health += max(0, health - template.max_health)
+        if not _summon_beside(
+            rt, side_idx, source, SummonEffect(token_id=card_id, count=1), template=body
+        ):
+            return
         rt.hand_summoned[side_idx].add(instance_id)
 
 
@@ -866,7 +878,10 @@ def _fire_rally(
         elif isinstance(eff, AddRandomMinionToHandEffect):
             # "Rally: Get a random Beast" — the card lands in hand after combat,
             # through the same queue a Deathrattle hand-add uses.
-            _queue_random_combat_hand_add(rt, attacker_side_idx, eff.tribe)
+            for _ in range(max(1, eff.count)):
+                _queue_random_combat_hand_add(
+                    rt, attacker_side_idx, eff.tribe, eff.tier
+                )
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
         elif isinstance(eff, AddRandomCardToHandEffect):
@@ -908,6 +923,23 @@ def _fire_rally(
                     hit += [i for i in (hit[0] - 1, hit[0] + 1) if 0 <= i < len(living)]
                 for i in sorted(set(hit)):
                     _deal_damage_to_battle_minion(rt, enemy_idx, living[i], amount)
+        elif isinstance(eff, GainTargetAttackEffect):
+            # "Rally: Gain the target's Attack" — read before the swing lands,
+            # so it is what the defender was worth when this went in.
+            gained = (target.raw_attack + target.aura_attack) * max(1, eff.factor)
+            attacker.bonus_attack += gained
+        elif isinstance(eff, StripKeywordsFromTargetEffect):
+            # A removal, so it goes straight at the body: nothing here grants,
+            # and the target keeps every keyword this one is not named on.
+            target.keywords = frozenset(k for k in target.keywords if k not in eff.keywords)
+            target.granted_keywords = frozenset(
+                k for k in target.granted_keywords if k not in eff.keywords
+            )
+            target.temp_keywords = frozenset(
+                k for k in target.temp_keywords if k not in eff.keywords
+            )
+            if Keyword.TAUNT in eff.keywords:
+                _mark_health_aura_dirty(rt, 1 - attacker_side_idx)
         elif isinstance(eff, GrantKeywordRandomFriendly):
             grant_keyword_random(
                 eff,
@@ -1227,6 +1259,26 @@ def _destroy_battle_minion(
     _sync_health_all(rt)
     _reap_side(rt, side_idx)
     _announce_deaths(rt)
+
+
+def _dr_destroy_killer(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: DestroyKillerEffect
+) -> None:
+    """"Deathrattle: Destroy the minion that killed this" (Leeroy).
+
+    The runtime already records who killed whom, for the cards that pay a
+    killer; this is the same book read for the opposite purpose. A body that
+    died to nothing in particular — a board wipe, an aura going away — leaves
+    no killer, and Leeroy takes nobody with him.
+    """
+    attr = rt.kill_attribution.get((side_idx, dead.instance_id))
+    if attr is None:
+        return
+    killer_side, killer_id = attr
+    killer = rt.find_minion(killer_side, killer_id)
+    if killer is None or not killer.alive:
+        return
+    _destroy_battle_minion(rt, killer_side, killer)
 
 
 def _dr_summon_best_from_hand(
@@ -1561,6 +1613,7 @@ _DEATHRATTLE_HANDLERS = {
     RaiseStandingBonusEffect: _dr_raise_standing_bonus,
     SummonStashedEffect: _dr_summon_stashed,
     SummonBestFromHandEffect: _dr_summon_best_from_hand,
+    DestroyKillerEffect: _dr_destroy_killer,
 }
 
 
@@ -1652,11 +1705,14 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
         rt.mech_hook(e.side_idx, copy(bm))
 
     _fire_friendly_minion_died_listeners(rt, bm, e.side_idx)
-    attr = rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
+    attr = rt.kill_attribution.get((e.side_idx, e.instance_id))
     if attr is not None:
         killer_side, killer_id = attr
         _fire_friendly_kill_listeners(rt, killer_side, killer_id)
+    # The entry survives until the deathrattle has run: Leeroy's reads the same
+    # book, for the opposite purpose, and used to find it already emptied.
     _fire_deathrattle(rt, bm, e.side_idx)
+    rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
     _try_reborn(rt, e.side_idx, bm)
     _sync_health_all(rt)
 

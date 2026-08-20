@@ -285,10 +285,16 @@ def race_from_hs_string(value: Optional[str]):
 
 
 _SELL_FOR_GOLD_RE = re.compile(r"sells?\s+for\s+(\d+)\s+Gold", re.IGNORECASE)
+#: "**If you lost your last combat**, this minion sells for 5 Gold" — a price
+#: behind a condition, which a flat field cannot hold. Those come from a
+#: ``SellValueEffect`` binding instead.
+_CONDITIONAL_SELL_RE = re.compile(r"\bif\b[^.]*sells?\s+for\s+\d+\s+Gold", re.IGNORECASE)
 
 
 def sell_value_from_catalog_text(text: Optional[str]) -> Optional[int]:
     if not text:
+        return None
+    if _CONDITIONAL_SELL_RE.search(text):
         return None
     m = _SELL_FOR_GOLD_RE.search(text)
     if m is None:

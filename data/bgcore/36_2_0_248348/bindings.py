@@ -127,6 +127,15 @@ from src.bg_core.effects import (
     DevourNeighbourEffect,
     SummonStashedEffect,
     AvengeEffect,
+    Multiplier,
+    MultiplierKind,
+    GainTargetAttackEffect,
+    StripKeywordsFromTargetEffect,
+    DestroyKillerEffect,
+    SummonFirstDeadFriendlyMechsThisCombat,
+    CopyLastTavernSpellEffect,
+    SetStatsEffect,
+    SellValueEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -1697,6 +1706,74 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             DevourNeighbourEffect(adjacent=True, exclude_same_card=True),
         ),
         Ability(Trigger.ON_DEATH, SummonStashedEffect()),
+    ),
+    # -------------------------------------------------- the tribeless cards
+    # No tribe to hold them together, so what they share is shape: four say
+    # "your X happen more than once", two read the minion a Rally is swinging
+    # at, and the rest are one of a kind.
+    "BG_LOE_077": (  # Brann Bronzebeard — your Battlecries trigger twice
+        Ability(Trigger.AURA, Multiplier(MultiplierKind.BATTLECRY, factor=2)),
+    ),
+    "BG25_354": (  # Titus Rivendare — your Deathrattles trigger an extra time
+        Ability(Trigger.AURA, Multiplier(MultiplierKind.DEATHRATTLE, factor=2)),
+    ),
+    "BG26_ICC_901": (  # Drakkari Enchanter — your end of turn effects trigger twice
+        Ability(Trigger.AURA, Multiplier(MultiplierKind.END_OF_TURN, factor=2)),
+    ),
+    "BG35_883": (  # Balinda Stonehearth — spells aimed at a friendly cast twice
+        Ability(Trigger.AURA, Multiplier(MultiplierKind.TARGETED_SPELL, factor=2)),
+    ),
+    "BG34_604": (  # Heroic Underdog — Rally: gain the target's Attack
+        Ability(Trigger.ON_ATTACK, GainTargetAttackEffect(factor=1)),
+    ),
+    "BG25_016": (  # Sin'dorei Straight Shot — Rally: strip the target's Reborn and Taunt
+        Ability(
+            Trigger.ON_ATTACK,
+            StripKeywordsFromTargetEffect(keywords=(Keyword.REBORN, Keyword.TAUNT)),
+        ),
+    ),
+    "BG23_318": (  # Leeroy the Reckless — Deathrattle: destroy whatever killed this
+        Ability(Trigger.ON_DEATH, DestroyKillerEffect()),
+    ),
+    "BGS_012": (  # Kangor's Apprentice — Deathrattle: plain copies of your first 2 dead Mechs
+        Ability(Trigger.ON_DEATH, SummonFirstDeadFriendlyMechsThisCombat(count=2)),
+    ),
+    "BGS_104": (  # Nomi, Kitchen Nightmare — the tavern's Elementals, for good
+        Ability(
+            Trigger.AFTER_FRIENDLY_MINION_PLACED,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.SHOP, scope_key=Race.ELEMENTAL, attack=4, health=4
+            ),
+            filter_race=Race.ELEMENTAL,
+        ),
+    ),
+    "BG32_341": (  # Humon'gozz — while it stands, your Tavern spells give an extra +1/+2
+        Ability(Trigger.AURA, IncreaseTavernSpellBonusEffect(attack=1, health=2)),
+    ),
+    "BG35_123": (  # Cataclysmic Harbinger — end of turn, a copy of your last spell
+        Ability(Trigger.ON_TURN_END, CopyLastTavernSpellEffect()),
+    ),
+    "BG28_550": (  # Rodeo Performer — Battlecry: Discover a Tavern spell
+        Ability(Trigger.ON_PLACE, DiscoverTavernSpellEffect()),
+    ),
+    "BG34_319": (  # Highkeeper Ra — Battlecry, Deathrattle *and* Rally: a Tier 6 minion
+        Ability(Trigger.ON_PLACE, AddRandomMinionToHandEffect(tier=6)),
+        Ability(Trigger.ON_DEATH, AddRandomMinionToHandEffect(tier=6)),
+        Ability(Trigger.ON_ATTACK, AddRandomMinionToHandEffect(tier=6)),
+    ),
+    "BG36_356": (  # Tyrael — Activate (2): set another minion's stats to 40/40
+        Ability(
+            Trigger.ON_ACTIVATE,
+            SetStatsEffect(attack=40, health=40, exclude_self=True),
+            activate_cost=2,
+        ),
+    ),
+    "BG24_018": (  # Tortollan Blue Shell — worth 5 Gold only after a loss
+        Ability(
+            Trigger.AURA,
+            SellValueEffect(amount=5),
+            condition=Condition(ConditionKind.LAST_COMBAT_WON, negate=True),
+        ),
     ),
 }
 

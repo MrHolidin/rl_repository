@@ -338,6 +338,20 @@ def grant_keyword_random(
         grant(pool[int(rng.integers(0, len(pool)))], effect.keyword)
 
 
+def set_minion_stats(minion: Minion, attack: int, health: int) -> None:
+    """Set a body's stats outright, discarding what it was.
+
+    Written as bonuses over the printed card rather than by rewriting the base,
+    so the minion is still the card it was — a triple still merges it, and the
+    catalog still describes it. Temporary buffs are cleared too: they were part
+    of the stats being replaced.
+    """
+    minion.temp_attack = 0
+    minion.temp_health = 0
+    minion.bonus_attack = int(attack) - minion.base_attack
+    minion.bonus_health = int(health) - minion.base_health
+
+
 def apply_buff_self(minion: Minion, effect, *, grant=None) -> None:
     """"Gain +N/+N", and the keyword some printings pair it with.
 
@@ -528,6 +542,7 @@ __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
     "apply_buff_self",
+    "set_minion_stats",
     "apply_summoned_listener",
     "apply_attack_thresholds",
     "fire_spell_cast_on",

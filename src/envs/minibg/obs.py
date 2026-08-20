@@ -369,6 +369,11 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "ImmuneWhileAttackingEffect",
         "RaiseGoldCapEffect",
         "BuffFromSubjectAttackEffect",
+        "SellValueEffect",
+        "SetStatsEffect",
+        "GainTargetAttackEffect",
+        "StripKeywordsFromTargetEffect",
+        "DestroyKillerEffect",
         "DevourNeighbourEffect",
         "SummonStashedEffect",
         "MultiplySummonedAttackEffect",
@@ -425,8 +430,25 @@ _EFFECT_VARIANTS: Dict[type, Tuple[Any, ...]] = {
         BuffTarget.FRIENDLY_WITH_KEYWORD,
         BuffTarget.ADJACENT,
     ),
-    Multiplier: tuple(MultiplierKind),
+    # The three kinds the frozen vocabulary has channels for. A kind added
+    # later reads as the unknown id rather than resizing every trained
+    # embedding — see ``UNENCODED_EFFECT_VARIANTS``.
+    Multiplier: (
+        MultiplierKind.BATTLECRY,
+        MultiplierKind.DEATHRATTLE,
+        MultiplierKind.SUMMON,
+    ),
 }
+
+#: Composed-effect variants the vocabulary deliberately does not encode. The
+#: per-variant twin of ``UNENCODED_EFFECTS``: that one exempts a whole class,
+#: which would take Brann and Baron out with it.
+UNENCODED_EFFECT_VARIANTS: frozenset = frozenset(
+    {
+        (Multiplier, MultiplierKind.END_OF_TURN),
+        (Multiplier, MultiplierKind.TARGETED_SPELL),
+    }
+)
 
 
 def effect_signature(effect_obj) -> Any:
@@ -979,6 +1001,7 @@ __all__ = [
     "NUM_EFFECT_CHANNELS",
     "TRIGGER_INDEX",
     "EFFECT_INDEX",
+    "UNENCODED_EFFECT_VARIANTS",
     "PRESENCE_OFFSET",
     "CARD_IDX_OFFSET",
     "TIER_OFFSET",

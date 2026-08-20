@@ -28,8 +28,10 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     DestroyFriendlyEffect,
     PlaceFishbaitEffect,
+    SetStatsEffect,
     Trigger,
 )
+from src.bg_core.board_helpers import set_minion_stats
 from src.bg_core.minion import Minion
 from src.bg_lobby.player import PlayerPhase, PlayerState
 
@@ -144,6 +146,17 @@ def activate_minion(
                 forced=buff_target,
                 triggers=triggers,
             )
+            continue
+        if isinstance(effect, SetStatsEffect):
+            # "Activate (2): Set another minion's stats to 40/40" names a
+            # friendly, so it takes the same pick a targeted buff does — and
+            # then throws away what the body was rather than adding to it.
+            target = buff_target
+            if target is None or target not in player.board:
+                continue
+            if effect.exclude_self and target is minion:
+                continue
+            set_minion_stats(target, effect.attack, effect.health)
             continue
         if isinstance(effect, BuffTargetFriendlyBattlecry):
             # "Activate (1): Give another minion +3/+3" names a friendly, so it
