@@ -146,6 +146,12 @@ class Minion:
     magnet_doubles_next: bool = False
     #: Waiting to take the stats of the next minion the seat buys this turn.
     wants_next_buy_stats: bool = False
+    #: Turns this card stays locked in hand ("Lock it in your hand for 1
+    #: turn"). A locked card is inert: it cannot be played, sold or magnetized,
+    #: it does not count toward a triple, and nothing that reads the hand can
+    #: see it. It still occupies its slot, which is the cost of holding one.
+    #: Counted down at the seat's turn start, so "1 turn" is one of its own.
+    locked_turns: int = 0
     #: How many times a body that improves *itself* has improved ("give it +2
     #: Attack and improve this permanently"). Per body, not per printing: two
     #: Leviathans improve separately, and a golden built from three starts over.
@@ -244,4 +250,14 @@ class Minion:
 #: Amalgam marker rather than a type of its own, so it is not one of them.
 ALL_TRIBES = tuple(r for r in Race if r is not Race.ALL)
 
-__all__ = ["ALL_TRIBES", "Race", "Minion"]
+def is_locked(card) -> bool:
+    """Whether a hand card is held shut and must be treated as not there.
+
+    One predicate rather than a check per reader: "does not interact with
+    anything" is only true if every place that walks the hand asks the same
+    question, and there are a dozen of them.
+    """
+    return int(getattr(card, "locked_turns", 0) or 0) > 0
+
+
+__all__ = ["ALL_TRIBES", "Race", "Minion", "is_locked"]

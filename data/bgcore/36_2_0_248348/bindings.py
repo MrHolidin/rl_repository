@@ -2065,10 +2065,11 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG28_521": (  # Planar Telescope — Discover a minion of your most common type
         Ability(Trigger.ON_PLACE, DiscoverTribeEffect(most_common_tribe=True)),
     ),
-    "BG34_330": (  # Search Through Time — Discover a minion of *your* Tier
-        # (the "lock it in hand for a turn" half needs a hold the hand has no
-        # notion of, and is left out rather than half-said)
-        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(exact_tier=True)),
+    "BG34_330": (  # Search Through Time — a minion of *your* Tier, held a turn
+        Ability(
+            Trigger.ON_PLACE,
+            DiscoverTribeEffect(exact_tier=True, lock_turns=1),
+        ),
     ),
     "BG28_500": (  # Armor Stash — set your Armor to 5
         Ability(Trigger.ON_PLACE, SetArmorEffect(amount=5)),

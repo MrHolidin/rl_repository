@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from src.bg_core.effects import SelfBonusPerGameCount, Trigger
-from src.bg_core.minion import Minion
+from src.bg_core.minion import Minion, is_locked
 from src.bg_lobby.player import PlayerState
 
 __all__ = [
@@ -146,7 +146,7 @@ def refresh_count_bonuses(player: PlayerState) -> None:
     for minion in player.board:
         _refresh_one(player, minion)
     for card in player.hand:
-        if isinstance(card, Minion):
+        if isinstance(card, Minion) and not is_locked(card):
             _refresh_one(player, card)
     for card in player.shop:
         if isinstance(card, Minion):

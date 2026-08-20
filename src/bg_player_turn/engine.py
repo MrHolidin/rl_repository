@@ -15,6 +15,7 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.hand_slots import hand_has_free_slot, hand_size
 from src.bg_recruitment.shop import effective_shop_offers_count, toggle_shop_slot_frozen
 from src.bg_recruitment.shop_triggers import ShopTriggers
+from src.bg_core.minion import is_locked
 from src.bg_lobby.player import PlayerPhase, PlayerState, PendingChoiceKind
 
 from .context import PlayerTurnContext
@@ -86,7 +87,7 @@ class PlayerTurnEngine:
 
             for h in range(hsz):
                 hm = player.hand[h]
-                if hm is None:
+                if hm is None or is_locked(hm):
                     continue
                 if recruitment_triples.is_triple_reward_discover_spell(hm):
                     actions.append(int(a.Action.PLAY_HAND_0) + h)
@@ -102,7 +103,11 @@ class PlayerTurnEngine:
 
             for h in range(hsz):
                 hm = player.hand[h]
-                if hm is None or not recruitment_place.hand_minion_can_magnetize(hm):
+                if (
+                    hm is None
+                    or is_locked(hm)
+                    or not recruitment_place.hand_minion_can_magnetize(hm)
+                ):
                     continue
                 for b in range(len(player.board)):
                     if recruitment_place.is_mech(player.board[b]):

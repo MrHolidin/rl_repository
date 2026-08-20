@@ -99,6 +99,8 @@ class PendingChoice:
     #: DISCOVER_TRIBE only: board index of the Mech the pick is welded onto
     #: (Clunker Junker). Set means the pick never reaches hand.
     magnetize_onto_board_idx: Optional[int] = None
+    #: DISCOVER_TRIBE only: turns the pick is held shut for once it lands.
+    lock_turns: int = 0
 
 
 class CasterKind(IntEnum):

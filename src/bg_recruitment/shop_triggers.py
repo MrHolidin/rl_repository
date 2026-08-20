@@ -157,7 +157,7 @@ from src.bg_core.board_helpers import (
     multiplier_for,
     count_unique_tribes,
 )
-from src.bg_core.minion import ALL_TRIBES, Minion, Race
+from src.bg_core.minion import ALL_TRIBES, Minion, Race, is_locked
 from src.envs.minibg.actions import BOARD_SIZE
 from src.bg_recruitment.discover_pool import (
     ADAPT_KEYS_ALL,
@@ -271,7 +271,7 @@ def _buff_hand_minions(player: PlayerState, effect) -> None:
     Left-most, one tribe, or everything there — and optionally the board too,
     for the card that says "in your hand and board" in one breath.
     """
-    held = [c for c in player.hand if isinstance(c, Minion)]
+    held = [c for c in player.hand if isinstance(c, Minion) and not is_locked(c)]
     if effect.tribe is not None:
         held = [c for c in held if minion_matches_tribe(c, effect.tribe)]
     if effect.leftmost:
@@ -577,7 +577,7 @@ class ShopTriggers:
         effect is applied to the card in hand, which is where it is standing.
         """
         for card in player.hand:
-            if not isinstance(card, Minion):
+            if not isinstance(card, Minion) or is_locked(card):
                 continue
             for ab in card.abilities:
                 if ab.trigger is not Trigger.WHILE_IN_HAND:
@@ -877,7 +877,9 @@ class ShopTriggers:
         elif isinstance(effect, BuffHandMinionsEffect):
             _buff_hand_minions(player, effect)
         elif isinstance(effect, GiveOwnStatsToHandEffect):
-            held = [c for c in player.hand if isinstance(c, Minion)]
+            held = [
+                c for c in player.hand if isinstance(c, Minion) and not is_locked(c)
+            ]
             if held and source is not None:
                 held[0].bonus_attack += source.raw_attack
                 held[0].bonus_health += source.max_health
@@ -1232,6 +1234,7 @@ class ShopTriggers:
             total - 1,
             tribe=effect.tribe,
             magnetize_onto_board_idx=magnetize_onto_board_idx,
+            lock_turns=effect.lock_turns,
             shared_pool=shared_pool,
         )
 
@@ -1559,6 +1562,11 @@ class ShopTriggers:
         # generator on the turn it opens, and no shipped package can make one,
         # so the random stream on 36393 / 74257 is untouched.
         tick_lockboxes(player, rng=self._rng, patch=self._patch)
+        # A held card counts down in the seat's own turns, the same way, so
+        # "lock it in your hand for 1 turn" means one turn of yours.
+        for card in player.hand:
+            if is_locked(card):
+                card.locked_turns -= 1
         for source in list(player.board):
             for ab in source.abilities:
                 if ab.trigger != Trigger.ON_TURN_START:

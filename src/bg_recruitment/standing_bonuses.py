@@ -31,7 +31,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 
 from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.effects import ScopeKind
-from src.bg_core.minion import Minion
+from src.bg_core.minion import Minion, is_locked
 from src.bg_lobby.player import PlayerState
 
 __all__ = [
@@ -136,7 +136,7 @@ def settle_standing_bonuses(player: PlayerState) -> None:
     for minion in player.board:
         _settle_one(player, minion, in_shop=False)
     for card in player.hand:
-        if isinstance(card, Minion):
+        if isinstance(card, Minion) and not is_locked(card):
             _settle_one(player, card, in_shop=False)
     for card in player.shop:
         if isinstance(card, Minion):

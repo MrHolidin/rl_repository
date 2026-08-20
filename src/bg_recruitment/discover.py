@@ -56,6 +56,7 @@ def try_open_hand_discover_modal(
     *,
     tribe: Optional[Race] = None,
     magnetize_onto_board_idx: Optional[int] = None,
+    lock_turns: int = 0,
     shared_pool: Optional[SharedCardPool] = None,
 ) -> bool:
     """Open a hand-discover modal only if the player can take at least one pick now.
@@ -80,6 +81,7 @@ def try_open_hand_discover_modal(
         options_pool_reserved=reserved,
         discover_tribe=tribe,
         magnetize_onto_board_idx=magnetize_onto_board_idx,
+        lock_turns=lock_turns,
     )
     return True
 
@@ -264,6 +266,9 @@ def resolve_discover_pick(
             _fire_discovered(player, patch=patch)
             return
         picked = make_minion(choice_token, patch=patch)
+        # "Lock it in your hand for N turns": it arrives held shut, so nothing
+        # can play it, triple it or even see it until it counts down.
+        picked.locked_turns = int(pc.lock_turns or 0)
         player.hand[h] = picked
         if pc.options_pool_reserved and shared_pool is not None:
             release_discover_options(shared_pool, pc.options, keep_slot=pick_slot)

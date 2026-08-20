@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 from src.bg_combat.battle.seat import RecordingSeat
-from src.bg_core.minion import Minion
+from src.bg_core.minion import Minion, is_locked
 from src.bg_lobby.player import PlayerState
 
 from .blood_gems import blood_gem_value, give_blood_gems, play_blood_gem_on
@@ -132,11 +132,15 @@ class PlayerCombatSeat(RecordingSeat):
         return tuple(
             (card.instance_id, card.card_id, card.raw_attack, card.max_health)
             for card in self.player.hand
-            if isinstance(card, Minion)
+            if isinstance(card, Minion) and not is_locked(card)
         )
 
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
-        held = [card for card in self.player.hand if isinstance(card, Minion)]
+        held = [
+            card
+            for card in self.player.hand
+            if isinstance(card, Minion) and not is_locked(card)
+        ]
         if not held:
             return
         target = held[int(rng.integers(0, len(held)))]

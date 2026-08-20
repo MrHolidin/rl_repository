@@ -13,7 +13,7 @@ from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_catalog.golden_catalog import forged_golden_keywords
 from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.effects import Keyword, Trigger, TriplesWithAnyOfTribeEffect
-from src.bg_core.minion import Minion, Race
+from src.bg_core.minion import Minion, Race, is_locked
 from src.bg_core.spell_card import SpellCard
 from src.bg_recruitment.discover_pool import (
     roll_triple_reward_discover_at_target_tier,
@@ -166,6 +166,7 @@ def resolve_one_triple(
     for i, hm in enumerate(player.hand):
         if (
             hm is not None
+            and not is_locked(hm)
             and not is_triple_reward_discover_spell(hm)
             and not hm.is_golden
         ):

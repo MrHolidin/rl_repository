@@ -568,6 +568,9 @@ class DiscoverTribeEffect:
     #: "a minion of **your Tier**", where a bare Discover is your tier or
     #: below. Exactly one tier, and it is the seat's.
     exact_tier: bool = False
+    #: "**Lock it in your hand for 1 turn**" — the pick arrives held shut and
+    #: counts down at the seat's turn start.
+    lock_turns: int = 0
     repeats: int = 1
     #: "Discover a Mech **to Magnetize to it**" — the pick is welded onto a
     #: friendly the seat named rather than landing in hand, so this Discover
