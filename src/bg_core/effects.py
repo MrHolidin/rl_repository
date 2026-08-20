@@ -147,6 +147,8 @@ class BuffRandomFriendly:
     filter_race: Optional[Any] = None
     grant_taunt: bool = False
     repeats: int = 1
+    #: "a Tavern spell **of your Tier**" rather than the usual "or below".
+    exact_tier: bool = False
 
 
 @dataclass(frozen=True)
@@ -592,6 +594,9 @@ class DiscoverTribeEffect:
     #: property of the card rather than of its tribe.
     require_deathrattle: bool = False
     require_battlecry: bool = False
+    #: "Discover a **Choose One** card" — narrowed by the keyword the card
+    #: carries, the same way the two flags above narrow by an ability.
+    require_choose_one: bool = False
     #: "a minion of your **most common type**" — the tribe is read off the
     #: seat's board when the modal opens, not named here.
     most_common_tribe: bool = False
@@ -775,6 +780,8 @@ class DiscoverTavernSpellEffect:
     """
 
     repeats: int = 1
+    #: "a Tavern spell **of your Tier**" rather than the usual "or below".
+    exact_tier: bool = False
 
 
 @dataclass(frozen=True)
@@ -895,6 +902,27 @@ class MakeFriendlyGoldenEffect:
 
     max_tier: int = 0
     in_tavern: bool = False
+
+
+@dataclass(frozen=True)
+class StealNeighbourBloodGemsEffect:
+    """Gems onto the chosen minion, and its neighbours' Gems with them.
+
+    "Steals" is exactly that: the neighbours lose the stats their Gems were
+    worth, and the target gains them. The record moves too, so a card counting
+    Gems on a body counts the ones that arrived this way.
+    """
+
+    gems: int = 2
+
+
+@dataclass(frozen=True)
+class PayInHealthEffect:
+    """This card is bought with Health rather than Gold, one for one.
+
+    An AURA marker read at the counter rather than something that fires: it is
+    a property of the price, and the price is asked before anything resolves.
+    """
 
 
 @dataclass(frozen=True)
@@ -2403,6 +2431,8 @@ __all__ = [
     "TransformIntoShopMinionEffect",
     "TransformToHigherTierEffect",
     "PromiseNextTurnEffect",
+    "StealNeighbourBloodGemsEffect",
+    "PayInHealthEffect",
     "RefreshWithTavernSpellsEffect",
     "RefreshWithTribeEffect",
     "BloodGemsOnEveryRefreshEffect",

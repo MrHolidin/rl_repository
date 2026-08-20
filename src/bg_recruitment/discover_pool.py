@@ -76,6 +76,7 @@ def tribe_discover_card_ids(
     patch: PatchContext,
     require_deathrattle: bool = False,
     require_battlecry: bool = False,
+    require_choose_one: bool = False,
 ) -> List[str]:
     """The cards a Discover may offer, before the tier cap.
 
@@ -106,8 +107,24 @@ def tribe_discover_card_ids(
             continue
         if require_battlecry and not record_has_battlecry(cid, tags, effects):
             continue
+        if require_choose_one and not _has_choose_one(cid, effects):
+            continue
         out.append(cid)
     return out
+
+
+def _has_choose_one(card_id: str, effects) -> bool:
+    """Whether a card prints Choose One.
+
+    Read off the binding rather than a catalog tag: the halves are what make a
+    Choose One card, and the binding is where they are.
+    """
+    from src.bg_core.effects import ChooseOneEffect
+
+    return any(
+        isinstance(ability.effect, ChooseOneEffect)
+        for ability in effects.get(card_id, ())
+    )
 
 
 def roll_discover_tribe_triple(
@@ -120,6 +137,7 @@ def roll_discover_tribe_triple(
     patch: PatchContext,
     require_deathrattle: bool = False,
     require_battlecry: bool = False,
+    require_choose_one: bool = False,
     exact_tier: bool = False,
 ) -> Optional[Tuple[str, ...]]:
     """Up to three options of one tribe, at the seat's own tavern tier or below.
@@ -145,6 +163,7 @@ def roll_discover_tribe_triple(
                 patch=ctx,
                 require_deathrattle=require_deathrattle,
                 require_battlecry=require_battlecry,
+                require_choose_one=require_choose_one,
             )
             if (tpl[cid].tier == cap if exact_tier else tpl[cid].tier <= cap)
             and (

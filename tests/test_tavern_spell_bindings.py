@@ -60,7 +60,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 10
+    assert len(inert) <= 5
 
 
 def test_defenders_rites(patch):
@@ -691,3 +691,87 @@ def test_blood_gem_barrage_pays_every_later_roll(patch):
             assert offer.raw_attack == printed.base_attack + 1
             # Gems, not stats: the cards that count them have to see these.
             assert (offer.blood_gem_attack, offer.blood_gem_health) == (1, 1)
+
+
+# ------------------------------------------------------- the last few
+
+
+def test_temperature_shift_hands_over_both_ballers(patch):
+    player = _cast(patch, "BG31_819", _player(patch))
+    assert [c.card_id for c in player.hand if c is not None] == ["BG31_816", "BG31_818"]
+
+
+def test_boundless_potential_offers_your_tier_either_way(patch):
+    minions = _cast(patch, "BG31_890", _player(patch, tavern_tier=4), choose_one_option=0)
+    options = minions.pending_choice.options
+    assert {patch.templates[c].tier for c in options} == {4}
+
+    spells = _cast(patch, "BG31_890", _player(patch, tavern_tier=4), choose_one_option=1)
+    options = spells.pending_choice.options
+    assert {patch.tavern_spells[c].tier for c in options} == {4}
+
+
+def test_gem_confiscation_takes_the_neighbours_gems_and_not_the_rest(patch):
+    from src.bg_recruitment.blood_gems import play_blood_gem_on
+
+    left, mid, right, far = (_m(c, 1, 1) for c in "LMRF")
+    player = _player(patch, [left, mid, right, far])
+    play_blood_gem_on(player, left, count=3, patch=patch)
+    play_blood_gem_on(player, right, count=2, patch=patch)
+    play_blood_gem_on(player, far, count=5, patch=patch)
+
+    _cast(patch, "BG28_698", player, mid)
+    # its own two, plus three and two taken from either side
+    assert (mid.raw_attack, mid.max_health) == (8, 8)
+    assert mid.blood_gem_attack == 7
+    for stripped in (left, right):
+        assert (stripped.raw_attack, stripped.max_health) == (1, 1)
+        assert stripped.blood_gem_attack == 0
+    assert (far.raw_attack, far.max_health) == (6, 6)  # not a neighbour
+
+
+def test_fandrals_fortune_offers_choose_one_cards_and_a_charge(patch):
+    from src.bg_core.effects import ChooseOneEffect
+
+    player = _cast(patch, "BG31_892", _player(patch))
+    assert player.choose_one_combined_charges == 1
+    options = player.pending_choice.options
+    assert options
+    for card_id in options:
+        assert any(
+            isinstance(ability.effect, ChooseOneEffect)
+            for ability in patch.effects.get(card_id, ())
+        )
+
+
+def test_hasty_excavation_is_bought_with_health(patch):
+    from src.bg_recruitment.tavern_spells import buy_tavern_spell, offer_tavern_spells
+
+    player = _player(patch)
+    offer_tavern_spells(
+        player, rng=np.random.default_rng(0), patch=patch, card_ids=["BG28_571"]
+    )
+    cost = patch.tavern_spells["BG28_571"].cost
+    gold, health = player.gold, player.health
+    buy_tavern_spell(player, 0, patch=patch)
+    assert player.gold == gold
+    assert player.health == health - cost
+
+
+def test_hasty_excavation_can_be_bought_with_no_gold_at_all(patch):
+    """Which is the whole point of paying in something else."""
+    from src.bg_recruitment.tavern_spells import buy_tavern_spell, offer_tavern_spells
+
+    player = _player(patch, gold=0)
+    offer_tavern_spells(
+        player, rng=np.random.default_rng(0), patch=patch, card_ids=["BG28_571"]
+    )
+    buy_tavern_spell(player, 0, patch=patch)
+    assert [c.card_id for c in player.hand if c is not None] == ["BG28_571"]
+
+
+def test_hasty_excavation_still_gives_its_gold(patch):
+    player = _player(patch)
+    gold = player.gold
+    _cast(patch, "BG28_571", player)
+    assert player.gold == gold + 1

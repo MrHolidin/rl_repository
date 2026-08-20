@@ -31,6 +31,8 @@ from src.bg_core.effects import (
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
     BloodGemsOnEveryRefreshEffect,
+    PayInHealthEffect,
+    StealNeighbourBloodGemsEffect,
     Condition,
     ConditionKind,
     GainNearestEnemyStatsEffect,
@@ -2317,6 +2319,32 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
         ),
     ),
+    # ------------------------------------------------ the last few
+    "BG31_819": (  # Temperature Shift — a Fire Baller and a Snow Baller
+        Ability(Trigger.ON_PLACE, AddTokenToHandEffect(token_id="BG31_816")),
+        Ability(Trigger.ON_PLACE, AddTokenToHandEffect(token_id="BG31_818")),
+    ),
+    "BG31_890": (  # Boundless Potential — Choose One: a minion, or a spell
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=DiscoverTribeEffect(exact_tier=True),
+                second=DiscoverTavernSpellEffect(exact_tier=True),
+            ),
+        ),
+    ),
+    "BG28_698": (  # Gem Confiscation — two Gems, and its neighbours' as well
+        Ability(Trigger.ON_PLACE, StealNeighbourBloodGemsEffect(gems=2)),
+    ),
+    "BG31_892": (  # Fandral's Fortune — a Choose One card, with both halves
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(require_choose_one=True)),
+        Ability(Trigger.ON_PLACE, GrantCombinedChooseOneEffect(count=1)),
+    ),
+    "BG28_571": (  # Hasty Excavation — 1 Gold, bought with Health
+        Ability(Trigger.AURA, PayInHealthEffect()),
+        Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=1)),
+    ),
+
     # ------------------------------------- rolling the Tavern sideways
     "BG28_849": (  # Saloon's Finest — the counter shows Tavern spells
         Ability(Trigger.ON_PLACE, RefreshWithTavernSpellsEffect()),

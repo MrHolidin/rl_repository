@@ -40,9 +40,11 @@ from src.bg_core.effects import (
     MakeFriendlyGoldenEffect,
     BloodGemsOnEveryRefreshEffect,
     MultiplierKind,
+    PayInHealthEffect,
     PromiseNextTurnEffect,
     RefreshWithTavernSpellsEffect,
     RefreshWithTribeEffect,
+    StealNeighbourBloodGemsEffect,
     RaiseStandingBonusEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
@@ -76,6 +78,7 @@ __all__ = [
     "offer_tavern_spells",
     "clear_tavern_spell_offers",
     "buy_tavern_spell",
+    "spell_costs_health",
     "steal_tavern_minion",
     "add_random_tavern_spells",
     "apply_tavern_spell_effect",
@@ -202,6 +205,19 @@ def _note_spend(player: PlayerState, cost: int, *, patch) -> None:
     note_gold_spent(player, int(cost), patch=patch)
 
 
+def spell_costs_health(spell: SpellCard) -> bool:
+    """Whether this card is bought with Health instead of Gold.
+
+    A property of the price rather than something that fires, so it is asked of
+    the card at the counter and carried as an AURA marker on it.
+    """
+    return any(
+        ability.trigger is Trigger.AURA
+        and isinstance(ability.effect, PayInHealthEffect)
+        for ability in spell.abilities
+    )
+
+
 def buy_tavern_spell(
     player: PlayerState,
     offer_index: int = 0,
@@ -224,7 +240,8 @@ def buy_tavern_spell(
     if player.phase != PlayerPhase.SHOP:
         raise TavernSpellNotAllowed("buying is a recruit-phase move")
     cost = effective_tavern_spell_cost(player, spell)
-    if player.gold < cost:
+    in_health = spell_costs_health(spell)
+    if not in_health and player.gold < cost:
         raise TavernSpellNotAllowed(
             f"{spell.card_id} costs {cost}; the seat has {player.gold}"
         )
@@ -232,8 +249,16 @@ def buy_tavern_spell(
     if slot is None:
         raise TavernSpellNotAllowed("hand is full")
 
-    player.gold -= cost
-    _note_spend(player, cost, patch=patch)
+    if in_health:
+        # One Health per Gold, and paid as hero damage so that armor absorbs it
+        # and everything reading hero damage sees it — the same route the
+        # refreshes-cost-Health cards take.
+        from src.bg_lobby.player import apply_hero_damage
+
+        apply_hero_damage(player, cost, patch=patch)
+    else:
+        player.gold -= cost
+        _note_spend(player, cost, patch=patch)
     # The discount was for this purchase and is spent by it, whether or not it
     # was worth anything (a 0-cost spell still consumes Ominous Seer's promise).
     player.tavern_spell_cost_delta = 0
@@ -490,6 +515,29 @@ def _apply_spell_effect(
         )
         return
 
+    if isinstance(effect, StealNeighbourBloodGemsEffect):
+        from src.bg_recruitment.blood_gems import play_blood_gem_on
+
+        if target is None or target not in player.board:
+            return
+        play_blood_gem_on(player, target, count=effect.gems, patch=patch)
+        idx = player.board.index(target)
+        for side in (idx - 1, idx + 1):
+            if not 0 <= side < len(player.board):
+                continue
+            neighbour = player.board[side]
+            attack, health = neighbour.blood_gem_attack, neighbour.blood_gem_health
+            if not attack and not health:
+                continue
+            neighbour.bonus_attack -= attack
+            neighbour.bonus_health -= health
+            neighbour.blood_gem_attack = neighbour.blood_gem_health = 0
+            target.bonus_attack += attack
+            target.bonus_health += health
+            target.blood_gem_attack += attack
+            target.blood_gem_health += health
+        return
+
     if isinstance(effect, RefreshWithTavernSpellsEffect):
         from src.bg_recruitment.shop import clear_shop_slot, effective_shop_offers_count
 
@@ -673,7 +721,11 @@ def _apply_spell_effect(
 
     if isinstance(effect, DiscoverTavernSpellEffect):
         open_tavern_spell_discover(
-            player, rng=rng, patch=patch, repeats=effect.repeats
+            player,
+            rng=rng,
+            patch=patch,
+            repeats=effect.repeats,
+            exact_tier=effect.exact_tier,
         )
         return
 
@@ -849,6 +901,7 @@ def open_tavern_spell_discover(
     rng: np.random.Generator,
     patch: PatchContext,
     repeats: int = 1,
+    exact_tier: bool = False,
 ) -> bool:
     """"Discover a Tavern spell": three offered, the seat keeps one.
 
@@ -862,6 +915,11 @@ def open_tavern_spell_discover(
 
     ctx = require_patch(patch, where="tavern_spells.open_tavern_spell_discover")
     pool = tavern_spell_pool(player.tavern_tier, patch=ctx)
+    if exact_tier:
+        # "of your Tier" — the seat's own, not everything up to it.
+        at_tier = [c for c in pool if ctx.tavern_spells[c].tier == player.tavern_tier]
+        if len(at_tier) >= 3:
+            pool = at_tier
     if len(pool) < 3:
         return False
     picks: List[str] = []

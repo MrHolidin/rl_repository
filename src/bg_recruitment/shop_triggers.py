@@ -1257,6 +1257,7 @@ class ShopTriggers:
             patch=self._patch,
             require_deathrattle=effect.require_deathrattle,
             require_battlecry=effect.require_battlecry,
+            require_choose_one=effect.require_choose_one,
             exact_tier=effect.exact_tier,
         )
         if opts is None:

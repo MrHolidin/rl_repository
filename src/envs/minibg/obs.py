@@ -350,6 +350,8 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "MakeFriendlyGoldenEffect",
         "TransformToHigherTierEffect",
         "PromiseNextTurnEffect",
+        "StealNeighbourBloodGemsEffect",
+        "PayInHealthEffect",
         "RefreshWithTavernSpellsEffect",
         "RefreshWithTribeEffect",
         "BloodGemsOnEveryRefreshEffect",
