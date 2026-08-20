@@ -81,6 +81,13 @@ class PlayerCombatSeat(RecordingSeat):
     def start_combat_promises(self) -> Tuple[object, ...]:
         return tuple(self.player.start_combat_promises)
 
+    def take_combat_space_summon(self) -> object:
+        held = self.player.combat_space_summons
+        if not held:
+            return None
+        self.player.combat_space_summons = held[1:]
+        return held[0]
+
     def settle_standing_bonus(self, minion: object) -> None:
         settle_one_standing_bonus(self.player, minion)
 

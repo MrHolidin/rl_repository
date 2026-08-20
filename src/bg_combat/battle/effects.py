@@ -1970,6 +1970,10 @@ def _handle_minion_died(rt: _CombatRuntime, e: MinionDied) -> None:
     rt.kill_attribution.pop((e.side_idx, e.instance_id), None)
     _fire_avenge(rt, bm, e.side_idx)
     _try_reborn(rt, e.side_idx, bm)
+    # The other moment a side has room: a body just left it.
+    from .engine import _fill_combat_space
+
+    _fill_combat_space(rt, e.side_idx)
     _sync_health_all(rt)
 
 

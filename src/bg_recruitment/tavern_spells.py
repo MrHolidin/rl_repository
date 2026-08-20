@@ -39,12 +39,14 @@ from src.bg_core.effects import (
     IncreaseTavernSpellBonusEffect,
     MakeFriendlyGoldenEffect,
     BloodGemsOnEveryRefreshEffect,
+    DiscoverHeroPowerEffect,
     MultiplierKind,
     PayInHealthEffect,
     PromiseNextTurnEffect,
     RefreshWithTavernSpellsEffect,
     RefreshWithTribeEffect,
     StealNeighbourBloodGemsEffect,
+    SummonOnCombatSpaceEffect,
     RaiseStandingBonusEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
@@ -512,6 +514,31 @@ def _apply_spell_effect(
             BonusScope(effect.scope_kind, target.race, effect.scope_max_tier),
             effect.attack,
             effect.health,
+        )
+        return
+
+    if isinstance(effect, DiscoverHeroPowerEffect):
+        from src.bg_lobby.player import PendingChoice, PendingChoiceKind
+
+        # "a **new** Hero Power": the seat's own is the one exclusion.
+        held = player.hero.hero_id if player.hero is not None else None
+        pool = sorted(cid for cid in patch.hero_pool_ids if cid != held)
+        if len(pool) < 3:
+            return
+        picks = []
+        remaining = list(pool)
+        for _ in range(3):
+            picks.append(remaining.pop(int(rng.integers(0, len(remaining)))))
+        player.pending_choice = PendingChoice(
+            PendingChoiceKind.HERO_POWER_DISCOVER, tuple(picks), 0
+        )
+        return
+
+    if isinstance(effect, SummonOnCombatSpaceEffect):
+        # One entry per charge. They are the seat's and outlive a fight that
+        # had no room to spend them.
+        player.combat_space_summons = player.combat_space_summons + (
+            (effect,) * max(1, int(effect.charges))
         )
         return
 

@@ -905,6 +905,33 @@ class MakeFriendlyGoldenEffect:
 
 
 @dataclass(frozen=True)
+class DiscoverHeroPowerEffect:
+    """"Discover a new Hero Power" — three from the patch's pool, one kept.
+
+    *New* is the one exclusion the card prints: the seat's own is not offered.
+    The pool is whatever the package ships, which on a package with no heroes
+    at all is nothing — and a Discover with nothing to offer does not open, the
+    same answer Planar Telescope gives an empty board.
+    """
+
+
+@dataclass(frozen=True)
+class SummonOnCombatSpaceEffect:
+    """Combat: while there is room, spend a charge and summon.
+
+    "When you have space in combat, summon two 2/2 Beetles and give them Taunt.
+    (2 left!)" — the charges are the seat's and outlive the fight that does not
+    spend them, and the room is looked for at the start of a combat and again
+    after each friendly death, which are the two moments a side can have any.
+    """
+
+    token_id: str
+    count: int = 2
+    charges: int = 2
+    grant_keyword: Optional[Keyword] = None
+
+
+@dataclass(frozen=True)
 class StealNeighbourBloodGemsEffect:
     """Gems onto the chosen minion, and its neighbours' Gems with them.
 
@@ -2431,6 +2458,8 @@ __all__ = [
     "TransformIntoShopMinionEffect",
     "TransformToHigherTierEffect",
     "PromiseNextTurnEffect",
+    "DiscoverHeroPowerEffect",
+    "SummonOnCombatSpaceEffect",
     "StealNeighbourBloodGemsEffect",
     "PayInHealthEffect",
     "RefreshWithTavernSpellsEffect",

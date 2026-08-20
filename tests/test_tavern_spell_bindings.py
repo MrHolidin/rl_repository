@@ -60,7 +60,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 5
+    assert len(inert) <= 3
 
 
 def test_defenders_rites(patch):
@@ -775,3 +775,107 @@ def test_hasty_excavation_still_gives_its_gold(patch):
     gold = player.gold
     _cast(patch, "BG28_571", player)
     assert player.gold == gold + 1
+
+
+# ------------------------------------- the two the card text left open
+
+
+def test_unmasked_identity_offers_hero_powers_but_not_your_own(patch):
+    """The pool is the package's. This one ships none, so nothing opens —
+    the same answer Planar Telescope gives an empty board."""
+    from src.bg_catalog.patch_context import PatchContext
+    from src.bg_lobby.player import PendingChoiceKind
+
+    assert _cast(patch, "EBG_Spell_037", _player(patch)).pending_choice is None
+
+    with_heroes = PatchContext.load(Path("data/bgcore/19_6_0_74257"))
+    player = _player(with_heroes)
+    player.hero = with_heroes.heroes["patchwerk"]
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["EBG_Spell_037"],
+        rng=np.random.default_rng(2),
+        patch=with_heroes,
+    )
+    pending = player.pending_choice
+    assert pending.kind is PendingChoiceKind.HERO_POWER_DISCOVER
+    assert len(pending.options) == 3
+    assert "patchwerk" not in pending.options
+
+
+def test_picking_a_hero_power_replaces_the_one_you_had(patch):
+    from src.bg_catalog.patch_context import PatchContext
+    from src.bg_recruitment.discover import resolve_discover_pick
+
+    with_heroes = PatchContext.load(Path("data/bgcore/19_6_0_74257"))
+    player = _player(with_heroes)
+    player.hero = with_heroes.heroes["patchwerk"]
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["EBG_Spell_037"],
+        rng=np.random.default_rng(2),
+        patch=with_heroes,
+    )
+    wanted = player.pending_choice.options[1]
+    resolve_discover_pick(
+        player,
+        1,
+        None,
+        rng=np.random.default_rng(0),
+        on_after_placed=lambda *_: None,
+        patch=with_heroes,
+    )
+    assert player.hero.hero_id == wanted
+    assert player.pending_choice is None
+
+
+def _fight_with(patch, player, mine, theirs, seed=0):
+    from src.bg_combat.battle.seat import RecordingSeat
+    from src.bg_combat.battle.simulate import simulate_battle
+    from src.bg_recruitment.combat_seat import PlayerCombatSeat
+
+    out, deaths = [], []
+    simulate_battle(
+        mine,
+        theirs,
+        p0_has_initiative=True,
+        rng=np.random.default_rng(seed),
+        combat_board_max=7,
+        damage_cap=15,
+        max_board_slots=7,
+        p0_board_out=out,
+        death_log=deaths,
+        patch=patch,
+        seats=(PlayerCombatSeat(player), RecordingSeat()),
+    )
+    return out, deaths
+
+
+def test_boon_of_beetles_fills_the_room_the_combat_opens_with(patch):
+    player = _cast(patch, "BG28_603", _player(patch))
+    assert len(player.combat_space_summons) == 2
+
+    out, _ = _fight_with(patch, player, [_m("mine", 1, 1)], [_m("foe", 0, 40)])
+    beetles = [m for m in out if m.card_id == "BG28_603t"]
+    assert len(beetles) == 4  # two charges, two Beetles each
+    assert all((b.raw_attack, b.max_health) == (2, 2) for b in beetles)
+    assert all(Keyword.TAUNT in b.all_keywords for b in beetles)
+    assert player.combat_space_summons == ()
+
+
+def test_a_full_board_spends_no_charges(patch):
+    """The charges are the seat's: a fight with no room leaves them for the
+    next one."""
+    player = _cast(patch, "BG28_603", _player(patch))
+    full = [_m(f"m{i}", 1, 50) for i in range(7)]
+    _fight_with(patch, player, full, [_m("foe", 0, 1)])
+    assert len(player.combat_space_summons) == 2
+
+
+def test_a_death_mid_fight_makes_the_room(patch):
+    player = _cast(patch, "BG28_603", _player(patch))
+    player.combat_space_summons = player.combat_space_summons[:1]
+    full = [_m(f"m{i}", 0, 1) for i in range(7)]
+    _, deaths = _fight_with(patch, player, full, [_m("foe", 5, 40)])
+    assert any(card_id == "BG28_603t" for _, card_id in deaths)
+    assert player.combat_space_summons == ()

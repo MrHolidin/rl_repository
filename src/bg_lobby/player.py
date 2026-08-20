@@ -71,6 +71,9 @@ class PendingChoiceKind(IntEnum):
     #: in hand as a SpellCard. The kind above is the mirror image: a Discover
     #: *printed on* a spell, whose options are minions.
     SPELL_DISCOVER = 6
+    #: "Discover a new Hero Power" — the options are hero ids and the pick
+    #: replaces the seat's own power rather than landing anywhere.
+    HERO_POWER_DISCOVER = 7
 
 
 @dataclass
@@ -172,6 +175,10 @@ class PlayerState:
     #: for the rest of the game (Blood Gem Barrage). A count rather than a list
     #: because the promises are identical and only ever add up.
     refresh_blood_gems: int = 0
+    #: One entry per unspent "when you have space in combat" charge. The seat's
+    #: rather than the fight's: a charge a combat had no room for is still
+    #: there for the next one.
+    combat_space_summons: Tuple[Any, ...] = ()
     #: The Tavern spells on the counter this turn (``ruleset`` says how many).
     #: Held beside ``shop`` rather than in it: a shop slot is a minion slot
     #: everywhere that reads one — observation, legal mask, the flat buy actions.

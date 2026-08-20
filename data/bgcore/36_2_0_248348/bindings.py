@@ -31,6 +31,8 @@ from src.bg_core.effects import (
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
     BloodGemsOnEveryRefreshEffect,
+    DiscoverHeroPowerEffect,
+    SummonOnCombatSpaceEffect,
     PayInHealthEffect,
     StealNeighbourBloodGemsEffect,
     Condition,
@@ -2320,6 +2322,17 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     # ------------------------------------------------ the last few
+    "EBG_Spell_037": (  # Unmasked Identity — Discover a new Hero Power
+        Ability(Trigger.ON_PLACE, DiscoverHeroPowerEffect()),
+    ),
+    "BG28_603": (  # Boon of Beetles — two Taunt Beetles, twice, when there is room
+        Ability(
+            Trigger.ON_PLACE,
+            SummonOnCombatSpaceEffect(
+                token_id="BG28_603t", count=2, charges=2, grant_keyword=Keyword.TAUNT
+            ),
+        ),
+    ),
     "BG31_819": (  # Temperature Shift — a Fire Baller and a Snow Baller
         Ability(Trigger.ON_PLACE, AddTokenToHandEffect(token_id="BG31_816")),
         Ability(Trigger.ON_PLACE, AddTokenToHandEffect(token_id="BG31_818")),

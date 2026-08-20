@@ -252,6 +252,15 @@ def resolve_discover_pick(
         player.pending_choice = None
         _fire_discovered(player, patch=patch, picked=patch.templates.get(choice_token))
         return
+    if pc.kind is PendingChoiceKind.HERO_POWER_DISCOVER:
+        # The pick is not a card and lands nowhere: it replaces the power the
+        # seat is playing with.
+        hero = patch.heroes.get(choice_token)
+        if hero is not None:
+            player.hero = hero
+        player.pending_choice = None
+        _fire_discovered(player, patch=patch)
+        return
     if hand_discover:
         h = first_free_hand_slot(player)
         if h is None:

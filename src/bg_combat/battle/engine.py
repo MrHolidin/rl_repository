@@ -168,6 +168,37 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
     while rt.queue:
         ev = rt.queue.popleft()
         _dispatch(rt, ev)
+    # The first of the two moments a side can have room: whatever the boards
+    # opened with, before a blow is struck.
+    for side_idx in (0, 1):
+        _fill_combat_space(rt, side_idx)
+
+
+def _fill_combat_space(rt: _CombatRuntime, side_idx: int) -> None:
+    """Spend "when you have space in combat" charges while there is space.
+
+    Asked at the start of a combat and again after each friendly death, which
+    are the two moments a side gains any. A charge buys one summon and is spent
+    whether or not every body it promised fit — the room is what the card asks
+    for, not room for all of them.
+    """
+    side = rt.side(side_idx)
+    while side.alive_count() < rt.combat_board_max:
+        effect = rt.seats[side_idx].take_combat_space_summon()
+        if effect is None:
+            return
+        template = rt.patch.templates.get(effect.token_id)
+        if template is None:
+            continue
+        for _ in range(max(1, int(effect.count))):
+            summoned = _summon_append(rt, side_idx, template)
+            if summoned is None:
+                break
+            if effect.grant_keyword is not None:
+                _grant_keyword(rt, side_idx, summoned, effect.grant_keyword)
+        _sync_health_all(rt)
+        while rt.queue:
+            _dispatch(rt, rt.queue.popleft())
 
 
 def _apply_start_of_combat_effect(

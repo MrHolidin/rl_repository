@@ -72,6 +72,13 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def take_combat_space_summon(self) -> object:
+        """Spend one "when you have space in combat" charge, or None.
+
+        Taken rather than read: a charge is spent by the summon it pays for,
+        and a fight that finds no room leaves it for the next one.
+        """
+
     def start_combat_promises(self) -> Tuple[object, ...]:
         """Start-of-Combat abilities the owner bought with a spell.
 
@@ -228,6 +235,10 @@ class RecordingSeat:
     def start_combat_promises(self) -> Tuple[object, ...]:
         """None: a seatless combat has two lists of minions and no hand."""
         return ()
+
+    def take_combat_space_summon(self) -> object:
+        """None: a seatless combat holds no charges to spend."""
+        return None
 
     def settle_standing_bonus(self, minion: object) -> None:
         """Nothing: a seatless combat has no table to owe anything from."""
