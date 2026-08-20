@@ -6,7 +6,7 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from src.bg_core.board_helpers import minion_matches_tribe
+from src.bg_core.board_helpers import grant_keyword, minion_matches_tribe
 from src.bg_catalog.cards import make_minion, shop_pool_for_tier
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.minion import Minion, Race
@@ -81,12 +81,25 @@ def buff_shop_minions_of_tribe(
         m.bonus_health += health
 
 
-def buff_all_shop_offers(player: PlayerState, *, attack: int, health: int) -> None:
+def buff_all_shop_offers(
+    player: PlayerState,
+    *,
+    attack: int,
+    health: int,
+    keyword_choices=(),
+    rng=None,
+) -> None:
+    """Pay every minion on the counter, and hand out a keyword where the card
+    prints one. "Taunt, Divine Shield, or Windfury" is rolled per minion, so a
+    tavern of five comes out mixed."""
     for m in player.shop:
         if m is None or m.cannot_gain_stats:
             continue
         m.bonus_attack += attack
         m.bonus_health += health
+        if keyword_choices and rng is not None:
+            keyword = keyword_choices[int(rng.integers(0, len(keyword_choices)))]
+            grant_keyword(m, keyword)
 
 
 def toggle_shop_slot_frozen(player: PlayerState, slot: int) -> None:

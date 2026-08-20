@@ -1204,6 +1204,73 @@ class SummonStashedEffect:
 
 
 @dataclass(frozen=True)
+class DealHeroDamagePerTierEffect:
+    """Hero damage equal to the Tier of the card just Discovered.
+
+    Not ``DealHeroDamage``: that one prints its number, and this one reads it
+    off whatever the seat kept, so the amount is not known when the card is
+    bound.
+    """
+
+    per_tier: int = 1
+
+
+@dataclass(frozen=True)
+class RetriggerFriendlyAbilityEffect:
+    """Fire a friendly minion's own ability again, on demand.
+
+    Two cards print it on an Activate and differ only in which trigger they
+    reach for: Kelp Keeper a Battlecry, Sky-hatch Runaway a Rally. ``repeats``
+    is the Golden's "twice".
+
+    A Rally in the tavern goes through the same door the Fishbait attack opened,
+    and a Battlecry through the placement dispatcher — so a re-triggered ability
+    that has no tavern meaning is refused loudly there rather than here.
+    """
+
+    trigger: Any
+    repeats: int = 1
+
+
+@dataclass(frozen=True)
+class GainStatsFromTavernEffect:
+    """Take the stats of a minion on the counter without taking the minion.
+
+    Unbound Tempest reads the biggest body in the tavern and copies its numbers;
+    ``ConsumeTavernMinionEffect`` is the same reading followed by eating it,
+    which is the whole difference between the two cards.
+    """
+
+    highest_health: bool = True
+    factor: int = 1
+
+
+@dataclass(frozen=True)
+class ElementalsPlayedResponseEffect:
+    """Answer every ``threshold`` Elementals the seat plays.
+
+    "(3 left!)" is a countdown that refills, so the running total is the body's
+    own — two Tempests count separately, and one bought late starts at nothing.
+    The same shape the spell, gold and hero-damage watchers take.
+    """
+
+    threshold: int
+    effect: Any = None
+
+
+@dataclass(frozen=True)
+class CopyTargetingSpellEffect:
+    """Get another copy of the spell just cast on this (Zesty Shaker).
+
+    ``once_per_turn`` is printed on both sides of the card; ``count`` is the
+    Golden's two copies.
+    """
+
+    count: int = 1
+    once_per_turn: bool = True
+
+
+@dataclass(frozen=True)
 class SellValueEffect:
     """What this minion sells for, when the card prints a price of its own.
 
@@ -1579,10 +1646,16 @@ class BuffRandomUniqueTribeFriendlies:
 
 @dataclass(frozen=True)
 class BuffAllShopOffersEffect:
-    """Shop ON_SELL / battlecry: buff every minion currently in the tavern offers."""
+    """Shop ON_SELL / battlecry: buff every minion currently in the tavern offers.
+
+    ``keyword_choices`` is Deft Deserter's "and Taunt, Divine Shield, or
+    Windfury" — one of the three, rolled per minion, because the card offers
+    the seat no choice and the tavern is not asked.
+    """
 
     attack: int = 0
     health: int = 0
+    keyword_choices: Tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1924,6 +1997,11 @@ Effect = Union[
     StripKeywordsFromTargetEffect,
     GainTargetAttackEffect,
     SetStatsEffect,
+    DealHeroDamagePerTierEffect,
+    RetriggerFriendlyAbilityEffect,
+    GainStatsFromTavernEffect,
+    ElementalsPlayedResponseEffect,
+    CopyTargetingSpellEffect,
     SellValueEffect,
     SummonStashedEffect,
     DevourNeighbourEffect,
@@ -2118,6 +2196,11 @@ __all__ = [
     "StripKeywordsFromTargetEffect",
     "GainTargetAttackEffect",
     "SetStatsEffect",
+    "DealHeroDamagePerTierEffect",
+    "RetriggerFriendlyAbilityEffect",
+    "GainStatsFromTavernEffect",
+    "ElementalsPlayedResponseEffect",
+    "CopyTargetingSpellEffect",
     "SellValueEffect",
     "SummonStashedEffect",
     "DevourNeighbourEffect",

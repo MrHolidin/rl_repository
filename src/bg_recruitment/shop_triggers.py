@@ -56,6 +56,7 @@ from src.bg_core.effects import (
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
     DealHeroDamage,
+    DealHeroDamagePerTierEffect,
     TransferAttackToRandomFriendlyEffect,
     DealDamageAllMinions,
     DealDamageLeftmostEnemyMinion,
@@ -73,6 +74,10 @@ from src.bg_core.effects import (
     BuffBoughtMinionEffect,
     BuffPerMagnetizationEffect,
     GoldSpentResponseEffect,
+    RetriggerFriendlyAbilityEffect,
+    ElementalsPlayedResponseEffect,
+    CopyTargetingSpellEffect,
+    GainStatsFromTavernEffect,
     StatsFromNextBuyEffect,
     MagnetizeTokenEffect,
     BuffSelfOnFriendlySoldEffect,
@@ -625,7 +630,13 @@ class ShopTriggers:
                 shared_pool=shared_pool,
             )
         elif isinstance(effect, BuffAllShopOffersEffect):
-            buff_all_shop_offers(player, attack=effect.attack, health=effect.health)
+            buff_all_shop_offers(
+                player,
+                attack=effect.attack,
+                health=effect.health,
+                keyword_choices=effect.keyword_choices,
+                rng=self._rng,
+            )
         elif isinstance(effect, AddRandomMinionToShopEffect):
             add_random_minion_to_shop(
                 player,
@@ -736,6 +747,17 @@ class ShopTriggers:
                 shop_excluded_race=shop_excluded_race,
                 shared_pool=shared_pool,
             )
+        elif isinstance(effect, DealHeroDamagePerTierEffect):
+            # ``placed`` is the card the Discover handed over, which is where
+            # the number comes from — the binding cannot know it.
+            if placed is not None:
+                self.damage_hero(player, int(placed.tier) * max(1, effect.per_tier))
+        elif isinstance(effect, GainStatsFromTavernEffect):
+            self.apply_gain_stats_from_tavern(player, source, effect)
+        elif isinstance(effect, CopyTargetingSpellEffect):
+            # Handled by fire_spell_cast_on, which is the only caller that
+            # knows which spell was cast; reaching here means nobody named it.
+            return
         elif isinstance(effect, AddCardToNextRefreshesEffect):
             have = player.refresh_promises.get(effect.card_id, 0)
             player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
@@ -1016,6 +1038,85 @@ class ShopTriggers:
         if effect.improves:
             bump_seat_counter(player, effect.improves)
 
+    def apply_gain_stats_from_tavern(
+        self,
+        player: PlayerState,
+        source: Optional[Minion],
+        effect: GainStatsFromTavernEffect,
+    ) -> None:
+        """"Gain the stats of the highest-Health minion in the Tavern."
+
+        A read and not a purchase: the minion stays on the counter, which is
+        the whole difference between this and consuming one.
+        """
+        from src.bg_recruitment.shop_auras import shop_effective_stats
+
+        if source is None:
+            return
+        offered = [m for m in player.shop if m is not None]
+        if not offered:
+            return
+        if effect.highest_health:
+            biggest = max(offered, key=lambda m: m.max_health)
+        else:
+            biggest = offered[int(self._rng.integers(0, len(offered)))]
+        attack, health = shop_effective_stats(offered, biggest)
+        factor = max(1, int(effect.factor))
+        source.bonus_attack += attack * factor
+        source.bonus_health += health * factor
+
+    def fire_elemental_played(self, player: PlayerState) -> None:
+        """Count an Elemental against the watchers that answer every Nth.
+
+        The seat plays it, but the countdown is each watcher's own — printed on
+        the card as "(3 left!)", so two Tempests count separately.
+        """
+        for watcher in list(player.board):
+            for ab in watcher.abilities:
+                eff = ab.effect
+                if not isinstance(eff, ElementalsPlayedResponseEffect):
+                    continue
+                watcher.elementals_seen += 1
+                times, watcher.elementals_seen = divmod(
+                    watcher.elementals_seen, max(1, int(eff.threshold))
+                )
+                for _ in range(times):
+                    if eff.effect is not None:
+                        self.apply_shop_effect(player, watcher, eff.effect, placed=None)
+
+    def retrigger_friendly_ability(
+        self,
+        player: PlayerState,
+        target: Minion,
+        effect: RetriggerFriendlyAbilityEffect,
+        *,
+        shop_excluded_race: Optional[Race] = None,
+        shared_pool=None,
+    ) -> None:
+        """Fire a friendly's own ability again — a Battlecry, or a Rally.
+
+        Both go through the door that ability normally comes in by, so a
+        re-trigger counts, multiplies and raises exactly as the first one did.
+        """
+        from src.bg_recruitment.fishbait import fire_tavern_rally
+
+        for _ in range(max(1, effect.repeats)):
+            if effect.trigger is Trigger.ON_ATTACK:
+                fire_tavern_rally(
+                    player,
+                    target,
+                    lambda src, eff: self.apply_shop_effect(
+                        player, src, eff, placed=None
+                    ),
+                )
+            else:
+                self.fire_on_place(
+                    placed=target,
+                    player=player,
+                    shop_excluded_race=shop_excluded_race,
+                    shared_pool=shared_pool,
+                )
+
     def open_tribe_discover(
         self,
         player: PlayerState,
@@ -1248,6 +1349,8 @@ class ShopTriggers:
             # The same count as a tally, for the cards that read one. The field
             # above stays because the observation has always read it.
             bump_seat_counter(player, "elementals_played:*")
+            # ...and as a countdown each watcher keeps for itself.
+            self.fire_elemental_played(player)
             from src.bg_recruitment import hero_passives
 
             hero_passives.apply_hero_on_elemental_played(player)  # Chenvaala

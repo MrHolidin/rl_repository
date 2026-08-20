@@ -122,7 +122,12 @@ def _keeps_first_spellcraft(target: Minion) -> bool:
 
 
 def apply_temporary_buff(
-    target: Minion, buff: GrantTemporaryBuffEffect, *, player=None, patch=None
+    target: Minion,
+    buff: GrantTemporaryBuffEffect,
+    *,
+    player=None,
+    patch=None,
+    spell_card_id: str = "",
 ) -> None:
     """Stats and keyword that come off again at the owner's next turn.
 
@@ -145,7 +150,9 @@ def apply_temporary_buff(
                 target.granted_keywords = target.granted_keywords | {buff.keyword}
             else:
                 target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
-    fire_spell_cast_on(target, player=player, patch=patch)
+    fire_spell_cast_on(
+        target, player=player, patch=patch, spell_card_id=spell_card_id
+    )
 
 
 def _count_spell_cast(player: PlayerState, *, patch=None) -> None:
@@ -171,7 +178,13 @@ def play_spellcraft_spell_from_hand(
     target = player.board[board_index]
     for ability in card.abilities:
         if isinstance(ability.effect, GrantTemporaryBuffEffect):
-            apply_temporary_buff(target, ability.effect, player=player, patch=patch)
+            apply_temporary_buff(
+                target,
+                ability.effect,
+                player=player,
+                patch=patch,
+                spell_card_id=card.card_id,
+            )
         elif patch is not None:
             # A Spellcraft spell that does something other than buff its target
             # — fetch a card, raise a seat bonus — is an ordinary effect, so it

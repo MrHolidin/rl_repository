@@ -72,7 +72,16 @@ def compute_eligible_buff_target(
 def _apply_buff_target(
     board: Sequence[Minion], idx: int, effect: BuffTargetFriendlyBattlecry
 ) -> None:
-    m = board[idx]
+    apply_buff_to_minion(board[idx], effect)
+
+
+def apply_buff_to_minion(m: Minion, effect: BuffTargetFriendlyBattlecry) -> None:
+    """The buff itself, on whichever body was named.
+
+    Separate from the by-index form because a Tavern spell can be cast at a
+    minion on the *counter*, which has no board index — the buff is the same
+    either way, and where the body stands is the caller's business.
+    """
     m.bonus_attack += effect.attack
     m.bonus_health += effect.health
     if effect.grant_keyword is not None:

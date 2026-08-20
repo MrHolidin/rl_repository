@@ -193,11 +193,15 @@ def roll_pending_modal(
     )
 
 
-def _fire_discovered(player: PlayerState, *, patch) -> None:
+def _fire_discovered(player: PlayerState, *, patch, picked=None) -> None:
     """Board listeners of "after you Discover a card".
 
     Fired once the pick is in hand, from the one place every Discover resolves,
     so a card watching for it cannot miss one kind of Discover and see another.
+
+    ``picked`` is what the seat kept. Most listeners do not care, but Imposing
+    Percussionist charges its hero "damage equal to its Tier", so the pick has
+    to travel with the event rather than be inferred from the hand.
     """
     import numpy as _np
 
@@ -214,7 +218,7 @@ def _fire_discovered(player: PlayerState, *, patch) -> None:
         return
     triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
     for source, effect in listeners:
-        triggers.apply_shop_effect(player, source, effect, placed=None)
+        triggers.apply_shop_effect(player, source, effect, placed=picked)
 
 
 def resolve_discover_pick(
@@ -243,7 +247,7 @@ def resolve_discover_pick(
             release_discover_options(shared_pool, pc.options, keep_slot=None)
         hand_discover = False
         player.pending_choice = None
-        _fire_discovered(player, patch=patch)
+        _fire_discovered(player, patch=patch, picked=patch.templates.get(choice_token))
         return
     if hand_discover:
         h = first_free_hand_slot(player)
@@ -270,7 +274,7 @@ def resolve_discover_pick(
             if is_murloc_board_minion(m):
                 apply_adapt_key_to_minion(m, choice_token)
 
-    _fire_discovered(player, patch=patch)
+    _fire_discovered(player, patch=patch, picked=patch.templates.get(choice_token))
 
     chain_next = extra > 0
     if chain_next:

@@ -22,6 +22,7 @@ from src.bg_catalog.patch_catalog import minion_by_id, minion_from_tavern_record
 from src.bg_core.minion import Minion
 from src.bg_recruitment.effect_modal import (
     _apply_buff_target,
+    apply_buff_to_minion,
     caster_ref_from_board_minion,
     compute_eligible_buff_target,
 )
@@ -256,7 +257,12 @@ def apply_targeted_buff(
         else caster_ref_from_board_minion(player.board, source)
     )
     if forced_buff_target is not None:
-        if forced_buff_target not in player.board:
+        # A Tavern spell may be cast at a minion on the counter as readily as
+        # one on the board — "give a minion +2/+2" says nothing about where it
+        # stands — so the target is taken at face value rather than looked up.
+        on_board = forced_buff_target in player.board
+        in_shop = any(m is forced_buff_target for m in player.shop)
+        if not (on_board or in_shop):
             return
         target = forced_buff_target
     else:
@@ -268,7 +274,7 @@ def apply_targeted_buff(
         )
         target = player.board[pick]
     for _ in range(repeats):
-        _apply_buff_target(player.board, player.board.index(target), effect)
+        apply_buff_to_minion(target, effect)
 
 
 def apply_targeted_on_place_battlecries(

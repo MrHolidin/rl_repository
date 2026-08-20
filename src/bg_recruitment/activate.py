@@ -28,11 +28,12 @@ from src.bg_core.effects import (
     BuffTargetFriendlyBattlecry,
     DestroyFriendlyEffect,
     PlaceFishbaitEffect,
+    RetriggerFriendlyAbilityEffect,
     SetStatsEffect,
     Trigger,
 )
 from src.bg_core.board_helpers import set_minion_stats
-from src.bg_core.minion import Minion
+from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PlayerPhase, PlayerState
 
 __all__ = [
@@ -77,12 +78,14 @@ def can_activate(player: PlayerState, minion: Minion) -> bool:
 def reset_activations(player: PlayerState) -> None:
     """Give every minion on the board its Activate back (start of turn).
 
-    And its one permanent Spellcraft spell — a different card's rule, but the
-    same per-turn lifetime, cleared at the same moment.
+    And its one permanent Spellcraft spell, and its one answer to a spell cast
+    on it — different cards' rules, but the same per-turn lifetime, cleared at
+    the same moment.
     """
     for minion in player.board:
         minion.activate_used_this_turn = False
         minion.spellcraft_kept_this_turn = False
+        minion.spell_answered_this_turn = False
 
 
 def activate_minion(
@@ -94,6 +97,7 @@ def activate_minion(
     shared_pool=None,
     buff_target: Optional[Minion] = None,
     shop_target_index: Optional[int] = None,
+    shop_excluded_race: Optional[Race] = None,
 ) -> None:
     """Pay for and fire the Activate on the minion at ``board_index``.
 
@@ -145,6 +149,19 @@ def activate_minion(
                 rng=rng,
                 forced=buff_target,
                 triggers=triggers,
+            )
+            continue
+        if isinstance(effect, RetriggerFriendlyAbilityEffect):
+            # "Activate (1): Trigger a friendly minion's Battlecry" names a
+            # friendly, so it takes the same pick a targeted buff does.
+            if buff_target is None or buff_target not in player.board:
+                continue
+            triggers.retrigger_friendly_ability(
+                player,
+                buff_target,
+                effect,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
             )
             continue
         if isinstance(effect, SetStatsEffect):

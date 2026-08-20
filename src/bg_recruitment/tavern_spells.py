@@ -230,16 +230,20 @@ def play_tavern_spell_from_hand(
     rng: np.random.Generator,
     patch: PatchContext,
     target_board_index: Optional[int] = None,
+    target_shop_index: Optional[int] = None,
     choose_one_option: int = 0,
     shop_excluded_race: Optional[Race] = None,
     shared_pool: Optional[SharedCardPool] = None,
 ) -> None:
     """Cast the Tavern spell in ``hand_index``, then discard it.
 
-    ``target_board_index`` is the friendly a "give a minion +X/+Y" names, and
-    ``choose_one_option`` picks the half of a Choose One. Both are the seat's
-    decisions; with neither given the effect falls back to a random legal
-    target, which is what the placement path already does.
+    ``target_board_index`` is the friendly a "give a minion +X/+Y" names and
+    ``target_shop_index`` is the same naming a minion still on the counter —
+    the card says "a minion", not "a friendly minion", and buffing one before
+    you buy it is an ordinary play. ``choose_one_option`` picks the half of a
+    Choose One. All three are the seat's decisions; with none given the effect
+    falls back to a random legal target, which is what the placement path
+    already does.
     """
     ctx = require_patch(patch, where="tavern_spells.play_tavern_spell_from_hand")
     card = player.hand[hand_index] if 0 <= hand_index < len(player.hand) else None
@@ -248,11 +252,11 @@ def play_tavern_spell_from_hand(
     if player.phase != PlayerPhase.SHOP:
         raise TavernSpellNotAllowed("casting is a recruit-phase move")
 
-    target = (
-        player.board[target_board_index]
-        if target_board_index is not None and 0 <= target_board_index < len(player.board)
-        else None
-    )
+    target = None
+    if target_board_index is not None and 0 <= target_board_index < len(player.board):
+        target = player.board[target_board_index]
+    elif target_shop_index is not None and 0 <= target_shop_index < len(player.shop):
+        target = player.shop[target_shop_index]
     player.hand[hand_index] = None
     cast_tavern_spell(
         player,
@@ -308,7 +312,9 @@ def cast_tavern_spell(
         # Blood Gem and a Spellcraft spell are. Only those two used to reach
         # here, so every "whenever you cast a spell on a <tribe>" card was blind
         # to the most ordinary way of doing it.
-        fire_spell_cast_on(target, player=player, patch=patch)
+        fire_spell_cast_on(
+            target, player=player, patch=patch, spell_card_id=card.card_id
+        )
     player.last_tavern_spell_cast = card.card_id
     bump_seat_counter(player, SPELLS_CAST, patch=patch)
     bump_seat_counter(player, TAVERN_SPELLS_CAST)

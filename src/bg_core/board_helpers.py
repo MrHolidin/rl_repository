@@ -171,7 +171,9 @@ def stat_aura_bonus(
     return atk, hp
 
 
-def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
+def fire_spell_cast_on(
+    target: Minion, *, player=None, patch=None, spell_card_id: str = ""
+) -> None:
     """Fire ``ON_TARGETED_BY_SPELL`` listeners on the minion a spell just hit.
 
     Both casts the engine can aim at a body — a Spellcraft spell and a Blood Gem
@@ -181,13 +183,22 @@ def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
     ``player`` and ``patch`` are needed only by the listeners that write to the
     seat rather than to the body ("give minions in the Tavern +2/+2 this game");
     without them such a card raises rather than silently doing nothing.
+
+    ``spell_card_id`` is for the one listener that answers with the spell
+    itself — Zesty Shaker gets another copy of what was cast on it, and cannot
+    infer which that was from a buff that has already landed.
     """
     import numpy as _np
 
     def _rng():
         return _np.random.default_rng(0)
 
-    from .effects import BuffOnSpellCastOnTribeEffect, BuffSelf, Trigger
+    from .effects import (
+        BuffOnSpellCastOnTribeEffect,
+        BuffSelf,
+        CopyTargetingSpellEffect,
+        Trigger,
+    )
 
     if player is not None:
         _fire_board_spell_watchers(player, target, patch=patch)
@@ -197,6 +208,8 @@ def fire_spell_cast_on(target: Minion, *, player=None, patch=None) -> None:
         eff = ab.effect
         if isinstance(eff, BuffSelf):
             apply_buff_self(target, eff)
+        elif isinstance(eff, CopyTargetingSpellEffect):
+            _copy_targeting_spell(target, eff, player, patch, spell_card_id)
         elif player is not None:
             # Anything that writes to the seat rather than to the body goes to
             # the shop dispatcher, which raises on an effect nobody handles.
@@ -249,6 +262,34 @@ def apply_attack_thresholds(minion: Minion, attack: int) -> bool:
         grant_keyword(minion, eff.keyword)
         granted = True
     return granted
+
+
+def _copy_targeting_spell(
+    target: Minion, effect, player, patch, spell_card_id: str
+) -> None:
+    """"When a Spellcraft spell is played on this, get a new copy of it."
+
+    Once per turn on both printings, and the latch is the body's own — the
+    same shape ``spellcraft_kept_this_turn`` beside it already has.
+    """
+    if player is None or patch is None or not spell_card_id:
+        return
+    if effect.once_per_turn and target.spell_answered_this_turn:
+        return
+    from src.bg_recruitment.hand_slots import first_free_hand_slot
+
+    spell = patch.tavern_spells.get(spell_card_id)
+    if spell is None:
+        return
+    paid = False
+    for _ in range(max(1, effect.count)):
+        slot = first_free_hand_slot(player)
+        if slot is None:
+            break
+        player.hand[slot] = spell
+        paid = True
+    if paid and effect.once_per_turn:
+        target.spell_answered_this_turn = True
 
 
 def _fire_board_spell_watchers(player, target: Minion, *, patch=None) -> None:

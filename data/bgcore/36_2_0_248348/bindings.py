@@ -136,6 +136,11 @@ from src.bg_core.effects import (
     CopyLastTavernSpellEffect,
     SetStatsEffect,
     SellValueEffect,
+    DealHeroDamagePerTierEffect,
+    RetriggerFriendlyAbilityEffect,
+    ElementalsPlayedResponseEffect,
+    GainStatsFromTavernEffect,
+    CopyTargetingSpellEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -1828,6 +1833,53 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.ON_TARGETED_BY_SPELL,
             CastSpellAtEffect(card_id="BG28_888", untargeted=True),
+        ),
+    ),
+    # ------------------------------------------- the last of the deferred six
+    # Each of these was deferred for one missing piece, and the piece has since
+    # been built for something else: the tribe Discover for Maw Caster, the
+    # tavern Rally for the Fishbait, the refilling countdown for Felboar.
+    "BG26_525": (  # Imposing Percussionist — Discover a Demon, and pay its Tier
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(tribe=Race.DEMON, repeats=1)),
+        Ability(Trigger.ON_DISCOVERED, DealHeroDamagePerTierEffect()),
+    ),
+    "BG36_621": (  # Deft Deserter — the whole tavern +8/+8 and a keyword each
+        Ability(
+            Trigger.ON_ACTIVATE,
+            BuffAllShopOffersEffect(
+                attack=8,
+                health=8,
+                keyword_choices=(Keyword.TAUNT, Keyword.SHIELD, Keyword.WINDFURY),
+            ),
+            activate_cost=1,
+        ),
+    ),
+    "BG36_243": (  # Sky-hatch Runaway — Activate: trigger a friendly's Rally
+        Ability(
+            Trigger.ON_ACTIVATE,
+            RetriggerFriendlyAbilityEffect(trigger=Trigger.ON_ATTACK),
+            activate_cost=1,
+        ),
+    ),
+    "BG36_701": (  # Kelp Keeper — Activate: trigger a friendly's Battlecry
+        Ability(
+            Trigger.ON_ACTIVATE,
+            RetriggerFriendlyAbilityEffect(trigger=Trigger.ON_PLACE),
+            activate_cost=1,
+        ),
+    ),
+    "BG36_352": (  # Unbound Tempest — every 3 Elementals, take the tavern's best
+        Ability(
+            Trigger.AURA,
+            ElementalsPlayedResponseEffect(
+                threshold=3, effect=GainStatsFromTavernEffect(highest_health=True)
+            ),
+        ),
+    ),
+    "BG26_505": (  # Zesty Shaker — a Spellcraft spell cast on it comes back
+        Ability(
+            Trigger.ON_TARGETED_BY_SPELL,
+            CopyTargetingSpellEffect(count=1, once_per_turn=True),
         ),
     ),
 }

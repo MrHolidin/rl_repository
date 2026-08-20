@@ -160,6 +160,12 @@ class Minion:
     #: Spells the seat has cast while this body watched, for the cards that
     #: answer every Nth rather than every one.
     spells_seen: int = 0
+    #: Elementals the seat has played while this body watched, for the cards
+    #: that answer every Nth rather than every one.
+    elementals_seen: int = 0
+    #: Spent by the Spellcraft spell it answered, for the watchers printed
+    #: "once per turn".
+    spell_answered_this_turn: bool = False
     #: Gold the seat has spent while this body watched, for the cards that
     #: answer every Nth coin rather than every purchase.
     gold_spent_seen: int = 0
