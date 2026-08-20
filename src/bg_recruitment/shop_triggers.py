@@ -110,6 +110,7 @@ from src.bg_recruitment.shop_auras import refresh_attack_thresholds
 from src.bg_recruitment.choose_one import grant_combined_choose_one, open_choose_one
 from src.bg_recruitment.lockbox import give_lockbox, tick_lockboxes
 from src.bg_recruitment.game_counts import (
+    DEATHRATTLES_TRIGGERED,
     bump_seat_counter,
     bump_summoned,
     improve_level,
@@ -724,6 +725,10 @@ class ShopTriggers:
                     effect.attack_outside_combat or effect.attack,
                     effect.health_outside_combat or effect.health,
                 )
+        elif isinstance(effect, DiscoverTribeEffect) and effect.magnetize_onto_target:
+            # Applied by apply_targeted_on_place_battlecries, which is the only
+            # caller that knows which friendly the seat named.
+            return
         elif isinstance(effect, DiscoverTribeEffect):
             self.open_tribe_discover(
                 player,
@@ -914,6 +919,7 @@ class ShopTriggers:
                     rng=self._rng,
                     patch=self._patch,
                     tier=effect.tier,
+                    keyword=effect.keyword,
                 )
         elif isinstance(effect, GainBloodGemsEffect):
             give_blood_gems(
@@ -987,12 +993,36 @@ class ShopTriggers:
     def _has_deathrattle(minion: Minion) -> bool:
         return any(ab.trigger == Trigger.ON_DEATH for ab in minion.abilities)
 
+    def apply_magnetize_token(
+        self, player: PlayerState, recipient: Minion, effect: MagnetizeTokenEffect
+    ) -> None:
+        """Weld a token onto ``recipient``, made on the spot.
+
+        Two cards reach it from different events — a Mech being played, and a
+        spell being cast on one — and they name different recipients, which is
+        the whole reason this is a method rather than a branch inside the
+        placement loop. It goes through the one magnetize entry point either
+        way, so it counts, doubles and echoes like any other Magnetization.
+        """
+        from src.bg_recruitment.place import magnetize
+
+        level = improve_level(player, effect.improves) if effect.improves else 1
+        for _ in range(level * max(1, effect.repeats)):
+            token = make_minion(effect.token_id, patch=self._patch)
+            if effect.attack or effect.health:
+                token.base_attack = effect.attack
+                token.base_health = effect.health
+            magnetize(player, recipient, token, triggers=self)
+        if effect.improves:
+            bump_seat_counter(player, effect.improves)
+
     def open_tribe_discover(
         self,
         player: PlayerState,
         effect: DiscoverTribeEffect,
         *,
         repeats: int = 1,
+        magnetize_onto_board_idx: Optional[int] = None,
         shop_excluded_race: Optional[Race] = None,
         shared_pool=None,
     ) -> None:
@@ -1006,8 +1036,10 @@ class ShopTriggers:
         """
         from src.bg_recruitment.discover import try_open_hand_discover_modal
 
-        free_slots = sum(1 for slot in player.hand if slot is None)
-        total = min(max(1, repeats) * max(1, effect.repeats), free_slots)
+        total = max(1, repeats) * max(1, effect.repeats)
+        if magnetize_onto_board_idx is None:
+            # A pick that lands in hand needs somewhere to land.
+            total = min(total, sum(1 for slot in player.hand if slot is None))
         if total <= 0:
             return
         opts = roll_discover_tribe_triple(
@@ -1026,6 +1058,7 @@ class ShopTriggers:
             opts,
             total - 1,
             tribe=effect.tribe,
+            magnetize_onto_board_idx=magnetize_onto_board_idx,
             shared_pool=shared_pool,
         )
 
@@ -1042,6 +1075,7 @@ class ShopTriggers:
         for ab in victim.abilities:
             if ab.trigger != Trigger.ON_DEATH:
                 continue
+            bump_seat_counter(player, DEATHRATTLES_TRIGGERED)
             if isinstance(ab.effect, _COMBAT_ONLY_ON_DEATH):
                 continue
             self.apply_shop_effect(player, victim, ab.effect, placed=None)
@@ -1138,7 +1172,7 @@ class ShopTriggers:
             if not ability_condition_met(ab, player, player.board, placed=placed):
                 continue
             e = ab.effect
-            if isinstance(e, DiscoverTribeEffect):
+            if isinstance(e, DiscoverTribeEffect) and not e.magnetize_onto_target:
                 self.open_tribe_discover(
                     player,
                     e,
@@ -1232,20 +1266,7 @@ class ShopTriggers:
                     continue
                 eff = ab.effect
                 if isinstance(eff, MagnetizeTokenEffect):
-                    # A Satellite made on the spot, welded to the newcomer. It
-                    # goes through the one magnetize entry point, so it counts,
-                    # doubles and echoes like any other Magnetization.
-                    from src.bg_recruitment.place import magnetize
-
-                    token = make_minion(eff.token_id, patch=self._patch)
-                    if eff.attack or eff.health:
-                        token.base_attack = eff.attack
-                        token.base_health = eff.health
-                    level = improve_level(player, eff.improves) if eff.improves else 1
-                    for _ in range(level):
-                        magnetize(player, placed, token, triggers=self)
-                    if eff.improves:
-                        bump_seat_counter(player, eff.improves)
+                    self.apply_magnetize_token(player, placed, eff)
                     continue
                 if isinstance(eff, BuffPlacedMinionEffect):
                     # The one listener on this trigger that pays the newcomer

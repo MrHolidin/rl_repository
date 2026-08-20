@@ -14,7 +14,11 @@ from typing import Any, List, Optional, Tuple
 from src.bg_catalog.cards import make_minion
 from copy import copy
 
-from src.bg_recruitment.game_counts import DIED, SUMMONED
+from src.bg_recruitment.game_counts import DEATHRATTLES_TRIGGERED, DIED, SUMMONED
+
+#: The family half of ``DEATHRATTLES_TRIGGERED`` — the seat's bump takes the
+#: family and subject apart.
+_DEATHRATTLES_FAMILY = DEATHRATTLES_TRIGGERED.split(":", 1)[0]
 from src.bg_core.effects import (
     AttackImmediatelyAfterSurvivingEffect,
     AddTavernSpellToHandEffect,
@@ -418,7 +422,11 @@ def _fire_friendly_kill_listeners(
 
 
 def _queue_random_combat_hand_add(
-    rt: _CombatRuntime, side_idx: int, tribe: Optional[Any], tier: Optional[int] = None
+    rt: _CombatRuntime,
+    side_idx: int,
+    tribe: Optional[Any],
+    tier: Optional[int] = None,
+    keyword: Optional[Any] = None,
 ) -> None:
     """"Get a random <tribe> / Tier N minion", from inside a fight.
 
@@ -427,7 +435,9 @@ def _queue_random_combat_hand_add(
     Rally meant a Tier 3.
     """
     race_hs = hs_race_string(tribe)
-    pool = summon_pool_for(tier, False, False, race_hs, None, patch=rt.patch)
+    pool = summon_pool_for(
+        tier, False, False, race_hs, None, patch=rt.patch, keyword=keyword
+    )
     if not pool:
         return
     cid = pool[int(rt.rng.integers(0, len(pool)))]
@@ -560,7 +570,9 @@ def _apply_friendly_death_effect(
         # "Avenge (4): Get a random Undead" — into the queue the seat empties
         # after the fight, the same route a Rally that fetches takes.
         for _ in range(max(1, eff.count)):
-            _queue_random_combat_hand_add(rt, side_idx, eff.tribe, eff.tier)
+            _queue_random_combat_hand_add(
+                rt, side_idx, eff.tribe, eff.tier, eff.keyword
+            )
     elif isinstance(eff, AddTavernSpellToHandEffect):
         for _ in range(max(1, eff.count)):
             rt.seats[side_idx].add_card_to_hand(eff.card_id)
@@ -880,7 +892,7 @@ def _fire_rally(
             # through the same queue a Deathrattle hand-add uses.
             for _ in range(max(1, eff.count)):
                 _queue_random_combat_hand_add(
-                    rt, attacker_side_idx, eff.tribe, eff.tier
+                    rt, attacker_side_idx, eff.tribe, eff.tier, eff.keyword
                 )
         elif isinstance(eff, PlayBloodGemsEffect):
             _play_combat_blood_gems(rt, attacker, attacker_side_idx, eff)
@@ -1261,6 +1273,19 @@ def _destroy_battle_minion(
     _announce_deaths(rt)
 
 
+def _dr_add_random_minion_to_hand(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: AddRandomMinionToHandEffect,
+) -> None:
+    """"Deathrattle: Get a random Magnetic Mech" — into the seat's queue."""
+    for _ in range(max(1, effect.count)):
+        _queue_random_combat_hand_add(
+            rt, side_idx, effect.tribe, effect.tier, effect.keyword
+        )
+
+
 def _dr_destroy_killer(
     rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: DestroyKillerEffect
 ) -> None:
@@ -1614,6 +1639,7 @@ _DEATHRATTLE_HANDLERS = {
     SummonStashedEffect: _dr_summon_stashed,
     SummonBestFromHandEffect: _dr_summon_best_from_hand,
     DestroyKillerEffect: _dr_destroy_killer,
+    AddRandomMinionToHandEffect: _dr_add_random_minion_to_hand,
 }
 
 
@@ -1624,6 +1650,10 @@ def _fire_deathrattle(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> 
         for ab in dead.abilities:
             if ab.trigger != Trigger.ON_DEATH:
                 continue
+            # "for each Deathrattle you've triggered this game" — counted at the
+            # firing, so a Baron-doubled deathrattle is two and a re-triggered
+            # one is another.
+            rt.seats[side_idx].bump_game_count(_DEATHRATTLES_FAMILY, "*")
             handler = _DEATHRATTLE_HANDLERS.get(type(ab.effect))
             if handler is None:
                 # Deliberately loud. This table is the entire contract for what

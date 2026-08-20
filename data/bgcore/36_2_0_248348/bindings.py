@@ -1775,6 +1775,60 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             condition=Condition(ConditionKind.LAST_COMBAT_WON, negate=True),
         ),
     ),
+    # ------------------------------------------------- the rest of the Mechs
+    # Two of them are the same sentence other tribes already say — a Tavern
+    # spell bonus, a spell cast on a friendly — and the other four are the
+    # Magnetize machinery reached from somewhere new.
+    "BG35_341": (  # Enchanted Sentinel — Magnetic; your Tavern spells give +1/+1
+        Ability(Trigger.AURA, IncreaseTavernSpellBonusEffect(attack=1, health=1)),
+    ),
+    "BG28_741": (  # Charging Czarina — a Tavern spell pays your Divine Shields
+        Ability(
+            Trigger.ON_TAVERN_SPELL_CAST,
+            BuffMatching(
+                target=BuffTarget.FRIENDLY_WITH_KEYWORD,
+                keyword=Keyword.SHIELD,
+                attack=4,
+            ),
+        ),
+    ),
+    "BG36_853": (  # Glambot — a spell cast on a Mech welds a Satellite to it
+        Ability(
+            Trigger.AURA,
+            BuffOnSpellCastOnTribeEffect(
+                tribe=Race.MECHANICAL,
+                effect=MagnetizeTokenEffect(token_id="BG31_171t", repeats=1),
+            ),
+        ),
+    ),
+    "BG26_148": (  # Scrap Scraper — Deathrattle: a random *Magnetic* Mech
+        Ability(
+            Trigger.ON_DEATH,
+            AddRandomMinionToHandEffect(
+                tribe=Race.MECHANICAL, keyword=Keyword.MAGNETIC, count=1
+            ),
+        ),
+    ),
+    "BG29_503": (  # Clunker Junker — Discover a Mech and weld it to a friendly one
+        Ability(
+            Trigger.ON_PLACE,
+            DiscoverTribeEffect(tribe=Race.MECHANICAL, magnetize_onto_target=True),
+        ),
+    ),
+    "BG35_342": (  # Falling Sky Golem — +4/+2 per Deathrattle triggered this game
+        Ability(
+            Trigger.AURA,
+            SelfBonusPerGameCount(
+                # A seat-wide tally rather than one this card keeps about
+                # itself, which is what the "*" subject says.
+                counter="deathrattles_triggered",
+                subject="*",
+                attack_per=4,
+                health_per=2,
+                count_self=True,
+            ),
+        ),
+    ),
 }
 
 

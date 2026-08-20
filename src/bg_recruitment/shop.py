@@ -150,6 +150,7 @@ def add_random_minion_to_hand(
     rng: np.random.Generator,
     patch: PatchContext,
     tier: Optional[int] = None,
+    keyword=None,
 ) -> None:
     """Add a random tavern-pool minion (optional ``tribe`` filter) to the first free hand slot.
 
@@ -172,6 +173,7 @@ def add_random_minion_to_hand(
         for cid in tavern_card_pool(draw_tier, shop_excluded_race, patch=patch)
         if (tribe is None or minion_matches_tribe(patch.templates[cid], tribe))
         and (tier is None or patch.templates[cid].tier == int(tier))
+        and (keyword is None or keyword in patch.templates[cid].keywords)
     ]
     if not pool:
         return

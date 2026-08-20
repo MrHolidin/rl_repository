@@ -42,6 +42,7 @@ def build_summon_pool(
     race_hs: Optional[str],
     exclude_card_id: Optional[str],
     patch_dir: str,
+    keyword_name: Optional[str] = None,
 ) -> tuple[str, ...]:
     from src.bg_catalog.patch_catalog import load_tavern_minions
 
@@ -67,8 +68,21 @@ def build_summon_pool(
             continue
         if race_hs is not None and rec.race != race_hs:
             continue
+        if keyword_name is not None and not _record_has_keyword(rec, keyword_name):
+            continue
         pool.append(cid)
     return tuple(pool)
+
+
+def _record_has_keyword(rec, keyword_name: str) -> bool:
+    """Whether a catalog row carries a keyword ("a random **Magnetic** Mech").
+
+    Read off the record rather than the built template so this stays a pure
+    function of the catalog, the way every other filter here is.
+    """
+    from src.bg_catalog.patch_catalog import keywords_for_tavern_record
+
+    return any(k.name == keyword_name for k in keywords_for_tavern_record(rec))
 
 
 def summon_pool_for(
@@ -79,6 +93,7 @@ def summon_pool_for(
     exclude_card_id: Optional[str],
     *,
     patch: PatchContext,
+    keyword=None,
 ) -> tuple[str, ...]:
     ctx = require_patch(patch, where="summon_pool.summon_pool_for")
     return build_summon_pool(
@@ -88,6 +103,7 @@ def summon_pool_for(
         race_hs,
         exclude_card_id,
         str(ctx.patch_dir),
+        keyword.name if keyword is not None else None,
     )
 
 

@@ -55,12 +55,18 @@ def try_open_hand_discover_modal(
     extra_modals_after: int,
     *,
     tribe: Optional[Race] = None,
+    magnetize_onto_board_idx: Optional[int] = None,
     shared_pool: Optional[SharedCardPool] = None,
 ) -> bool:
-    """Open a hand-discover modal only if the player can take at least one pick now."""
+    """Open a hand-discover modal only if the player can take at least one pick now.
+
+    ``magnetize_onto_board_idx`` is the one Discover whose pick never reaches
+    hand — it is welded onto a Mech instead — so a full hand is no reason to
+    refuse it.
+    """
     if not is_hand_discover_kind(kind):
         raise ValueError(f"not a hand-discover kind: {kind!r}")
-    if not hand_has_free_slot(player):
+    if magnetize_onto_board_idx is None and not hand_has_free_slot(player):
         return False
     reserved = False
     if shared_pool is not None:
@@ -73,6 +79,7 @@ def try_open_hand_discover_modal(
         extra_modals_after,
         options_pool_reserved=reserved,
         discover_tribe=tribe,
+        magnetize_onto_board_idx=magnetize_onto_board_idx,
     )
     return True
 
@@ -117,6 +124,29 @@ def discover_cards_to_receive(placed: Minion, battlecry_mult: int) -> int:
         if isinstance(ab.effect, DiscoverTribeEffect):
             n_need = max(n_need, battlecry_mult * ab.effect.repeats)
     return n_need
+
+
+def _magnetize_discover_pick(
+    player: PlayerState,
+    pc: PendingChoice,
+    card_id: str,
+    *,
+    patch: PatchContext,
+    rng: np.random.Generator,
+) -> None:
+    from src.bg_catalog.cards import make_minion
+    from src.bg_recruitment.place import magnetize
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    idx = pc.magnetize_onto_board_idx
+    if idx is None or not (0 <= idx < len(player.board)):
+        return
+    magnetize(
+        player,
+        player.board[idx],
+        make_minion(card_id, patch=patch),
+        triggers=ShopTriggers(rng, patch=patch),
+    )
 
 
 def roll_pending_modal(
@@ -205,6 +235,16 @@ def resolve_discover_pick(
     choice_token = pc.options[pick_slot]
     extra = pc.extra_modals_after
     hand_discover = is_hand_discover_kind(pc.kind)
+    if hand_discover and pc.magnetize_onto_board_idx is not None:
+        # "Discover a Mech to Magnetize to it": the pick is welded onto the
+        # friendly the battlecry named and is never a card in hand.
+        _magnetize_discover_pick(player, pc, choice_token, patch=patch, rng=rng)
+        if pc.options_pool_reserved and shared_pool is not None:
+            release_discover_options(shared_pool, pc.options, keep_slot=None)
+        hand_discover = False
+        player.pending_choice = None
+        _fire_discovered(player, patch=patch)
+        return
     if hand_discover:
         h = first_free_hand_slot(player)
         if h is None:

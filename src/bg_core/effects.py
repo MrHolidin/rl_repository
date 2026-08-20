@@ -530,6 +530,10 @@ class DiscoverTribeEffect:
 
     tribe: Any = None
     repeats: int = 1
+    #: "Discover a Mech **to Magnetize to it**" — the pick is welded onto a
+    #: friendly the seat named rather than landing in hand, so this Discover
+    #: needs no hand slot and is opened by the targeted-battlecry path.
+    magnetize_onto_target: bool = False
 
 
 @dataclass(frozen=True)
@@ -935,6 +939,8 @@ class MagnetizeTokenEffect:
     improves: str = ""
     attack: int = 0
     health: int = 0
+    #: How many are welded per trigger. The Golden Glambot welds "twice".
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
@@ -1799,6 +1805,9 @@ class AddRandomMinionToHandEffect:
     tribe: Optional[Any] = None
     tier: Optional[int] = None
     count: int = 1
+    #: Narrow the draw to cards carrying a keyword ("a random **Magnetic**
+    #: Mech"). A property of the card, so it reads the same in either phase.
+    keyword: Optional[Keyword] = None
 
 
 @dataclass(frozen=True)

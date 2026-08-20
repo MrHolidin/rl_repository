@@ -41,7 +41,11 @@ from src.bg_core.effects import (
     StealTavernMinionEffect,
     Trigger,
 )
-from src.bg_core.board_helpers import minion_matches_tribe, multiplier_for
+from src.bg_core.board_helpers import (
+    fire_spell_cast_on,
+    minion_matches_tribe,
+    multiplier_for,
+)
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerPhase, PlayerState
@@ -299,6 +303,12 @@ def cast_tavern_spell(
             shop_excluded_race=shop_excluded_race,
             shared_pool=shared_pool,
         )
+    if target is not None:
+        # A Tavern spell aimed at a body is a spell cast on it, the same event a
+        # Blood Gem and a Spellcraft spell are. Only those two used to reach
+        # here, so every "whenever you cast a spell on a <tribe>" card was blind
+        # to the most ordinary way of doing it.
+        fire_spell_cast_on(target, player=player, patch=patch)
     player.last_tavern_spell_cast = card.card_id
     bump_seat_counter(player, SPELLS_CAST, patch=patch)
     bump_seat_counter(player, TAVERN_SPELLS_CAST)

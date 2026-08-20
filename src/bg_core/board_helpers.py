@@ -277,9 +277,18 @@ def _fire_board_spell_watchers(player, target: Minion, *, patch=None) -> None:
 
                 import numpy as _np
 
-                ShopTriggers(_np.random.default_rng(0), patch=patch).apply_shop_effect(
-                    player, watcher, eff.effect, placed=None
-                )
+                from .effects import MagnetizeTokenEffect
+
+                triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+                if isinstance(eff.effect, MagnetizeTokenEffect):
+                    # The recipient is the minion the spell was cast on, not the
+                    # watcher — and the dispatcher has no way to be told which,
+                    # which is why this one is called directly.
+                    triggers.apply_magnetize_token(player, target, eff.effect)
+                else:
+                    triggers.apply_shop_effect(
+                        player, watcher, eff.effect, placed=None
+                    )
 
 
 def grant_keyword(minion: Minion, keyword) -> bool:

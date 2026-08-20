@@ -63,14 +63,20 @@ def _scale_factor(effect: Effect, value: int, hints: Dict[str, Any]) -> int:
     return value * 2 if value > 0 else value
 
 
-def _scales_at_the_wrapper(hints: Dict[str, Any]) -> bool:
-    """Whether the golden's change lands on the wrapper rather than inside it.
+def _scales_at_the_wrapper(hints: Dict[str, Any], effect: Effect) -> bool:
+    """Whether the golden's "twice" lands here rather than on what this wraps.
 
     "give two friendly Pirates +4/+5 **twice**" keeps the payload's numbers and
-    changes how often it resolves, so the nested effect must be left alone and
-    the wrapper's own ``repeats`` carries the doubling instead.
+    changes how often it resolves. It lands here when this effect is the one
+    that counts resolutions — and when it is not, the recursion carries it
+    inward: Glambot's "Magnetize a Satellite to it twice" is a repeat of the
+    Magnetize, and the watcher wrapping it has nothing to double.
     """
-    return bool(hints.get("prefer_repeats"))
+    return bool(hints.get("prefer_repeats")) and _has_repeats(effect)
+
+
+def _has_repeats(effect: Effect) -> bool:
+    return any(f.name == "repeats" for f in fields(effect))
 
 
 def _is_effect(value: Any) -> bool:
@@ -85,6 +91,11 @@ def _is_effect(value: Any) -> bool:
 def _should_skip_field(
     effect: Effect, field_name: str, value: int, hints: Dict[str, Any]
 ) -> bool:
+    if hints.get("repeats_only"):
+        # Reached by recursion under "twice": the wrapper had no resolutions to
+        # count, so the repeat belongs to what it wraps and nothing else there
+        # moves.
+        return field_name != "repeats"
     if hints.get("double_stats"):
         # "consume a minion to gain **double** its stats", "give it **double**
         # this minion's maximum stats": the numbers printed stay, and the
@@ -134,8 +145,12 @@ def implicit_triple_golden_effect(
             # halves, and "repeat this for each X" doubles the thing repeated.
             # Without this the Golden Tasty Lobster still gave +1/+1.
             nested = getattr(e, f.name, None)
-            if _is_effect(nested) and not _scales_at_the_wrapper(hints):
-                scaled_nested = implicit_triple_golden_effect(nested, hints)
+            if _is_effect(nested) and not _scales_at_the_wrapper(hints, e):
+                inner = hints
+                if hints.get("prefer_repeats"):
+                    # The "twice" has to land somewhere, and it is not here.
+                    inner = {**hints, "prefer_repeats": False, "repeats_only": True}
+                scaled_nested = implicit_triple_golden_effect(nested, inner)
                 if scaled_nested is not nested:
                     updates[f.name] = scaled_nested
             continue

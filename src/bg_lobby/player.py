@@ -96,6 +96,9 @@ class PendingChoice:
     #: DISCOVER_TRIBE only: which tribe the options were drawn from, so a
     #: repeated Discover rolls the same tribe the card printed.
     discover_tribe: Optional[Race] = None
+    #: DISCOVER_TRIBE only: board index of the Mech the pick is welded onto
+    #: (Clunker Junker). Set means the pick never reaches hand.
+    magnetize_onto_board_idx: Optional[int] = None
 
 
 class CasterKind(IntEnum):

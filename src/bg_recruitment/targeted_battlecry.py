@@ -14,6 +14,7 @@ from src.bg_core.effects import (
     BuffTargetPerGoldSpentEffect,
     ConsumeTavernMinionEffect,
     DestroyFriendlyEffect,
+    DiscoverTribeEffect,
     MakeFriendlyGoldenEffect,
     Trigger,
 )
@@ -346,6 +347,25 @@ def apply_targeted_on_place_battlecries(
             )
             if target is not None and (not e.max_tier or target.tier <= e.max_tier):
                 make_golden(target, patch=triggers._patch)
+        elif isinstance(e, DiscoverTribeEffect) and e.magnetize_onto_target:
+            # "Choose a friendly Mech. Discover a Mech to Magnetize to it" —
+            # the pick needs the recipient, and only this path knows it.
+            target = _pick_eater(
+                player,
+                placed,
+                ConsumeTavernMinionEffect(filter_race=e.tribe),
+                rng=rng,
+                forced=forced_buff_target,
+                exclude_self=True,
+            )
+            if target is None:
+                continue
+            triggers.open_tribe_discover(
+                player,
+                e,
+                repeats=mult,
+                magnetize_onto_board_idx=player.board.index(target),
+            )
         elif isinstance(e, DestroyFriendlyEffect):
             apply_destroy_friendly(
                 player,

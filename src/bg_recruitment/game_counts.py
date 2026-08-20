@@ -38,6 +38,7 @@ __all__ = [
     "GOLDEN_PLAYED",
     "SPELLS_CAST",
     "TAVERN_SPELLS_CAST",
+    "DEATHRATTLES_TRIGGERED",
     "bump_died",
     "bump_game_count",
     "bump_played",
@@ -59,6 +60,11 @@ SPELLS_CAST = "spells_cast:*"
 #: Tavern spells only — narrower than SPELLS_CAST, because the cards that read
 #: it say "Tavern spell" and a Blood Gem is not one.
 TAVERN_SPELLS_CAST = "tavern_spells_cast:*"
+
+#: Deathrattles this seat has triggered, all game. One per firing rather than
+#: per body: a deathrattle doubled by Baron is two triggers, and one fired
+#: without a death (Deathstrider re-triggering the left-most) is one more.
+DEATHRATTLES_TRIGGERED = "deathrattles_triggered:*"
 
 #: Golden minions this seat has played. Played, not summoned: the cards that
 #: read it say "you've played", and a golden token summoned in a fight is not
