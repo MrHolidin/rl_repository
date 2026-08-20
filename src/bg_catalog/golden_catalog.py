@@ -35,8 +35,12 @@ def catalog_golden_hints(normal_text: Optional[str], golden_text: Optional[str])
         hints["prefer_repeats"] = True
     if "triple" in g and "attack" in g:
         hints["triple_factor"] = True
-    if "double" in g and "stats" in g:
+    # "double its stats" -> "**triple** its stats": the multiple is what moves,
+    # and by how much is the word the Golden uses.
+    if "stats" in g and ("double" in g or "triple" in g):
         hints["double_stats"] = True
+        if "triple" in g and "double" in n:
+            hints["stat_multiple"] = 3
     # "Summon two Sewer Rats" → "Summon two *Golden* Sewer Rats": the golden
     # upgrades the token rather than summoning more of the plain one, and says
     # so by naming it Golden where the normal printing does not.

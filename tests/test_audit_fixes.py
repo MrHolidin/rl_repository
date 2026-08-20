@@ -319,3 +319,107 @@ def test_obsidian_ravager_hits_one_neighbour_and_its_golden_hits_both(patch):
 
     assert {splashed(False, s) for s in range(6)} == {2}
     assert {splashed(True, s) for s in range(6)} == {3}
+
+
+# --------------------------------------------------------------------------- #
+# Four more cards the derivation could not say
+# --------------------------------------------------------------------------- #
+
+
+def test_golden_sly_raptor_summons_one_beast_at_double_stats(patch):
+    """"Summon **a** random Beast. Set its stats to 12/12" — one, not two."""
+    (plain,) = patch.effects["BG25_806"]
+    (golden,) = patch.triple_merge_golden_abilities("BG25_806")
+    assert golden.effect.count == plain.effect.count == 1
+    assert (golden.effect.set_attack, golden.effect.set_health) == (12, 12)
+
+
+def test_golden_stone_age_slab_triples(patch):
+    """"+10/+10 and **triple** its stats" — the multiple moves, the flat stays."""
+    (plain,) = patch.effects["BG34_950"]
+    (golden,) = patch.triple_merge_golden_abilities("BG34_950")
+    assert (golden.effect.attack, golden.effect.health) == (10, 10)
+    assert (plain.effect.stat_multiplier, golden.effect.stat_multiplier) == (2, 3)
+
+
+def test_stone_age_slab_pays_what_it_prints(patch, monkeypatch):
+    """A 1/1 bought becomes 22/22, and 33/33 off the Golden."""
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    def bought_stats(ability):
+        slab = patch.make_minion("BG34_950")
+        slab.abilities = (ability,)
+        player = _player(patch, board=[slab])
+        bought = _plain("b", 1, 1)
+        ShopTriggers(np.random.default_rng(0), patch=patch).fire_on_bought(
+            player, bought
+        )
+        return (bought.raw_attack, bought.max_health)
+
+    assert bought_stats(patch.effects["BG34_950"][0]) == (22, 22)
+    assert bought_stats(patch.triple_merge_golden_abilities("BG34_950")[0]) == (33, 33)
+
+
+def test_the_jailbird_golem_is_a_golem(patch):
+    """Pointing at its own card id put a second tier-5 Quilboar on the board."""
+    from src.bg_recruitment.blood_gems import play_blood_gem_on
+    from src.bg_recruitment.combat_seat import PlayerCombatSeat
+
+    juggernaut = patch.make_minion("BG36_333")
+    player = _player(patch, board=[juggernaut])
+    play_blood_gem_on(player, juggernaut, count=3, patch=patch)
+    juggernaut.bonus_health += 200
+    survivors: list = []
+    simulate_battle(
+        [juggernaut],
+        [_plain("w", 0, 400)],
+        p0_has_initiative=True,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        p0_board_out=survivors,
+        seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
+    )
+    golems = [m for m in survivors if m.card_id != "BG36_333"]
+    assert golems
+    assert all(m.race is None for m in golems)
+    assert all((m.raw_attack, m.max_health) == (3, 3) for m in golems)
+
+
+def test_humming_bird_pays_a_beast_summoned_later(patch):
+    """"For the rest of this combat" — the buff stays open."""
+    import src.bg_combat.battle.engine as engine
+    from src.bg_combat.battle.events import MinionSummoned
+
+    def summoned_stats(with_bird: bool):
+        seen: list = []
+        original = engine._dispatch
+
+        def traced(rt, ev):
+            out = original(rt, ev)
+            if isinstance(ev, MinionSummoned):
+                m = rt.find_minion(ev.side_idx, ev.instance_id)
+                if m is not None:
+                    seen.append((m.raw_attack, m.max_health))
+            return out
+
+        engine._dispatch = traced
+        try:
+            board = [patch.make_minion("BG31_803")]  # Deathrattle: a 2/2 Beetle
+            if with_bird:
+                bird = patch.make_minion("BG26_805")
+                bird.bonus_health += 400
+                board.insert(0, bird)
+            simulate_battle(
+                board,
+                [_plain("w", 2, 400)],
+                p0_has_initiative=True,
+                rng=np.random.default_rng(0),
+                patch=patch,
+                p0_board_out=[],
+            )
+        finally:
+            engine._dispatch = original
+        return seen
+
+    assert summoned_stats(with_bird=False) == [(2, 2)]
+    assert summoned_stats(with_bird=True) == [(3, 2)]

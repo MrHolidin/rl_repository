@@ -42,6 +42,8 @@ _GOLDEN_INT_FIELDS = frozenset(
         "factor",
         "uses",
         "limit",
+        "set_attack",
+        "set_health",
         "attack_outside_combat",
         "health_outside_combat",
     }
@@ -126,6 +128,13 @@ def _should_skip_field(
         # how often they land. Houndmaster's golden is +4/+4 once, and doubling
         # both would be four times the card.
         return True
+    if field_name == "count" and (
+        int(getattr(effect, "set_attack", 0) or 0) > 0
+        or int(getattr(effect, "set_health", 0) or 0) > 0
+    ):
+        # "Summon **a** random Beast. Set its stats to 6/6" — the Golden sets
+        # them to 12/12 and still summons one.
+        return True
     if field_name == "limit":
         # A cap on how many bodies an effect reaches. It moves only when the
         # Golden says so in words ("give **two** other friendly Dragons"), the
@@ -205,7 +214,10 @@ def implicit_triple_golden_effect(
             continue
         if _should_skip_field(e, f.name, val, hints):
             continue
-        if f.name == "factor":
+        if f.name in ("stat_multiplier", "factor") and hints.get("stat_multiple"):
+            # The Golden names the multiple outright ("triple its stats").
+            updates[f.name] = int(hints["stat_multiple"])
+        elif f.name == "factor":
             updates[f.name] = _scale_factor(e, val, hints)
         else:
             updates[f.name] = val * 2

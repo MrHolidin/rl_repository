@@ -166,6 +166,7 @@ TOKEN_IDS: FrozenSet[str] = frozenset(
         "BG19_010_G",  # Golden Sewer Rat, which the Golden Lord summons
         "BG19_010t",  # Half-Shell 2/3 Taunt — the Rat's deathrattle
         "BG19_010_Gt",  # Golden Half-Shell 4/6
+        "BG30_MagicItem_442t",  # Blood Golem 1/1 — Jailbird Juggernaut's Rally
         # Golden printings a Golden card summons by name rather than by count:
         # "Summon a Golden Tasty Lobster", "Summon a Golden Ancestral Automaton".
         "BG36_202_G",
@@ -357,7 +358,13 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG26_805": (  # Humming Bird — Start of Combat: your Beasts have +1 Attack
         Ability(
             Trigger.ON_START_OF_COMBAT,
-            BuffMatching(BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=1, health=0),
+            BuffMatching(
+                BuffTarget.FRIENDLY_OF_TRIBE,
+                tribe=Race.BEAST,
+                attack=1,
+                health=0,
+                lasting=True,  # "For the rest of this combat"
+            ),
         ),
     ),
     "BG36_342": (  # Clever Castaway — Activate (2): Discover a Tavern spell
@@ -1219,7 +1226,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         Ability(
             Trigger.AURA,
             BuffBoughtMinionEffect(
-                attack=10, health=10, double_stats=True, once_per_turn=True
+                attack=10, health=10, stat_multiplier=2, once_per_turn=True
             ),
         ),
     ),
@@ -1519,7 +1526,15 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BG36_333": (  # Jailbird Juggernaut — Rally: a Golem made of its own Gems
-        Ability(Trigger.ON_ATTACK, SummonGemGolemEffect(token_id="BG36_333")),
+        Ability(
+            Trigger.ON_ATTACK,
+            SummonGemGolemEffect(
+                # A Blood Golem token, not a copy of the Juggernaut: pointing
+                # at its own card id put a second tier-5 Quilboar on the board,
+                # which every "all your Quilboar" effect then counted.
+                token_id="BG30_MagicItem_442t"
+            ),
+        ),
     ),
     "BG36_341": (  # Veteran Brigand — Choose One: Gems everywhere, or Barrages
         Ability(

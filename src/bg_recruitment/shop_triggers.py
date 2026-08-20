@@ -497,9 +497,10 @@ class ShopTriggers:
                 watcher.buy_answered_this_turn = True
                 bought.bonus_attack += eff.attack
                 bought.bonus_health += eff.health
-                if eff.double_stats:
-                    bought.bonus_attack += bought.raw_attack
-                    bought.bonus_health += bought.max_health
+                extra = max(1, int(eff.stat_multiplier)) - 1
+                if extra:
+                    bought.bonus_attack += bought.raw_attack * extra
+                    bought.bonus_health += bought.max_health * extra
 
     def fire_spell_cast(self, player: PlayerState) -> None:
         """Count a spell against the watchers that answer every Nth.

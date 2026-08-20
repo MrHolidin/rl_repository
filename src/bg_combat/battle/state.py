@@ -248,6 +248,14 @@ class _CombatRuntime:
     #: not leave the hand, and it cannot be summoned a second time — so a second
     #: Rally has to reach past it to the next one.
     hand_summoned: Tuple[set, set] = field(default_factory=lambda: (set(), set()))
+    #: Buffs installed for the rest of the fight ("For the rest of this combat,
+    #: your Beasts have +1 Attack"). Applied to the board when they land and to
+    #: everything summoned afterwards, which is what makes them last.
+    lasting_buffs: Tuple[list, list] = field(default_factory=lambda: ([], []))
+    #: Buffs installed for the rest of the fight ("For the rest of this combat,
+    #: your Beasts have +1 Attack"). Applied to the board when they land and to
+    #: everything summoned afterwards, which is what makes them last.
+    lasting_buffs: Tuple[list, list] = field(default_factory=lambda: ([], []))
     #: The body currently taking a swing, for the cards that are immune only
     #: while attacking. Set around the exchange and cleared after it.
     swinging_instance_id: int = -1

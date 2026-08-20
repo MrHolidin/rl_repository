@@ -154,6 +154,10 @@ def _apply_start_of_combat_effect(
         for _ in range(max(1, eff.repeats)):
             _deal_random_enemy_minion_damage(rt, side_idx, amount)
     elif isinstance(eff, BuffMatching):
+        if eff.lasting:
+            # Stays open for the fight, so everything summoned after this is
+            # paid too — the buff below still lands on whoever is here now.
+            rt.lasting_buffs[side_idx].append(eff)
         # "Start of Combat: give your other Dragons +1/+1", "…your Beasts have
         # +1 Attack for the rest of this combat", "give your left-most Dragon
         # +1/+2 and Windfury" (that one is ``limit=1`` plus a granted keyword).

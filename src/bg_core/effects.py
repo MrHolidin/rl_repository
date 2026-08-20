@@ -232,6 +232,10 @@ class BuffMatching:
     #: the target — it is one card's rule, and gating the whole
     #: FRIENDLY_OF_TRIBE variant on it silently broke the next card to use it.
     requires_placed_battlecry: bool = False
+    #: "For the rest of this combat, your Beasts have +1 Attack" — the buff
+    #: stays open, so a Beast summoned later is paid too. Without it the card
+    #: reads as a one-off snapshot of whoever happened to be standing there.
+    lasting: bool = False
 
 
 @dataclass(frozen=True)
@@ -859,14 +863,17 @@ class BuffTargetPerGoldSpentEffect:
 class BuffBoughtMinionEffect:
     """Pay the minion the seat just bought.
 
-    ``double_stats`` is Stone Age Slab's second half, applied after the flat
+    ``stat_multiplier`` is Stone Age Slab's second half, applied after the flat
     stats. ``once_per_turn`` is printed on it too, and the flag is spent by the
     buy that used it.
     """
 
     attack: int = 0
     health: int = 0
-    double_stats: bool = False
+    #: What the bought minion's own stats are multiplied by, after the flat
+    #: ones land. The Golden prints "**triple** its stats", which is why this
+    #: is a factor rather than the boolean it started as.
+    stat_multiplier: int = 1
     once_per_turn: bool = False
 
 
@@ -1403,6 +1410,9 @@ class SummonGemGolemEffect:
 
     token_id: str
     attack_immediately: bool = True
+    #: What multiple of the Gems the Golem is worth. The Golden prints
+    #: "**double** this minion's Blood Gems".
+    factor: int = 1
 
 
 @dataclass(frozen=True)

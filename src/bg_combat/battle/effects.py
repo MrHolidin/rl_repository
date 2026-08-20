@@ -395,6 +395,10 @@ def _handle_minion_summoned(rt: _CombatRuntime, e: MinionSummoned) -> None:
     def grant(minion: BattleMinion, keyword: Keyword) -> None:
         _grant_keyword(rt, e.side_idx, minion, keyword)
 
+    for lasting in rt.lasting_buffs[e.side_idx]:
+        # "For the rest of this combat, your Beasts have +1 Attack" — the
+        # newcomer is a Beast the buff has not paid yet.
+        apply_buff_matching(lasting, [summoned], None, grant=grant)
     for listener, eff in side.listeners(
         Trigger.ON_FRIENDLY_MINION_SUMMONED, summoned
     ):

@@ -122,11 +122,11 @@ def test_jailbird_juggernaut_summons_its_gems(patch):
         [juggernaut], [_wall(hp=1)], patch,
         seats=(PlayerCombatSeat(player, patch=patch), PlayerCombatSeat(_player(patch))),
     )
-    golem = next(
-        m for m in survivors if m.card_id == "BG36_333" and m is not juggernaut
-        and m.base_attack == 3
-    )
-    assert (golem.base_attack, golem.base_health) == (3, 3)
+    # A Blood Golem token, not another Juggernaut: a copy of the card would be
+    # a second tier-5 Quilboar, which every "all your Quilboar" effect counts.
+    golem = next(m for m in survivors if m.card_id == "BG30_MagicItem_442t")
+    assert (golem.raw_attack, golem.max_health) == (3, 3)
+    assert golem.race is None
 
 
 # --------------------------------------------------------------------------- #
