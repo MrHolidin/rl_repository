@@ -30,7 +30,10 @@ from src.bg_core.effects import (
     GiveOwnStatsToHandEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
+    Condition,
+    ConditionKind,
     GainNearestEnemyStatsEffect,
+    PromiseNextTurnEffect,
     MakeFriendlyGoldenEffect,
     MultiplyFriendlyAttackEffect,
     SetEnemyHealthEffect,
@@ -2311,6 +2314,53 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
         ),
     ),
+    # ------------------------------ promises that come due next turn
+    "BG28_884": (  # Overconfidence — 3 Gold on a win, 1 on a tie
+        Ability(
+            Trigger.ON_PLACE,
+            PromiseNextTurnEffect(
+                effect=GainGoldThisTurnEffect(amount=3),
+                condition=Condition(ConditionKind.LAST_COMBAT_WON),
+            ),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            PromiseNextTurnEffect(
+                effect=GainGoldThisTurnEffect(amount=1),
+                condition=Condition(ConditionKind.LAST_COMBAT_WON, tie=True),
+            ),
+        ),
+    ),
+    "BG36_883": (  # Winner's Bread — +2/+3 now, and +4/+6 next turn if you win
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(attack=2, health=3, exclude_self=False),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            PromiseNextTurnEffect(
+                effect=BuffTargetFriendlyBattlecry(
+                    attack=4, health=6, exclude_self=False
+                ),
+                condition=Condition(ConditionKind.LAST_COMBAT_WON),
+            ),
+        ),
+    ),
+    "BG31_881": (  # Time Management — Choose One: +2/+2 now, or twice next turn
+        Ability(
+            Trigger.ON_PLACE,
+            ChooseOneEffect(
+                first=BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+                second=PromiseNextTurnEffect(
+                    effect=BuffMatching(
+                        target=BuffTarget.ALL_FRIENDLY, attack=2, health=2
+                    ),
+                    repeats=2,
+                ),
+            ),
+        ),
+    ),
+
     # --------------------------- Start of Combat, bought a turn early
     # A spell with no body of its own: the seat holds the promise from the
     # cast until the next fight reads it.

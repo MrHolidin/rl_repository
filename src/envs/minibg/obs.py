@@ -349,6 +349,7 @@ UNENCODED_EFFECTS: frozenset[str] = frozenset(
         "BuffBoughtMinionEffect",
         "MakeFriendlyGoldenEffect",
         "TransformToHigherTierEffect",
+        "PromiseNextTurnEffect",
         "SetEnemyHealthEffect",
         "MultiplyFriendlyAttackEffect",
         "GainNearestEnemyStatsEffect",

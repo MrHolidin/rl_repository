@@ -190,6 +190,9 @@ class PlayerState:
     next_roll_cost_override: Optional[int] = None
     free_roll_charges: int = 0
     last_combat_won: bool = False
+    #: Neither side took damage. The third answer the "if you win your next
+    #: combat" cards ask for, and the only one ``last_combat_won`` cannot give.
+    last_combat_tied: bool = False
     last_opponent_board: Tuple[Minion, ...] = ()
     #: Attack every Elemental entering the tavern carries, accumulated by the
     #: cards that grant it per Elemental played (Nomi). Kept as the field the
@@ -246,6 +249,9 @@ class PlayerState:
     #: from the cast until the next fight reads it, and lets go of it at its
     #: own next turn start — one fight is what the card bought.
     start_combat_promises: Tuple["Ability", ...] = ()
+    #: "At the start of your next turn, …" — each entry is the promise and the
+    #: ``instance_id`` of the body it named (0 for the ones that name none).
+    next_turn_promises: Tuple[Tuple[Any, int], ...] = ()
     # Signed normalized damage delta from each of the last ``BATTLE_HISTORY_LEN``
     # combats (most recent last). Empty until the player has fought at least once.
     battle_history: Tuple[float, ...] = ()

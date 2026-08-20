@@ -80,6 +80,7 @@
       "PlaceFishbaitEffect",
       "PlayBloodGemsEffect",
       "PlayBloodGemsOnAttackerEffect",
+      "PromiseNextTurnEffect",
       "RaiseGoldCapEffect",
       "RaiseStandingBonusEffect",
       "ReduceTavernSpellCostEffect",

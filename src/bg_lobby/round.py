@@ -99,6 +99,9 @@ def resolve_battle_and_advance(
     apply_combat_hand_adds(pb, combat_hand_adds[1], patch, shared_pool=state.shared_pool)
     state.players[0].last_combat_won = dmg_p0 == 0 and dmg_p1 > 0
     state.players[1].last_combat_won = dmg_p1 == 0 and dmg_p0 > 0
+    tied = dmg_p0 == 0 and dmg_p1 == 0
+    state.players[0].last_combat_tied = tied
+    state.players[1].last_combat_tied = tied
 
     p0_dead = state.players[0].health <= 0
     p1_dead = state.players[1].health <= 0

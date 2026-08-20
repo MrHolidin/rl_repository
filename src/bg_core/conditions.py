@@ -43,6 +43,8 @@ def condition_met(
         )
         return held != cond.negate
     if cond.kind == ConditionKind.LAST_COMBAT_WON:
+        if cond.tie:
+            return bool(player.last_combat_tied) != cond.negate
         return bool(player.last_combat_won) != cond.negate
     return True
 

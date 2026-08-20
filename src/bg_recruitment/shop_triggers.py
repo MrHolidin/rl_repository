@@ -10,7 +10,7 @@ import numpy as np
 
 from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext
-from src.bg_core.conditions import ability_condition_met
+from src.bg_core.conditions import ability_condition_met, condition_met
 from src.bg_core.effects import (
     AdaptAllMurlocsEffect,
     BuffHandMinionsEffect,
@@ -1589,10 +1589,48 @@ class ShopTriggers:
                     # ways the dispatcher's single-source signature cannot.
                     self.apply_shop_effect(player, source, ab.effect, None)
 
+    @staticmethod
+    def _find_by_instance_id(player: PlayerState, instance_id: int):
+        """The body a promise named, wherever the seat has put it since."""
+        for card in list(player.board) + list(player.hand):
+            if isinstance(card, Minion) and card.instance_id == instance_id:
+                return card
+        return None
+
+    def _pay_next_turn_promises(self, player: PlayerState) -> None:
+        """Resolve what the seat was promised a turn ago, and let it go.
+
+        The condition is asked here rather than when the promise was made, so
+        "if you win your next combat" reads the fight that has since happened.
+        A promise that named a body the seat no longer owns pays nothing.
+        """
+        owed, player.next_turn_promises = player.next_turn_promises, ()
+        for promise, instance_id in owed:
+            if promise.condition is not None and not condition_met(
+                promise.condition, player, player.board
+            ):
+                continue
+            named = self._find_by_instance_id(player, instance_id) if instance_id else None
+            if instance_id and named is None:
+                continue
+            from src.bg_recruitment.tavern_spells import apply_tavern_spell_effect
+
+            for _ in range(max(1, int(promise.repeats))):
+                apply_tavern_spell_effect(
+                    player,
+                    promise.effect,
+                    rng=self._rng,
+                    patch=self._patch,
+                    source=named,
+                )
+
     def fire_on_turn_start(self, player: PlayerState) -> None:
         """After round increment, before shop reroll: board L→R, then hand slots."""
         # The fight the promise was bought for has been and gone.
         player.start_combat_promises = ()
+        # ...and the other kind of promise comes due now, before anything else
+        # this turn: "at the start of your next turn" is where the card puts it.
+        self._pay_next_turn_promises(player)
         player.pirates_bought_this_turn = 0
         player.elementals_played = 0
         reset_activations(player)

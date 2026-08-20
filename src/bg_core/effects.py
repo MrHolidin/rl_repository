@@ -102,6 +102,10 @@ class Condition:
     kind: ConditionKind
     tribe: Optional[Any] = None
     negate: bool = False
+    #: Read ``LAST_COMBAT_WON`` for a *tie* instead. A third field rather than a
+    #: third ConditionKind, for the same reason ``negate`` is one: it is the
+    #: same question about the same fight, asked for the middle answer.
+    tie: bool = False
 
 
 @dataclass(frozen=True)
@@ -891,6 +895,26 @@ class MakeFriendlyGoldenEffect:
 
     max_tier: int = 0
     in_tavern: bool = False
+
+
+@dataclass(frozen=True)
+class PromiseNextTurnEffect:
+    """Hold an effect until the start of the seat's own next turn.
+
+    "At the start of your next turn, give your minions +2/+2 twice", and the
+    two cards that make the promise turn on the fight in between: the spell is
+    cast now, the combat decides, and the next turn pays.
+
+    ``condition`` is asked when the promise comes due rather than when it is
+    made, which is the whole of "if you **win your next** combat". A promise
+    made by a targeted spell remembers the body it named, so "give **it**
+    another +4/+6" finds the same minion a turn later — and finds nothing if
+    the seat has since sold it.
+    """
+
+    effect: Any = None
+    repeats: int = 1
+    condition: Optional["Condition"] = None
 
 
 @dataclass(frozen=True)
@@ -2346,6 +2370,7 @@ __all__ = [
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
     "TransformToHigherTierEffect",
+    "PromiseNextTurnEffect",
     "SetEnemyHealthEffect",
     "MultiplyFriendlyAttackEffect",
     "GainNearestEnemyStatsEffect",

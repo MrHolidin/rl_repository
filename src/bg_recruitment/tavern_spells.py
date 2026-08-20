@@ -39,6 +39,7 @@ from src.bg_core.effects import (
     IncreaseTavernSpellBonusEffect,
     MakeFriendlyGoldenEffect,
     MultiplierKind,
+    PromiseNextTurnEffect,
     RaiseStandingBonusEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
@@ -479,6 +480,14 @@ def _apply_spell_effect(
             BonusScope(effect.scope_kind, target.race, effect.scope_max_tier),
             effect.attack,
             effect.health,
+        )
+        return
+
+    if isinstance(effect, PromiseNextTurnEffect):
+        # Nothing now. The seat remembers the promise and the body it named, if
+        # it named one, and the start of its next turn is where it is asked.
+        player.next_turn_promises = player.next_turn_promises + (
+            (effect, int(getattr(target, "instance_id", 0) or 0)),
         )
         return
 

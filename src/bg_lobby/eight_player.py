@@ -333,6 +333,7 @@ def resolve_combat_round(
             _apply_hero_damage(state, b, dmg_b, patch=patch)
             pa.last_combat_won = dmg_a == 0 and dmg_b > 0
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
+            pa.last_combat_tied = pb.last_combat_tied = dmg_a == 0 and dmg_b == 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
             apply_combat_hand_adds(
@@ -346,6 +347,7 @@ def resolve_combat_round(
             _apply_hero_damage(state, a, dmg_a, patch=patch)
             pa.last_combat_won = dmg_a == 0 and dmg_b > 0
             pb.last_combat_won = dmg_b == 0 and dmg_a > 0
+            pa.last_combat_tied = pb.last_combat_tied = dmg_a == 0 and dmg_b == 0
             pa.gold += combat_gold[0]
             pb.gold += combat_gold[1]
             apply_combat_hand_adds(

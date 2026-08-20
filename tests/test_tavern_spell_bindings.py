@@ -44,13 +44,14 @@ def _m(card_id="m", atk=1, hp=1, race=None, keywords=frozenset()):
     )
 
 
-def _cast(patch, spell_id, player, target=None):
+def _cast(patch, spell_id, player, target=None, choose_one_option=0):
     cast_tavern_spell(
         player,
         patch.tavern_spells[spell_id],
         rng=np.random.default_rng(0),
         patch=patch,
         target=target,
+        choose_one_option=choose_one_option,
     )
     return player
 
@@ -59,7 +60,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 16
+    assert len(inert) <= 13
 
 
 def test_defenders_rites(patch):
@@ -326,6 +327,24 @@ def test_spitescale_special_draws_from_the_spellcraft_pool(patch):
 # ------------------------------- a body traded for what it becomes
 
 
+def _pool_card(patch, quiet=True, **want):
+    """The first pool card matching ``want``, in card-id order.
+
+    Sorted on purpose: ``pool_ids`` is a set of strings, so iterating it picks
+    a different card every process. ``quiet`` also demands a card with no text
+    of its own, because a Battlecry or an aura moves the numbers a test is
+    asserting on — this file has been bitten by both. Every Tier 7 card has
+    text, so a test that only cares which card it is asks for quiet=False.
+    """
+    for cid in sorted(patch.pool_ids):
+        template = patch.templates[cid]
+        if quiet and patch.effects.get(cid):
+            continue
+        if all(getattr(template, key) == value for key, value in want.items()):
+            return cid
+    raise AssertionError(f"no pool card matching {want}")
+
+
 def _inert(patch, card_id="BGS_119"):
     """A body with no text of its own — Crackling Cyclone is keywords only.
 
@@ -399,16 +418,14 @@ def test_robust_evolution_keeps_the_stats_and_takes_the_card(patch):
 
 
 def test_robust_evolution_on_a_tier_seven_body_does_nothing(patch):
-    top = next(c for c in patch.pool_ids if patch.templates[c].tier == 7)
+    top = _pool_card(patch, quiet=False, tier=7)
     body = patch.make_minion(top)
     _cast(patch, "BG30_804", _player(patch, [body]), body)
     assert body.card_id == top
 
 
 def test_mounting_avalanche_sells_and_pays_the_left_most_elemental(patch):
-    elemental = next(
-        c for c in patch.pool_ids if patch.templates[c].race is Race.ELEMENTAL
-    )
+    elemental = _pool_card(patch, race=Race.ELEMENTAL)
     left, right = patch.make_minion(elemental), patch.make_minion(elemental)
     victim = _inert(patch)
     victim.bonus_attack, victim.bonus_health = 5, 5
@@ -535,3 +552,69 @@ def test_a_start_of_combat_spell_does_not_write_to_the_seats_board(patch):
     body = _m("left", 5, 9)
     _start_of_combat(patch, player, [body], [_m("foe", 1, 1)])
     assert body.raw_attack == 5
+
+
+# ------------------------------ promises that come due next turn
+
+
+def _turn_start(patch, player):
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    ShopTriggers(np.random.default_rng(0), patch=patch).fire_on_turn_start(player)
+
+
+def test_overconfidence_pays_for_the_fight_that_happened(patch):
+    for won, tied, owed in ((True, False, 3), (False, True, 1), (False, False, 0)):
+        player = _player(patch)
+        _cast(patch, "BG28_884", player)
+        assert len(player.next_turn_promises) == 2  # the win half and the tie half
+        gold = player.gold
+        player.last_combat_won, player.last_combat_tied = won, tied
+        _turn_start(patch, player)
+        assert player.gold - gold == owed
+        assert player.next_turn_promises == ()
+
+
+def test_winners_bread_buffs_now_and_again_on_a_win(patch):
+    body = _m("mine", 1, 1)
+    player = _player(patch, [body])
+    _cast(patch, "BG36_883", player, body)
+    assert (body.raw_attack, body.max_health) == (3, 4)
+    player.last_combat_won = True
+    _turn_start(patch, player)
+    assert (body.raw_attack, body.max_health) == (7, 10)
+
+
+def test_winners_bread_pays_nothing_on_a_loss(patch):
+    body = _m("mine", 1, 1)
+    player = _player(patch, [body])
+    _cast(patch, "BG36_883", player, body)
+    _turn_start(patch, player)
+    assert (body.raw_attack, body.max_health) == (3, 4)
+
+
+def test_a_promise_that_named_a_sold_minion_pays_nobody(patch):
+    """It remembers the body, not the slot — and the body has gone."""
+    body, other = _m("mine", 1, 1), _m("other", 1, 1)
+    player = _player(patch, [body, other])
+    _cast(patch, "BG36_883", player, body)
+    player.board.remove(body)
+    player.last_combat_won = True
+    _turn_start(patch, player)
+    assert (other.raw_attack, other.max_health) == (1, 1)
+
+
+def test_time_management_takes_its_pay_now_or_twice_later(patch):
+    now = _m("a", 1, 1)
+    player = _player(patch, [now])
+    _cast(patch, "BG31_881", player, choose_one_option=0)
+    assert (now.raw_attack, now.max_health) == (3, 3)
+    _turn_start(patch, player)
+    assert (now.raw_attack, now.max_health) == (3, 3)
+
+    later = _m("b", 1, 1)
+    player = _player(patch, [later])
+    _cast(patch, "BG31_881", player, choose_one_option=1)
+    assert (later.raw_attack, later.max_health) == (1, 1)
+    _turn_start(patch, player)
+    assert (later.raw_attack, later.max_health) == (5, 5)
