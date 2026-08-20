@@ -85,6 +85,7 @@
       "RewardAtDamageDealtEffect",
       "SelfBonusPerGameCount",
       "SellValueEffect",
+      "SetArmorEffect",
       "SetStatsEffect",
       "SpellsCastResponseEffect",
       "StatsFromNextBuyEffect",

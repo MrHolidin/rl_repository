@@ -34,6 +34,18 @@ def _record_has_deathrattle(
     return any(ab.trigger == Trigger.ON_DEATH for ab in effects.get(rec_id, ()))
 
 
+def record_has_battlecry(rec_id: str, mechanics: frozenset, effects: dict) -> bool:
+    """Whether a card is "a Battlecry minion" — the catalog tag, or a binding
+    that actually fires on play, because the tag is missing on a few."""
+    if "BATTLECRY" in mechanics:
+        return True
+    return any(ab.trigger == Trigger.ON_PLACE for ab in effects.get(rec_id, ()))
+
+
+def record_has_deathrattle(rec_id: str, mechanics: frozenset, effects: dict) -> bool:
+    return _record_has_deathrattle(rec_id, mechanics, effects)
+
+
 @lru_cache(maxsize=256)
 def build_summon_pool(
     exact_tier: Optional[int],

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace as dataclass_replace
 
-from typing import Any, Callable, List, Optional
+from typing import Dict, Any, Callable, List, Optional
 
 import numpy as np
 
@@ -80,6 +80,7 @@ from src.bg_core.effects import (
     ElementalsPlayedResponseEffect,
     CopyTargetingSpellEffect,
     GainStatsFromTavernEffect,
+    SetArmorEffect,
     SetStatsEffect,
     StatsFromNextBuyEffect,
     MagnetizeTokenEffect,
@@ -241,6 +242,27 @@ _HANDLED_ELSEWHERE = (
     # Open a discover rather than resolve: fire_on_place sets pending_choice.
     AdaptAllMurlocsEffect,
 )
+
+
+def _most_common_tribe(player: PlayerState) -> Optional[Race]:
+    """The tribe the seat has most of, ties broken by board order.
+
+    An Amalgam counts for every tribe, which is what being one means — so a
+    board of two Beasts and an Amalgam is three Beasts as far as this is
+    concerned.
+    """
+    counts: Dict[Race, int] = {}
+    order: List[Race] = []
+    for minion in player.board:
+        for tribe in ALL_TRIBES:
+            if minion_matches_tribe(minion, tribe):
+                if tribe not in counts:
+                    order.append(tribe)
+                counts[tribe] = counts.get(tribe, 0) + 1
+    if not counts:
+        return None
+    best = max(counts.values())
+    return next(t for t in order if counts[t] == best)
 
 
 def _buff_hand_minions(player: PlayerState, effect) -> None:
@@ -756,6 +778,8 @@ class ShopTriggers:
                 shop_excluded_race=shop_excluded_race,
                 shared_pool=shared_pool,
             )
+        elif isinstance(effect, SetArmorEffect):
+            player.armor = int(effect.amount)
         elif isinstance(effect, SetStatsEffect):
             # "Set a minion's stats to 20/20" — ``source`` is the body named,
             # which for a spell is the minion it was cast at.
@@ -1181,13 +1205,23 @@ class ShopTriggers:
             total = min(total, sum(1 for slot in player.hand if slot is None))
         if total <= 0:
             return
+        tribe = effect.tribe
+        if effect.most_common_tribe:
+            # "a minion of your most common type" — read off the board when the
+            # modal opens, so it is whatever the seat is actually playing.
+            tribe = _most_common_tribe(player)
+            if tribe is None:
+                return
         opts = roll_discover_tribe_triple(
             self._rng,
             player.tavern_tier,
             shop_excluded_race,
-            tribe=effect.tribe,
+            tribe=tribe,
             shared_pool=shared_pool,
             patch=self._patch,
+            require_deathrattle=effect.require_deathrattle,
+            require_battlecry=effect.require_battlecry,
+            exact_tier=effect.exact_tier,
         )
         if opts is None:
             return

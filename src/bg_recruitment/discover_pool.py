@@ -70,13 +70,44 @@ def draw_from_pool(
     return picks
 
 
-def tribe_discover_card_ids(tribe: Race, *, patch: PatchContext) -> List[str]:
-    tpl = templates(patch=require_patch(patch, where="discover_pool.tribe_discover_card_ids"))
-    return [
-        cid
-        for cid, m in tpl.items()
-        if not m.is_token and m.race == tribe
-    ]
+def tribe_discover_card_ids(
+    tribe: Optional[Race],
+    *,
+    patch: PatchContext,
+    require_deathrattle: bool = False,
+    require_battlecry: bool = False,
+) -> List[str]:
+    """The cards a Discover may offer, before the tier cap.
+
+    ``tribe`` is the common narrowing and the ability flags are the other one:
+    "Discover a Deathrattle minion" reads a property of the card the same way
+    "Discover a Beast" reads its race, so both are filters over the same list.
+    """
+    from src.bg_catalog.patch_catalog import load_tavern_minions
+    from src.envs.minibg.summon_pool import record_has_battlecry, record_has_deathrattle
+
+    ctx = require_patch(patch, where="discover_pool.tribe_discover_card_ids")
+    tpl = templates(patch=ctx)
+    effects = dict(ctx.effects)
+    # The mechanics tags live on the catalog rows, not on the built templates.
+    mechanics = (
+        {r.id: frozenset(r.mechanics) for r in load_tavern_minions(ctx.patch_dir / "catalog.json")}
+        if (require_deathrattle or require_battlecry)
+        else {}
+    )
+    out: List[str] = []
+    for cid, m in tpl.items():
+        if m.is_token:
+            continue
+        if tribe is not None and m.race != tribe:
+            continue
+        tags = mechanics.get(cid, frozenset())
+        if require_deathrattle and not record_has_deathrattle(cid, tags, effects):
+            continue
+        if require_battlecry and not record_has_battlecry(cid, tags, effects):
+            continue
+        out.append(cid)
+    return out
 
 
 def roll_discover_tribe_triple(
@@ -84,9 +115,12 @@ def roll_discover_tribe_triple(
     tavern_tier: int,
     shop_excluded_race: Optional[Race] = None,
     *,
-    tribe: Race,
+    tribe: Optional[Race],
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
+    require_deathrattle: bool = False,
+    require_battlecry: bool = False,
+    exact_tier: bool = False,
 ) -> Optional[Tuple[str, ...]]:
     """Up to three options of one tribe, at the seat's own tavern tier or below.
 
@@ -101,13 +135,22 @@ def roll_discover_tribe_triple(
     ctx = require_patch(patch, where="discover_pool.roll_discover_tribe_triple")
     tpl = ctx.templates
     cap = min(ctx.meta.ruleset.max_tier, tavern_tier)
-    if tribe in normalize_shop_excluded_races(shop_excluded_race):
+    if tribe is not None and tribe in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
         eligible = [
             cid
-            for cid in tribe_discover_card_ids(tribe, patch=ctx)
-            if tpl[cid].tier <= cap
+            for cid in tribe_discover_card_ids(
+                tribe,
+                patch=ctx,
+                require_deathrattle=require_deathrattle,
+                require_battlecry=require_battlecry,
+            )
+            if (tpl[cid].tier == cap if exact_tier else tpl[cid].tier <= cap)
+            and (
+                tribe is not None
+                or shop_minion_allowed_with_exclusion(tpl[cid], shop_excluded_race)
+            )
         ]
     if shared_pool is not None:
         eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]

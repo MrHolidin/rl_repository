@@ -157,3 +157,60 @@ def test_a_demon_eats_off_the_counter(patch, spell_id, eats):
     _cast(patch, spell_id, player, demon)
     assert (demon.raw_attack, demon.max_health) == (1 + 2 * eats, 1 + 2 * eats)
     assert sum(1 for x in player.shop if x is not None) == 4 - eats
+
+
+# --------------------------------------------------------------------------- #
+# Discovers narrowed by something that is not a tribe
+# --------------------------------------------------------------------------- #
+
+
+def _catalog_mechanics(patch):
+    import json
+
+    rows = json.load(open(PATCH_DIR / "catalog.json"))["minions"]
+    return {r["id"]: set(r.get("mechanics") or ()) for r in rows}
+
+
+def test_contracted_corpse_offers_only_deathrattles(patch):
+    tags = _catalog_mechanics(patch)
+    player = _cast(patch, "BG28_882", _player(patch))
+    options = player.pending_choice.options
+    assert options
+    assert all("DEATHRATTLE" in tags[cid] for cid in options)
+
+
+def test_hired_headhunter_offers_only_battlecries(patch):
+    tags = _catalog_mechanics(patch)
+    player = _cast(patch, "BG28_GIL_836", _player(patch))
+    options = player.pending_choice.options
+    assert options
+    assert all("BATTLECRY" in tags[cid] for cid in options)
+
+
+def test_planar_telescope_reads_the_board_for_its_tribe(patch):
+    """"your most common type" is not named on the card — it is counted."""
+    board = [_m("a", race=Race.MURLOC), _m("b", race=Race.MURLOC), _m("c", race=Race.BEAST)]
+    player = _cast(patch, "BG28_521", _player(patch, board))
+    assert all(
+        patch.templates[cid].race is Race.MURLOC
+        for cid in player.pending_choice.options
+    )
+
+
+def test_planar_telescope_on_an_empty_board_offers_nothing(patch):
+    player = _cast(patch, "BG28_521", _player(patch))
+    assert player.pending_choice is None
+
+
+def test_search_through_time_offers_exactly_your_tier(patch):
+    """A bare Discover is your tier *or below*; this one says "of your Tier"."""
+    for tier in (3, 4, 6):
+        player = _cast(patch, "BG34_330", _player(patch, tavern_tier=tier))
+        assert {patch.templates[c].tier for c in player.pending_choice.options} == {tier}
+
+
+def test_armor_stash_sets_rather_than_adds(patch):
+    player = _player(patch)
+    player.armor = 12
+    _cast(patch, "BG28_500", player)
+    assert player.armor == 5

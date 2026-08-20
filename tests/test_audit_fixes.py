@@ -616,18 +616,23 @@ def test_every_pool_draw_uses_the_same_weighting(patch):
 
     pool = build_initial_shared_pool(patch=patch)
     # Two cards of different tiers: the Tier 1 has 15 copies, the Tier 6 has 7.
-    cheap = next(c for c in patch.pool_ids if patch.templates[c].tier == 1)
-    dear = next(c for c in patch.pool_ids if patch.templates[c].tier == 6)
-    rng = np.random.default_rng(0)
-    seen = Counter(
-        draw_from_pool(rng, [cheap, dear], 1, shared_pool=pool)[0] for _ in range(2000)
-    )
-    ratio = seen[cheap] / seen[dear]
+    # Picked from a sorted list rather than the id *set*, and each draw gets its
+    # own generator, so the ratio measures the weighting and nothing else.
+    cheap = next(c for c in sorted(patch.pool_ids) if patch.templates[c].tier == 1)
+    dear = next(c for c in sorted(patch.pool_ids) if patch.templates[c].tier == 6)
     expected = patch.meta.pool_copies_by_tier[1] / patch.meta.pool_copies_by_tier[6]
-    assert abs(ratio - expected) < 0.25
+
+    seen = Counter(
+        draw_from_pool(
+            np.random.default_rng(seed), [cheap, dear], 1, shared_pool=pool
+        )[0]
+        for seed in range(4000)
+    )
+    assert abs(seen[cheap] / seen[dear] - expected) < 0.25
 
     flat = Counter(
-        draw_from_pool(rng, [cheap, dear], 1)[0] for _ in range(2000)
+        draw_from_pool(np.random.default_rng(seed), [cheap, dear], 1)[0]
+        for seed in range(4000)
     )
     assert abs(flat[cheap] / flat[dear] - 1.0) < 0.15  # no pool, no weighting
 

@@ -544,15 +544,30 @@ class CleaveOnAttack:
 
 @dataclass(frozen=True)
 class DiscoverTribeEffect:
-    """Discover a minion of one tribe (tier-weighted pool).
+    """Discover a minion the card narrows in some way.
 
-    Printed by four cards on four different tribes — Primalfin Lookout wants a
-    Murloc, Maw Caster an Undead, Imposing Percussionist a Demon, Clunker
-    Junker a Mech — and they differ by nothing else. ``repeats`` stacks with
-    Brann (product).
+    Most printings name a tribe — Primalfin Lookout wants a Murloc, Maw Caster
+    an Undead, Imposing Percussionist a Demon, Clunker Junker a Mech — and they
+    differ by nothing else. The rest narrow by something the card can see
+    instead: an ability (Contracted Corpse wants a Deathrattle, Hired
+    Headhunter a Battlecry), the seat's own board (Planar Telescope wants "your
+    most common type"), or the tier alone (Search Through Time wants exactly
+    yours, where the plain rule is yours *or below*).
+
+    ``repeats`` stacks with Brann (product).
     """
 
     tribe: Any = None
+    #: "Discover a **Deathrattle** minion" / "a **Battlecry** minion" — a
+    #: property of the card rather than of its tribe.
+    require_deathrattle: bool = False
+    require_battlecry: bool = False
+    #: "a minion of your **most common type**" — the tribe is read off the
+    #: seat's board when the modal opens, not named here.
+    most_common_tribe: bool = False
+    #: "a minion of **your Tier**", where a bare Discover is your tier or
+    #: below. Exactly one tier, and it is the seat's.
+    exact_tier: bool = False
     repeats: int = 1
     #: "Discover a Mech **to Magnetize to it**" — the pick is welded onto a
     #: friendly the seat named rather than landing in hand, so this Discover
@@ -1334,6 +1349,17 @@ class CopyTargetingSpellEffect:
 
 
 @dataclass(frozen=True)
+class SetArmorEffect:
+    """Set the seat's Armor outright ("Set your Armor to 5").
+
+    Set, not added: the card says what you end up with, which is a downgrade
+    for a seat already holding more.
+    """
+
+    amount: int = 0
+
+
+@dataclass(frozen=True)
 class SellValueEffect:
     """What this minion sells for, when the card prints a price of its own.
 
@@ -2078,6 +2104,7 @@ Effect = Union[
     ElementalsPlayedResponseEffect,
     CopyTargetingSpellEffect,
     SellValueEffect,
+    SetArmorEffect,
     SummonStashedEffect,
     DevourNeighbourEffect,
     RaiseGoldCapEffect,
@@ -2285,6 +2312,7 @@ __all__ = [
     "ElementalsPlayedResponseEffect",
     "CopyTargetingSpellEffect",
     "SellValueEffect",
+    "SetArmorEffect",
     "SummonStashedEffect",
     "DevourNeighbourEffect",
     "RaiseGoldCapEffect",

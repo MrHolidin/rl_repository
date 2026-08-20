@@ -144,6 +144,7 @@ from src.bg_core.effects import (
     CopyTavernMinionEffect,
     TriplesWithAnyOfTribeEffect,
     AddSharedTribeMinionEffect,
+    SetArmorEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -2055,6 +2056,23 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     # Every one of these was offerable and inert. They are bindings, not new
     # mechanics: the effect each needs was built for a minion that says the
     # same sentence.
+    "BG28_882": (  # Contracted Corpse — Discover a Deathrattle minion
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(require_deathrattle=True)),
+    ),
+    "BG28_GIL_836": (  # Hired Headhunter — Discover a Battlecry minion
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(require_battlecry=True)),
+    ),
+    "BG28_521": (  # Planar Telescope — Discover a minion of your most common type
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(most_common_tribe=True)),
+    ),
+    "BG34_330": (  # Search Through Time — Discover a minion of *your* Tier
+        # (the "lock it in hand for a turn" half needs a hold the hand has no
+        # notion of, and is left out rather than half-said)
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(exact_tier=True)),
+    ),
+    "BG28_500": (  # Armor Stash — set your Armor to 5
+        Ability(Trigger.ON_PLACE, SetArmorEffect(amount=5)),
+    ),
     "BG28_825": (  # Defender's Rites — give a minion +7/+7 and Taunt
         Ability(
             Trigger.ON_PLACE,
