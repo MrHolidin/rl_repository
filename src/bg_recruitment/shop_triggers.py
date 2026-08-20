@@ -91,6 +91,10 @@ from src.bg_core.effects import (
     AddRandomTavernSpellToHandEffect,
     CastRandomTavernSpellEffect,
     CopyLastTavernSpellEffect,
+    SummonBestFromHandEffect,
+    SummonStashedEffect,
+    DestroyKillerEffect,
+    BuffRandomHandMinionEffect,
     CastSpellAtEffect,
     DiscoverMinionAtTierEffect,
     DiscoverTavernSpellEffect,
@@ -210,6 +214,14 @@ _COMBAT_ONLY_ON_DEATH = (
     DealDamageLeftmostEnemyMinion,
     DealDamageAllMinions,
     TransferAttackToRandomFriendlyEffect,
+    # The rest of the same family, found by destroying a friendly in the tavern
+    # (Butchering, Maw Caster, Disguised Graverobber) and watching the
+    # dispatcher raise: a body summoned from hand or stashed has nowhere to go,
+    # and there is no killer to punish outside a fight.
+    SummonBestFromHandEffect,
+    SummonStashedEffect,
+    DestroyKillerEffect,
+    BuffRandomHandMinionEffect,
 )
 
 _HANDLED_ELSEWHERE = (
@@ -868,7 +880,15 @@ class ShopTriggers:
                     or minion_matches_tribe(m, effect.filter_race)
                 ]
             elif effect.eater_is_source and source is not None:
-                eaters = [source]
+                # "Choose a friendly **Demon**" — the seat's pick is still held
+                # to what the card asks for. A spell reaches here with its
+                # target as the source, and without this a Beast ate.
+                eaters = (
+                    [source]
+                    if effect.filter_race is None
+                    or minion_matches_tribe(source, effect.filter_race)
+                    else []
+                )
             else:
                 eaters = []
             for eater in eaters:
@@ -1595,10 +1615,10 @@ class ShopTriggers:
                     self.apply_shop_effect(player, source, ab.effect, None)
 
     @staticmethod
-    def _find_by_instance_id(player: PlayerState, instance_id: int):
+    def _find_by_promise_tag(player: PlayerState, tag: int):
         """The body a promise named, wherever the seat has put it since."""
         for card in list(player.board) + list(player.hand):
-            if isinstance(card, Minion) and card.instance_id == instance_id:
+            if isinstance(card, Minion) and card.promise_tag == tag:
                 return card
         return None
 
@@ -1610,13 +1630,13 @@ class ShopTriggers:
         A promise that named a body the seat no longer owns pays nothing.
         """
         owed, player.next_turn_promises = player.next_turn_promises, ()
-        for promise, instance_id in owed:
+        for promise, tag in owed:
             if promise.condition is not None and not condition_met(
                 promise.condition, player, player.board
             ):
                 continue
-            named = self._find_by_instance_id(player, instance_id) if instance_id else None
-            if instance_id and named is None:
+            named = self._find_by_promise_tag(player, tag) if tag else None
+            if tag and named is None:
                 continue
             from src.bg_recruitment.tavern_spells import apply_tavern_spell_effect
 

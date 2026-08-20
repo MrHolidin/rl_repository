@@ -137,6 +137,12 @@ class Minion:
     #: Stats currently granted by a game-long tally, so a recompute can apply
     #: the difference instead of stacking (see ``game_counts``).
     count_bonus_granted: Tuple[int, int] = (0, 0)
+    #: A name a promise can call this body by, later. ``instance_id`` cannot:
+    #: ``__copy__`` re-issues it, and the seat's state is copied once per
+    #: action, so an id noted this turn belongs to nobody by the next one. This
+    #: is stamped once, carried by every copy, and means only "the body that
+    #: was promised something".
+    promise_tag: int = 0
     #: How many minions have been Magnetized onto this body. Read by the cards
     #: that pay per Magnetization, and by nothing else — the stats themselves
     #: are merged in, not derived from this.

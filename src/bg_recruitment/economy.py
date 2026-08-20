@@ -217,11 +217,15 @@ def buy_from_shop(
     assert minion is not None
     buy_cost = effective_buy_cost(player)
     player.gold -= buy_cost
-    note_gold_spent(player, buy_cost, patch=patch)
     clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
     h = first_free_hand_slot(player)
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
     player.hand[h] = minion
+    # Only once the minion is safely in hand. "After you spend N Gold" can hand
+    # the seat a card, and firing it first let a watcher take the last slot out
+    # from under the purchase the mask had already ruled legal -- gold paid,
+    # shop slot cleared, minion gone, and an assertion where a card should be.
+    note_gold_spent(player, buy_cost, patch=patch)
     on_bought(minion, player)
     if on_friendly_bought is not None:
         on_friendly_bought(minion, player)

@@ -201,10 +201,21 @@ def roll_triple_reward_discover_at_target_tier(
     *,
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
+    printed_tier: bool = False,
 ) -> Optional[Tuple[str, str, str]]:
+    """Three options at ``target_tier``, or the nearest thing to it.
+
+    The cap is the tavern's — a Triple Reward is the seat's tier plus one and
+    stops where the tavern stops. ``printed_tier`` is the other kind: a card
+    that *names* a tier reaches it whether or not a tavern ever could, which is
+    the whole of Hallowed Ritual's "Discover a Tier 7 minion" in a game whose
+    tavern stops at 6.
+    """
     ctx = require_patch(patch, where="discover_pool.roll_triple_reward_discover_at_target_tier")
     tpl = ctx.templates
-    tgt = min(ctx.meta.ruleset.max_tier, max(1, int(target_tier)))
+    tgt = max(1, int(target_tier))
+    if not printed_tier:
+        tgt = min(ctx.meta.ruleset.max_tier, tgt)
     eligible_exact = [
         cid
         for cid in shop_pool_for_tier(

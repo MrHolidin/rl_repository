@@ -155,6 +155,7 @@ def play_blood_gem_from_hand(
     board_index: Optional[int] = None,
     *,
     shop_index: Optional[int] = None,
+    patch=None,
 ) -> None:
     """Play the Gem in ``hand_index`` onto a minion the seat names.
 
@@ -180,6 +181,7 @@ def play_blood_gem_from_hand(
         player,
         target,
         quilboar_keyword=card.blood_gem_quilboar_keyword,
+        patch=patch,
     )
     player.hand[hand_index] = None
 

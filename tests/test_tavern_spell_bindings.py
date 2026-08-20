@@ -1076,3 +1076,37 @@ def test_robust_evolution_tells_the_lobby_it_swapped_cards(patch):
         assert body.card_id != "BGS_119"
         after = {c: _pool_plus_held(pool, player, c) for c in ids}
         assert {c: after[c] - before[c] for c in ids if after[c] != before[c]} == {}
+
+
+# ------------------------------------ two spells that were doing nothing
+
+
+def test_butchering_eats_an_undead_and_pays_the_rest(patch):
+    """The one `_HANDLED_ELSEWHERE` effect a Tavern spell carries: without a
+    branch of its own it was two gold for nothing at all."""
+    from src.bg_catalog.cards import make_minion
+
+    undead = _pool_card(patch, quiet=False, race=Race.UNDEAD)
+    victim, survivor = make_minion(undead, patch=patch), make_minion(undead, patch=patch)
+    printed = patch.templates[undead]
+    player = _player(patch, [victim, survivor])
+
+    _cast(patch, "BG28_604", player, victim)
+    assert victim not in player.board
+    assert survivor.raw_attack == printed.base_attack + 5
+    assert survivor.max_health == printed.base_health
+
+
+def test_hallowed_ritual_reaches_a_tier_the_tavern_cannot(patch):
+    """"Discover a Tier 7 minion" in a game whose tavern stops at 6. A printed
+    tier is the card's own; only a Triple Reward stops where the tavern does."""
+    assert patch.meta.ruleset.max_tier == 6
+    for seed in range(6):
+        player = _player(patch)
+        cast_tavern_spell(
+            player,
+            patch.tavern_spells["BG31_896"],
+            rng=np.random.default_rng(seed),
+            patch=patch,
+        )
+        assert {patch.templates[o].tier for o in player.pending_choice.options} == {7}

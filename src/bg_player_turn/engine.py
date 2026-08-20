@@ -216,6 +216,18 @@ class PlayerTurnEngine:
                 recruitment_triples.resolve_triples_loop(
                     player, shared_pool=ctx.shared_pool, patch=ctx.patch
                 )
+                # The placement that opened this modal is finished now. Every
+                # other modal closes by firing the handoff and clearing it;
+                # this one did neither, so "after you play a minion" never saw
+                # a Choose One card, and the field stayed set forever -- which
+                # the FINISH mask reads, so the seat ran out of legal actions.
+                if player.pending_choice is None:
+                    ref = player.placed_minion_pending_after
+                    if ref is not None and ref in player.board:
+                        ctx.triggers.fire_after_friendly_minion_placed(player, ref)
+                    player.placed_minion_pending_after = None
+                    player.placed_minion_board_index = None
+                    flush_pending_spellcraft(player)
                 return (
                     player.pending_choice is None
                     and player.placed_minion_pending_after is None

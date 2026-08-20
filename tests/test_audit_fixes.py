@@ -1050,3 +1050,108 @@ def test_a_count_scaled_minion_is_already_grown_on_the_counter(patch):
             assert (rolled.raw_attack, rolled.max_health) == (24, 12)
             return
     pytest.skip("no Eternal Knight rolled in 200 shops")
+
+
+# --------------------------------------------------------------------------- #
+# Crashes and dead cards the second audit turned up
+# --------------------------------------------------------------------------- #
+
+
+def test_a_promise_finds_its_body_after_the_state_is_copied(patch):
+    """``instance_id`` cannot name a body across turns: ``__copy__`` re-issues
+    it and the seat's state is copied once per action, so Winner's Bread's
+    second half could never find what it had promised."""
+    from src.bg_lobby.player import copy_player_state
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    body = _plain("mine", 1, 1)
+    player = _player(patch, [body])
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG36_883"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=body,
+    )
+    assert (player.board[0].raw_attack, player.board[0].max_health) == (3, 4)
+    for _ in range(3):  # three shop actions' worth of copying
+        player = copy_player_state(player)
+    player.last_combat_won = True
+    ShopTriggers(np.random.default_rng(0), patch=patch).fire_on_turn_start(player)
+    assert (player.board[0].raw_attack, player.board[0].max_health) == (7, 10)
+
+
+def test_a_gold_spent_watcher_cannot_steal_the_buyers_hand_slot(patch):
+    """The mask ruled BUY legal on the hand as it was; paying must not change
+    that out from under it."""
+    import inspect
+
+    from src.bg_recruitment import economy
+
+    body = inspect.getsource(economy.buy_from_shop)
+    assert body.index("player.hand[h] = minion") < body.index("note_gold_spent")
+
+
+def test_a_golden_token_with_no_template_is_forged(patch):
+    """Golden rows are bindings, not cards, so the templates hold the plain
+    printings only — and a summon pointed at one raised mid-fight."""
+    (ability,) = patch.triple_merge_golden_abilities("BG25_009")
+    assert ability.effect.token_id == "BG25_008_G"
+    token = patch.make_minion("BG25_008_G")
+    printed = patch.templates["BG25_008"]
+    assert token.is_golden
+    assert (token.base_attack, token.base_health) == (
+        printed.base_attack * 2,
+        printed.base_health * 2,
+    )
+
+
+def test_destroying_a_friendly_in_the_tavern_skips_a_combat_deathrattle(patch):
+    """A body summoned from hand or stashed has nowhere to go outside a fight,
+    and there is no killer to punish — these used to reach the dispatcher and
+    raise."""
+    from src.bg_recruitment.shop_triggers import _COMBAT_ONLY_ON_DEATH
+    from src.bg_core.effects import (
+        BuffRandomHandMinionEffect,
+        DestroyKillerEffect,
+        SummonBestFromHandEffect,
+        SummonStashedEffect,
+    )
+
+    for effect in (
+        SummonBestFromHandEffect,
+        SummonStashedEffect,
+        DestroyKillerEffect,
+        BuffRandomHandMinionEffect,
+    ):
+        assert issubclass(effect, object) and effect in _COMBAT_ONLY_ON_DEATH
+
+
+def test_a_named_eater_still_has_to_be_the_tribe_the_card_asks_for(patch):
+    """"Choose a friendly **Demon**" — the filter was read only on the random
+    branch, so a named body of any tribe ate."""
+    from src.bg_catalog.cards import make_minion
+    from src.bg_core.minion import Race
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    beast = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.BEAST
+    )
+    undead = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.UNDEAD
+    )
+    eater = make_minion(beast, patch=patch)
+    player = _player(patch, [eater])
+    for i in range(3):
+        player.shop[i] = make_minion(undead, patch=patch)
+    before = (eater.raw_attack, eater.max_health)
+
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_607"],  # "Choose a friendly Demon"
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=eater,
+    )
+    assert (eater.raw_attack, eater.max_health) == before
+    assert sum(1 for m in player.shop if m is not None) == 3

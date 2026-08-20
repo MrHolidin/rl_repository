@@ -92,8 +92,24 @@ class PatchContext:
     spell_tribe_gates: Mapping[str, Race] = field(default_factory=dict)
 
     def make_minion(self, card_id: str) -> Minion:
+        """Build one card. A Golden id with no template of its own is forged.
+
+        Golden rows are bindings rather than cards, so the templates hold the
+        plain printings only — and the golden derivation points a summon at
+        ``<token>_G`` because that is what the *catalog* calls it. A Golden
+        Eternal Summoner asked for ``BG25_008_G`` and raised ``KeyError`` in
+        the middle of a fight. Forging it here answers every caller at once,
+        and keeps the Golden the card promised rather than settling for the
+        plain token.
+        """
         from copy import copy
 
+        if card_id not in self.templates and card_id.endswith("_G"):
+            plain = card_id[:-2]
+            if plain in self.templates:
+                from src.bg_recruitment.triples import make_forged_golden_minion
+
+                return make_forged_golden_minion(plain, patch=self)
         tpl = self.templates[card_id]
         fresh = copy(tpl)
         from src.bg_core.effects import Keyword

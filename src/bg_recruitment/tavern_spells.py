@@ -40,6 +40,7 @@ from src.bg_core.effects import (
     IncreaseTavernSpellBonusEffect,
     MakeFriendlyGoldenEffect,
     BloodGemsOnEveryRefreshEffect,
+    DestroyFriendlyEffect,
     DiscoverHeroPowerEffect,
     MultiplierKind,
     PayInHealthEffect,
@@ -59,7 +60,7 @@ from src.bg_core.board_helpers import (
     minion_matches_tribe,
     multiplier_for,
 )
-from src.bg_core.minion import Minion, Race
+from src.bg_core.minion import Minion, Race, next_instance_id
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_lobby.shared_pool import SharedCardPool
@@ -619,12 +620,37 @@ def _apply_spell_effect(
         player.refresh_blood_gems += max(1, int(effect.count))
         return
 
+    if isinstance(effect, DestroyFriendlyEffect):
+        from .shop_triggers import ShopTriggers as _ShopTriggers
+        from src.bg_recruitment.targeted_battlecry import apply_destroy_friendly
+
+        # A spell has no body of its own, so there is no eater and no "self"
+        # to exclude — only the friendly the seat named. This is the one effect
+        # in ``_HANDLED_ELSEWHERE`` a Tavern spell carries, so without a branch
+        # here Butchering was two gold for nothing at all.
+        apply_destroy_friendly(
+            player,
+            None,
+            effect,
+            rng=rng,
+            forced=target if target in player.board else None,
+            triggers=_ShopTriggers(rng, patch=patch),
+            shared_pool=shared_pool,
+        )
+        return
+
     if isinstance(effect, PromiseNextTurnEffect):
         # Nothing now. The seat remembers the promise and the body it named, if
         # it named one, and the start of its next turn is where it is asked.
-        player.next_turn_promises = player.next_turn_promises + (
-            (effect, int(getattr(target, "instance_id", 0) or 0)),
-        )
+        # Named by ``promise_tag`` and not by ``instance_id``: the seat's state
+        # is copied once per action and the copy re-issues instance ids, so a
+        # promise that noted one could never find its body again.
+        tag = 0
+        if target is not None:
+            if not target.promise_tag:
+                target.promise_tag = next_instance_id()
+            tag = target.promise_tag
+        player.next_turn_promises = player.next_turn_promises + ((effect, tag),)
         return
 
     if isinstance(effect, MakeFriendlyGoldenEffect):
@@ -977,7 +1003,11 @@ def _open_tier_discover(
     shop_excluded_race: Optional[Race],
     shared_pool: Optional[SharedCardPool],
 ) -> None:
-    """A New Sprout: three minions of one tier, the seat keeps one."""
+    """A New Sprout: three minions of one tier, the seat keeps one.
+
+    The tier is the card's own, so it is not held to the tavern's ceiling:
+    Hallowed Ritual says Tier 7 in a game whose tavern stops at 6.
+    """
     from src.bg_lobby.player import PendingChoiceKind
 
     from .discover import try_open_hand_discover_modal
@@ -989,6 +1019,7 @@ def _open_tier_discover(
         shop_excluded_race,
         shared_pool=shared_pool,
         patch=patch,
+        printed_tier=True,
     )
     if options is None:
         return

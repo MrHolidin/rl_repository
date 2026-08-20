@@ -176,7 +176,9 @@ def _should_skip_field(
 
 
 def implicit_triple_golden_effect(
-    e: Effect, hints: Optional[Dict[str, Any]] = None
+    e: Effect,
+    hints: Optional[Dict[str, Any]] = None,
+    catalog_path: Optional[Path] = None,
 ) -> Effect:
     """Scale effect numerics for a forged golden when no authored ``TB_BaconUps_*`` row exists."""
     hints = hints or {}
@@ -223,17 +225,29 @@ def implicit_triple_golden_effect(
             updates[f.name] = val * 2
 
     scaled = replace(e, **updates) if updates else e
-    scaled = _apply_golden_token(scaled, hints)
+    scaled = _apply_golden_token(scaled, hints, catalog_path)
     return _apply_prefer_repeats(scaled, hints)
 
 
-def _apply_golden_token(e: Effect, hints: Dict[str, Any]) -> Effect:
-    """Point a golden's summon at the Golden printing of its token."""
+def _apply_golden_token(
+    e: Effect, hints: Dict[str, Any], catalog_path: Optional[Path] = None
+) -> Effect:
+    """Point a golden's summon at the Golden printing of its token.
+
+    Only where there is one. The id was built by appending ``_G``, which is a
+    guess about the catalog rather than a reading of it — and a wrong guess is
+    a token nothing can build: a Golden Eternal Summoner asked for
+    ``BG25_008_G`` and its deathrattle raised ``KeyError`` in the middle of a
+    fight. A token with no Golden printing summons the plain one.
+    """
     if not hints.get("golden_token") or not isinstance(e, SummonEffect):
         return e
     if e.token_id.endswith("_G"):
         return e
-    return replace(e, token_id=e.token_id + "_G")
+    golden_id = golden_upgrade_card_id(e.token_id, catalog_path)
+    if golden_id is None:
+        return e
+    return replace(e, token_id=golden_id)
 
 
 def _apply_prefer_repeats(e: Effect, hints: Dict[str, Any]) -> Effect:
@@ -263,7 +277,10 @@ def resolve_triple_forged_abilities(
     hints = golden_hints_for_card(normal_card_id, catalog_path)
     base = effects_table.get(normal_card_id, ())
     return tuple(
-        replace(ab, effect=implicit_triple_golden_effect(ab.effect, hints)) for ab in base
+        replace(
+            ab, effect=implicit_triple_golden_effect(ab.effect, hints, catalog_path)
+        )
+        for ab in base
     )
 
 

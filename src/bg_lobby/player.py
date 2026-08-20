@@ -261,7 +261,7 @@ class PlayerState:
     #: own next turn start — one fight is what the card bought.
     start_combat_promises: Tuple["Ability", ...] = ()
     #: "At the start of your next turn, …" — each entry is the promise and the
-    #: ``instance_id`` of the body it named (0 for the ones that name none).
+    #: ``promise_tag`` of the body it named (0 for the ones that name none).
     next_turn_promises: Tuple[Tuple[Any, int], ...] = ()
     # Signed normalized damage delta from each of the last ``BATTLE_HISTORY_LEN``
     # combats (most recent last). Empty until the player has fought at least once.

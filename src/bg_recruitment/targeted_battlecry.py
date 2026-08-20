@@ -60,11 +60,22 @@ def _pick_eater(
     forced: Optional[Minion],
     exclude_self: bool = False,
 ) -> Optional[Minion]:
-    """Which friendly does the eating — the seat's pick, or a random eligible."""
+    """Which friendly does the eating — the seat's pick, or a random eligible.
+
+    A named pick is still held to what the card asks for: "Choose a friendly
+    **Demon**" means the seat may not name a Beast, and the filter used to be
+    read only on the random branch below — so a named body of any tribe ate.
+    """
     if forced is not None:
         if forced not in player.board:
             return None
-        return None if exclude_self and forced is placed else forced
+        if exclude_self and forced is placed:
+            return None
+        if effect.filter_race is not None and not minion_matches_tribe(
+            forced, effect.filter_race
+        ):
+            return None
+        return forced
     caster = caster_ref_from_board_minion(player.board, placed)
     eligible = compute_eligible_buff_target(
         player.board,
@@ -205,6 +216,7 @@ def apply_destroy_friendly(
     rng: np.random.Generator,
     forced: Optional[Minion] = None,
     triggers,
+    shared_pool=None,
 ) -> None:
     """Destroy a friendly the seat picked, then pay what the card prints.
 
@@ -233,8 +245,13 @@ def apply_destroy_friendly(
     )
     if victim in player.board:
         return  # the trade did not happen (no room for the copy it pays)
-    if effect.then is not None and source is not None:
-        triggers.apply_shop_effect(player, source, effect.then, placed=None)
+    if effect.then is not None:
+        # ``source`` is None when a *spell* made the trade: there is no body
+        # that ate, and the payout is the seat's. Butchering's whole second
+        # sentence used to be skipped for exactly that reason.
+        triggers.apply_shop_effect(
+            player, source, effect.then, placed=None, shared_pool=shared_pool
+        )
 
 
 def apply_sell_friendly_for_stats(
