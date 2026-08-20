@@ -879,3 +879,75 @@ def test_a_death_mid_fight_makes_the_room(patch):
     _, deaths = _fight_with(patch, player, full, [_m("foe", 5, 40)])
     assert any(card_id == "BG28_603t" for _, card_id in deaths)
     assert player.combat_space_summons == ()
+
+
+# -------------------------------- spells a lobby without the tribe never sees
+
+
+def test_a_tribe_gated_spell_leaves_the_pool_with_its_tribe(patch):
+    """Nothing in the card data marks a spell's tribe, so the package says it.
+    Temperature Shift is the one that matters beyond flavour: it hands over two
+    Elementals, so offering it in an Elemental-less lobby put a tribe on the
+    board the rotation had excluded."""
+    from src.bg_recruitment.tavern_spells import tavern_spell_pool
+
+    everything = set(tavern_spell_pool(6, patch=patch))
+    for tribe, gated in (
+        (Race.PIRATE, {"BG33_811", "BG33_812", "BG33_813", "BG33_814", "BG33_815", "BG31_886"}),
+        (Race.NAGA, {"BG28_606"}),
+        (Race.ELEMENTAL, {"BG31_819"}),
+    ):
+        assert gated <= everything
+        without = set(tavern_spell_pool(6, patch=patch, shop_excluded_race=tribe))
+        assert everything - without == gated
+
+
+def test_two_excluded_tribes_drop_both_families(patch):
+    from src.bg_recruitment.tavern_spells import tavern_spell_pool
+
+    everything = set(tavern_spell_pool(6, patch=patch))
+    without = set(
+        tavern_spell_pool(6, patch=patch, shop_excluded_race=(Race.NAGA, Race.ELEMENTAL))
+    )
+    assert everything - without == {"BG28_606", "BG31_819"}
+
+
+def test_the_counter_never_offers_a_gated_spell_its_lobby_left_out(patch):
+    """The gate belongs to the pool, so every door into it is covered at once —
+    the roll, "get a random Tavern spell", and Discover a Tavern spell."""
+    from src.bg_recruitment.tavern_spells import (
+        add_random_tavern_spells,
+        offer_tavern_spells,
+        open_tavern_spell_discover,
+    )
+
+    gated = {"BG33_811", "BG33_812", "BG33_813", "BG33_814", "BG33_815", "BG31_886"}
+    for seed in range(40):
+        player = _player(patch)
+        offers = offer_tavern_spells(
+            player,
+            rng=np.random.default_rng(seed),
+            patch=patch,
+            count=6,
+            shop_excluded_race=Race.PIRATE,
+        )
+        assert not {s.card_id for s in offers} & gated
+
+        player = _player(patch)
+        add_random_tavern_spells(
+            player,
+            count=6,
+            rng=np.random.default_rng(seed),
+            patch=patch,
+            shop_excluded_race=Race.PIRATE,
+        )
+        assert not {c.card_id for c in player.hand if c is not None} & gated
+
+        player = _player(patch)
+        open_tavern_spell_discover(
+            player,
+            rng=np.random.default_rng(seed),
+            patch=patch,
+            shop_excluded_race=Race.PIRATE,
+        )
+        assert not set(player.pending_choice.options) & gated

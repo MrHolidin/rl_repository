@@ -24,6 +24,7 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import (
     AddRandomTavernSpellToHandEffect,
@@ -96,17 +97,30 @@ class TavernSpellNotAllowed(ValueError):
     """The seat cannot do this with a Tavern spell right now, and why."""
 
 
-def tavern_spell_pool(tavern_tier: int, *, patch: PatchContext) -> List[str]:
+def tavern_spell_pool(
+    tavern_tier: int,
+    *,
+    patch: PatchContext,
+    shop_excluded_race=None,
+) -> List[str]:
     """Spell ids the tavern can offer a seat at ``tavern_tier``.
 
     Same rule as the minion counter: everything up to the seat's tier, so a
-    tier-1 spell keeps showing up all game.
+    tier-1 spell keeps showing up all game — and, like the counter, nothing
+    belonging to a tribe this lobby left out. The Bounties are Pirate-lobby
+    spells, Spitescale Special a Naga one, Temperature Shift an Elemental one,
+    and Temperature Shift is the reason this matters beyond flavour: it hands
+    over two Elementals, so offering it in a lobby without Elementals put a
+    tribe on the board that the rotation had excluded.
     """
     ctx = require_patch(patch, where="tavern_spells.tavern_spell_pool")
+    excluded = set(normalize_shop_excluded_races(shop_excluded_race))
     return sorted(
         card_id
         for card_id, spell in ctx.tavern_spells.items()
-        if spell.in_pool and 1 <= spell.tier <= int(tavern_tier)
+        if spell.in_pool
+        and 1 <= spell.tier <= int(tavern_tier)
+        and ctx.spell_tribe_gates.get(card_id) not in excluded
     )
 
 
@@ -164,6 +178,7 @@ def offer_tavern_spells(
     patch: PatchContext,
     card_ids: Optional[Sequence[str]] = None,
     count: Optional[int] = None,
+    shop_excluded_race=None,
 ) -> Tuple[SpellCard, ...]:
     """Put this tavern's Tavern spells on the counter.
 
@@ -182,7 +197,9 @@ def offer_tavern_spells(
             0,
             int(player.ruleset.tavern_spells_per_roll if count is None else count),
         )
-        pool = tavern_spell_pool(player.tavern_tier, patch=ctx)
+        pool = tavern_spell_pool(
+            player.tavern_tier, patch=ctx, shop_excluded_race=shop_excluded_race
+        )
         picks: List[str] = []
         for _ in range(min(want, len(pool))):
             picks.append(pool.pop(int(rng.integers(0, len(pool)))))
@@ -573,7 +590,13 @@ def _apply_spell_effect(
         want = effective_shop_offers_count(player)
         for slot in range(len(player.shop)):
             clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
-        offer_tavern_spells(player, rng=rng, patch=patch, count=want)
+        offer_tavern_spells(
+            player,
+            rng=rng,
+            patch=patch,
+            count=want,
+            shop_excluded_race=shop_excluded_race,
+        )
         return
 
     if isinstance(effect, RefreshWithTribeEffect):
@@ -683,6 +706,7 @@ def _apply_spell_effect(
             spellcraft=effect.spellcraft,
             rng=rng,
             patch=patch,
+            shop_excluded_race=shop_excluded_race,
         )
         return
 
@@ -694,7 +718,9 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, CastRandomTavernSpellEffect):
-        pool = tavern_spell_pool(player.tavern_tier, patch=patch)
+        pool = tavern_spell_pool(
+            player.tavern_tier, patch=patch, shop_excluded_race=shop_excluded_race
+        )
         if pool:
             rolled = patch.tavern_spells[pool[int(rng.integers(0, len(pool)))]]
             cast_tavern_spell(
@@ -753,6 +779,7 @@ def _apply_spell_effect(
             patch=patch,
             repeats=effect.repeats,
             exact_tier=effect.exact_tier,
+            shop_excluded_race=shop_excluded_race,
         )
         return
 
@@ -891,6 +918,7 @@ def add_random_tavern_spells(
     spellcraft: bool = False,
     rng: np.random.Generator,
     patch: PatchContext,
+    shop_excluded_race=None,
 ) -> int:
     """"Get N random Tavern spells", filtered as the card prints it.
 
@@ -907,7 +935,9 @@ def add_random_tavern_spells(
     else:
         pool = [
             card_id
-            for card_id in tavern_spell_pool(player.tavern_tier, patch=ctx)
+            for card_id in tavern_spell_pool(
+                player.tavern_tier, patch=ctx, shop_excluded_race=shop_excluded_race
+            )
             if (not max_cost or ctx.tavern_spells[card_id].cost <= max_cost)
             and (not gives_stats or spell_gives_stats(ctx.tavern_spells[card_id]))
         ]
@@ -929,6 +959,7 @@ def open_tavern_spell_discover(
     patch: PatchContext,
     repeats: int = 1,
     exact_tier: bool = False,
+    shop_excluded_race=None,
 ) -> bool:
     """"Discover a Tavern spell": three offered, the seat keeps one.
 
@@ -941,7 +972,9 @@ def open_tavern_spell_discover(
     from .discover import try_open_hand_discover_modal
 
     ctx = require_patch(patch, where="tavern_spells.open_tavern_spell_discover")
-    pool = tavern_spell_pool(player.tavern_tier, patch=ctx)
+    pool = tavern_spell_pool(
+        player.tavern_tier, patch=ctx, shop_excluded_race=shop_excluded_race
+    )
     if exact_tier:
         # "of your Tier" — the seat's own, not everything up to it.
         at_tier = [c for c in pool if ctx.tavern_spells[c].tier == player.tavern_tier]

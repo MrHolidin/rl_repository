@@ -210,6 +210,24 @@ BOUNTY_IDS: FrozenSet[str] = frozenset(
     }
 )
 
+#: Tavern spells the tavern only offers when a tribe is in the lobby. Nothing
+#: in the card data marks a spell's tribe, so the package says it, the same way
+#: it names its Bounties above. Only the three families with a printed source
+#: are here: the Bounties are Pirate-lobby spells, Spitescale Special makes
+#: Spellcraft spells that only Naga mint, and Temperature Shift hands over two
+#: Elementals -- which is the one that matters beyond flavour, because it put a
+#: tribe on the board that the rotation had excluded.
+SPELL_TRIBE_GATES: Dict[str, Race] = {
+    "BG33_811": Race.PIRATE,  # Healthy Bounty
+    "BG33_812": Race.PIRATE,  # Hostile Bounty
+    "BG33_813": Race.PIRATE,  # Selfish Bounty
+    "BG33_814": Race.PIRATE,  # Friendly Bounty
+    "BG33_815": Race.PIRATE,  # Wealthy Bounty
+    "BG31_886": Race.PIRATE,  # Forest's Bounty
+    "BG28_606": Race.NAGA,  # Spitescale Special
+    "BG31_819": Race.ELEMENTAL,  # Temperature Shift
+}
+
 #: Cards that come out of the tavern already golden. The flag is the whole
 #: rule: the copy renders golden, and the triple resolver only merges non-golden
 #: copies, so three of them never combine into a Triple Reward.

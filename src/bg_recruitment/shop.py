@@ -411,7 +411,9 @@ def refresh_shop(
         player.shop.append(None)
     frozen = frozen_slots or (False,) * MAX_SHOP_SLOTS
     if not (any(frozen[:n]) and player.tavern_spell_offers):
-        offer_tavern_spells(player, rng=rng, patch=patch)
+        offer_tavern_spells(
+            player, rng=rng, patch=patch, shop_excluded_race=shop_excluded_race
+        )
     for i in range(MAX_SHOP_SLOTS):
         if i >= n:
             if player.shop[i] is not None:

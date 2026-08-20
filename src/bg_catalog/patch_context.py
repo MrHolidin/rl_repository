@@ -86,6 +86,10 @@ class PatchContext:
     #: and one card reads it ("your Bounties cast twice"), so the package names
     #: them the way it names its always-golden cards.
     bounty_ids: FrozenSet[str] = frozenset()
+    #: Tavern spells the tavern only offers when a tribe is in the lobby, and
+    #: which tribe. The card data marks minions' tribes and nothing marks a
+    #: spell's, so the package names these the same way it names its Bounties.
+    spell_tribe_gates: Mapping[str, Race] = field(default_factory=dict)
 
     def make_minion(self, card_id: str) -> Minion:
         from copy import copy
@@ -136,6 +140,9 @@ class PatchContext:
             getattr(bindings, "SPELL_EFFECTS", {})
         )
         bounty_ids: FrozenSet[str] = frozenset(getattr(bindings, "BOUNTY_IDS", ()))
+        spell_tribe_gates: Dict[str, Race] = dict(
+            getattr(bindings, "SPELL_TRIBE_GATES", {})
+        )
 
         templates, descriptions, pool_ids = _build_templates_and_descriptions(
             catalog_path=catalog_path,
@@ -170,6 +177,7 @@ class PatchContext:
             token_ids=token_ids,
             keyword_only_pool_ids=keyword_only_pool_ids,
             bounty_ids=bounty_ids,
+            spell_tribe_gates=spell_tribe_gates,
             card_index_ids=card_index_ids,
             card_id_to_dense=card_id_to_dense,
             num_pool_indices=len(card_index_ids),
