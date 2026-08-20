@@ -334,7 +334,15 @@ def _fill_forced_tribe_slot(
     ]
     if not pool:
         return False
-    card_id = pool[int(rng.integers(0, len(pool)))]
+    # By remaining copies, the same way the ordinary roll beside it draws —
+    # this is a tavern offer, and being forced to a tribe does not change how
+    # the pool is read.
+    from .discover_pool import draw_from_pool
+
+    picked = draw_from_pool(rng, pool, 1, shared_pool=shared_pool)
+    if not picked:
+        return False
+    card_id = picked[0]
     if shared_pool is not None and not shared_pool.try_reserve_offer(card_id):
         return False
     player.shop[slot] = make_minion(card_id, patch=patch)

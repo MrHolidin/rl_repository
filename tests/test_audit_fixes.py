@@ -603,3 +603,42 @@ def test_a_discover_without_a_pool_is_flat(patch):
             seen[patch.templates[cid].tier] += 1
     # Tier 6 holds 3 Beasts and Tier 3 holds 4; flat means the 4 win.
     assert seen[3] > seen[6]
+
+
+def test_every_pool_draw_uses_the_same_weighting(patch):
+    """The tavern refresh has drawn by remaining copies all along; the Discover
+    rolls and the forced-tribe slot were picking uniformly among distinct card
+    ids beside it."""
+    from collections import Counter
+
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.discover_pool import draw_from_pool
+
+    pool = build_initial_shared_pool(patch=patch)
+    # Two cards of different tiers: the Tier 1 has 15 copies, the Tier 6 has 7.
+    cheap = next(c for c in patch.pool_ids if patch.templates[c].tier == 1)
+    dear = next(c for c in patch.pool_ids if patch.templates[c].tier == 6)
+    rng = np.random.default_rng(0)
+    seen = Counter(
+        draw_from_pool(rng, [cheap, dear], 1, shared_pool=pool)[0] for _ in range(2000)
+    )
+    ratio = seen[cheap] / seen[dear]
+    expected = patch.meta.pool_copies_by_tier[1] / patch.meta.pool_copies_by_tier[6]
+    assert abs(ratio - expected) < 0.25
+
+    flat = Counter(
+        draw_from_pool(rng, [cheap, dear], 1)[0] for _ in range(2000)
+    )
+    assert abs(flat[cheap] / flat[dear] - 1.0) < 0.15  # no pool, no weighting
+
+
+def test_a_forced_tribe_slot_draws_like_an_ordinary_one(patch):
+    """Ysera's extra Dragon is a tavern offer; being forced to a tribe does not
+    change how the pool is read."""
+    import inspect
+
+    from src.bg_recruitment import shop
+
+    source = inspect.getsource(shop._fill_forced_tribe_slot)
+    assert "draw_from_pool" in source
+    assert "rng.integers" not in source

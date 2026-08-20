@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Sequence, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -33,6 +33,41 @@ ADAPT_KEYS_ALL: Tuple[str, ...] = (
 )
 
 assert len(ADAPT_KEYS_ALL) == 10
+
+
+def draw_from_pool(
+    rng: np.random.Generator,
+    card_ids: Sequence[str],
+    count: int,
+    *,
+    shared_pool: Optional[SharedCardPool] = None,
+) -> List[str]:
+    """Draw distinct cards the way the tavern does: by remaining copies.
+
+    A Discover is "limited to the shared pool", and the pool holds more copies
+    of the cheap minions than the expensive ones — 15 of each Tier 1 against 7
+    of each Tier 6 — so a card's chance is how many of it are left, and the
+    spread skews low on its own. It skews further as the lobby buys the popular
+    cards out, which is the part no formula can imitate.
+
+    ``roll_card_id`` has drawn the tavern's own offers this way all along; this
+    is the same draw, for the places that were picking uniformly among distinct
+    card ids instead. With no pool to ask, every card is equally likely.
+    """
+    pool = list(card_ids)
+    picks: List[str] = []
+    for _ in range(min(int(count), len(pool))):
+        weights = None
+        if shared_pool is not None:
+            w = np.array(
+                [max(0.0, float(shared_pool.remaining_copies(cid))) for cid in pool],
+                dtype=np.float64,
+            )
+            if w.sum() > 0:
+                weights = w / w.sum()
+        j = int(rng.choice(len(pool), p=weights))
+        picks.append(pool.pop(j))
+    return picks
 
 
 def tribe_discover_card_ids(tribe: Race, *, patch: PatchContext) -> List[str]:
@@ -81,28 +116,7 @@ def roll_discover_tribe_triple(
     # Fewer than three is a real outcome, not an error: capped at the seat's
     # own tier there are only two Tier-1 Beasts in the whole pool. The modal
     # offers what there is, and the legal mask offers that many picks.
-    #
-    # A Discover draws from the shared pool, so a card's chance is how many
-    # copies of it are left — not a function of its tier. The pool holds more
-    # copies of the cheap ones (15 at Tier 1 against 7 at Tier 6), so the
-    # spread skews *low* on its own, and skews further as the lobby buys the
-    # popular cards out. Without a pool to ask there is nothing to weigh by,
-    # and every eligible card is equally likely.
-    pool = list(eligible)
-    picks: List[str] = []
-    for _ in range(min(3, len(pool))):
-        if shared_pool is not None:
-            w = np.array(
-                [max(0.0, float(shared_pool.remaining_copies(cid))) for cid in pool],
-                dtype=np.float64,
-            )
-            total = w.sum()
-            w = w / total if total > 0 else None
-        else:
-            w = None
-        j = int(rng.choice(len(pool), p=w))
-        picks.append(pool.pop(j))
-    return tuple(picks)
+    return tuple(draw_from_pool(rng, eligible, 3, shared_pool=shared_pool))
 
 
 def roll_adapt_triple(rng: np.random.Generator) -> Tuple[str, str, str]:
@@ -158,12 +172,7 @@ def roll_triple_reward_discover_at_target_tier(
         raise RuntimeError(
             f"need at least 3 cards for triple-reward discover (tier {tgt}), got {len(eligible)}"
         )
-    pool = list(eligible)
-    picks: List[str] = []
-    for _ in range(3):
-        j = int(rng.integers(0, len(pool)))
-        picks.append(pool.pop(j))
-    return (picks[0], picks[1], picks[2])
+    return tuple(draw_from_pool(rng, eligible, 3, shared_pool=shared_pool))
 
 
 def roll_triple_reward_discover_triple(
