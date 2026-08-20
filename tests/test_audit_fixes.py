@@ -549,3 +549,57 @@ def test_a_printed_tier_discover_ignores_the_seat(patch):
     """"Discover a Tier 1 minion" is a Tier 1 minion at any tavern tier."""
     (ability,) = patch.tavern_spells["BG33_101"].abilities
     assert ability.effect.tier == 1
+
+
+def test_a_discover_is_weighted_by_what_is_left_in_the_pool(patch):
+    """A Discover draws from the shared pool, so a card's chance is its
+    remaining copies — which skews the spread *low*, because the pool holds
+    15 copies of each Tier 1 minion against 7 of each Tier 6."""
+    from collections import Counter
+
+    from src.bg_core.minion import Race as _R
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.discover_pool import (
+        roll_discover_tribe_triple,
+        tribe_discover_card_ids,
+    )
+
+    pool = build_initial_shared_pool(patch=patch)
+    rng = np.random.default_rng(0)
+    seen: Counter = Counter()
+    for _ in range(1500):
+        for cid in roll_discover_tribe_triple(
+            rng, 6, None, tribe=_R.BEAST, shared_pool=pool, patch=patch
+        ):
+            seen[patch.templates[cid].tier] += 1
+
+    copies = patch.meta.pool_copies_by_tier
+    expected: Counter = Counter()
+    for cid in tribe_discover_card_ids(_R.BEAST, patch=patch):
+        tier = patch.templates[cid].tier
+        if tier <= 6:
+            expected[tier] += copies[tier]
+
+    drawn = sum(seen.values())
+    total = sum(expected.values())
+    for tier in expected:
+        assert abs(seen[tier] / drawn - expected[tier] / total) < 0.03, tier
+    # And the low tiers really are the common ones, which is the whole point.
+    assert seen[1] > seen[6]
+
+
+def test_a_discover_without_a_pool_is_flat(patch):
+    """Nothing to weigh by, so every eligible card is equally likely — and in
+    particular not weighted by how close its tier is to the seat's."""
+    from collections import Counter
+
+    from src.bg_core.minion import Race as _R
+    from src.bg_recruitment.discover_pool import roll_discover_tribe_triple
+
+    rng = np.random.default_rng(0)
+    seen: Counter = Counter()
+    for _ in range(1500):
+        for cid in roll_discover_tribe_triple(rng, 6, None, tribe=_R.BEAST, patch=patch):
+            seen[patch.templates[cid].tier] += 1
+    # Tier 6 holds 3 Beasts and Tier 3 holds 4; flat means the 4 win.
+    assert seen[3] > seen[6]

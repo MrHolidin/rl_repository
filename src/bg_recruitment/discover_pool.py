@@ -35,15 +35,6 @@ ADAPT_KEYS_ALL: Tuple[str, ...] = (
 assert len(ADAPT_KEYS_ALL) == 10
 
 
-def _tier_weights(tavern_tier: int, max_tier: int) -> Dict[int, float]:
-    hi = min(max_tier, tavern_tier + 1)
-    w: Dict[int, float] = {}
-    for t in range(1, hi + 1):
-        dist = abs(t - tavern_tier)
-        w[t] = 1.0 / (1.0 + float(dist) * float(dist))
-    return w
-
-
 def tribe_discover_card_ids(tribe: Race, *, patch: PatchContext) -> List[str]:
     tpl = templates(patch=require_patch(patch, where="discover_pool.tribe_discover_card_ids"))
     return [
@@ -74,8 +65,7 @@ def roll_discover_tribe_triple(
     """
     ctx = require_patch(patch, where="discover_pool.roll_discover_tribe_triple")
     tpl = ctx.templates
-    max_tier = ctx.meta.ruleset.max_tier
-    cap = min(max_tier, tavern_tier)
+    cap = min(ctx.meta.ruleset.max_tier, tavern_tier)
     if tribe in normalize_shop_excluded_races(shop_excluded_race):
         eligible: List[str] = []
     else:
@@ -91,12 +81,25 @@ def roll_discover_tribe_triple(
     # Fewer than three is a real outcome, not an error: capped at the seat's
     # own tier there are only two Tier-1 Beasts in the whole pool. The modal
     # offers what there is, and the legal mask offers that many picks.
-    wmap = _tier_weights(tavern_tier, max_tier)
+    #
+    # A Discover draws from the shared pool, so a card's chance is how many
+    # copies of it are left — not a function of its tier. The pool holds more
+    # copies of the cheap ones (15 at Tier 1 against 7 at Tier 6), so the
+    # spread skews *low* on its own, and skews further as the lobby buys the
+    # popular cards out. Without a pool to ask there is nothing to weigh by,
+    # and every eligible card is equally likely.
     pool = list(eligible)
     picks: List[str] = []
     for _ in range(min(3, len(pool))):
-        w = np.array([wmap.get(tpl[cid].tier, 0.1) for cid in pool], dtype=np.float64)
-        w = w / w.sum()
+        if shared_pool is not None:
+            w = np.array(
+                [max(0.0, float(shared_pool.remaining_copies(cid))) for cid in pool],
+                dtype=np.float64,
+            )
+            total = w.sum()
+            w = w / total if total > 0 else None
+        else:
+            w = None
         j = int(rng.choice(len(pool), p=w))
         picks.append(pool.pop(j))
     return tuple(picks)
