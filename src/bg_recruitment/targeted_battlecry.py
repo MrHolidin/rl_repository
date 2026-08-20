@@ -79,8 +79,8 @@ def _pick_eater(
     return player.board[pick]
 
 
-def make_golden(target: Minion, *, patch) -> None:
-    """Turn ``target`` into its Golden printing, in place.
+def make_golden(target: Minion, *, patch, shared_pool=None) -> bool:
+    """Turn ``target`` into its Golden printing, in place. Returns whether it did.
 
     Not a triple: nothing merged, so no Triple Reward is owed. What the body had
     gained rides along, because the card is being upgraded rather than replaced
@@ -88,16 +88,26 @@ def make_golden(target: Minion, *, patch) -> None:
 
     Takes no seat, so it serves a card being made Golden in hand as readily as
     one standing on the board.
+
+    A Golden is three copies of the card where there was one, so the lobby has
+    to lend the other two — and the upgrade is refused if it cannot. Without
+    that the body released three copies whenever it left, and the seat handed
+    the lobby two it had never been given. It went unnoticed while a made
+    Golden carried the ``_G`` card id, because the surplus landed in a key
+    nothing rolls from; giving it the plain id put it in the live one.
     """
     from src.bg_catalog.patch_catalog import golden_upgrade_card_id
 
     if target.is_golden:
-        return
+        return False
+    if not reserve_golden_upgrade(shared_pool, target.card_id):
+        return False
     golden_id = golden_upgrade_card_id(
         target.card_id, patch.patch_dir / "catalog.json"
     )
     if golden_id is None:
-        return
+        release_golden_upgrade(shared_pool, target.card_id)
+        return False
     golden = minion_from_tavern_record(
         minion_by_id(patch.patch_dir / "catalog.json")[golden_id]
     )
@@ -117,6 +127,32 @@ def make_golden(target: Minion, *, patch) -> None:
     target.dbf_id = golden.dbf_id
     target.is_golden = True
     target.has_shield = target.has_shield or golden.has_shield
+    return True
+
+
+def reserve_golden_upgrade(shared_pool, card_id: str) -> bool:
+    """Take the two extra copies a body about to go Golden will stand for.
+
+    Whether the lobby can cover them, in other words. With no pool to ask the
+    answer is yes: a seat playing without shared accounting has nothing to run
+    out of. Anything taken is put back when the answer is no, so a refusal
+    leaves the ledger where it was.
+    """
+    if shared_pool is None:
+        return True
+    taken = 0
+    while taken < 2 and shared_pool.try_reserve_offer(card_id):
+        taken += 1
+    if taken == 2:
+        return True
+    release_golden_upgrade(shared_pool, card_id, count=taken)
+    return False
+
+
+def release_golden_upgrade(shared_pool, card_id: str, count: int = 2) -> None:
+    """Hand back copies reserved for an upgrade that did not happen."""
+    if shared_pool is not None and count:
+        shared_pool.release_offer(card_id, count)
 
 
 def destroy_friendly(
@@ -340,6 +376,7 @@ def apply_targeted_on_place_battlecries(
     *,
     rng: np.random.Generator,
     forced_buff_target: Optional[Minion] = None,
+    shared_pool=None,
 ) -> None:
     """Resolve BuffTarget / BuffAdjacent instantly (random target if several eligible).
 
@@ -408,7 +445,7 @@ def apply_targeted_on_place_battlecries(
                 forced=forced_buff_target,
             )
             if target is not None and (not e.max_tier or target.tier <= e.max_tier):
-                make_golden(target, patch=triggers._patch)
+                make_golden(target, patch=triggers._patch, shared_pool=shared_pool)
         elif isinstance(e, DiscoverTribeEffect) and e.magnetize_onto_target:
             # "Choose a friendly Mech. Discover a Mech to Magnetize to it" —
             # the pick needs the recipient, and only this path knows it.

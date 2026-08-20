@@ -914,6 +914,10 @@ class ShopTriggers:
                 made = make_minion(pick, patch=self._patch)
                 from src.bg_recruitment.targeted_battlecry import make_golden
 
+                # Minted rather than upgraded: the body is new, so the lobby
+                # lends all three copies, not the two an upgrade needs.
+                if shared_pool is not None and not shared_pool.acquire_new(pick, 3):
+                    return
                 make_golden(made, patch=self._patch)
                 player.hand[slot] = made
         elif isinstance(effect, AddRandomMinionOfCommonTribeEffect):

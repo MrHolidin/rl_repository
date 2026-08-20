@@ -636,20 +636,17 @@ def _apply_spell_effect(
             if not filled:
                 return
             offer = player.shop[filled[int(rng.integers(0, len(filled)))]]
-            # A Golden offer is three copies of the card standing on the
-            # counter, and the slot reserved one when it was filled. Take the
-            # other two first: clearing the slot later releases as many as the
-            # body is worth, so a Golden the lobby could not cover would hand
-            # back copies that were never lent.
-            if _reserve_golden_upgrade(shared_pool, offer):
-                make_golden(offer, patch=patch)
+            # ``make_golden`` takes the two extra copies the offer will stand
+            # for, and refuses if the lobby cannot cover them — including the
+            # case where the pick is already Golden and there is nothing to do.
+            make_golden(offer, patch=patch, shared_pool=shared_pool)
             return
         chosen = target if target is not None else _random_friendly(player, rng)
         if chosen is None:
             return
         if effect.max_tier and chosen.tier > effect.max_tier:
             return
-        make_golden(chosen, patch=patch)
+        make_golden(chosen, patch=patch, shared_pool=shared_pool)
         return
 
     if isinstance(effect, TransformToHigherTierEffect):
@@ -815,26 +812,6 @@ def _random_friendly(player: PlayerState, rng: np.random.Generator) -> Optional[
     if not player.board:
         return None
     return player.board[int(rng.integers(0, len(player.board)))]
-
-
-def _reserve_golden_upgrade(shared_pool, offer: Minion) -> bool:
-    """Take the two extra copies a made-Golden offer would stand for.
-
-    Whether the lobby can cover them, in other words. With no pool to ask the
-    answer is yes: a seat playing without shared accounting has nothing to run
-    out of. Anything taken is put back when the answer is no, so a refusal
-    leaves the ledger where it was.
-    """
-    if shared_pool is None:
-        return True
-    taken = 0
-    while taken < 2 and shared_pool.try_reserve_offer(offer.card_id):
-        taken += 1
-    if taken == 2:
-        return True
-    if taken:
-        shared_pool.release_offer(offer.card_id, taken)
-    return False
 
 
 def _positional_targets(player: PlayerState, source: Minion, effect) -> List[Minion]:

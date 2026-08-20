@@ -262,7 +262,9 @@ def clear_shop_slot(
         return
     m = player.shop[slot]
     if m is not None and shared_pool is not None and release_to_pool:
-        shared_pool.release_offer(m.card_id)
+        # What the body is worth, not one: a Golden standing on the counter is
+        # three copies of the card, and rolling it away used to hand back one.
+        shared_pool.release_minion(m)
     player.shop[slot] = None
     # A freeze belongs to the minion, not to the slot: once that body leaves the
     # counter (bought, or rolled away) nothing is pinned there any more. Leaving

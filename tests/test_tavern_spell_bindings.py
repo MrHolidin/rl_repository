@@ -951,3 +951,128 @@ def test_the_counter_never_offers_a_gated_spell_its_lobby_left_out(patch):
             shop_excluded_race=Race.PIRATE,
         )
         assert not set(player.pending_choice.options) & gated
+
+
+# --------------------------------- what a Golden costs the lobby
+
+
+def _held_copies(player):
+    from src.bg_lobby.shared_pool import copies_for_minion
+
+    out: dict = {}
+    everywhere = (
+        list(player.board)
+        + [c for c in player.hand if c is not None]
+        + [s for s in player.shop if s is not None]
+    )
+    for card in everywhere:
+        if isinstance(card, Minion):
+            out[card.card_id] = out.get(card.card_id, 0) + copies_for_minion(card)
+    return out
+
+
+def _pool_plus_held(pool, player, card_id):
+    return pool.remaining_copies(card_id) + _held_copies(player).get(card_id, 0)
+
+
+def test_making_a_minion_golden_borrows_the_two_copies_it_becomes(patch):
+    """A Golden is three copies of the card where there was one. It went
+    unnoticed while a made Golden carried the `_G` id, because the surplus
+    landed in a key nothing rolls from; the plain id put it in the live one."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.pool_ledger import on_sell_minion
+    from src.bg_recruitment.targeted_battlecry import make_golden
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _player(patch)
+    pool.try_reserve_offer("BGS_119")  # the lobby lends the body
+    body = patch.make_minion("BGS_119")
+    player.board.append(body)
+    before = _pool_plus_held(pool, player, "BGS_119")
+
+    assert make_golden(body, patch=patch, shared_pool=pool)
+    assert _pool_plus_held(pool, player, "BGS_119") == before
+
+    player.board.remove(body)
+    on_sell_minion(pool, body)
+    assert _pool_plus_held(pool, player, "BGS_119") == before
+
+
+def test_a_golden_the_lobby_cannot_cover_is_refused(patch):
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.targeted_battlecry import make_golden
+
+    pool = build_initial_shared_pool(patch=patch)
+    while pool.try_reserve_offer("BGS_119"):
+        pass
+    body = patch.make_minion("BGS_119")
+    assert not make_golden(body, patch=patch, shared_pool=pool)
+    assert not body.is_golden
+    assert pool.remaining_copies("BGS_119") == 0  # the refusal put back what it took
+
+
+def test_a_golden_offer_rolled_away_gives_back_all_three(patch):
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.shop import clear_shop_slot
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _player(patch)
+    pool.try_reserve_offer("BGS_119")
+    player.shop[0] = patch.make_minion("BGS_119")
+    before = _pool_plus_held(pool, player, "BGS_119")
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_830"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        shared_pool=pool,
+    )
+    assert player.shop[0].is_golden
+    clear_shop_slot(player, 0, pool, release_to_pool=True)
+    assert _pool_plus_held(pool, player, "BGS_119") == before
+
+
+def test_golden_touch_on_an_already_golden_offer_takes_nothing(patch):
+    """It picks a random filled slot, so a second cast can land on the first's."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _player(patch)
+    pool.try_reserve_offer("BGS_119")
+    player.shop[0] = patch.make_minion("BGS_119")
+    seen = []
+    for _ in range(3):
+        cast_tavern_spell(
+            player,
+            patch.tavern_spells["BG28_830"],
+            rng=np.random.default_rng(0),
+            patch=patch,
+            shared_pool=pool,
+        )
+        seen.append(pool.remaining_copies("BGS_119"))
+    assert player.shop[0].is_golden
+    assert seen[0] == seen[1] == seen[2]
+
+
+def test_robust_evolution_tells_the_lobby_it_swapped_cards(patch):
+    """The seat stops holding one card and starts holding another."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool, copies_for_minion
+    from src.bg_recruitment.faceless import transform_to_higher_tier
+
+    for golden in (False, True):
+        pool = build_initial_shared_pool(patch=patch)
+        player = _player(patch)
+        body = patch.make_minion("BGS_119")
+        body.is_golden = golden
+        for _ in range(copies_for_minion(body)):
+            pool.try_reserve_offer("BGS_119")
+        player.board.append(body)
+        ids = set(patch.pool_ids)
+        before = {c: _pool_plus_held(pool, player, c) for c in ids}
+
+        assert transform_to_higher_tier(
+            body, rng=np.random.default_rng(3), patch=patch, shared_pool=pool
+        )
+        assert body.card_id != "BGS_119"
+        after = {c: _pool_plus_held(pool, player, c) for c in ids}
+        assert {c: after[c] - before[c] for c in ids if after[c] != before[c]} == {}

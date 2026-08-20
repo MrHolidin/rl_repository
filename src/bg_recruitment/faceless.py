@@ -59,9 +59,19 @@ def transform_to_higher_tier(
         eligible = [cid for cid in eligible if shared_pool.remaining_copies(cid) > 0]
     if not eligible:
         return False
-    fresh = make_minion(
-        draw_from_pool(rng, eligible, 1, shared_pool=shared_pool)[0], patch=patch
-    )
+    picked = draw_from_pool(rng, eligible, 1, shared_pool=shared_pool)[0]
+    # The seat stops holding one card and starts holding another, so the lobby
+    # has to hear about both. Taken before given, so a lobby that cannot lend
+    # the new card leaves the body — and the ledger — exactly as they were. A
+    # Golden body was worth three copies of what it was and comes back plain,
+    # which is three released for one taken.
+    if shared_pool is not None:
+        from src.bg_lobby.shared_pool import copies_for_minion
+
+        if not shared_pool.acquire_new(picked, 1):
+            return False
+        shared_pool.release_offer(minion.card_id, copies_for_minion(minion))
+    fresh = make_minion(picked, patch=patch)
     attack, health = minion.raw_attack, minion.max_health
     minion.card_id = fresh.card_id
     minion.name = fresh.name

@@ -130,6 +130,7 @@ def place_from_hand(
             minion,
             rng=rng,
             forced_buff_target=forced_buff_target,
+            shared_pool=shared_pool,
         )
     if player.pending_choice is None and apply_targeted_effects:
         try:
