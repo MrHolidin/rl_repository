@@ -141,6 +141,14 @@ class Minion:
     #: that pay per Magnetization, and by nothing else — the stats themselves
     #: are merged in, not derived from this.
     magnetized_count: int = 0
+    #: What the Magnetizations onto this body contributed: stats folded into
+    #: ``base_*`` and the abilities appended to ``abilities``. Kept separately
+    #: so a triple can carry them over -- the merge rebuilds ``base_*`` from
+    #: the printed card, which silently dropped every part a host was wearing.
+    #: Patch 29.2.2.198608 fixed the same bug in the real game.
+    magnet_attack: int = 0
+    magnet_health: int = 0
+    magnet_abilities: Tuple[Any, ...] = ()
     #: The next Magnetization onto this body lands twice (Drone Duplicator).
     #: Spent by that Magnetization, and cleared at the start of the turn.
     magnet_doubles_next: bool = False

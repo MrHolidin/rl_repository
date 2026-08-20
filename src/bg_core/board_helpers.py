@@ -518,6 +518,22 @@ def apply_summoned_listener(
         listener.bonus_health += effect.health
 
 
+def merge_magnet_abilities(host: tuple, parts: tuple) -> tuple:
+    """Host's text, then the parts', with every deathrattle behind the rest.
+
+    The firing order a magnetized body has: the host's own deathrattle first,
+    then each part's in the order they were attached. Shared with the triple
+    merge, which rebuilds the golden and has to put the parts back on it.
+    """
+    from .effects import Trigger
+
+    nt = [ab for ab in host if ab.trigger != Trigger.ON_DEATH]
+    dt = [ab for ab in host if ab.trigger == Trigger.ON_DEATH]
+    nm = [ab for ab in parts if ab.trigger != Trigger.ON_DEATH]
+    dm = [ab for ab in parts if ab.trigger == Trigger.ON_DEATH]
+    return tuple(nt + nm + dt + dm)
+
+
 def distinct_tribe_count(minions) -> int:
     """How many different minion types are standing here.
 
@@ -643,6 +659,7 @@ __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
     "distinct_tribe_count",
+    "merge_magnet_abilities",
     "apply_buff_self",
     "set_minion_stats",
     "apply_summoned_listener",

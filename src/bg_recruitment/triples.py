@@ -11,7 +11,7 @@ import numpy as np
 from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_catalog.golden_catalog import forged_golden_keywords
-from src.bg_core.board_helpers import minion_matches_tribe
+from src.bg_core.board_helpers import merge_magnet_abilities, minion_matches_tribe
 from src.bg_core.effects import Keyword, Trigger, TriplesWithAnyOfTribeEffect
 from src.bg_core.minion import Minion, Race, is_locked
 from src.bg_core.spell_card import SpellCard
@@ -110,10 +110,17 @@ def merge_three_non_golden_into_golden(
         frozenset(merged_kw),
         ctx.patch_dir / "catalog.json",
     )
+    # Magnetized parts survive the merge. The golden is rebuilt from the
+    # printed card, so anything a host was wearing had to be carried across
+    # explicitly -- without this the parts' stats and text simply vanished,
+    # the same bug patch 29.2.2.198608 fixed in the real game.
+    magnet_attack = sum(x.magnet_attack for x in (a, b, c))
+    magnet_health = sum(x.magnet_health for x in (a, b, c))
+    magnet_abilities = tuple(ab for x in (a, b, c) for ab in x.magnet_abilities)
     return Minion(
         card_id=card_id,
-        base_attack=tpl.base_attack * 2,
-        base_health=tpl.base_health * 2,
+        base_attack=tpl.base_attack * 2 + magnet_attack,
+        base_health=tpl.base_health * 2 + magnet_health,
         tier=tpl.tier,
         name=tpl.name,
         bonus_attack=a.bonus_attack + b.bonus_attack + c.bonus_attack,
@@ -121,12 +128,18 @@ def merge_three_non_golden_into_golden(
         race=tpl.race,
         keywords=forged_kw,
         granted_keywords=frozenset(),
-        abilities=ctx.triple_merge_golden_abilities(card_id),
+        abilities=merge_magnet_abilities(
+            ctx.triple_merge_golden_abilities(card_id), magnet_abilities
+        ),
         has_shield=shield,
         is_token=tpl.is_token,
         is_golden=True,
         from_triple_merge=True,
         dbf_id=tpl.dbf_id,
+        magnetized_count=sum(x.magnetized_count for x in (a, b, c)),
+        magnet_attack=magnet_attack,
+        magnet_health=magnet_health,
+        magnet_abilities=magnet_abilities,
     )
 
 

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
+from src.bg_core.board_helpers import merge_magnet_abilities
 from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PlayerState
 
 from .game_counts import bump_played
+from .pool_ledger import on_sell_minion
 from .shop_triggers import ShopTriggers
 from .triples import (
     flush_triple_reward_queue_if_idle,
@@ -52,8 +54,9 @@ def can_magnetize_onto(magnet: Minion, target: Minion) -> bool:
 
 def merge_magnetic_inplace(target: Minion, magnet: Minion) -> None:
     """HS-style magnetic: keep target identity/buffs; add magnet stats/keywords/DRs."""
-    target.base_attack += magnet.raw_attack
-    target.base_health += magnet.max_health
+    attack, health = magnet.raw_attack, magnet.max_health
+    target.base_attack += attack
+    target.base_health += health
     combined_kw = (
         target.keywords
         | target.granted_keywords
@@ -64,11 +67,14 @@ def merge_magnetic_inplace(target: Minion, magnet: Minion) -> None:
     target.granted_keywords = frozenset()
     target.has_shield = target.has_shield or magnet.has_shield
 
-    nt = [ab for ab in target.abilities if ab.trigger != Trigger.ON_DEATH]
-    dt = [ab for ab in target.abilities if ab.trigger == Trigger.ON_DEATH]
-    nm = [ab for ab in magnet.abilities if ab.trigger != Trigger.ON_DEATH]
-    dm = [ab for ab in magnet.abilities if ab.trigger == Trigger.ON_DEATH]
-    target.abilities = tuple(nt + nm + dt + dm)
+    added = tuple(magnet.abilities)
+    target.abilities = merge_magnet_abilities(target.abilities, added)
+    # What the part contributed, kept apart from the printed card so a triple
+    # can carry it over. The stats above are folded in rather than derived
+    # from this; this is the record, not the source.
+    target.magnet_attack += attack
+    target.magnet_health += health
+    target.magnet_abilities = target.magnet_abilities + added
 
 
 def place_from_hand(
@@ -201,6 +207,7 @@ def magnet_from_hand(
     *,
     patch: PatchContext,
     triggers: Optional[ShopTriggers] = None,
+    shared_pool=None,
 ) -> None:
     magnet = player.hand[hand_slot]
     assert magnet is not None
@@ -209,6 +216,17 @@ def magnet_from_hand(
     assert can_magnetize_onto(magnet, target)
     assert hand_minion_can_magnetize(magnet)
     player.hand[hand_slot] = None
+    # "Magnetizing counts as playing a minion but not summoning a minion" — so
+    # the play tallies count it, and ``fire_shop_friendly_summoned`` does not.
+    # The board triggers are the seat's own reading and stay out of it: the one
+    # card that watches both prints *"Whenever you play **or Magnetize** a
+    # Mech"*, which it would not need to say if playing covered it.
+    bump_played(player, magnet)
+    # Patch 27.0.0.181554: "Magnetic minions now return to the minion pool
+    # immediately after being Magnetized." The body is gone into the host, so
+    # nothing later will release it — without this every Magnetization deleted
+    # a copy from the lobby for good.
+    on_sell_minion(shared_pool, magnet)
     magnetize(player, target, magnet, triggers=triggers)
     if player.pending_choice is None:
         resolve_triples_loop(player, patch=patch)

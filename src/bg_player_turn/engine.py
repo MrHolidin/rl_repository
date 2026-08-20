@@ -320,7 +320,14 @@ class PlayerTurnEngine:
 
         if a.is_magnet_game_action(action_int):
             h, b = a.magnet_hand_board_from_game_action(action_int)
-            recruitment_place.magnet_from_hand(player, h, b, patch=ctx.patch)
+            recruitment_place.magnet_from_hand(
+                player,
+                h,
+                b,
+                patch=ctx.patch,
+                triggers=ctx.triggers,
+                shared_pool=ctx.shared_pool,
+            )
             return True
 
         raise ValueError(f"Unknown action {action_int}")
