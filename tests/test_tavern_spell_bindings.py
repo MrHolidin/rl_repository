@@ -59,7 +59,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 36
+    assert len(inert) <= 24
 
 
 def test_defenders_rites(patch):
@@ -214,3 +214,103 @@ def test_armor_stash_sets_rather_than_adds(patch):
     player.armor = 12
     _cast(patch, "BG28_500", player)
     assert player.armor == 5
+
+
+# ------------------------------------- the buffs that read their target
+
+
+def test_tricky_trousers_gives_taunt(patch):
+    target = _m()
+    _cast(patch, "BG28_520", _player(patch, [target]), target)
+    assert (target.raw_attack, target.max_health) == (2, 3)
+    assert Keyword.TAUNT in target.all_keywords
+
+
+def test_tricky_trousers_takes_taunt_off_a_minion_that_has_it(patch):
+    """"If it already has Taunt, remove it" — the stats still land."""
+    target = _m(keywords=frozenset({Keyword.TAUNT}))
+    _cast(patch, "BG28_520", _player(patch, [target]), target)
+    assert (target.raw_attack, target.max_health) == (2, 3)
+    assert Keyword.TAUNT not in target.all_keywords
+
+
+def test_shifting_tide_is_two_buffs(patch):
+    target = _m(race=Race.BEAST)
+    _cast(patch, "BG32_815", _player(patch, [target]), target)
+    assert (target.raw_attack, target.max_health) == (3, 3)
+
+
+def test_shifting_tide_repeats_on_a_naga(patch):
+    target = _m(race=Race.NAGA)
+    _cast(patch, "BG32_815", _player(patch, [target]), target)
+    assert (target.raw_attack, target.max_health) == (5, 5)
+
+
+def test_eonars_favor_reads_the_targets_tribe(patch):
+    """The scope is not printed on the card — it is whatever was chosen."""
+    target = _m(race=Race.BEAST)
+    player = _player(patch, [target])
+    player.shop[0] = _m("beast-in-shop", race=Race.BEAST)
+    player.shop[1] = _m("murloc-in-shop", race=Race.MURLOC)
+    _cast(patch, "BG35_912", player, target)
+    settle_standing_bonuses(player)
+    assert (player.shop[0].raw_attack, player.shop[0].max_health) == (4, 4)
+    assert (player.shop[1].raw_attack, player.shop[1].max_health) == (1, 1)
+
+
+def test_eonars_favor_leaves_the_board_alone(patch):
+    """"in the Tavern" — the minion named is not itself paid."""
+    target = _m(race=Race.BEAST)
+    player = _cast(patch, "BG35_912", _player(patch, [target]), target)
+    settle_standing_bonuses(player)
+    assert (target.raw_attack, target.max_health) == (1, 1)
+
+
+def test_eonars_favor_on_a_tribeless_minion_scopes_nothing(patch):
+    target = _m(race=None)
+    player = _player(patch, [target])
+    player.shop[0] = _m("in-shop", race=Race.BEAST)
+    _cast(patch, "BG35_912", player, target)
+    settle_standing_bonuses(player)
+    assert (player.shop[0].raw_attack, player.shop[0].max_health) == (1, 1)
+
+
+def test_wave_of_gold_pays_golden_minions_twice(patch):
+    plain, golden = _m("plain"), _m("golden")
+    golden.is_golden = True
+    _cast(patch, "BG34_990", _player(patch, [plain, golden]))
+    assert (plain.raw_attack, plain.max_health) == (4, 3)
+    assert (golden.raw_attack, golden.max_health) == (7, 5)
+
+
+def test_menagerie_tableware_repeats_per_minion_type(patch):
+    board = [_m("a", race=Race.BEAST), _m("b", race=Race.BEAST), _m("c", race=Race.MURLOC)]
+    _cast(patch, "BG34_272", _player(patch, board))
+    for m in board:
+        assert (m.raw_attack, m.max_health) == (7, 7)
+
+
+def test_menagerie_tableware_pays_nothing_without_a_type(patch):
+    """Same reading every other "Repeat for each" card gets: no count, no buff."""
+    target = _m(race=None)
+    _cast(patch, "BG34_272", _player(patch, [target]))
+    assert (target.raw_attack, target.max_health) == (1, 1)
+
+
+def test_cloning_conch_hands_over_the_same_murloc_twice(patch):
+    player = _cast(patch, "BG28_601", _player(patch))
+    got = [c for c in player.hand if c is not None]
+    assert len(got) == 2
+    assert got[0].card_id == got[1].card_id
+    assert patch.templates[got[0].card_id].race is Race.MURLOC
+
+
+def test_spitescale_special_draws_from_the_spellcraft_pool(patch):
+    """Spellcraft spells are minted by Nagas, never offered on the counter."""
+    from src.bg_recruitment.tavern_spells import spellcraft_spell_ids
+
+    player = _cast(patch, "BG28_606", _player(patch))
+    got = [c for c in player.hand if c is not None]
+    assert len(got) == 3
+    assert all(c.card_id in spellcraft_spell_ids(patch) for c in got)
+    assert not any(patch.tavern_spells[c.card_id].in_pool for c in got)

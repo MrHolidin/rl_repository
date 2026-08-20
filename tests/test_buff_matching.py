@@ -73,9 +73,12 @@ def _candidates():
     ]
 
 
-# ADJACENT is positional and belongs to the aura, not to this one-shot buff;
-# the split is declared in obs._EFFECT_VARIANTS.
-BUFF_TARGETS = [t for t in BuffTarget if t is not BuffTarget.ADJACENT]
+# Only the four this merge replaced have a pre-merge predicate to compare
+# against. ADJACENT is positional and belongs to the aura rather than to this
+# one-shot buff (the split is declared in obs._EFFECT_VARIANTS), and every
+# target printed since is new rather than merged — those are covered by
+# ``test_every_target_is_dispatched``.
+BUFF_TARGETS = list(_REFERENCE)
 
 
 @pytest.mark.parametrize("target", BUFF_TARGETS)

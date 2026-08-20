@@ -755,6 +755,16 @@ class ShopTriggers:
             )
         elif isinstance(effect, RaiseStandingBonusEffect):
             key = effect.scope_key
+            if effect.scope_key_from_target:
+                # "Give minions of **its type** in the Tavern +3/+3" — the
+                # scope is read off the body the seat named, and the shop
+                # dispatcher is never told one. The spell resolver handles it;
+                # a minion carrying it would need a target this path cannot
+                # supply, so say so rather than raise the wrong scope.
+                raise UnhandledShopEffect(
+                    f"{type(effect).__name__} with scope_key_from_target needs a "
+                    "chosen target — resolve it through the spell path"
+                )
             if effect.scope_kind is ScopeKind.CARD and key is None:
                 # "for each other <me>" — the card scopes the bonus to itself.
                 key = source.card_id if source is not None else None
@@ -996,6 +1006,33 @@ class ShopTriggers:
             # Playing the Naga hands you its spell straight away; the start of
             # every later turn hands you another (fire_on_turn_start).
             give_spellcraft_spell(player, effect)
+        elif isinstance(effect, AddRandomMinionToHandEffect) and effect.same_card:
+            # "Get a random Murloc **and a copy of it**" — one roll, handed
+            # over twice, not two rolls.
+            before = [c for c in player.hand]
+            add_random_minion_to_hand(
+                player,
+                effect.tribe,
+                shop_excluded_race,
+                rng=self._rng,
+                patch=self._patch,
+                tier=effect.tier,
+                keyword=effect.keyword,
+            )
+            rolled = next(
+                (
+                    new
+                    for old, new in zip(before, player.hand)
+                    if old is None and new is not None
+                ),
+                None,
+            )
+            if rolled is not None:
+                for _ in range(max(1, effect.count) - 1):
+                    slot = first_free_hand_slot(player)
+                    if slot is None:
+                        break
+                    player.hand[slot] = make_minion(rolled.card_id, patch=self._patch)
         elif isinstance(effect, AddRandomMinionToHandEffect):
             for _ in range(max(1, effect.count)):
                 add_random_minion_to_hand(

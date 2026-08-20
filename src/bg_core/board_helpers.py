@@ -113,6 +113,8 @@ def buff_matching_hits(
         return minion_matches_tribe(candidate, effect.tribe)
     if t is BuffTarget.FRIENDLY_WITH_KEYWORD:
         return effect.keyword in candidate.all_keywords
+    if t is BuffTarget.FRIENDLY_GOLDEN:
+        return bool(candidate.is_golden)
     if t is BuffTarget.ADJACENT:
         # Positional, so the caller has to supply where the two stand.
         if idx_candidate is None or idx_source is None:
@@ -516,6 +518,22 @@ def apply_summoned_listener(
         listener.bonus_health += effect.health
 
 
+def distinct_tribe_count(minions) -> int:
+    """How many different minion types are standing here.
+
+    An Amalgam is every tribe, so one alone answers with all of them — the
+    same stance the seat's most-common-tribe count takes, and for the same
+    reason: being every tribe is the whole of what the card does.
+    """
+    from src.bg_core.minion import ALL_TRIBES
+
+    return sum(
+        1
+        for tribe in ALL_TRIBES
+        if any(minion_matches_tribe(m, tribe) for m in minions)
+    )
+
+
 def apply_buff_matching(
     effect, minions, source=None, *, repeats: int = 1, grant=None, rng=None
 ) -> None:
@@ -550,6 +568,11 @@ def apply_buff_matching(
     give = grant if grant is not None else grant_keyword
     idx_source = index_of(minions, source) if source is not None else None
     leftmost = bool(getattr(effect, "leftmost", False))
+    if getattr(effect, "repeat_per_tribe_kind", False):
+        kinds = distinct_tribe_count(minions)
+        if not kinds:
+            return
+        repeats = max(1, repeats) * kinds
     for _ in range(max(1, repeats)):
         eligible = [
             m
@@ -619,6 +642,7 @@ def snapshot_warband(board: Sequence[Minion]) -> Tuple[Minion, ...]:
 __all__ = [
     "apply_buff_self_per_count",
     "apply_buff_matching",
+    "distinct_tribe_count",
     "apply_buff_self",
     "set_minion_stats",
     "apply_summoned_listener",

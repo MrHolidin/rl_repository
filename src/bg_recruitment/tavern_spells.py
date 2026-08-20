@@ -38,6 +38,7 @@ from src.bg_core.effects import (
     DiscoverTavernSpellEffect,
     IncreaseTavernSpellBonusEffect,
     MultiplierKind,
+    RaiseStandingBonusEffect,
     StealTavernMinionEffect,
     Trigger,
 )
@@ -58,6 +59,7 @@ from .game_counts import (
     improve_level,
 )
 from .hand_slots import first_free_hand_slot
+from .standing_bonuses import BonusScope, raise_standing_bonus
 from .pool_ledger import on_bought_from_shop
 
 __all__ = [
@@ -452,6 +454,20 @@ def _apply_spell_effect(
         )
         return
 
+    if isinstance(effect, RaiseStandingBonusEffect) and effect.scope_key_from_target:
+        # "Choose a minion. Give minions of **its type** in the Tavern +3/+3
+        # this game" — the scope is the target's tribe, so a spell with no
+        # target, or one aimed at a tribeless body, names no scope at all.
+        if target is None or target.race is None:
+            return
+        raise_standing_bonus(
+            player,
+            BonusScope(effect.scope_kind, target.race, effect.scope_max_tier),
+            effect.attack,
+            effect.health,
+        )
+        return
+
     if isinstance(effect, BuffAllShopOffersEffect):
         extra_attack, extra_health = tavern_spell_bonus(player)
         effect = replace(
@@ -471,6 +487,7 @@ def _apply_spell_effect(
             count=effect.count,
             max_cost=effect.max_cost,
             gives_stats=effect.gives_stats,
+            spellcraft=effect.spellcraft,
             rng=rng,
             patch=patch,
         )
@@ -619,12 +636,31 @@ def _give_spell(player: PlayerState, spell: Optional[SpellCard]) -> bool:
     return True
 
 
+def spellcraft_spell_ids(patch: PatchContext) -> set:
+    """Every Spellcraft spell the package's Nagas can make.
+
+    Gathered from the bindings rather than the catalog: a Spellcraft spell is
+    described by the minion that mints it, so what exists is what some card
+    says it makes.
+    """
+    from src.bg_core.effects import CreateSpellcraftSpellEffect
+
+    out = set()
+    for abilities in patch.effects.values():
+        for ability in abilities:
+            effect = ability.effect
+            if isinstance(effect, CreateSpellcraftSpellEffect) and effect.card_id:
+                out.add(effect.card_id)
+    return out
+
+
 def add_random_tavern_spells(
     player: PlayerState,
     *,
     count: int = 1,
     max_cost: int = 0,
     gives_stats: bool = False,
+    spellcraft: bool = False,
     rng: np.random.Generator,
     patch: PatchContext,
 ) -> int:
@@ -632,14 +668,21 @@ def add_random_tavern_spells(
 
     Returns how many actually fit in hand — a full hand takes what it can, the
     same as every other card-giving effect.
+
+    ``spellcraft`` draws from a different pool entirely: a Spellcraft spell is
+    minted by a Naga rather than offered on the counter, so it is never in the
+    tavern's own list and has to be gathered from the cards that make one.
     """
     ctx = require_patch(patch, where="tavern_spells.add_random_tavern_spells")
-    pool = [
-        card_id
-        for card_id in tavern_spell_pool(player.tavern_tier, patch=ctx)
-        if (not max_cost or ctx.tavern_spells[card_id].cost <= max_cost)
-        and (not gives_stats or spell_gives_stats(ctx.tavern_spells[card_id]))
-    ]
+    if spellcraft:
+        pool = sorted(spellcraft_spell_ids(ctx))
+    else:
+        pool = [
+            card_id
+            for card_id in tavern_spell_pool(player.tavern_tier, patch=ctx)
+            if (not max_cost or ctx.tavern_spells[card_id].cost <= max_cost)
+            and (not gives_stats or spell_gives_stats(ctx.tavern_spells[card_id]))
+        ]
     if not pool:
         return 0
     given = 0

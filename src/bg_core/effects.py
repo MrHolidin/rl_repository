@@ -186,6 +186,8 @@ class BuffTarget(Enum):
     FRIENDLY_WITH_KEYWORD = auto()
     #: the board slots either side of the source
     ADJACENT = auto()
+    #: friendlies that are Golden ("Give **Golden ones** another +3/+2")
+    FRIENDLY_GOLDEN = auto()
 
 
 @dataclass(frozen=True)
@@ -241,6 +243,13 @@ class BuffMatching:
     #: friendly Beasts"). Random is the default because that is what the plain
     #: wording means, and "left-most" is the case the card marks.
     leftmost: bool = False
+    #: "Give your minions +3/+3. **Repeat for each different friendly minion
+    #: type**" — the buff lands once per distinct tribe standing, and not at
+    #: all on a board with no tribe on it. Same reading every other "Repeat
+    #: for each" card gets here (Majordomo pays nothing for a turn with no
+    #: Elementals), and an Amalgam is every tribe, which is what the seat's
+    #: most-common-tribe count has always said being one means.
+    repeat_per_tribe_kind: bool = False
 
 
 @dataclass(frozen=True)
@@ -448,6 +457,19 @@ class BuffTargetFriendlyBattlecry:
     filter_race: Optional[Any] = None
     # Houndmaster hands out Taunt with the stats; Toxfin is keyword-only (0/0).
     grant_keyword: Optional[Keyword] = None
+    #: "and Taunt. **If it already has Taunt, remove it.**" — the keyword is a
+    #: switch rather than a gift, so a minion that has it loses it.
+    toggle_keyword: bool = False
+    #: "+1/+1 twice. **If it's a Naga, repeat this.**" — the whole buff again
+    #: when the target is of this tribe, which is not the same as doubling the
+    #: numbers once (a card counting buffs sees two).
+    repeat_if_tribe: Optional[Any] = None
+    #: How many times the buff lands before that ("+1/+1 **twice**"). Named
+    #: ``times`` rather than ``repeats`` on purpose: ``repeats`` is one of the
+    #: numeric fields the v5 ability-token encoder reads off an effect by name,
+    #: so giving this class one would move the encoding of every card that
+    #: already carries it — Houndmaster included — and the layout is frozen.
+    times: int = 1
 
 
 @dataclass(frozen=True)
@@ -732,6 +754,9 @@ class AddRandomTavernSpellToHandEffect:
     count: int = 1
     max_cost: int = 0
     gives_stats: bool = False
+    #: "Get 3 random **Spellcraft** spells" — a different pool from the tavern
+    #: spells, since a Spellcraft spell is minted by a Naga rather than offered.
+    spellcraft: bool = False
 
 
 @dataclass(frozen=True)
@@ -1591,6 +1616,10 @@ class RaiseStandingBonusEffect:
     #: SHOP only: cap the tier it reaches ("minions in the Tavern from Tier 3
     #: and below"). 0 means every tier.
     scope_max_tier: int = 0
+    #: "Choose a minion. Give minions of **its type** in the Tavern +3/+3 this
+    #: game" — the scope is the target's tribe, read when the spell resolves
+    #: rather than named in the binding.
+    scope_key_from_target: bool = False
     #: What it raises instead when it fires outside a fight ("+2 Attack this
     #: game. (+4 if triggered outside combat!)"). 0 means the same either way —
     #: Plaguerunner is the only card that pays two prices.
@@ -1998,6 +2027,9 @@ class AddRandomMinionToHandEffect:
     #: Narrow the draw to cards carrying a keyword ("a random **Magnetic**
     #: Mech"). A property of the card, so it reads the same in either phase.
     keyword: Optional[Keyword] = None
+    #: "Get a random Murloc **and a copy of it**" — one roll, handed over
+    #: ``count`` times, as against ``count`` separate rolls.
+    same_card: bool = False
 
 
 @dataclass(frozen=True)

@@ -2245,4 +2245,72 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
+    "BG28_520": (  # Tricky Trousers — +1/+2 and Taunt, or Taunt off if it has it
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(
+                attack=1,
+                health=2,
+                exclude_self=False,
+                grant_keyword=Keyword.TAUNT,
+                toggle_keyword=True,
+            ),
+        ),
+    ),
+    "BG32_815": (  # Shifting Tide — +1/+1 twice, and twice again on a Naga
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(
+                attack=1,
+                health=1,
+                exclude_self=False,
+                times=2,
+                repeat_if_tribe=Race.NAGA,
+            ),
+        ),
+    ),
+    "BG35_912": (  # Eonar's Favor — the Tavern's minions of its type +3/+3 this game
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(
+                scope_kind=ScopeKind.SHOP,
+                scope_key_from_target=True,
+                attack=3,
+                health=3,
+            ),
+        ),
+    ),
+    "BG34_990": (  # Wave of Gold — your minions +3/+2, Golden ones another +3/+2
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=3, health=2),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.FRIENDLY_GOLDEN, attack=3, health=2),
+        ),
+    ),
+    "BG34_272": (  # Menagerie Tableware — +3/+3 once per friendly minion type
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                target=BuffTarget.ALL_FRIENDLY,
+                attack=3,
+                health=3,
+                repeat_per_tribe_kind=True,
+            ),
+        ),
+    ),
+    "BG28_601": (  # Cloning Conch — a random Murloc, and a copy of that one
+        Ability(
+            Trigger.ON_PLACE,
+            AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
+        ),
+    ),
+    "BG28_606": (  # Spitescale Special — three random Spellcraft spells
+        Ability(
+            Trigger.ON_PLACE,
+            AddRandomTavernSpellToHandEffect(count=3, spellcraft=True),
+        ),
+    ),
 }

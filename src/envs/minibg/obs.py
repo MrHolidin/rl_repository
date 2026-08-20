@@ -456,6 +456,8 @@ UNENCODED_EFFECT_VARIANTS: frozenset = frozenset(
     {
         (Multiplier, MultiplierKind.END_OF_TURN),
         (Multiplier, MultiplierKind.TARGETED_SPELL),
+        (BuffMatching, BuffTarget.FRIENDLY_GOLDEN),
+        (StatAura, BuffTarget.FRIENDLY_GOLDEN),
     }
 )
 

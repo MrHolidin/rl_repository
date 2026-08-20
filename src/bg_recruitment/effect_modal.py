@@ -81,13 +81,35 @@ def apply_buff_to_minion(m: Minion, effect: BuffTargetFriendlyBattlecry) -> None
     Separate from the by-index form because a Tavern spell can be cast at a
     minion on the *counter*, which has no board index — the buff is the same
     either way, and where the body stands is the caller's business.
+
+    ``repeats`` and ``repeat_if_tribe`` are the cards that land the same buff
+    more than once ("+1/+1 twice. If it's a Naga, repeat this"), which is not
+    the same as one buff of double size: a card counting buffs sees each.
     """
-    m.bonus_attack += effect.attack
-    m.bonus_health += effect.health
-    if effect.grant_keyword is not None:
-        m.keywords = frozenset(m.keywords | {effect.grant_keyword})
+    from src.bg_core.board_helpers import minion_matches_tribe
+
+    times = max(1, int(getattr(effect, "times", 1)))
+    if getattr(effect, "repeat_if_tribe", None) is not None and minion_matches_tribe(
+        m, effect.repeat_if_tribe
+    ):
+        times *= 2
+    for _ in range(times):
+        m.bonus_attack += effect.attack
+        m.bonus_health += effect.health
+    if effect.grant_keyword is None:
+        return
+    if getattr(effect, "toggle_keyword", False) and effect.grant_keyword in m.all_keywords:
+        # "If it already has Taunt, remove it" — a switch, not a gift.
+        m.keywords = frozenset(k for k in m.keywords if k != effect.grant_keyword)
+        m.granted_keywords = frozenset(
+            k for k in m.granted_keywords if k != effect.grant_keyword
+        )
         if effect.grant_keyword == Keyword.SHIELD:
-            m.has_shield = True
+            m.has_shield = False
+        return
+    m.keywords = frozenset(m.keywords | {effect.grant_keyword})
+    if effect.grant_keyword == Keyword.SHIELD:
+        m.has_shield = True
 
 
 def _apply_adjacent_pick(

@@ -6,8 +6,10 @@
     "NUM_RACE_IDS": 10,
     "NUM_TRIGGER_IDS": 23,
     "unencoded_effect_variants": [
+      "BuffMatching.FRIENDLY_GOLDEN",
       "Multiplier.END_OF_TURN",
-      "Multiplier.TARGETED_SPELL"
+      "Multiplier.TARGETED_SPELL",
+      "StatAura.FRIENDLY_GOLDEN"
     ],
     "unencoded_effects": [
       "AddCardToNextRefreshesEffect",
