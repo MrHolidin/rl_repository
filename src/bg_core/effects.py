@@ -894,6 +894,39 @@ class MakeFriendlyGoldenEffect:
 
 
 @dataclass(frozen=True)
+class SetEnemyHealthEffect:
+    """Start of Combat: write an enemy minion's Health to a fixed number.
+
+    Not damage — a Divine Shield does not eat it, nothing is dealt, and the
+    number is written rather than subtracted. Upper Hand's whole point is that
+    the biggest thing on the other side stops being big.
+    """
+
+    health: int = 1
+    count: int = 1
+
+
+@dataclass(frozen=True)
+class MultiplyFriendlyAttackEffect:
+    """Multiply a friendly's Attack. ``leftmost`` is which one."""
+
+    factor: int = 2
+    leftmost: bool = True
+
+
+@dataclass(frozen=True)
+class GainNearestEnemyStatsEffect:
+    """A friendly gains stats equal to the enemy standing opposite it.
+
+    "The nearest enemy minion" is the one it would meet: the same slot on the
+    other side, or the closest body still standing when that slot is empty.
+    Gains, not copies — the stats are added to what it already has.
+    """
+
+    leftmost: bool = True
+
+
+@dataclass(frozen=True)
 class TransformToHigherTierEffect:
     """Become a random minion from a Tier higher, keeping this body's stats.
 
@@ -2313,6 +2346,9 @@ __all__ = [
     "AddFromLastOpponentBoardEffect",
     "TransformIntoShopMinionEffect",
     "TransformToHigherTierEffect",
+    "SetEnemyHealthEffect",
+    "MultiplyFriendlyAttackEffect",
+    "GainNearestEnemyStatsEffect",
     "SellFriendlyForStatsEffect",
     "GrantKeywordAllFriendlyOfTribe",
     "BloodGemTarget",

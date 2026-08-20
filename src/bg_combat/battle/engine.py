@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from src.bg_core.effects import (
+    SetEnemyHealthEffect,
+    MultiplyFriendlyAttackEffect,
+    GainNearestEnemyStatsEffect,
     BuffMatching,
     CastSpellAtEffect,
     DealDamageAllMinions,
@@ -18,6 +21,7 @@ from src.bg_core.effects import (
     Trigger,
 )
 
+from src.bg_core.minion import Minion
 from .state import BattleMinion, BattleSide, _CombatRuntime, battle_copy
 from .summon import _summon_append
 from .effects import (
@@ -90,6 +94,30 @@ def _queue_hand_start_of_combat(
             pending.append((battle_copy(template, rt.alloc_id()), ab.effect))
 
 
+def _queue_seat_start_of_combat(
+    rt: _CombatRuntime,
+    side_idx: int,
+    pending: List[Tuple[BattleMinion, object]],
+) -> None:
+    """Queue the Start of Combat effects the seat bought with a spell.
+
+    A spell has no body, so one is made to carry the trigger — the same trick
+    the hand's own Start of Combat cards get, and for the same reason: it lets
+    a promise take its turn in the alternating order rather than being a second
+    pass that always goes first. The carrier never joins a board, and the
+    handlers that read a source find a card id and nothing else.
+    """
+    for ability in rt.seats[side_idx].start_combat_promises():
+        carrier = Minion(
+            card_id=getattr(ability, "card_id", "") or "SPELL",
+            base_attack=0,
+            base_health=1,
+            tier=1,
+            abilities=(ability,),
+        )
+        pending.append((battle_copy(carrier, rt.alloc_id()), ability.effect))
+
+
 def _fire_start_of_combat(rt: _CombatRuntime) -> None:
     # Hero Start-of-Combat keyword grants to the left-most minion (Al'Akir:
     # Windfury + Divine Shield + Taunt) — applied before minion start-of-combat.
@@ -110,6 +138,7 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
                 if ab.trigger == Trigger.ON_START_OF_COMBAT:
                     pending[side_idx].append((bm, ab.effect))
         _queue_hand_start_of_combat(rt, side_idx, pending[side_idx])
+        _queue_seat_start_of_combat(rt, side_idx, pending[side_idx])
 
     # Real BG draws a dominant player at random, then the sides alternate one
     # trigger at a time, each taking its left-most untriggered minion, with
@@ -210,11 +239,74 @@ def _apply_start_of_combat_effect(
         template = rt.patch.templates.get(source.card_id)
         if template is not None:
             _summon_append(rt, side_idx, template)
+    elif isinstance(eff, SetEnemyHealthEffect):
+        # Written, not dealt: no Divine Shield eats it and nothing is damaged,
+        # so a body set to 1 is a body at full Health with one of it.
+        foes = list(rt.side(1 - side_idx).iter_living())
+        for _ in range(max(1, eff.count)):
+            if not foes:
+                break
+            victim = foes.pop(int(rt.rng.integers(0, len(foes))))
+            victim.bonus_health += int(eff.health) - victim.max_health
+        _sync_health_all(rt)
+    elif isinstance(eff, MultiplyFriendlyAttackEffect):
+        target = _end_minion(rt.side(side_idx), leftmost=eff.leftmost)
+        if target is not None:
+            # The Attack it is standing there with, auras included -- doubling
+            # what a Dire Wolf is lending is what the board shows.
+            had = _combat_attack(rt, side_idx, target)
+            target.bonus_attack += had * (max(1, eff.factor) - 1)
+    elif isinstance(eff, GainNearestEnemyStatsEffect):
+        target = _end_minion(rt.side(side_idx), leftmost=eff.leftmost)
+        foe = _nearest_enemy(rt, side_idx, target)
+        if target is not None and foe is not None:
+            target.bonus_attack += _combat_attack(rt, 1 - side_idx, foe)
+            target.bonus_health += foe.max_health
+            _sync_health_all(rt)
     else:
         raise NotImplementedError(
             f"Start of Combat effect {type(eff).__name__} has no combat handler "
             f"(minion {source.card_id})"
         )
+
+
+def _combat_attack(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> int:
+    """What a body's Attack reads on the board right now, auras included."""
+    return attack_value(
+        bm,
+        rt.side(side_idx),
+        death_resolution=rt.in_death_resolution,
+        battle_field=rt.sides,
+    )
+
+
+def _end_minion(side: BattleSide, *, leftmost: bool) -> Optional[BattleMinion]:
+    living = list(side.iter_living())
+    if not living:
+        return None
+    return living[0] if leftmost else living[-1]
+
+
+def _nearest_enemy(
+    rt: _CombatRuntime, side_idx: int, of: Optional[BattleMinion]
+) -> Optional[BattleMinion]:
+    """The enemy standing opposite ``of`` — who it would meet.
+
+    The same slot on the other side, and the closest body still standing when
+    that slot is empty, which is what "nearest" has to mean once the boards are
+    different lengths.
+    """
+    if of is None:
+        return None
+    foes = list(rt.side(1 - side_idx).iter_living())
+    if not foes:
+        return None
+    mine = list(rt.side(side_idx).iter_living())
+    try:
+        idx = mine.index(of)
+    except ValueError:
+        idx = 0
+    return foes[min(idx, len(foes) - 1)]
 
 
 def _dispatch(rt: _CombatRuntime, event: BattleEvent) -> None:

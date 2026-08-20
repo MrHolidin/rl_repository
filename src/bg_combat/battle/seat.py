@@ -72,6 +72,13 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def start_combat_promises(self) -> Tuple[object, ...]:
+        """Start-of-Combat abilities the owner bought with a spell.
+
+        Read, not consumed: the seat lets go of them at its own next turn
+        start, so a combat replayed against the same seat sees the same board.
+        """
+
     def settle_standing_bonus(self, minion: object) -> None:
         """Pay a body whatever the owner's "this game" table already owes it.
 
@@ -217,6 +224,10 @@ class RecordingSeat:
         self, scope_kind: object, scope_key: object, attack: int, health: int
     ) -> None:
         self.standing_raises.append((scope_kind, scope_key, int(attack), int(health)))
+
+    def start_combat_promises(self) -> Tuple[object, ...]:
+        """None: a seatless combat has two lists of minions and no hand."""
+        return ()
 
     def settle_standing_bonus(self, minion: object) -> None:
         """Nothing: a seatless combat has no table to owe anything from."""

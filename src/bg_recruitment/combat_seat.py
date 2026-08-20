@@ -78,6 +78,9 @@ class PlayerCombatSeat(RecordingSeat):
             self.player, BonusScope(scope_kind, scope_key), attack, health
         )
 
+    def start_combat_promises(self) -> Tuple[object, ...]:
+        return tuple(self.player.start_combat_promises)
+
     def settle_standing_bonus(self, minion: object) -> None:
         settle_one_standing_bonus(self.player, minion)
 

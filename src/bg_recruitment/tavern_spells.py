@@ -351,6 +351,12 @@ def _resolve_spell_abilities(
     shared_pool: Optional[SharedCardPool],
 ) -> None:
     for ability in card.abilities:
+        if ability.trigger is Trigger.ON_START_OF_COMBAT:
+            # "Start of Combat: …" on a spell. Nothing happens now; the seat
+            # holds the promise and the next fight reads it. Registered per
+            # cast, so a Bounty cast twice promises twice.
+            player.start_combat_promises = player.start_combat_promises + (ability,)
+            continue
         if ability.trigger != Trigger.ON_PLACE:
             continue
         _apply_spell_effect(

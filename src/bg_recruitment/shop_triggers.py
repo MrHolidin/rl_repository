@@ -1591,6 +1591,8 @@ class ShopTriggers:
 
     def fire_on_turn_start(self, player: PlayerState) -> None:
         """After round increment, before shop reroll: board L→R, then hand slots."""
+        # The fight the promise was bought for has been and gone.
+        player.start_combat_promises = ()
         player.pirates_bought_this_turn = 0
         player.elementals_played = 0
         reset_activations(player)

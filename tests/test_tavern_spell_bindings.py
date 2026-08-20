@@ -59,7 +59,7 @@ def test_no_offerable_spell_is_inert(patch):
     """The count only goes down. A spell the tavern offers and that does
     nothing is a card the seat can waste gold on."""
     inert = [s for s in patch.tavern_spells.values() if s.in_pool and not s.abilities]
-    assert len(inert) <= 19
+    assert len(inert) <= 16
 
 
 def test_defenders_rites(patch):
@@ -451,3 +451,87 @@ def test_channel_the_devourer_pays_a_friendly_that_is_left(patch):
         printed.base_attack + attack,
         printed.base_health + health,
     )
+
+
+# --------------------------- Start of Combat, bought a turn early
+
+
+def _start_of_combat(patch, player, mine, theirs, seed=1):
+    """Fire only the Start of Combat window, and hand back both sides.
+
+    Not a whole fight: what these spells promise happens before a blow is
+    struck, and a fight would bury the result under the swings that follow.
+    """
+    from src.bg_combat.battle.engine import _fire_start_of_combat
+    from src.bg_combat.battle.seat import RecordingSeat
+    from src.bg_combat.battle.sides import _build_side
+    from src.bg_combat.battle.state import BattleSide, _CombatRuntime
+    from src.bg_recruitment.combat_seat import PlayerCombatSeat
+
+    rt = _CombatRuntime(
+        sides=(BattleSide([]), BattleSide([])),
+        rng=np.random.default_rng(seed),
+        combat_board_max=7,
+        damage_cap=15,
+        patch=patch,
+        seats=(PlayerCombatSeat(player), RecordingSeat()),
+    )
+    rt.sides = (_build_side(mine, rt), _build_side(theirs, rt))
+    _fire_start_of_combat(rt)
+    return list(rt.side(0).minions), list(rt.side(1).minions)
+
+
+def test_a_start_of_combat_spell_does_nothing_when_it_is_cast(patch):
+    """The seat holds the promise; the next fight is what reads it."""
+    player = _player(patch)
+    _cast(patch, "BG34_889", player)
+    assert len(player.start_combat_promises) == 1
+
+
+def test_the_promise_is_spent_by_one_fight(patch):
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    player = _player(patch)
+    _cast(patch, "BG28_573", player)
+    ShopTriggers(np.random.default_rng(0), patch=patch).fire_on_turn_start(player)
+    assert player.start_combat_promises == ()
+
+
+def test_upper_hand_writes_an_enemys_health_to_one(patch):
+    player = _player(patch)
+    _cast(patch, "BG28_573", player)
+    _, theirs = _start_of_combat(patch, player, [_m("mine", 1, 1)], [_m("big", 5, 50)])
+    assert theirs[0].max_health == 1
+    assert theirs[0].raw_attack == 5  # Health only, and nothing was dealt
+
+
+def test_upper_hand_without_the_spell_leaves_the_enemy_alone(patch):
+    _, theirs = _start_of_combat(
+        patch, _player(patch), [_m("mine", 1, 1)], [_m("big", 5, 50)]
+    )
+    assert theirs[0].max_health == 50
+
+
+def test_brood_of_nozdormu_doubles_only_the_left_most(patch):
+    player = _player(patch)
+    _cast(patch, "BG34_889", player)
+    mine, _ = _start_of_combat(
+        patch, player, [_m("left", 5, 9), _m("right", 5, 9)], [_m("foe", 1, 1)]
+    )
+    assert (mine[0].raw_attack, mine[1].raw_attack) == (10, 5)
+
+
+def test_sharing_is_caring_takes_the_stats_of_the_body_opposite(patch):
+    player = _player(patch)
+    _cast(patch, "BG31_889", player)
+    mine, _ = _start_of_combat(patch, player, [_m("left", 1, 100)], [_m("foe", 7, 9)])
+    assert (mine[0].raw_attack, mine[0].max_health) == (8, 109)
+
+
+def test_a_start_of_combat_spell_does_not_write_to_the_seats_board(patch):
+    """Combat runs on copies; a promise is no exception."""
+    player = _player(patch)
+    _cast(patch, "BG34_889", player)
+    body = _m("left", 5, 9)
+    _start_of_combat(patch, player, [body], [_m("foe", 1, 1)])
+    assert body.raw_attack == 5

@@ -242,6 +242,10 @@ class PlayerState:
     #: card is already built, so the level it was improved to is the level it
     #: was made at, not the level whenever a slot opens.
     pending_spellcraft: Tuple["SpellCard", ...] = ()
+    #: "Start of Combat: …" printed on a *spell*. The seat holds the promise
+    #: from the cast until the next fight reads it, and lets go of it at its
+    #: own next turn start — one fight is what the card bought.
+    start_combat_promises: Tuple["Ability", ...] = ()
     # Signed normalized damage delta from each of the last ``BATTLE_HISTORY_LEN``
     # combats (most recent last). Empty until the player has fought at least once.
     battle_history: Tuple[float, ...] = ()

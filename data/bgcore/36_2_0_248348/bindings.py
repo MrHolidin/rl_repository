@@ -30,7 +30,10 @@ from src.bg_core.effects import (
     GiveOwnStatsToHandEffect,
     AddRandomMinionOfCommonTribeEffect,
     BuffTargetPerGoldSpentEffect,
+    GainNearestEnemyStatsEffect,
     MakeFriendlyGoldenEffect,
+    MultiplyFriendlyAttackEffect,
+    SetEnemyHealthEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
     ConsumeTavernMinionEffect,
@@ -2308,6 +2311,19 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             AddRandomMinionToHandEffect(tribe=Race.MURLOC, count=2, same_card=True),
         ),
     ),
+    # --------------------------- Start of Combat, bought a turn early
+    # A spell with no body of its own: the seat holds the promise from the
+    # cast until the next fight reads it.
+    "BG28_573": (  # Upper Hand — a random enemy minion drops to 1 Health
+        Ability(Trigger.ON_START_OF_COMBAT, SetEnemyHealthEffect(health=1)),
+    ),
+    "BG34_889": (  # Brood of Nozdormu — your left-most minion's Attack, doubled
+        Ability(Trigger.ON_START_OF_COMBAT, MultiplyFriendlyAttackEffect(factor=2)),
+    ),
+    "BG31_889": (  # Sharing is Caring — your left-most takes the nearest foe's stats
+        Ability(Trigger.ON_START_OF_COMBAT, GainNearestEnemyStatsEffect()),
+    ),
+
     # ------------------------------- a body traded for what it becomes
     "BG28_830": (  # Golden Touch — a random minion on the counter goes Golden
         Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect(in_tavern=True)),
