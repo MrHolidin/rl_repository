@@ -1204,6 +1204,35 @@ class SummonStashedEffect:
 
 
 @dataclass(frozen=True)
+class CopyTavernMinionEffect:
+    """Get a copy of a minion still on the counter, leaving it there.
+
+    Sibling of ``StealTavernMinionEffect``, and the two differ in both halves:
+    that one takes the body and empties the slot, this one copies it and the
+    tavern is unchanged. The seat names which, so it is cast at a target.
+
+    ``exclude_card_id`` is the "(except Sea Witch Zar'jira)" printed on the
+    spell — a card that would otherwise copy the thing that made the spell.
+    """
+
+    count: int = 1
+    exclude_card_id: str = ""
+
+
+@dataclass(frozen=True)
+class TriplesWithAnyOfTribeEffect:
+    """"This minion can triple with any Elemental."
+
+    Read by the triple resolver rather than applied: it is a property of the
+    card, like a keyword, and the resolver is the only thing that asks. A body
+    carrying it completes a *pair* of any one card of ``tribe`` — the pair is
+    what it joins, so what comes out is that card's Golden.
+    """
+
+    tribe: Any = None
+
+
+@dataclass(frozen=True)
 class DealHeroDamagePerTierEffect:
     """Hero damage equal to the Tier of the card just Discovered.
 
@@ -1997,6 +2026,8 @@ Effect = Union[
     StripKeywordsFromTargetEffect,
     GainTargetAttackEffect,
     SetStatsEffect,
+    CopyTavernMinionEffect,
+    TriplesWithAnyOfTribeEffect,
     DealHeroDamagePerTierEffect,
     RetriggerFriendlyAbilityEffect,
     GainStatsFromTavernEffect,
@@ -2196,6 +2227,8 @@ __all__ = [
     "StripKeywordsFromTargetEffect",
     "GainTargetAttackEffect",
     "SetStatsEffect",
+    "CopyTavernMinionEffect",
+    "TriplesWithAnyOfTribeEffect",
     "DealHeroDamagePerTierEffect",
     "RetriggerFriendlyAbilityEffect",
     "GainStatsFromTavernEffect",

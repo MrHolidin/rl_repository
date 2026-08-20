@@ -162,9 +162,18 @@ def _count_spell_cast(player: PlayerState, *, patch=None) -> None:
 
 
 def play_spellcraft_spell_from_hand(
-    player: PlayerState, hand_index: int, board_index: int, *, patch=None
+    player: PlayerState,
+    hand_index: int,
+    board_index: Optional[int] = None,
+    *,
+    shop_index: Optional[int] = None,
+    patch=None,
 ) -> None:
-    """Cast the spell in ``hand_index`` on the board minion at ``board_index``.
+    """Cast the spell in ``hand_index`` on a minion the seat names.
+
+    Usually a friendly on the board. ``shop_index`` names one still on the
+    counter instead — Sea Witch Zar'jira's spell is cast at the tavern, the
+    same reach an ordinary targeted Tavern spell has.
 
     The RL action space cannot express this yet (it has no "play a spell at a
     target" action), so the engine offers it directly — same arrangement as
@@ -173,9 +182,14 @@ def play_spellcraft_spell_from_hand(
     card = player.hand[hand_index]
     if not is_spellcraft_spell(card):
         raise ValueError(f"hand slot {hand_index} does not hold a Spellcraft spell")
-    if not 0 <= board_index < len(player.board):
-        raise ValueError(f"no minion at board index {board_index}")
-    target = player.board[board_index]
+    if shop_index is not None:
+        if not 0 <= shop_index < len(player.shop) or player.shop[shop_index] is None:
+            raise ValueError(f"no minion in tavern slot {shop_index}")
+        target = player.shop[shop_index]
+    else:
+        if board_index is None or not 0 <= board_index < len(player.board):
+            raise ValueError(f"no minion at board index {board_index}")
+        target = player.board[board_index]
     for ability in card.abilities:
         if isinstance(ability.effect, GrantTemporaryBuffEffect):
             apply_temporary_buff(

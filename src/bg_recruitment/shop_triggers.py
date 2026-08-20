@@ -56,6 +56,7 @@ from src.bg_core.effects import (
     BuffLeftmostRepeatedEffect,
     BuffRandomFriendlyFromPlacedTierEffect,
     DealHeroDamage,
+    CopyTavernMinionEffect,
     DealHeroDamagePerTierEffect,
     TransferAttackToRandomFriendlyEffect,
     DealDamageAllMinions,
@@ -747,6 +748,16 @@ class ShopTriggers:
                 shop_excluded_race=shop_excluded_race,
                 shared_pool=shared_pool,
             )
+        elif isinstance(effect, CopyTavernMinionEffect):
+            # ``source`` is the minion the spell was cast at — the tavern body
+            # being copied. It stays where it is; only a copy changes hands.
+            if source is None or source.card_id == effect.exclude_card_id:
+                return
+            for _ in range(max(1, effect.count)):
+                slot = first_free_hand_slot(player)
+                if slot is None:
+                    break
+                player.hand[slot] = make_minion(source.card_id, patch=self._patch)
         elif isinstance(effect, DealHeroDamagePerTierEffect):
             # ``placed`` is the card the Discover handed over, which is where
             # the number comes from — the binding cannot know it.

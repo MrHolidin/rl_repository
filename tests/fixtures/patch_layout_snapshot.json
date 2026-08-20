@@ -36,6 +36,7 @@
       "ConsumeTavernMinionEffect",
       "CopyLastTavernSpellEffect",
       "CopyTargetingSpellEffect",
+      "CopyTavernMinionEffect",
       "CreateSpellcraftSpellEffect",
       "DamageFromOwnAttackEffect",
       "DealHeroDamagePerTierEffect",
@@ -92,7 +93,8 @@
       "SummonGemGolemEffect",
       "SummonSelfCopyFromHandEffect",
       "SummonStashedEffect",
-      "TriggerLeftmostDeathrattleEffect"
+      "TriggerLeftmostDeathrattleEffect",
+      "TriplesWithAnyOfTribeEffect"
     ],
     "unencoded_triggers": [
       "ON_ACTIVATE",

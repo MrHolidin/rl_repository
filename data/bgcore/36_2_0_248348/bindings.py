@@ -141,6 +141,8 @@ from src.bg_core.effects import (
     ElementalsPlayedResponseEffect,
     GainStatsFromTavernEffect,
     CopyTargetingSpellEffect,
+    CopyTavernMinionEffect,
+    TriplesWithAnyOfTribeEffect,
     Trigger,
     TriggerLeftmostDeathrattleEffect,
 )
@@ -218,6 +220,10 @@ KEYWORD_ONLY_POOL_IDS: FrozenSet[str] = frozenset(
 #: Empty through tier 1. (Duos-only cards are not listed: they never reach a
 #: solo pool — see ``is_duos_only_card_id``.)
 UNBOUND_NEEDS_ENGINE: Dict[str, str] = {
+    "BG33_891": "Magicfin Mycologist: 'get a 1/1 Murloc and teach it that spell' "
+    "needs a token whose abilities are lifted from a spell the seat bought, and "
+    "nothing in the engine builds a minion out of a spell. Left out on purpose "
+    "rather than pending — the machinery is the card's alone.",
     "BG32_842": "Glowing Cinder: 'your Elementals give an extra +2 Health this game' "
     "modifies what the Elemental-played trigger hands out, and shop_elemental_bonus "
     "is one int used as both the count and the value — it cannot carry a Health-only "
@@ -1834,6 +1840,19 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_TARGETED_BY_SPELL,
             CastSpellAtEffect(card_id="BG28_888", untargeted=True),
         ),
+    ),
+    "BG27_514": (  # Sea Witch Zar'jira — Spellcraft: copy a minion off the counter
+        Ability(
+            Trigger.ON_PLACE,
+            CreateSpellcraftSpellEffect(
+                buff=CopyTavernMinionEffect(count=1, exclude_card_id="BG27_514"),
+                card_id="BG27_514t",
+                name="Siren's Song",
+            ),
+        ),
+    ),
+    "BG26_175": (  # Elemental of Surprise — completes a pair of any Elemental
+        Ability(Trigger.AURA, TriplesWithAnyOfTribeEffect(tribe=Race.ELEMENTAL)),
     ),
     # ------------------------------------------- the last of the deferred six
     # Each of these was deferred for one missing piece, and the piece has since

@@ -11,7 +11,8 @@ import numpy as np
 from src.bg_catalog.cards import make_minion
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_catalog.golden_catalog import forged_golden_keywords
-from src.bg_core.effects import Keyword
+from src.bg_core.board_helpers import minion_matches_tribe
+from src.bg_core.effects import Keyword, Trigger, TriplesWithAnyOfTribeEffect
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_recruitment.discover_pool import (
@@ -164,11 +165,18 @@ def resolve_one_triple(
         if len(groups[cid]) >= 3:
             candidate = cid
             break
+    wild: Optional[Tuple[str, int, Minion]] = None
+    if candidate is None:
+        candidate, wild = _wild_triple(groups)
     if candidate is None:
         return False
     ordered = sorted(
         groups[candidate], key=lambda t: (0 if t[0] == "b" else 1, t[1])
     )[:3]
+    if wild is not None:
+        # The wildcard completes the pair rather than replacing one of it, so
+        # it is the third body and the other two are the pair's own.
+        ordered = ordered[:2] + [wild]
     m0, m1, m2 = ordered[0][2], ordered[1][2], ordered[2][2]
     is_token_triple = m0.is_token
     if shared_pool is not None and not is_token_triple:
@@ -178,9 +186,15 @@ def resolve_one_triple(
         candidate, m0, m1, m2, patch=patch
     )
     if shared_pool is not None and not is_token_triple:
-        if not shared_pool.acquire_new(merged.card_id, 3):
+        # A Golden is worth three copies of the card it *is*. A wild triple put
+        # in a body of another card, and that one was handed back to its own
+        # pool a moment ago — so only the copies that were of this card are
+        # taken again, or the ledger would drift by one every time.
+        owed = sum(1 for _, _, body in ordered if body.card_id == candidate)
+        if not shared_pool.acquire_new(merged.card_id, owed):
             raise RuntimeError(
-                f"shared pool: cannot reserve 3 copies for golden {merged.card_id!r}"
+                f"shared pool: cannot reserve {owed} copies for golden "
+                f"{merged.card_id!r}"
             )
     for _, idx, _ in sorted((t for t in ordered if t[0] == "b"), key=lambda t: -t[1]):
         del player.board[idx]
@@ -195,6 +209,49 @@ def resolve_one_triple(
     ):
         queue_triple_reward_discover_spell(player, discover_tier=discover_tier)
     return True
+
+
+def _wild_triple(
+    groups: Dict[str, List[Tuple[str, int, Minion]]]
+) -> Tuple[Optional[str], Optional[Tuple[str, int, Minion]]]:
+    """A pair waiting on a card that triples with any of its tribe.
+
+    Elemental of Surprise is the only printing: it looks for a *doublet* and
+    joins it, so what comes out is that card's Golden, not its own. Asked only
+    after no natural triple was found, because three of a kind is always the
+    merge the seat meant.
+
+    The pair is picked in card-id order for the same reason the natural
+    candidate is: the resolver has to be deterministic, and nothing about the
+    card says which pair it prefers.
+    """
+    wilds = [
+        (cid, entry, tribe)
+        for cid, entries in groups.items()
+        for entry in entries
+        for tribe in (_wild_triple_tribe(entry[2]),)
+        if tribe is not None
+    ]
+    if not wilds:
+        return None, None
+    for wild_cid, wild_entry, tribe in sorted(wilds, key=lambda w: (w[0], w[1][1])):
+        for cid in sorted(groups.keys()):
+            if cid == wild_cid or len(groups[cid]) != 2:
+                continue
+            if not minion_matches_tribe(groups[cid][0][2], tribe):
+                continue
+            return cid, wild_entry
+    return None, None
+
+
+def _wild_triple_tribe(minion: Minion):
+    """The tribe this body triples with, or None — a property, like a keyword."""
+    for ability in minion.abilities:
+        if ability.trigger is Trigger.AURA and isinstance(
+            ability.effect, TriplesWithAnyOfTribeEffect
+        ):
+            return ability.effect.tribe
+    return None
 
 
 def resolve_triples_loop(
