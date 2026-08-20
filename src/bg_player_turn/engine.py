@@ -15,6 +15,7 @@ from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.hand_slots import hand_has_free_slot, hand_size
 from src.bg_recruitment.shop import effective_shop_offers_count, toggle_shop_slot_frozen
 from src.bg_recruitment.shop_triggers import ShopTriggers
+from src.bg_recruitment.spellcraft import flush_pending_spellcraft
 from src.bg_core.minion import is_locked
 from src.bg_lobby.player import PlayerPhase, PlayerState, PendingChoiceKind
 
@@ -177,6 +178,7 @@ class PlayerTurnEngine:
                 recruitment_triples.flush_triple_reward_queue_if_idle(
                     player, race, rng=ctx.rng, patch=ctx.patch
                 )
+                flush_pending_spellcraft(player)
                 return True
             if not a.is_discover_pick_game_action(action_int):
                 raise ValueError(

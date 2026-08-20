@@ -855,6 +855,7 @@ class BGLobbyEnv:
             self._game._shop_triggers.fire_after_friendly_minion_placed(player, ref)
         player.placed_minion_board_index = None
         player.placed_minion_pending_after = None
+        from src.bg_recruitment.spellcraft import flush_pending_spellcraft
         from src.bg_recruitment.triples import flush_triple_reward_queue_if_idle
 
         flush_triple_reward_queue_if_idle(
@@ -863,6 +864,7 @@ class BGLobbyEnv:
             rng=self._game._rng,
             patch=self._game._patch,
         )
+        flush_pending_spellcraft(player)
 
     def _try_begin_rl_place(self, seat: int, hand_slot: int) -> bool:
         assert self._state is not None

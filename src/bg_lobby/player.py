@@ -238,6 +238,12 @@ class PlayerState:
     placed_minion_pending_after: Optional["Minion"] = None
     triple_reward_discover_pending: bool = False
     triple_reward_spell_tier: int = 0
+    #: Spellcraft spells made while the hand was full. Blizzard: *"If your hand
+    #: is full, Spellcraft spells will 'wait' until there is a free space in
+    #: your hand, instead of getting destroyed or being delayed a turn."* The
+    #: card is already built, so the level it was improved to is the level it
+    #: was made at, not the level whenever a slot opens.
+    pending_spellcraft: Tuple["SpellCard", ...] = ()
     # Signed normalized damage delta from each of the last ``BATTLE_HISTORY_LEN``
     # combats (most recent last). Empty until the player has fought at least once.
     battle_history: Tuple[float, ...] = ()

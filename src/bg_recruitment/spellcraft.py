@@ -25,6 +25,7 @@ from src.bg_core.effects import (
     Ability,
     CreateSpellcraftSpellEffect,
     GrantTemporaryBuffEffect,
+    Keyword,
     Trigger,
 )
 from src.bg_core.board_helpers import fire_spell_cast_on
@@ -39,6 +40,7 @@ __all__ = [
     "is_spellcraft_spell",
     "make_spellcraft_spell",
     "give_spellcraft_spell",
+    "flush_pending_spellcraft",
     "apply_temporary_buff",
     "play_spellcraft_spell_from_hand",
     "expire_temporary_buffs",
@@ -89,16 +91,44 @@ def make_spellcraft_spell(effect: CreateSpellcraftSpellEffect) -> SpellCard:
 def give_spellcraft_spell(
     player: PlayerState, effect: CreateSpellcraftSpellEffect
 ) -> bool:
-    """Put the spell in hand. Returns False when there was no room for it."""
-    slot = first_free_hand_slot(player)
-    if slot is None:
-        return False
+    """Put the spell in hand, or set it aside until a slot opens.
+
+    Blizzard, on the keyword: *"If your hand is full, Spellcraft spells will
+    'wait' until there is a free space in your hand, instead of getting
+    destroyed or being delayed a turn."* The exception is the keyword's own —
+    an ordinary card handed to a full hand is destroyed, and a Blood Gem with
+    it. Returns whether it reached the hand now.
+    """
     from dataclasses import replace
 
-    player.hand[slot] = make_spellcraft_spell(
-        replace(effect, buff=_improved_buff(player, effect))
-    )
+    spell = make_spellcraft_spell(replace(effect, buff=_improved_buff(player, effect)))
+    slot = first_free_hand_slot(player)
+    if slot is None:
+        player.pending_spellcraft = player.pending_spellcraft + (spell,)
+        return False
+    player.hand[slot] = spell
     return True
+
+
+def flush_pending_spellcraft(player: PlayerState) -> int:
+    """Hand over as many waiting Spellcraft spells as there is room for.
+
+    Called wherever the hand may have shrunk — the same post-action moment the
+    queued Triple reward is flushed at, and for the same reason: the card is
+    owed, and the seat should not have to do anything to collect it.
+    """
+    if not player.pending_spellcraft:
+        return 0
+    handed = 0
+    waiting = list(player.pending_spellcraft)
+    while waiting:
+        slot = first_free_hand_slot(player)
+        if slot is None:
+            break
+        player.hand[slot] = waiting.pop(0)
+        handed += 1
+    player.pending_spellcraft = tuple(waiting)
+    return handed
 
 
 def can_play_spellcraft_spell(player: PlayerState) -> bool:
@@ -150,6 +180,11 @@ def apply_temporary_buff(
                 target.granted_keywords = target.granted_keywords | {buff.keyword}
             else:
                 target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
+            # A Divine Shield is two things: the keyword and whether it is
+            # still up. Combat asks for both, so granting the keyword alone
+            # (Glowscale's whole printing) was worth exactly nothing.
+            if buff.keyword is Keyword.SHIELD:
+                target.has_shield = True
     fire_spell_cast_on(
         target,
         player=player,
@@ -224,19 +259,49 @@ def play_spellcraft_spell_from_hand(
 def expire_temporary_buffs(player: PlayerState) -> None:
     """Drop every "until next turn" buff. Called at the seat's turn start.
 
+    Every zone the seat owns, not just the board: a Spellcraft spell can be
+    cast at a minion on the counter, and buying it would otherwise carry the
+    "until next turn" stats past the turn boundary they were named for.
+
     Shop-phase minions are never damaged (combat runs on copies), so shedding
     temporary Health here cannot kill anything.
     """
+    for minion in _owned_minions(player):
+        _expire_one(minion)
+
+
+def _owned_minions(player: PlayerState):
     for minion in player.board:
-        minion.temp_attack = 0
-        minion.temp_health = 0
-        if minion.temp_keywords:
-            minion.temp_keywords = frozenset()
+        yield minion
+    for card in player.hand:
+        if isinstance(card, Minion):
+            yield card
+    for card in player.shop:
+        if isinstance(card, Minion):
+            yield card
+
+
+def _expire_one(minion: Minion) -> None:
+    minion.temp_attack = 0
+    minion.temp_health = 0
+    if not minion.temp_keywords:
+        return
+    had_temp_shield = Keyword.SHIELD in minion.temp_keywords
+    minion.temp_keywords = frozenset()
+    # Only a shield the buff itself put up comes down with it: a minion whose
+    # printing or a permanent grant carries Divine Shield keeps its own.
+    if had_temp_shield and Keyword.SHIELD not in minion.all_keywords:
+        minion.has_shield = False
 
 
 def discard_spellcraft_spells(player: PlayerState) -> int:
-    """Unspent Spellcraft spells leave hand at end of turn. Returns how many."""
-    dropped = 0
+    """Unspent Spellcraft spells leave hand at end of turn. Returns how many.
+
+    A spell still waiting on a hand slot goes with them: waiting is within the
+    turn it was made for, not a way of surviving it.
+    """
+    dropped = len(player.pending_spellcraft)
+    player.pending_spellcraft = ()
     for i, card in enumerate(player.hand):
         if is_spellcraft_spell(card):
             player.hand[i] = None

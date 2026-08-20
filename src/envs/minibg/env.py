@@ -54,6 +54,7 @@ from .structured_actions import (
     structured_legal_set,
     validate_board_perm,
 )
+from src.bg_recruitment.spellcraft import flush_pending_spellcraft
 from src.bg_recruitment.triples import flush_triple_reward_queue_if_idle
 
 
@@ -841,6 +842,7 @@ class MiniBGEnv(TurnBasedEnv):
             rng=self._game._rng,
             patch=self._game._patch,
         )
+        flush_pending_spellcraft(player)
         if self._rl_place_budget_pending:
             player.shop_actions_used += 1
             self._rl_place_budget_pending = False

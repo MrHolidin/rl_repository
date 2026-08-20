@@ -820,3 +820,126 @@ def test_avenge_fires_after_the_dead_minions_deathrattle(patch):
     finally:
         fx._fire_deathrattle, fx._fire_avenge = fire_dr, fire_av
     assert order[:2] == ["dr", "avenge"]
+
+
+# --------------------------------------------------------------------------- #
+# Spellcraft: on play, a shield that is up, a wait, and an expiry that reaches
+# --------------------------------------------------------------------------- #
+
+
+def _triggers(patch):
+    return ShopTriggers(np.random.default_rng(0), patch=patch)
+
+
+def _spellcraft_in_hand(player):
+    from src.bg_recruitment.spellcraft import is_spellcraft_spell
+
+    return [c for c in player.hand if is_spellcraft_spell(c)]
+
+
+def test_playing_a_spellcraft_naga_hands_the_spell_over_at_once(patch):
+    """Blizzard: the spell is made when the minion is played *and* at the start
+    of each Recruit phase. Eight of nine cards only ever did the second."""
+    naga = patch.make_minion("BG23_000")  # Mini-Myrmidon
+    player = _player(patch, [naga])
+    _triggers(patch).fire_on_place(naga, player, None)
+    assert len(_spellcraft_in_hand(player)) == 1
+    _triggers(patch).fire_on_turn_start(player)
+    assert len(_spellcraft_in_hand(player)) == 2
+
+
+def test_zarjira_keeps_making_its_spell_every_turn(patch):
+    """The mirror of the same bug: bound ON_PLACE only, so one spell ever."""
+    naga = patch.make_minion("BG27_514")
+    player = _player(patch, [naga])
+    _triggers(patch).fire_on_place(naga, player, None)
+    _triggers(patch).fire_on_turn_start(player)
+    assert len(_spellcraft_in_hand(player)) == 2
+
+
+def test_brann_does_not_double_a_spellcraft_spell(patch):
+    """Spellcraft is a keyword, not a Battlecry."""
+    naga = patch.make_minion("BG23_000")
+    brann = patch.make_minion("BG_LOE_077")  # Brann: battlecry multiplier
+    player = _player(patch, [brann, naga])
+    _triggers(patch).fire_on_place(naga, player, None)
+    assert len(_spellcraft_in_hand(player)) == 1
+
+
+def test_a_spellcraft_spell_waits_for_a_hand_slot(patch):
+    """The keyword's own exception to the full-hand rule."""
+    from src.bg_recruitment.spellcraft import flush_pending_spellcraft
+
+    naga = patch.make_minion("BG23_000")
+    player = _player(patch, [naga])
+    for i in range(len(player.hand)):
+        player.hand[i] = _plain(f"filler{i}")
+    _triggers(patch).fire_on_place(naga, player, None)
+    assert len(player.pending_spellcraft) == 1
+    assert _spellcraft_in_hand(player) == []
+
+    player.hand[0] = None
+    flush_pending_spellcraft(player)
+    assert player.pending_spellcraft == ()
+    assert len(_spellcraft_in_hand(player)) == 1
+
+
+def test_a_waiting_spellcraft_spell_still_dies_at_end_of_turn(patch):
+    """Waiting is within the turn it was made for."""
+    from src.bg_recruitment.spellcraft import discard_spellcraft_spells
+
+    naga = patch.make_minion("BG23_000")
+    player = _player(patch, [naga])
+    for i in range(len(player.hand)):
+        player.hand[i] = _plain(f"filler{i}")
+    _triggers(patch).fire_on_place(naga, player, None)
+    assert discard_spellcraft_spells(player) == 1
+    assert player.pending_spellcraft == ()
+
+
+def test_a_spellcraft_divine_shield_is_actually_up(patch):
+    """Combat asks for the keyword *and* the flag; Glowscale set only one."""
+    from src.bg_recruitment.spellcraft import play_spellcraft_spell_from_hand
+
+    glowscale = patch.make_minion("BG23_008")
+    target = _plain("target", 1, 1)
+    player = _player(patch, [glowscale, target])
+    _triggers(patch).fire_on_place(glowscale, player, None)
+    slot = next(i for i, c in enumerate(player.hand) if c is not None)
+    play_spellcraft_spell_from_hand(player, slot, 1, patch=patch)
+    assert Keyword.SHIELD in target.all_keywords and target.has_shield
+
+
+def test_the_expiry_takes_down_only_the_shield_it_put_up(patch):
+    from src.bg_recruitment.spellcraft import expire_temporary_buffs
+
+    printed = patch.make_minion("BG_BOT_911")  # printed Divine Shield
+    printed.temp_keywords = frozenset({Keyword.SHIELD})
+    expire_temporary_buffs(_player(patch, [printed]))
+    assert printed.has_shield
+
+    borrowed = _plain("borrowed")
+    borrowed.temp_keywords = frozenset({Keyword.SHIELD})
+    borrowed.has_shield = True
+    expire_temporary_buffs(_player(patch, [borrowed]))
+    assert not borrowed.has_shield
+
+
+def test_an_until_next_turn_buff_expires_on_a_minion_in_the_tavern(patch):
+    """A Spellcraft spell reaches the counter, so the expiry has to as well —
+    otherwise buying the minion carries the stats past the boundary."""
+    from src.bg_recruitment.spellcraft import (
+        expire_temporary_buffs,
+        play_spellcraft_spell_from_hand,
+    )
+
+    naga = patch.make_minion("BG23_000")  # +2 Attack until next turn
+    player = _player(patch, [naga])
+    offered = _plain("on-the-counter", 1, 1)
+    player.shop[0] = offered
+    _triggers(patch).fire_on_place(naga, player, None)
+    slot = next(i for i, c in enumerate(player.hand) if c is not None)
+    play_spellcraft_spell_from_hand(player, slot, shop_index=0, patch=patch)
+    assert offered.raw_attack == 3
+    expire_temporary_buffs(player)
+    assert offered.raw_attack == 1

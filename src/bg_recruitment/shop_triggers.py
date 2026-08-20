@@ -1456,6 +1456,16 @@ class ShopTriggers:
                     shop_excluded_race=shop_excluded_race,
                     shared_pool=shared_pool,
                 )
+        # Spellcraft is a keyword, not a Battlecry: playing the Naga hands its
+        # spell over straight away, and the start of every later turn hands
+        # over another. Fired here rather than bound as an ON_PLACE ability
+        # because Brann doubles those and does not double this.
+        for ab in placed.abilities:
+            if ab.trigger is Trigger.ON_TURN_START and isinstance(
+                ab.effect, CreateSpellcraftSpellEffect
+            ):
+                give_spellcraft_spell(player, ab.effect)
+
         if minion_matches_tribe(placed, Race.ELEMENTAL):
             player.elementals_played += 1
             # The same count as a tally, for the cards that read one. The field

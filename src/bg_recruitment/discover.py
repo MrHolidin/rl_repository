@@ -27,6 +27,7 @@ from .pool_ledger import (
     release_discover_options,
     reserve_discover_options,
 )
+from .spellcraft import flush_pending_spellcraft
 from .triples import flush_triple_reward_queue_if_idle, hand_has_free_slot, resolve_triples_loop
 
 HAND_DISCOVER_KINDS = frozenset(
@@ -322,3 +323,4 @@ def resolve_discover_pick(
         flush_triple_reward_queue_if_idle(
             player, shop_excluded_race, rng=rng, patch=patch
         )
+        flush_pending_spellcraft(player)
