@@ -80,6 +80,7 @@ from src.bg_core.effects import (
     ElementalsPlayedResponseEffect,
     CopyTargetingSpellEffect,
     GainStatsFromTavernEffect,
+    SetStatsEffect,
     StatsFromNextBuyEffect,
     MagnetizeTokenEffect,
     BuffSelfOnFriendlySoldEffect,
@@ -148,6 +149,7 @@ from src.bg_core.board_helpers import (
     apply_buff_matching,
     apply_buff_self,
     apply_summoned_listener,
+    set_minion_stats,
     grant_keyword,
     grant_keyword_random,
     apply_buff_self_per_count,
@@ -754,6 +756,11 @@ class ShopTriggers:
                 shop_excluded_race=shop_excluded_race,
                 shared_pool=shared_pool,
             )
+        elif isinstance(effect, SetStatsEffect):
+            # "Set a minion's stats to 20/20" — ``source`` is the body named,
+            # which for a spell is the minion it was cast at.
+            if source is not None:
+                set_minion_stats(source, effect.attack, effect.health)
         elif isinstance(effect, AddSharedTribeMinionEffect):
             # ``source`` is the minion the spell was cast at; its tribe is the
             # whole instruction, which is why no named tribe can stand in.

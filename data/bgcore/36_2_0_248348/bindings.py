@@ -2051,6 +2051,102 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG28_810": (  # Tavern Coin — Gain 1 Gold
         Ability(Trigger.ON_PLACE, GainGoldThisTurnEffect(amount=1)),
     ),
+    # ------------------------------------ tavern spells the tavern can offer
+    # Every one of these was offerable and inert. They are bindings, not new
+    # mechanics: the effect each needs was built for a minion that says the
+    # same sentence.
+    "BG28_825": (  # Defender's Rites — give a minion +7/+7 and Taunt
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(
+                attack=7, health=7, exclude_self=False, grant_keyword=Keyword.TAUNT
+            ),
+        ),
+    ),
+    "BG28_507": (  # Sacred Gift — give a minion Divine Shield
+        Ability(
+            Trigger.ON_PLACE,
+            BuffTargetFriendlyBattlecry(
+                attack=0, health=0, exclude_self=False, grant_keyword=Keyword.SHIELD
+            ),
+        ),
+    ),
+    "BG28_838": (  # Perfect Vision — set a minion's stats to 20/20
+        Ability(Trigger.ON_PLACE, SetStatsEffect(attack=20, health=20, exclude_self=False)),
+    ),
+    "BG35_951": (  # Might of Stormwind — four random friendly minions +1/+2
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=1, health=2, limit=4),
+        ),
+    ),
+    "BG33_817": (  # Sanctify — your Divine Shields +6 Attack
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                target=BuffTarget.FRIENDLY_WITH_KEYWORD,
+                keyword=Keyword.SHIELD,
+                attack=6,
+            ),
+        ),
+    ),
+    "BG35_922": (  # Queen's Command — your minions +2/+2, and Naga another +2/+2
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(
+                target=BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.NAGA, attack=2, health=2
+            ),
+        ),
+    ),
+    "BG28_169": (  # Azerite Empowerment — your minions +2/+2, twice
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+        ),
+        Ability(
+            Trigger.ON_PLACE,
+            BuffMatching(target=BuffTarget.ALL_FRIENDLY, attack=2, health=2),
+        ),
+    ),
+    "BG28_805": (  # Strike Oil — raise your maximum Gold by 1
+        Ability(Trigger.ON_PLACE, RaiseGoldCapEffect(amount=1)),
+    ),
+    "BG28_827": (  # Leaf Through the Pages — two free Refreshes
+        Ability(Trigger.ON_PLACE, SetNextRollCostEffect(cost=0, uses=2)),
+    ),
+    "BG28_800": (  # Careful Investment — 2 Gold next turn
+        Ability(Trigger.ON_PLACE, GainGoldNextTurnEffect(amount=2)),
+    ),
+    "BG28_886": (  # Staff of Enrichment — the tavern's minions +2/+2 this game
+        Ability(
+            Trigger.ON_PLACE,
+            RaiseStandingBonusEffect(scope_kind=ScopeKind.SHOP, attack=2, health=2),
+        ),
+    ),
+    "BG36_884": (  # Weapons Forge — three Pointy Arrows
+        Ability(
+            Trigger.ON_PLACE,
+            AddTavernSpellToHandEffect(card_id="EBG_Spell_014", count=3),
+        ),
+    ),
+    "BG31_896": (  # Hallowed Ritual — Discover a Tier 7 minion
+        Ability(Trigger.ON_PLACE, DiscoverMinionAtTierEffect(tier=7)),
+    ),
+    "BG34_888": (  # Tomb Turning — Discover an Undead
+        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(tribe=Race.UNDEAD, repeats=1)),
+    ),
+    "BG28_607": (  # Corrupted Cupcakes — a Demon eats three off the counter
+        Ability(
+            Trigger.ON_PLACE,
+            ConsumeTavernMinionEffect(
+                filter_race=Race.DEMON, count=3, eater_is_source=True
+            ),
+        ),
+    ),
     "BG36_624": (  # Repair Job — give a minion +4/+8
         Ability(
             Trigger.ON_PLACE,
@@ -2084,7 +2180,9 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG36_880": (  # Methodical Madness — a Demon eats two off the counter
         Ability(
             Trigger.ON_PLACE,
-            ConsumeTavernMinionEffect(filter_race=Race.DEMON, count=2),
+            ConsumeTavernMinionEffect(
+                filter_race=Race.DEMON, count=2, eater_is_source=True
+            ),
         ),
     ),
     "BG28_518": (  # Chef's Choice — a different minion of the target's own type

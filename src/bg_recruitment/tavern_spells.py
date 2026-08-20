@@ -555,7 +555,9 @@ def _apply_spell_effect(
 
     ShopTriggers(rng, patch=patch).apply_shop_effect(
         player,
-        source=None,
+        # The minion the spell was cast at, where it had one: a spell has no
+        # body of its own, so "this minion" in an effect means its target.
+        source=target,
         effect=effect,
         placed=None,
         shop_excluded_race=shop_excluded_race,
