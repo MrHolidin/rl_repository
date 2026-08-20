@@ -1297,6 +1297,9 @@ class CopyTargetingSpellEffect:
 
     count: int = 1
     once_per_turn: bool = True
+    #: "when a **Spellcraft** spell is played on this" — an ordinary Tavern
+    #: spell aimed at the same body is a different event and pays nothing.
+    spellcraft_only: bool = True
 
 
 @dataclass(frozen=True)

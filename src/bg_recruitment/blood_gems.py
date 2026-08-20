@@ -27,6 +27,7 @@ from typing import List, Optional, Tuple
 
 from src.bg_core.board_helpers import fire_spell_cast_on
 from src.bg_core.effects import BloodGemTarget, Keyword
+from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.minion import Minion, Race
 from src.bg_core.spell_card import SpellCard
 from src.bg_lobby.player import PlayerState
@@ -183,7 +184,13 @@ def blood_gem_targets(
     if target is BloodGemTarget.ALL_OTHER_FRIENDLY:
         return [m for m in board if m is not source]
     if target is BloodGemTarget.ALL_FRIENDLY_QUILBOAR:
-        return [m for m in board if m.race is Race.QUILBOAR]
+        # An Amalgam is a Quilboar too, and "all your **other** Quilboar" leaves
+        # the card saying it out — which is what every printing of this says.
+        return [
+            m
+            for m in board
+            if m is not source and minion_matches_tribe(m, Race.QUILBOAR)
+        ]
     if target is BloodGemTarget.ADJACENT:
         try:
             idx = board.index(source)

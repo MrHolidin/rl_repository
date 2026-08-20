@@ -221,11 +221,10 @@ def test_a_card_plays_gems_on_whom_it_names(patch, target, expected):
     ]
     player = _player(board)
     source = board[1]
-    # SELF and ALL_FRIENDLY_QUILBOAR both include the source, which is a Quilboar
-    # here on purpose: the two targets must not be the same set by accident.
+    # The source is a Quilboar here on purpose: ALL_FRIENDLY_QUILBOAR is
+    # printed "all your **other** Quilboar", so it must leave the source out
+    # while SELF is nothing but the source.
     expected = set(expected)
-    if target is BloodGemTarget.ALL_FRIENDLY_QUILBOAR:
-        expected.add("source")
     _fire(patch, player, source, PlayBloodGemsEffect(target=target, count=1))
     grown = {m.card_id for m in board if m.blood_gem_attack > 0}
     assert grown == expected

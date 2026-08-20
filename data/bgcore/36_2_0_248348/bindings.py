@@ -868,12 +868,13 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "BG36_211": (  # Cage Gnawer — a friendly Beast attacks: your Beasts +2/+1
+    "BG36_211": (  # Cage Gnawer — a friendly Beast's swing pays your Beasts
         Ability(
             Trigger.ON_FRIENDLY_ATTACK,
             BuffMatching(
-                BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=2, health=1
+                target=BuffTarget.FRIENDLY_OF_TRIBE, tribe=Race.BEAST, attack=2, health=1
             ),
+            filter_race=Race.BEAST,
         ),
     ),
     "BG36_760": (  # Captain Cookie — Deathrattle: get a Chef's Choice
@@ -922,8 +923,11 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "BG27_080": (  # Motley Phalanx — Deathrattle: one friendly of each type +2/+2
-        Ability(Trigger.ON_DEATH, BuffOnePerListedTribeFriendly(attack=2, health=2)),
+    "BG27_080": (  # Motley Phalanx — Deathrattle: one of each type +2/+2, for keeps
+        Ability(
+            Trigger.ON_DEATH,
+            BuffOnePerListedTribeFriendly(attack=2, health=2, permanent=True),
+        ),
     ),
     "BG34_682": (  # Razorfen Flapper — Deathrattle: get a Blood Gem Barrage
         Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG34_689")),
@@ -1843,7 +1847,9 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     ),
     "BG27_514": (  # Sea Witch Zar'jira — Spellcraft: copy a minion off the counter
         Ability(
-            Trigger.ON_PLACE,
+            # ON_TURN_START like every other Spellcraft Naga: the spell comes
+            # back each turn, and ON_PLACE handed it over exactly once ever.
+            Trigger.ON_TURN_START,
             CreateSpellcraftSpellEffect(
                 buff=CopyTavernMinionEffect(count=1, exclude_card_id="BG27_514"),
                 card_id="BG27_514t",

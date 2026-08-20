@@ -556,7 +556,11 @@ class ShopTriggers:
             for ab in card.abilities:
                 if ab.trigger is not Trigger.WHILE_IN_HAND:
                     continue
-                if ab.filter_race is not None and placed.race != ab.filter_race:
+                # minion_matches_tribe, not ==: an Amalgam is every tribe, and
+                # a bare comparison is how six of them stopped counting as any.
+                if ab.filter_race is not None and not minion_matches_tribe(
+                    placed, ab.filter_race
+                ):
                     continue
                 if ab.filter_max_tier and placed.tier > ab.filter_max_tier:
                     continue
@@ -1355,7 +1359,7 @@ class ShopTriggers:
                     shop_excluded_race=shop_excluded_race,
                     shared_pool=shared_pool,
                 )
-        if placed.race == Race.ELEMENTAL:
+        if minion_matches_tribe(placed, Race.ELEMENTAL):
             player.elementals_played += 1
             # The same count as a tally, for the cards that read one. The field
             # above stays because the observation has always read it.
@@ -1374,7 +1378,11 @@ class ShopTriggers:
             for ab in m.abilities:
                 if ab.trigger != Trigger.AFTER_FRIENDLY_MINION_PLACED:
                     continue
-                if ab.filter_race is not None and placed.race != ab.filter_race:
+                # minion_matches_tribe, not ==: an Amalgam is every tribe, and
+                # a bare comparison is how six of them stopped counting as any.
+                if ab.filter_race is not None and not minion_matches_tribe(
+                    placed, ab.filter_race
+                ):
                     continue
                 if ab.filter_max_tier and placed.tier > ab.filter_max_tier:
                     continue

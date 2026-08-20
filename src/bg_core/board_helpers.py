@@ -172,7 +172,12 @@ def stat_aura_bonus(
 
 
 def fire_spell_cast_on(
-    target: Minion, *, player=None, patch=None, spell_card_id: str = ""
+    target: Minion,
+    *,
+    player=None,
+    patch=None,
+    spell_card_id: str = "",
+    spellcraft: bool = False,
 ) -> None:
     """Fire ``ON_TARGETED_BY_SPELL`` listeners on the minion a spell just hit.
 
@@ -186,7 +191,10 @@ def fire_spell_cast_on(
 
     ``spell_card_id`` is for the one listener that answers with the spell
     itself — Zesty Shaker gets another copy of what was cast on it, and cannot
-    infer which that was from a buff that has already landed.
+    infer which that was from a buff that has already landed. ``spellcraft``
+    says what kind of cast it was, which the caller knows and the card id does
+    not: a Spellcraft spell is minted at play time and its catalog row carries
+    no such flag.
     """
     import numpy as _np
 
@@ -209,7 +217,9 @@ def fire_spell_cast_on(
         if isinstance(eff, BuffSelf):
             apply_buff_self(target, eff)
         elif isinstance(eff, CopyTargetingSpellEffect):
-            _copy_targeting_spell(target, eff, player, patch, spell_card_id)
+            _copy_targeting_spell(
+                target, eff, player, patch, spell_card_id, spellcraft
+            )
         elif player is not None:
             # Anything that writes to the seat rather than to the body goes to
             # the shop dispatcher, which raises on an effect nobody handles.
@@ -265,7 +275,7 @@ def apply_attack_thresholds(minion: Minion, attack: int) -> bool:
 
 
 def _copy_targeting_spell(
-    target: Minion, effect, player, patch, spell_card_id: str
+    target: Minion, effect, player, patch, spell_card_id: str, spellcraft: bool
 ) -> None:
     """"When a Spellcraft spell is played on this, get a new copy of it."
 
@@ -273,6 +283,8 @@ def _copy_targeting_spell(
     same shape ``spellcraft_kept_this_turn`` beside it already has.
     """
     if player is None or patch is None or not spell_card_id:
+        return
+    if effect.spellcraft_only and not spellcraft:
         return
     if effect.once_per_turn and target.spell_answered_this_turn:
         return

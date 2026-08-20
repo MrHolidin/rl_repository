@@ -24,19 +24,8 @@ import src.envs  # noqa: F401  (import for side effect: module init order)
 from src.agents.random_agent import RandomAgent
 from src.envs.bglike.lobby_env import BGLobbyEnv
 from src.envs.bglike.seat_config import SeatConfig, SeatKind
-from src.envs.bglike.state import PendingChoiceKind
-
 NUM_PLAYERS = 8
 MAX_STEPS = 20_000
-
-# Bugs already found and reported. Stepping over them here is what lets one run
-# reach the rest of the engine instead of dying on the first Choose One.
-KNOWN = {
-    "choose_one_unresolvable": (
-        "CHOOSE_ONE parks a modal nothing in src/ resolves; the flat action "
-        "space routes its pick into resolve_discover_pick"
-    ),
-}
 
 
 def _env(seed: int, patch_dir: str, *, heroes: bool, high_mode: bool) -> BGLobbyEnv:
@@ -61,7 +50,6 @@ def _one_game(
     heroes: bool,
     high_mode: bool,
     stats: Counter,
-    workaround: bool = True,
 ) -> None:
     rng = random.Random(seed)
     env = _env(seed, patch_dir, heroes=heroes, high_mode=high_mode)
@@ -78,14 +66,6 @@ def _one_game(
         legal = np.flatnonzero(mask)
         if legal.size == 0:
             raise RuntimeError(f"empty legal mask for acting seat {seat}")
-        pc = env.state.players[seat].pending_choice
-        if workaround and pc is not None and pc.kind == PendingChoiceKind.CHOOSE_ONE:
-            # Whatever the seat picks, the modal is dropped (see KNOWN); do that
-            # here without the crash so the lobby can keep going.
-            stats["known_choose_one_unresolvable"] += 1
-            env.state.players[seat].pending_choice = None
-            steps += 1
-            continue
         action = int(rng.choice(list(legal)))
         stats[f"action_{action}"] += 1
         env.step_action(seat, action)
@@ -105,11 +85,6 @@ def main() -> int:
     ap.add_argument("--high-mode", action="store_true")
     ap.add_argument("--traceback", action="store_true")
     ap.add_argument("--max-report", type=int, default=12)
-    ap.add_argument(
-        "--no-workaround",
-        action="store_true",
-        help="do not step over the already-reported bugs in KNOWN",
-    )
     args = ap.parse_args()
 
     failures: Counter = Counter()
@@ -124,7 +99,6 @@ def main() -> int:
                 heroes=args.heroes,
                 high_mode=args.high_mode,
                 stats=stats,
-                workaround=not args.no_workaround,
             )
         except Exception as exc:  # noqa: BLE001 -- the point is to catch everything
             tb = traceback.format_exc()

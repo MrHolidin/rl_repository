@@ -151,7 +151,11 @@ def apply_temporary_buff(
             else:
                 target.temp_keywords = frozenset(target.temp_keywords | {buff.keyword})
     fire_spell_cast_on(
-        target, player=player, patch=patch, spell_card_id=spell_card_id
+        target,
+        player=player,
+        patch=patch,
+        spell_card_id=spell_card_id,
+        spellcraft=True,
     )
 
 
