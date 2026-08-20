@@ -182,6 +182,13 @@ def offer_tavern_spells(
     return player.tavern_spell_offers
 
 
+def _note_spend(player: PlayerState, cost: int, *, patch) -> None:
+    """Gold on a Tavern spell is gold spent, and the watchers want to know."""
+    from .economy import note_gold_spent
+
+    note_gold_spent(player, int(cost), patch=patch)
+
+
 def buy_tavern_spell(
     player: PlayerState,
     offer_index: int = 0,
@@ -213,6 +220,7 @@ def buy_tavern_spell(
         raise TavernSpellNotAllowed("hand is full")
 
     player.gold -= cost
+    _note_spend(player, cost, patch=patch)
     # The discount was for this purchase and is spent by it, whether or not it
     # was worth anything (a 0-cost spell still consumes Ominous Seer's promise).
     player.tavern_spell_cost_delta = 0

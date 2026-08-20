@@ -19,10 +19,31 @@ from src.envs.minibg.actions import MAX_SHOP_SLOTS, shop_offers_count
 from src.bg_lobby.player import PlayerState
 
 
+def shop_offers_for_tier(player: PlayerState) -> int:
+    """How many minions this seat's tavern shows, before any hero extra.
+
+    Read off the patch's own layout where it has one, because the count per
+    tier is a number a patch changes. ``MAX_SHOP_SLOTS`` is deliberately *not*
+    read from there: it is the width of the flat action space (BUY_SLOT_0..5)
+    that every trained checkpoint was built against, so it stays an
+    architectural constant — see ``bg_catalog.ruleset``'s module docstring.
+    """
+    layout = getattr(getattr(player, "layout", None), "shop_offers_by_tier", None)
+    if layout:
+        return int(layout.get(int(player.tavern_tier), MAX_SHOP_SLOTS))
+    return shop_offers_count(player.tavern_tier)
+
+
 def effective_shop_offers_count(player: PlayerState) -> int:
     """Offer count for a player's tavern tier, including any hero extra slots
-    (Ysera: +1 Dragon), capped at the max visible shop size."""
-    n = shop_offers_count(player.tavern_tier)
+    (Ysera: +1 Dragon), capped at the max visible shop size.
+
+    The cap bites at Tier 6: the tier already shows six and the action space
+    has six buy slots, so a hero's extra one has nowhere to go. Widening it is
+    an action-space change and would invalidate every checkpoint, which is why
+    the patch's ``max_shop_slots: 7`` is recorded but not honoured.
+    """
+    n = shop_offers_for_tier(player)
     if player.hero is not None:
         n += player.hero.extra_shop_slots()
     return min(MAX_SHOP_SLOTS, n)
@@ -33,7 +54,7 @@ def _hero_forced_slot_tribe(player: PlayerState, slot: int) -> Optional[Race]:
     h = player.hero
     if h is None or h.extra_shop_slots() <= 0:
         return None
-    if slot >= shop_offers_count(player.tavern_tier):
+    if slot >= shop_offers_for_tier(player):
         return Race.DRAGON
     return None
 

@@ -125,6 +125,10 @@ def activate_minion(
     from src.bg_recruitment.targeted_battlecry import apply_targeted_buff
 
     player.gold -= cost
+    # Gold on an Activate is gold spent, the same as gold on a minion.
+    from src.bg_recruitment.economy import note_gold_spent
+
+    note_gold_spent(player, cost, patch=patch)
     minion.activate_used_this_turn = True
     triggers = ShopTriggers(rng, patch=patch)
     for ability in activate_abilities(minion):

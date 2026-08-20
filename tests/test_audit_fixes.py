@@ -642,3 +642,81 @@ def test_a_forced_tribe_slot_draws_like_an_ordinary_one(patch):
     source = inspect.getsource(shop._fill_forced_tribe_slot)
     assert "draw_from_pool" in source
     assert "rng.integers" not in source
+
+
+# --------------------------------------------------------------------------- #
+# Six numbers and knobs the package carried but nothing read
+# --------------------------------------------------------------------------- #
+
+
+def test_the_pool_holds_fifteen_of_each_tier_one(patch):
+    assert patch.meta.pool_copies_by_tier[1] == 15
+
+
+def test_a_seat_starts_at_thirty_and_takes_armor_from_its_hero(patch):
+    assert patch.meta.ruleset.starting_health == 30
+    # The classic packages predate armor and keep their flat 40.
+    classic = PatchContext.load(Path("data/bgcore/19_6_0_74257"))
+    assert classic.meta.ruleset.starting_health == 40
+
+
+def test_the_damage_cap_ramps_and_lifts_in_the_top_four(patch):
+    rs = patch.meta.ruleset
+    assert [rs.damage_cap_for_round(n) for n in (1, 3, 4, 7, 8, 12)] == [
+        5, 5, 10, 10, 15, 15
+    ]
+    assert rs.effective_damage_cap(12, alive_count=5) == 15
+    assert rs.effective_damage_cap(12, alive_count=4) > 100  # lifted
+
+
+@pytest.mark.parametrize(
+    "field,call",
+    [
+        ("buy_cost", lambda eco, p, m: eco.effective_buy_cost(p)),
+        ("roll_cost", lambda eco, p, m: eco.effective_roll_cost(p)),
+        ("sell_reward", lambda eco, p, m: eco.effective_sell_reward(m, p)),
+    ],
+)
+def test_the_economy_knobs_are_read_not_ignored(patch, field, call):
+    """They were fields on Ruleset that nothing consulted — the module
+    constants were used directly, so a package setting them did nothing."""
+    from dataclasses import replace
+
+    from src.bg_recruitment import economy
+
+    player = _player(patch, ruleset=replace(patch.meta.ruleset, **{field: 37}))
+    assert call(economy, player, _plain("m")) == 37
+
+
+def test_gold_on_a_tavern_spell_is_gold_spent(patch):
+    from src.bg_recruitment.tavern_spells import buy_tavern_spell, offer_tavern_spells
+
+    player = _player(patch)
+    offer_tavern_spells(player, rng=np.random.default_rng(0), patch=patch)
+    cost = player.tavern_spell_offers[0].cost
+    buy_tavern_spell(player, 0, patch=patch)
+    assert player.gold_spent_this_turn == cost
+
+
+def test_gold_on_an_activate_is_gold_spent(patch):
+    from src.bg_recruitment.activate import activate_minion
+
+    castaway = patch.make_minion("BG36_342")  # Activate (2)
+    player = _player(patch, board=[castaway])
+    activate_minion(player, 0, rng=np.random.default_rng(0), patch=patch)
+    assert player.gold_spent_this_turn == 2
+
+
+def test_the_offers_per_tier_come_from_the_patch(patch):
+    """The count per tier is a patch number; MAX_SHOP_SLOTS is the action
+    space and deliberately is not."""
+    import inspect
+
+    from src.bg_recruitment import shop
+
+    assert "shop_offers_by_tier" in inspect.getsource(shop.shop_offers_for_tier)
+    for tier, expected in patch.meta.layout.shop_offers_by_tier.items():
+        if tier > patch.meta.ruleset.max_tier:
+            continue
+        player = _player(patch, tavern_tier=tier)
+        assert shop.shop_offers_for_tier(player) == expected

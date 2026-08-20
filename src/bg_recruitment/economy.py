@@ -28,6 +28,20 @@ from .pool_ledger import on_sell_minion
 from .shop import clear_shop_slot, fill_shop_slot, refresh_shop, tavern_card_pool
 
 
+def _ruleset(player: Optional[PlayerState]):
+    """The seat's own numbers, or the defaults when there is no seat to ask.
+
+    ``buy_cost``/``sell_reward``/``roll_cost`` were fields on Ruleset that
+    nothing read: the module constants were used directly, so a package
+    setting them was silently ignored. They happen to agree today, which is
+    exactly why it went unnoticed.
+    """
+    from src.bg_catalog.ruleset import DEFAULT_RULESET
+
+    rs = getattr(player, "ruleset", None) if player is not None else None
+    return rs if rs is not None else DEFAULT_RULESET
+
+
 def effective_sell_reward(minion: Minion, player: Optional[PlayerState] = None) -> int:
     """What this minion is worth on the way out.
 
@@ -44,7 +58,7 @@ def effective_sell_reward(minion: Minion, player: Optional[PlayerState] = None) 
         return int(ab.effect.amount)
     if minion.sell_value is not None:
         return int(minion.sell_value)
-    return SELL_REWARD
+    return _ruleset(player).sell_reward
 
 
 def effective_roll_cost(player: PlayerState) -> int:
@@ -58,7 +72,7 @@ def effective_roll_cost(player: PlayerState) -> int:
         flat = player.hero.flat_refresh_cost()
         if flat is not None:
             return max(0, flat)
-    return ROLL_COST
+    return _ruleset(player).roll_cost
 
 
 def effective_buy_cost(player: PlayerState) -> int:
@@ -67,7 +81,7 @@ def effective_buy_cost(player: PlayerState) -> int:
         flat = player.hero.flat_buy_cost()
         if flat is not None:
             return max(0, flat)
-    return BUY_COST
+    return _ruleset(player).buy_cost
 
 
 def effective_level_up_cost(player: PlayerState) -> int:
@@ -172,11 +186,13 @@ def sell_from_board(
     on_triples(player)
 
 
-def _spent(player: PlayerState, amount: int, *, patch=None) -> None:
+def note_gold_spent(player: PlayerState, amount: int, *, patch=None) -> None:
     """Tell the board that gold left the seat.
 
     One helper at every spend site rather than a hook per action, because the
-    cards say "after you spend N Gold" without caring what it went on.
+    cards say "after you spend N Gold" without caring what it went on — and a
+    Tavern spell and an Activate are both gold going out. Those two paid out of
+    ``player.gold`` directly and so were invisible to every watcher.
     """
     if amount <= 0 or patch is None:
         return
@@ -201,7 +217,7 @@ def buy_from_shop(
     assert minion is not None
     buy_cost = effective_buy_cost(player)
     player.gold -= buy_cost
-    _spent(player, buy_cost, patch=patch)
+    note_gold_spent(player, buy_cost, patch=patch)
     clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
     h = first_free_hand_slot(player)
     assert h is not None, "BUY illegal when hand is full (legal mask bug)"
@@ -224,7 +240,7 @@ def roll_shop(
     paid_in_health = _pay_refresh_in_health(player, cost, patch=patch)
     if not paid_in_health:
         player.gold -= cost
-        _spent(player, cost, patch=patch)
+        note_gold_spent(player, cost, patch=patch)
     # Nozdormu: consume the free first refresh for this turn.
     if player.hero_free_roll_pending:
         player.hero_free_roll_pending = False
@@ -256,7 +272,7 @@ def level_up_tavern(
 ) -> None:
     cost = effective_level_up_cost(player)
     player.gold -= cost
-    _spent(player, cost, patch=patch)
+    note_gold_spent(player, cost, patch=patch)
     player.upgrade_cost_delta = 0
     player.hero_upgrade_discount = 0  # Chenvaala: discount consumed by the upgrade
     old_tier = player.tavern_tier

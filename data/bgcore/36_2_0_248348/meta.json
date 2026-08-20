@@ -13,7 +13,7 @@
   ],
   "rotation_excluded_count": 5,
   "pool_copies_by_tier": {
-    "1": 16,
+    "1": 15,
     "2": 15,
     "3": 13,
     "4": 11,
@@ -29,7 +29,10 @@
       "3": 8,
       "4": 11,
       "5": 12
-    }
+    },
+    "starting_health": 30,
+    "damage_cap_schedule": [[3, 5], [7, 10], [null, 15]],
+    "damage_cap_lifted_at_alive": 4
   },
   "layout": {
     "races": [
