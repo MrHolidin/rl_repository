@@ -29,6 +29,12 @@ from src.bg_core.effects import (
     BuffAttackedMinionEffect,
     BuffAttackerOnFriendlyAttackEffect,
     BuffFromSubjectAttackEffect,
+    RepeatPerCountEffect,
+    IncreaseTribeGiftEffect,
+    GiveLockboxEffect,
+    BuffOnePerListedTribeFriendly,
+    BumpSeatCounterEffect,
+    AddCardToNextRefreshesEffect,
     DestroyKillerEffect,
     GainTargetAttackEffect,
     StripKeywordsFromTargetEffect,
@@ -78,7 +84,7 @@ from src.bg_core.effects import (
     TriggerRandomFriendlyDeathrattleEffect,
     Trigger,
 )
-from src.bg_core.minion import Minion, Race
+from src.bg_core.minion import ALL_TRIBES, Minion, Race
 
 from .events import (
     AttackCompleted,
@@ -935,6 +941,8 @@ def _fire_rally(
                     hit += [i for i in (hit[0] - 1, hit[0] + 1) if 0 <= i < len(living)]
                 for i in sorted(set(hit)):
                     _deal_damage_to_battle_minion(rt, enemy_idx, living[i], amount)
+        elif isinstance(eff, BuffOnePerListedTribeFriendly):
+            _dr_buff_one_per_listed_tribe(rt, attacker, attacker_side_idx, eff)
         elif isinstance(eff, GainTargetAttackEffect):
             # "Rally: Gain the target's Attack" — read before the swing lands,
             # so it is what the defender was worth when this went in.
@@ -1271,6 +1279,135 @@ def _destroy_battle_minion(
     _sync_health_all(rt)
     _reap_side(rt, side_idx)
     _announce_deaths(rt)
+
+
+# --- deathrattles that write to the seat ---------------------------------
+# Every one of these is the same shape: a body dies in a fight and the *owner*
+# gains something the fight has no room for — a spell in hand, a bonus that
+# outlives the combat, a tally. They reach the seat rather than the copy,
+# because the copy is thrown away when the fight ends. Ten of them were
+# unregistered, which meant the loud dispatcher took the game down whenever one
+# of those cards died in combat.
+
+
+def _dr_add_tavern_spell_to_hand(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: AddTavernSpellToHandEffect,
+) -> None:
+    for _ in range(max(1, effect.count)):
+        rt.seats[side_idx].add_card_to_hand(effect.card_id)
+
+
+def _dr_add_random_card_to_hand(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: AddRandomCardToHandEffect,
+) -> None:
+    pool = [
+        cid
+        for cid in effect.card_ids
+        if cid in rt.patch.templates or cid in rt.patch.tavern_spells
+    ]
+    if not pool:
+        return
+    rt.seats[side_idx].add_card_to_hand(pool[int(rt.rng.integers(0, len(pool)))])
+
+
+def _dr_promise_refresh_card(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: AddCardToNextRefreshesEffect,
+) -> None:
+    rt.seats[side_idx].promise_refresh_card(effect.card_id, effect.refreshes)
+
+
+def _dr_give_lockbox(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: GiveLockboxEffect
+) -> None:
+    rt.seats[side_idx].give_lockbox(effect.sooner)
+
+
+def _dr_raise_blood_gem_value(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: IncreaseBloodGemBonusEffect,
+) -> None:
+    rt.seats[side_idx].raise_blood_gem_value(effect.attack, effect.health)
+
+
+def _dr_raise_tavern_spell_bonus(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: IncreaseTavernSpellBonusEffect,
+) -> None:
+    rt.seats[side_idx].raise_tavern_spell_bonus(effect.attack, effect.health)
+
+
+def _dr_raise_tribe_gift(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: IncreaseTribeGiftEffect,
+) -> None:
+    rt.seats[side_idx].raise_tribe_gift(effect.tribe, effect.attack, effect.health)
+
+
+def _dr_bump_seat_counter(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: BumpSeatCounterEffect,
+) -> None:
+    family, _, subject = effect.counter.partition(":")
+    rt.seats[side_idx].bump_game_count(family, subject or dead.card_id)
+
+
+def _dr_repeat_per_count(
+    rt: _CombatRuntime, dead: BattleMinion, side_idx: int, effect: RepeatPerCountEffect
+) -> None:
+    """"Improves each time…" — the tally is the seat's, so it is asked."""
+    times = rt.seats[side_idx].improve_level(effect.counter, effect.per)
+    inner = _DEATHRATTLE_HANDLERS.get(type(effect.effect))
+    if inner is None:
+        raise KeyError(
+            f"no deathrattle handler for {type(effect.effect).__name__} inside "
+            f"a RepeatPerCountEffect (card {dead.card_id!r})"
+        )
+    for _ in range(max(1, times) * max(1, effect.base_repeats)):
+        inner(rt, dead, side_idx, effect.effect)
+
+
+def _dr_buff_one_per_listed_tribe(
+    rt: _CombatRuntime,
+    dead: BattleMinion,
+    side_idx: int,
+    effect: BuffOnePerListedTribeFriendly,
+) -> None:
+    """"Give a friendly minion of each type +2/+2" — one pick per tribe."""
+    side = rt.side(side_idx)
+    for tribe in effect.tribes or ALL_TRIBES:
+        pool = [
+            m
+            for m in side.iter_living()
+            if (not effect.exclude_self or m is not dead)
+            and minion_matches_tribe(m, tribe)
+        ]
+        if not pool:
+            continue
+        target = pool[int(rt.rng.integers(0, len(pool)))]
+        target.bonus_attack += effect.attack
+        target.bonus_health += effect.health
+        if effect.permanent:
+            rt.seats[side_idx].keep_combat_gains(
+                target.origin_instance_id, effect.attack, effect.health, frozenset()
+            )
+    _sync_health_all(rt)
 
 
 def _dr_add_random_minion_to_hand(
@@ -1640,6 +1777,16 @@ _DEATHRATTLE_HANDLERS = {
     SummonBestFromHandEffect: _dr_summon_best_from_hand,
     DestroyKillerEffect: _dr_destroy_killer,
     AddRandomMinionToHandEffect: _dr_add_random_minion_to_hand,
+    AddTavernSpellToHandEffect: _dr_add_tavern_spell_to_hand,
+    AddRandomCardToHandEffect: _dr_add_random_card_to_hand,
+    AddCardToNextRefreshesEffect: _dr_promise_refresh_card,
+    GiveLockboxEffect: _dr_give_lockbox,
+    IncreaseBloodGemBonusEffect: _dr_raise_blood_gem_value,
+    IncreaseTavernSpellBonusEffect: _dr_raise_tavern_spell_bonus,
+    IncreaseTribeGiftEffect: _dr_raise_tribe_gift,
+    BumpSeatCounterEffect: _dr_bump_seat_counter,
+    RepeatPerCountEffect: _dr_repeat_per_count,
+    BuffOnePerListedTribeFriendly: _dr_buff_one_per_listed_tribe,
 }
 
 

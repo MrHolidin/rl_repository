@@ -102,6 +102,19 @@ class PlayerCombatSeat(RecordingSeat):
         if slot is not None and spell is not None:
             self.player.hand[slot] = spell
 
+    def promise_refresh_card(self, card_id: str, refreshes: int) -> None:
+        have = self.player.refresh_promises.get(card_id, 0)
+        self.player.refresh_promises[card_id] = have + int(refreshes)
+
+    def give_lockbox(self, sooner: int) -> None:
+        from .lockbox import give_lockbox
+
+        give_lockbox(self.player, sooner=int(sooner))
+
+    def raise_tribe_gift(self, tribe: object, attack: int, health: int) -> None:
+        self.player.elemental_gift_attack += int(attack)
+        self.player.elemental_gift_health += int(health)
+
     def improve_body(self, instance_id: int) -> None:
         body = self._board_minion(instance_id)
         if body is not None:

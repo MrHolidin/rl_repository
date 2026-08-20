@@ -912,25 +912,7 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
         ),
     ),
     "BG27_080": (  # Motley Phalanx — Deathrattle: one friendly of each type +2/+2
-        Ability(
-            Trigger.ON_DEATH,
-            BuffOnePerListedTribeFriendly(
-                attack=2,
-                health=2,
-                tribes=(
-                    Race.BEAST,
-                    Race.DEMON,
-                    Race.DRAGON,
-                    Race.ELEMENTAL,
-                    Race.MECHANICAL,
-                    Race.MURLOC,
-                    Race.NAGA,
-                    Race.PIRATE,
-                    Race.QUILBOAR,
-                    Race.UNDEAD,
-                ),
-            ),
-        ),
+        Ability(Trigger.ON_DEATH, BuffOnePerListedTribeFriendly(attack=2, health=2)),
     ),
     "BG34_682": (  # Razorfen Flapper — Deathrattle: get a Blood Gem Barrage
         Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG34_689")),
@@ -1829,6 +1811,25 @@ EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
+    # ---------------------------------------------------- the Amalgam family
+    # All three say the same sentence as each other or as a spell: "a friendly
+    # minion of each type", which is now what an empty tribe list means.
+    "BG34_320": (  # The Last One Standing — Rally: one of each type +12/+12 for keeps
+        Ability(
+            Trigger.ON_ATTACK,
+            BuffOnePerListedTribeFriendly(attack=12, health=12, permanent=True),
+        ),
+    ),
+    "BG32_111": (  # Nightmare Par-tea Guest — Battlecry *and* Deathrattle: a Tea Set
+        Ability(Trigger.ON_PLACE, AddTavernSpellToHandEffect(card_id="BG28_888")),
+        Ability(Trigger.ON_DEATH, AddTavernSpellToHandEffect(card_id="BG28_888")),
+    ),
+    "BG36_640": (  # Gatekeeper Amalgam — a spell cast on it makes it cast a Tea Set
+        Ability(
+            Trigger.ON_TARGETED_BY_SPELL,
+            CastSpellAtEffect(card_id="BG28_888", untargeted=True),
+        ),
+    ),
 }
 
 
@@ -1950,6 +1951,9 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             Trigger.ON_PLACE,
             BuffTargetFriendlyBattlecry(attack=2, health=2, exclude_self=False),
         ),
+    ),
+    "BG28_888": (  # Misplaced Tea Set — a friendly minion of each type +2/+2
+        Ability(Trigger.ON_PLACE, BuffOnePerListedTribeFriendly(attack=2, health=2)),
     ),
     "BG28_966": (  # Them Apples — give minions in the Tavern +1/+2
         Ability(Trigger.ON_PLACE, BuffAllShopOffersEffect(attack=1, health=2)),

@@ -79,6 +79,17 @@ def _has_repeats(effect: Effect) -> bool:
     return any(f.name == "repeats" for f in fields(effect))
 
 
+def _scales_something_else(effect: Effect) -> bool:
+    """Whether this effect has a number besides ``repeats`` for a golden to double."""
+    return any(
+        f.name in _GOLDEN_INT_FIELDS
+        and f.name != "repeats"
+        and isinstance(getattr(effect, f.name, None), int)
+        and getattr(effect, f.name) > 0
+        for f in fields(effect)
+    )
+
+
 def _is_effect(value: Any) -> bool:
     """A nested effect, as opposed to an int, a tribe, or a Minion reference."""
     return (
@@ -91,6 +102,25 @@ def _is_effect(value: Any) -> bool:
 def _should_skip_field(
     effect: Effect, field_name: str, value: int, hints: Dict[str, Any]
 ) -> bool:
+    if hints.get("prefer_repeats"):
+        if field_name == "amount" and isinstance(effect, DealDamageRandomEnemyMinion):
+            return True
+        if field_name == "repeats" and isinstance(effect, DealDamageRandomEnemyMinion):
+            # Doubled by ``_apply_prefer_repeats`` instead, so not here too.
+            return True
+        if field_name == "amount_per_match" and isinstance(
+            effect, StartOfCombatDamagePerFriendlyTribe
+        ):
+            return True
+        if _has_repeats(effect):
+            # "give another random friendly Elemental +1/+1 **twice**": two
+            # payouts of what is printed, not one payout of double.
+            return field_name != "repeats"
+    if field_name == "repeats" and _scales_something_else(effect):
+        # A golden that says nothing about repeating doubles the numbers, not
+        # how often they land. Houndmaster's golden is +4/+4 once, and doubling
+        # both would be four times the card.
+        return True
     if hints.get("repeats_only"):
         # Reached by recursion under "twice": the wrapper had no resolutions to
         # count, so the repeat belongs to what it wraps and nothing else there
@@ -118,15 +148,6 @@ def _should_skip_field(
         return not getattr(effect, "count_from_source_attack", False)
     if field_name == "amount" and isinstance(effect, DealHeroDamage):
         return bool(hints.get("preserve_hero_damage_amount"))
-    if hints.get("prefer_repeats"):
-        if field_name == "amount" and isinstance(effect, DealDamageRandomEnemyMinion):
-            return True
-        if field_name == "repeats" and isinstance(effect, DealDamageRandomEnemyMinion):
-            return True
-        if field_name == "amount_per_match" and isinstance(
-            effect, StartOfCombatDamagePerFriendlyTribe
-        ):
-            return True
     return False
 
 
@@ -138,6 +159,12 @@ def implicit_triple_golden_effect(
     if type(e) in _NO_GENERIC_SCALE:
         return e
 
+    # Decided before the loop, because the nested field can be visited before
+    # ``repeats`` is: an effect whose own repeat count doubles must not also
+    # double what it wraps, or "cast two Easterly Winds" casts four.
+    repeats_scales = _has_repeats(e) and not _should_skip_field(
+        e, "repeats", int(getattr(e, "repeats", 0) or 0), hints
+    )
     updates: Dict[str, Any] = {}
     for f in fields(e):
         if f.name not in _GOLDEN_INT_FIELDS:
@@ -145,7 +172,11 @@ def implicit_triple_golden_effect(
             # halves, and "repeat this for each X" doubles the thing repeated.
             # Without this the Golden Tasty Lobster still gave +1/+1.
             nested = getattr(e, f.name, None)
-            if _is_effect(nested) and not _scales_at_the_wrapper(hints, e):
+            if (
+                _is_effect(nested)
+                and not _scales_at_the_wrapper(hints, e)
+                and not repeats_scales
+            ):
                 inner = hints
                 if hints.get("prefer_repeats"):
                     # The "twice" has to land somewhere, and it is not here.

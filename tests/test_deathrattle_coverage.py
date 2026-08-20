@@ -19,7 +19,13 @@ from src.bg_catalog.patch_context import load_patch_context
 from src.bg_combat.battle.effects import _DEATHRATTLE_HANDLERS
 from src.bg_core.effects import Trigger
 
-PATCH_DIRS = ("data/bgcore/19_6_0_74257", "data/bgcore/15_6_2_36393")
+PATCH_DIRS = (
+    "data/bgcore/19_6_0_74257",
+    "data/bgcore/15_6_2_36393",
+    # Added late, and it found Motley Phalanx crashing the engine on death:
+    # a guard that does not cover the package being written is not a guard.
+    "data/bgcore/36_2_0_248348",
+)
 
 
 @pytest.mark.parametrize("patch_dir", PATCH_DIRS)

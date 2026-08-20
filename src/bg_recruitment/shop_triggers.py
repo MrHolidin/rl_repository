@@ -147,7 +147,7 @@ from src.bg_core.board_helpers import (
     multiplier_for,
     count_unique_tribes,
 )
-from src.bg_core.minion import Minion, Race
+from src.bg_core.minion import ALL_TRIBES, Minion, Race
 from src.envs.minibg.actions import BOARD_SIZE
 from src.bg_recruitment.discover_pool import (
     ADAPT_KEYS_ALL,
@@ -384,7 +384,7 @@ class ShopTriggers:
         effect: BuffOnePerListedTribeFriendly,
         board: List[Minion],
     ) -> None:
-        for tribe in effect.tribes:
+        for tribe in effect.tribes or ALL_TRIBES:
             pool = (
                 [m for m in board if m is not source]
                 if effect.exclude_self

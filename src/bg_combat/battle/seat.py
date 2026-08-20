@@ -108,6 +108,16 @@ class CombatSeat(Protocol):
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
         """Stats onto a random minion in the owner's hand."""
 
+    def promise_refresh_card(self, card_id: str, refreshes: int) -> None:
+        """"Add a Fodder to your next 3 Refreshes" — a promise, not a card."""
+
+    def give_lockbox(self, sooner: int) -> None:
+        """A Lockbox onto the seat, or a turn off the one it already holds."""
+
+    def raise_tribe_gift(self, tribe: object, attack: int, health: int) -> None:
+        """"Your Elementals give an extra +1 Attack this game" — what each
+        grant hands out, not the running total."""
+
     def improve_body(self, instance_id: int) -> None:
         """Count one improve on a body that improves *itself* permanently.
 
@@ -160,6 +170,9 @@ class RecordingSeat:
     #: Combat gains a body asked to keep (instance_id, attack, health, keywords).
     kept_gains: List[Tuple[int, int, int, frozenset]] = field(default_factory=list)
     body_improves: List[int] = field(default_factory=list)
+    refresh_card_promises: List[Tuple[str, int]] = field(default_factory=list)
+    lockboxes: List[int] = field(default_factory=list)
+    tribe_gifts: List[Tuple[object, int, int]] = field(default_factory=list)
     #: Gem value a recording seat reports: the printed +1/+1, since it has no
     #: player to read a bonus off.
     base_gem_value: Tuple[int, int] = (1, 1)
@@ -217,6 +230,15 @@ class RecordingSeat:
 
     def buff_hand_minion(self, attack: int, health: int, *, rng) -> None:
         self.hand_buffs.append((int(attack), int(health)))
+
+    def promise_refresh_card(self, card_id: str, refreshes: int) -> None:
+        self.refresh_card_promises.append((card_id, int(refreshes)))
+
+    def give_lockbox(self, sooner: int) -> None:
+        self.lockboxes.append(int(sooner))
+
+    def raise_tribe_gift(self, tribe: object, attack: int, health: int) -> None:
+        self.tribe_gifts.append((tribe, int(attack), int(health)))
 
     def improve_body(self, instance_id: int) -> None:
         self.body_improves.append(int(instance_id))

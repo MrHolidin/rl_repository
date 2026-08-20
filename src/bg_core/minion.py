@@ -234,4 +234,8 @@ class Minion:
         return self.base_attack + self.bonus_attack + self.temp_attack
 
 
-__all__ = ["Race", "Minion"]
+#: Every tribe a minion can be, which is what "of each type" means. ALL is the
+#: Amalgam marker rather than a type of its own, so it is not one of them.
+ALL_TRIBES = tuple(r for r in Race if r is not Race.ALL)
+
+__all__ = ["ALL_TRIBES", "Race", "Minion"]

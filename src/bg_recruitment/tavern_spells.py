@@ -506,16 +506,20 @@ def _apply_spell_effect(
         # names are read from where *it* stands.
         spell = patch.tavern_spells.get(effect.card_id)
         if spell is not None and target is not None:
-            for aimed in _positional_targets(player, target, effect):
-                cast_tavern_spell(
-                    player,
-                    spell,
-                    rng=rng,
-                    patch=patch,
-                    target=aimed,
-                    shop_excluded_race=shop_excluded_race,
-                    shared_pool=shared_pool,
-                )
+            aimed_at = (
+                [None] if effect.untargeted else _positional_targets(player, target, effect)
+            )
+            for _ in range(max(1, effect.repeats)):
+                for aimed in aimed_at:
+                    cast_tavern_spell(
+                        player,
+                        spell,
+                        rng=rng,
+                        patch=patch,
+                        target=aimed,
+                        shop_excluded_race=shop_excluded_race,
+                        shared_pool=shared_pool,
+                    )
         return
 
     if isinstance(effect, DiscoverTavernSpellEffect):

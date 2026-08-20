@@ -147,15 +147,24 @@ class BuffRandomFriendly:
 
 @dataclass(frozen=True)
 class BuffOnePerListedTribeFriendly:
-    """Shop: for each entry in ``tribes``, pick uniformly among matching friendlies (if any).
+    """For each entry in ``tribes``, pick uniformly among matching friendlies.
 
-    Dragon and other HS tribes omitted from ``Race`` are skipped at card definition time.
+    ``tribes`` left empty means every type, which is what all three printings of
+    this say ("give a friendly minion of each type +2/+2") — written once here
+    rather than spelled out as a ten-entry tuple in each binding.
+
+    ``permanent`` is the Rally printing: a buff handed out mid-fight dies with
+    the copy unless it is written back to the seat's own minion.
     """
 
     attack: int
     health: int
-    tribes: Tuple[Any, ...]
+    tribes: Tuple[Any, ...] = ()
     exclude_self: bool = True
+    permanent: bool = False
+    #: How many times the whole pass runs. The Golden Last One Standing does it
+    #: "twice", which is two picks per type rather than one twice as big.
+    repeats: int = 1
 
 
 class BuffTarget(Enum):
@@ -920,6 +929,13 @@ class CastSpellAtEffect:
     card_id: str
     to_the_right: bool = False
     adjacent: bool = False
+    #: "It casts Misplaced Tea Set" — a cast with no target at all, as against
+    #: one aimed at the caster. The difference matters: a spell cast *on* a
+    #: minion wakes the cards watching for that, and Gatekeeper Amalgam is one
+    #: of them, so aiming its own cast at itself would never stop.
+    untargeted: bool = False
+    #: How many times it casts. The Golden Gatekeeper casts "twice".
+    repeats: int = 1
 
 
 @dataclass(frozen=True)
