@@ -481,7 +481,7 @@ HEROES: Dict[str, Hero] = {
         start_armor=16,
         power=(Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect()),),
         power_cost=0,
-        power_once_per_game=True,
+        power_charges=1,
     ),
     # Grave Strength — "Steal a card from the Tavern. Take 2 damage."
     "TB_BaconShop_HERO_25": Hero(

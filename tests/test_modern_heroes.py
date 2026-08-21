@@ -788,3 +788,104 @@ def test_pressing_never_reaches_the_dispatcher_with_nothing_to_do(patch):
         refresh_shop(player, None, rng=np.random.default_rng(0), patch=patch)
         assert hero_passives.can_use_hero_power(player, 8), hero_id
         _press(patch, player)  # raises loudly if any effect is unhandled
+
+
+# --------------------------------------------------------------------------- #
+# How often a power may be pressed — four limits, and they compose
+# --------------------------------------------------------------------------- #
+
+
+def test_the_default_is_once_a_turn_and_it_comes_back(patch):
+    player = _armed(patch, "BG28_HERO_801", gold=20)  # Holli'dae
+    assert hero_passives.can_use_hero_power(player, 5)
+    _press(patch, player)
+    assert not hero_passives.can_use_hero_power(player, 5)
+
+    hero_passives.apply_hero_on_turn_start(
+        player, round_number=6, patch=patch, rng=np.random.default_rng(0)
+    )
+    player.gold = 20
+    assert hero_passives.can_use_hero_power(player, 6)
+
+
+def test_twice_per_turn_is_two_and_not_three(patch):
+    player = _armed(patch, "BG20_HERO_103", gold=20)  # Blackthorn
+    for _ in range(2):
+        assert hero_passives.can_use_hero_power(player, 5)
+        _press(patch, player)
+    assert not hero_passives.can_use_hero_power(player, 5)
+
+
+def test_charges_are_spent_for_the_whole_game_not_the_turn(patch):
+    """"Once per game" is one charge; the pool also prints four, three and
+    three. A new turn gives back the per-turn use and not the charge."""
+    body = patch.make_minion("BGS_119")
+    player = _armed(patch, "TB_BaconShop_HERO_41", board=[body])  # Reno, 1 charge
+    assert patch.heroes["TB_BaconShop_HERO_41"].power_charges == 1
+    _press(patch, player)
+    for round_number in (6, 7, 8):
+        hero_passives.apply_hero_on_turn_start(
+            player, round_number=round_number, patch=patch, rng=np.random.default_rng(0)
+        )
+        player.gold = 20
+        assert not hero_passives.can_use_hero_power(player, round_number)
+
+
+def test_a_multi_charge_power_counts_down_across_turns(patch):
+    """The shape Captain Eudora, Putricide and Zephrys print. Nothing binds it
+    yet, so it is checked on the model rather than on a card."""
+    from dataclasses import replace
+
+    player = _armed(patch, "BG28_HERO_801", gold=40)
+    player.hero = replace(player.hero, power_charges=3)
+    for round_number in (5, 6, 7):
+        assert hero_passives.can_use_hero_power(player, round_number), round_number
+        _press(patch, player)
+        hero_passives.apply_hero_on_turn_start(
+            player, round_number=round_number + 1, patch=patch, rng=np.random.default_rng(0)
+        )
+        player.gold = 40
+    assert player.hero_power_uses_game == 3
+    assert not hero_passives.can_use_hero_power(player, 8)
+
+
+def test_a_cooldown_keeps_it_asleep_for_the_turns_it_names(patch):
+    """Snake Eyes' shape: pressed, then unusable for a number of turns."""
+    from dataclasses import replace
+
+    player = _armed(patch, "BG28_HERO_801", gold=40)
+    player.hero = replace(player.hero, power_cooldown_turns=3)
+    _press(patch, player)
+    assert player.hero_power_ready_on_round == 8
+
+    for round_number in (6, 7):
+        hero_passives.apply_hero_on_turn_start(
+            player, round_number=round_number, patch=patch, rng=np.random.default_rng(0)
+        )
+        player.gold = 40
+        assert not hero_passives.can_use_hero_power(player, round_number), round_number
+
+    hero_passives.apply_hero_on_turn_start(
+        player, round_number=8, patch=patch, rng=np.random.default_rng(0)
+    )
+    player.gold = 40
+    assert hero_passives.can_use_hero_power(player, 8)
+
+
+def test_every_bound_powers_limit_matches_what_the_card_prints(patch, catalog_heroes):
+    """The card says it or the default holds. Two say "Twice per turn", three
+    of the 65 say "once per game"; the seven that print "(N left!)" as a
+    countdown to a payout are not use limits and must not be read as charges.
+    """
+    import re
+
+    for hero_id, hero in patch.heroes.items():
+        if not hero.has_power():
+            continue
+        text = re.sub("<[^>]+>", "", catalog_heroes[hero_id]["powerText"] or "")
+        wanted_uses = 2 if re.search(r"[Tt]wice per turn", text) else 1
+        assert hero.power_uses == wanted_uses, hero_id
+        if re.search(r"[Oo]nce per game", text):
+            assert hero.power_charges == 1, hero_id
+        else:
+            assert hero.power_charges == 0, hero_id

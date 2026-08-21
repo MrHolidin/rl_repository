@@ -474,12 +474,23 @@ class Hero:
     #: dispatcher a Tavern spell goes through, because a hero power is the
     #: same kind of thing: an effect with no body behind it.
     power: Tuple[Any, ...] = field(default_factory=tuple)
-    #: The price on the card, and how often it may be pressed. ``power_uses``
-    #: is per turn ("Twice per turn"); ``power_once_per_game`` is the other
-    #: kind ("Once per game").
+    #: The price on the card, and how often it may be pressed. The pool prints
+    #: four different limits and they compose rather than exclude:
+    #:
+    #: * ``power_uses`` — presses per turn. One unless the card says otherwise
+    #:   ("Twice per turn"), which two of the 65 do.
+    #: * ``power_charges`` — presses for the whole game, 0 for no limit.
+    #:   "Once per game" is one charge; Captain Eudora's "(4 Digs left.)",
+    #:   Putricide's "(3 Creations left!)" and Zephrys' "(3 Wishes left!)" are
+    #:   the rest. Not to be confused with the seven cards that print "(N
+    #:   left!)" as a countdown to a *payout* rather than a use limit.
+    #: * ``power_cooldown_turns`` — turns it sleeps after a press. Snake Eyes
+    #:   alone, and the number is the die roll rather than a constant, so the
+    #:   effect sets it.
     power_cost: int = 0
     power_uses: int = 1
-    power_once_per_game: bool = False
+    power_charges: int = 0
+    power_cooldown_turns: int = 0
     #: Powers that only wake up later ("Unlocks at Tier 4", "on Turn 3").
     power_unlocks_at_tier: int = 0
     power_unlocks_on_turn: int = 0

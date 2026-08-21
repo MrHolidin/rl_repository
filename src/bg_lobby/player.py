@@ -273,7 +273,10 @@ class PlayerState:
     #: How often the hero power has been pressed this turn, and whether a
     #: once-per-game one has been spent. Reset at the seat's turn start.
     hero_power_uses_this_turn: int = 0
-    hero_power_spent: bool = False
+    #: Presses used this game, against ``Hero.power_charges``.
+    hero_power_uses_game: int = 0
+    #: The first round the power may be pressed again, for the one that sleeps.
+    hero_power_ready_on_round: int = 0
     #: What the power costs beyond its printed price (Elise, whose climbs).
     hero_power_cost_delta: int = 0
     #: The round this seat is playing. Recorded at its turn start because the

@@ -504,9 +504,11 @@ def can_use_hero_power(player: PlayerState, round_number: int = 1) -> bool:
     h = player.hero
     if h is None or not h.has_power():
         return False
-    if h.power_once_per_game and player.hero_power_spent:
+    if h.power_charges and player.hero_power_uses_game >= int(h.power_charges):
         return False
     if player.hero_power_uses_this_turn >= max(1, int(h.power_uses)):
+        return False
+    if int(round_number) < int(player.hero_power_ready_on_round):
         return False
     if h.power_unlocks_at_tier and player.tavern_tier < h.power_unlocks_at_tier:
         return False
@@ -540,8 +542,11 @@ def use_hero_power(
     player.gold -= cost
     note_gold_spent(player, cost, patch=patch)
     player.hero_power_uses_this_turn += 1
-    if h.power_once_per_game:
-        player.hero_power_spent = True
+    player.hero_power_uses_game += 1
+    if h.power_cooldown_turns:
+        player.hero_power_ready_on_round = int(round_number) + int(
+            h.power_cooldown_turns
+        )
     for p in h.passives:
         if isinstance(p, PowerCostGrowsPerUse):
             player.hero_power_cost_delta += int(p.amount)
