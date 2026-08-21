@@ -13,6 +13,7 @@ from src.envs.minibg.action_map import (
     A_SELL_BASE,
     A_SWAP_BOARD_0,
     NUM_ACTIONS,
+    NUM_CORE_ACTIONS,
     NUM_ENV_ACTIONS,
     NUM_SWAP_ADJ,
     env_action_to_game_action,
@@ -32,9 +33,13 @@ def test_action_layout():
     assert A_PLAY_BASE == int(GameAction.PLAY_HAND_0)
     assert A_MAGNET_BASE == int(GameAction.MAGNET_HAND_0_BOARD_0)
     assert A_DISCOVER_BASE == int(GameAction.DISCOVER_PICK_0)
-    assert A_SWAP_BOARD_0 == NUM_ACTIONS
+    # The env's own actions stack on the *game* band, below HERO_POWER, which
+    # was appended above them so that adding it moved no id a policy knows.
+    assert A_SWAP_BOARD_0 == NUM_CORE_ACTIONS
     assert A_APPLY_EFFECT_SKIP == A_SWAP_BOARD_0 + NUM_SWAP_ADJ
-    assert NUM_ENV_ACTIONS == A_APPLY_EFFECT_SKIP + 1
+    # HERO_POWER sits above the env-only band, so the space ends at it.
+    assert int(GameAction.HERO_POWER) == A_APPLY_EFFECT_SKIP + 1
+    assert NUM_ENV_ACTIONS == int(GameAction.HERO_POWER) + 1
 
 
 def test_env_to_game_mapping_covers_all_non_order_actions():

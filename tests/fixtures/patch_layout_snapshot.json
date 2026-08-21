@@ -133,13 +133,13 @@
     ]
   },
   "action_layout": {
-    "A_APPLY_EFFECT_SKIP": 114,
-    "A_SWAP_BOARD_0": 108,
+    "A_APPLY_EFFECT_SKIP": 113,
+    "A_SWAP_BOARD_0": 107,
     "BOARD_SIZE": 7,
     "HAND_SIZE": 10,
     "MAX_SHOP_SLOTS": 6,
     "MAX_TIER": 6,
-    "NUM_ACTIONS": 108,
+    "NUM_ACTIONS": 115,
     "NUM_ENV_ACTIONS": 115,
     "SHOP_OFFERS_BY_TIER": {
       "1": 3,

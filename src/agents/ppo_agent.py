@@ -588,13 +588,24 @@ class PPOAgent(BaseAgent):
         ppo_network_type = checkpoint.get("ppo_network_type", PPO_NETWORK_ACTOR_CRITIC_CNN)
         ppo_network_kwargs = dict(checkpoint.get("ppo_network_kwargs") or {})
 
+        # The action space only ever grows by appending, so a policy trained
+        # before the newest action reads every action it learned the same way —
+        # it is one row narrower than the env's mask is wide.
+        from src.agents.checkpoint_compat import (
+            current_action_space_size,
+            grow_appended_rows,
+        )
+
+        num_actions = current_action_space_size(ppo_network_type, num_actions)
         policy_net = restore_ppo_actor_critic(
             ppo_network_type,
             observation_shape,
             num_actions,
             ppo_network_kwargs,
         )
-        policy_net.load_state_dict(checkpoint["policy_state_dict"])
+        state = dict(checkpoint["policy_state_dict"])
+        grow_appended_rows(policy_net, state)
+        policy_net.load_state_dict(state)
 
         base_kwargs: Dict[str, Any] = {
             "observation_shape": observation_shape,

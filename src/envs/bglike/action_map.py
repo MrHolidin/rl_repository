@@ -8,7 +8,7 @@ from .actions import (
     BOARD_SIZE,
     HAND_SIZE,
     MAX_SHOP_SLOTS,
-    NUM_ACTIONS,
+    NUM_CORE_ACTIONS,
     NUM_DISCOVER_PICKS,
     Action,
     is_discover_pick_game_action,
@@ -18,7 +18,9 @@ from .actions import (
 )
 
 NUM_SWAP_ADJ = BOARD_SIZE - 1
-A_SWAP_BOARD_0 = NUM_ACTIONS
+# Stacked on the *game* band, not on the highest action id: HERO_POWER sits
+# above these, so deriving from the id count would have moved them.
+A_SWAP_BOARD_0 = NUM_CORE_ACTIONS
 A_SWAP_BOARD_LAST = A_SWAP_BOARD_0 + NUM_SWAP_ADJ - 1
 
 A_SHOP_SLOT_0 = int(Action.BUY_SLOT_0)
@@ -42,8 +44,9 @@ A_TARGET_BOARD_LAST = int(Action.TARGET_BOARD_0) + BOARD_SIZE - 1
 
 # RL-only: skip second adjacent target during staged place (not a game ``Action``).
 A_APPLY_EFFECT_SKIP = A_SWAP_BOARD_LAST + 1
+A_HERO_POWER = int(Action.HERO_POWER)
 
-NUM_ENV_ACTIONS = A_APPLY_EFFECT_SKIP + 1
+NUM_ENV_ACTIONS = max(A_APPLY_EFFECT_SKIP, A_HERO_POWER) + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0

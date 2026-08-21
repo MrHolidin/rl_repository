@@ -25,6 +25,11 @@ def shop_offers_count(tavern_tier: int) -> int:
     return SHOP_OFFERS_BY_TIER.get(int(tavern_tier), MAX_SHOP_SLOTS)
 
 
+#: Env-only action ids ``action_map`` reserves directly above the game band:
+#: ``BOARD_SIZE - 1`` adjacent board swaps and one APPLY_EFFECT_SKIP.
+ENV_ONLY_ACTION_SLOTS = (BOARD_SIZE - 1) + 1
+
+
 def _build_action_enum() -> type[IntEnum]:
     members: Dict[str, int] = {}
     n = 0
@@ -59,13 +64,23 @@ def _build_action_enum() -> type[IntEnum]:
     # value, so a policy trained without this one reads every other action the
     # same way. The modern patch has 65 heroes whose power the seat presses;
     # the 2021 pool is passive and never offers it.
-    members["HERO_POWER"] = n
-    n += 1
+    #
+    # The flat env carves its own actions out of this same integer space, directly
+    # above the game ones: ``action_map`` puts the board swaps and APPLY_EFFECT_SKIP
+    # there. They were already there before HERO_POWER, and a policy trained on the
+    # 2021 patch has learned those ids — so HERO_POWER goes above *them*. Appending
+    # it at the enum's end would have been an append for the enum and a shift for
+    # every env id after it.
+    members["HERO_POWER"] = n + ENV_ONLY_ACTION_SLOTS
     return IntEnum("Action", members)
 
 
 Action = _build_action_enum()
 
+#: The contiguous band of game actions, below the env-only ids. This is what
+#: ``action_map`` stacks its own actions on top of, and it must never move.
+NUM_CORE_ACTIONS = int(Action.HERO_POWER) - ENV_ONLY_ACTION_SLOTS
+#: One past the highest action id, env-only reservations included.
 NUM_ACTIONS = int(max(a.value for a in Action)) + 1
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE

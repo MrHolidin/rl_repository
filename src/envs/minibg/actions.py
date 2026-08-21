@@ -97,10 +97,22 @@ class Action(IntEnum):
     # value, so a policy trained without this one reads every other action the
     # same way. The modern patch has 65 heroes whose power the seat presses;
     # the 2021 pool is passive and never offers it.
-    HERO_POWER = 73
+    #
+    # The flat env carves its own actions out of this same integer space, directly
+    # above the game ones: ``action_map`` puts the board swaps and APPLY_EFFECT_SKIP
+    # there. They were already there before HERO_POWER, and a policy trained on the
+    # 2021 patch has learned those ids — so HERO_POWER goes above *them*. Appending
+    # it at the enum's end would have been an append for the enum and a shift for
+    # every env id after it.
+    HERO_POWER = 80
 
 
-NUM_ACTIONS = 74
+#: The contiguous band of game actions, below the env-only ids ``action_map``
+#: reserves (``BOARD_SIZE - 1`` board swaps and one APPLY_EFFECT_SKIP). This is
+#: what the env stacks its own actions on top of, and it must never move.
+NUM_CORE_ACTIONS = 73
+#: One past the highest action id, env-only reservations included.
+NUM_ACTIONS = 81
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE

@@ -8,7 +8,15 @@ from __future__ import annotations
 
 from typing import Iterable, Tuple
 
-from .actions import MAX_SHOP_SLOTS, Action, BOARD_SIZE, HAND_SIZE, NUM_ACTIONS, STARTING_TIER
+from .actions import (
+    MAX_SHOP_SLOTS,
+    Action,
+    BOARD_SIZE,
+    HAND_SIZE,
+    NUM_ACTIONS,
+    NUM_CORE_ACTIONS,
+    STARTING_TIER,
+)
 
 A_SHOP_SLOT_0 = int(Action.BUY_SLOT_0)
 A_SHOP_SLOT_LAST = int(Action.BUY_SLOT_5)
@@ -28,13 +36,16 @@ A_TARGET_BOARD_0 = int(Action.TARGET_BOARD_0)
 A_TARGET_BOARD_LAST = int(Action.TARGET_BOARD_6)
 
 NUM_SWAP_ADJ = BOARD_SIZE - 1
-A_SWAP_BOARD_0 = NUM_ACTIONS
+# Stacked on the *game* band, not on the highest action id: HERO_POWER sits
+# above these, so deriving from the id count would have moved them.
+A_SWAP_BOARD_0 = NUM_CORE_ACTIONS
 A_SWAP_BOARD_LAST = A_SWAP_BOARD_0 + NUM_SWAP_ADJ - 1
 
 # RL-only: skip second adjacent target during staged place (not a game ``Action``).
 A_APPLY_EFFECT_SKIP = A_SWAP_BOARD_LAST + 1
+A_HERO_POWER = int(Action.HERO_POWER)
 
-NUM_ENV_ACTIONS = A_APPLY_EFFECT_SKIP + 1
+NUM_ENV_ACTIONS = max(A_APPLY_EFFECT_SKIP, A_HERO_POWER) + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0

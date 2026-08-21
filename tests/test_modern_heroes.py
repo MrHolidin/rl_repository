@@ -1512,7 +1512,9 @@ def test_a_hero_the_lobbys_tribes_cannot_serve_is_not_dealt(patch):
     filled; the tavern leaves her out of the offer instead."""
     from collections import Counter
 
-    dragon_locked = {"Alexstrasza", "Ysera"}
+    # Her *power* is the Dragon Discover. Ysera's Dragon is a passive and a
+    # passive that cannot fire costs the seat nothing, so she is still dealt.
+    dragon_locked = {"Alexstrasza"}
     seen = Counter()
     for i in range(200):
         player = _seat(patch)

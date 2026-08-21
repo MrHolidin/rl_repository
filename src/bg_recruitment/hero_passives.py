@@ -88,24 +88,21 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 
 
-def _races_a_hero_needs(hero) -> frozenset:
-    """Every tribe the hero's power and passives name.
+def _races_a_power_needs(hero) -> frozenset:
+    """Every tribe the hero's *power* names.
 
-    Read off the fields rather than listed per hero, so a new descriptor that
-    names a tribe is covered by having named it.
+    The power only, not the passives. A passive that cannot fire costs the seat
+    nothing — Ysera's guaranteed slot quietly shows an ordinary minion — but a
+    power charges gold for a Discover with nothing to fill it, which is a trap
+    rather than a weak hero. It is also what keeps the 2021 pool, all fifteen
+    of it passive, dealt exactly as it was.
+
+    Read off the fields rather than listed per hero, so a new effect that names
+    a tribe is covered by having named it.
     """
-    # Two descriptors print their tribe in the class name rather than a field,
-    # which is fine for them and invisible to a field scan.
-    by_name = {
-        "ExtraShopDragon": Race.DRAGON,          # Ysera
-        "UpgradeDiscountPerElementals": Race.ELEMENTAL,  # Chenvaala
-    }
     found = set()
-    sources = list(hero.passives) + [ab.effect for ab in hero.power]
+    sources = [ab.effect for ab in hero.power]
     for src in sources:
-        named = by_name.get(type(src).__name__)
-        if named is not None:
-            found.add(named)
         for field in ("tribe", "race", "filter_race", "race_filter"):
             value = getattr(src, field, None)
             if isinstance(value, Race):
@@ -126,10 +123,10 @@ def assign_random_hero(
 ) -> None:
     """Assign one random hero from the patch pool (deterministic given ``rng``).
 
-    A hero whose whole power is a tribe this lobby left out is not offered.
+    A hero whose power is a tribe this lobby left out is not offered:
     Alexstrasza with no Dragons pays a gold for a Discover that cannot be
-    filled, and Ysera's guaranteed Dragon slot is a slot like any other — the
-    tavern removes them from the offer rather than dealing a dead hero.
+    filled. A *passive* tied to an absent tribe is left alone — it costs the
+    seat nothing, and the 2021 pool is passive to the last hero.
     """
     from src.bg_catalog.cards import normalize_shop_excluded_races
 
@@ -139,7 +136,7 @@ def assign_random_hero(
     out = frozenset(normalize_shop_excluded_races(shop_excluded_race) or ())
     eligible = sorted(pool)
     if out:
-        served = [h for h in eligible if not (_races_a_hero_needs(patch.heroes[h]) & out)]
+        served = [h for h in eligible if not (_races_a_power_needs(patch.heroes[h]) & out)]
         if served:
             eligible = served
     hid = eligible[int(rng.integers(0, len(eligible)))]
