@@ -764,7 +764,9 @@ def _apply_spell_effect(
         pool = tavern_spell_pool(
             player.tavern_tier, patch=patch, shop_excluded_race=shop_excluded_race
         )
-        if pool:
+        for _ in range(max(1, int(effect.repeats))):
+            if not pool:
+                break
             rolled = patch.tavern_spells[pool[int(rng.integers(0, len(pool)))]]
             cast_tavern_spell(
                 player,
@@ -833,6 +835,8 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, DiscoverMinionAtTierEffect):
+        # "Discover **two** Tier 1 minions" on the Golden: the extra Discover is
+        # queued behind the first, the way every chained modal is.
         _open_tier_discover(
             player,
             effect.tier * improve_level(player, effect.counter, effect.per),
@@ -840,6 +844,7 @@ def _apply_spell_effect(
             patch=patch,
             shop_excluded_race=shop_excluded_race,
             shared_pool=shared_pool,
+            repeats=max(1, int(effect.count)),
         )
         return
 
@@ -1028,6 +1033,7 @@ def _open_tier_discover(
     patch: PatchContext,
     shop_excluded_race: Optional[Race],
     shared_pool: Optional[SharedCardPool],
+    repeats: int = 1,
 ) -> None:
     """A New Sprout: three minions of one tier, the seat keeps one.
 
@@ -1053,6 +1059,9 @@ def _open_tier_discover(
         player,
         PendingChoiceKind.TAVERN_SPELL_DISCOVER,
         options,
-        0,  # one Discover, no chain behind it
+        # "Discover **two** Tier 1 minions" on Patient Scout's Golden: the
+        # second modal is chained behind the first, the same way every other
+        # repeated Discover queues.
+        max(1, int(repeats)) - 1,
         shared_pool=shared_pool,
     )

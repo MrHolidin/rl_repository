@@ -178,8 +178,8 @@ def magnetize(
     this minion is doubled" is a property of the *target*, and only this knows
     which minion is being magnetized to.
     """
-    times = 2 if target.magnet_doubles_next else 1
-    target.magnet_doubles_next = False
+    times = max(1, int(target.magnet_doubles_next or 1))
+    target.magnet_doubles_next = 0
     for _ in range(times):
         merge_magnetic_inplace(target, magnet)
         target.magnetized_count += 1
@@ -206,8 +206,17 @@ def _echo_magnetize(
     for other in list(player.board):
         if other is target:
             continue
-        if any(isinstance(ab.effect, EchoMagnetizeEffect) for ab in other.abilities):
-            magnetize(player, other, magnet, triggers=triggers, echo=False)
+        echo = next(
+            (
+                ab.effect
+                for ab in other.abilities
+                if isinstance(ab.effect, EchoMagnetizeEffect)
+            ),
+            None,
+        )
+        if echo is not None:
+            for _ in range(max(1, int(echo.repeats))):
+                magnetize(player, other, magnet, triggers=triggers, echo=False)
 
 
 def magnet_from_hand(

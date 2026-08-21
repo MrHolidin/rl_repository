@@ -138,7 +138,11 @@ def activate_minion(
             # seat names the slot, so this is a targeted move like the buff
             # below, and the shop dispatcher has no way to be told which slot.
             if shop_target_index is not None:
-                place_fishbait(player, shop_target_index)
+                # A Golden body baits with a Golden Fishbait, which is what
+                # its printing says and what the other bait card already did.
+                place_fishbait(
+                    player, shop_target_index, golden=minion.is_golden
+                )
             continue
         if isinstance(effect, DestroyFriendlyEffect):
             # "Activate (1): Give a different friendly Undead Reborn. Then

@@ -1337,3 +1337,99 @@ def test_tomb_turnings_pick_dies_if_played_the_same_turn(patch):
     assert not card.dies_if_played_this_turn
     _play(player, card)
     assert [m.card_id for m in player.board] == [card.card_id]
+
+
+# --------------------------------------------------------------------------- #
+# Golden printings that used to do exactly what the plain one does
+# --------------------------------------------------------------------------- #
+
+
+def test_no_golden_silently_repeats_its_plain_printing(patch):
+    """A golden whose catalog text differs must differ in what it does. Nine
+    cards genuinely print the same golden text and are exempt; the two Fishbait
+    cards differ at cast time instead, through the goldenness of the body that
+    baits."""
+    import json
+    import re
+
+    raw = {
+        r["id"]: r
+        for r in json.load(open(patch.patch_dir / "catalog.json"))["minions"]
+    }
+    bait_cards = {"BG36_201", "BG36_206"}
+
+    def _text(card_id):
+        return re.sub("<[^>]+>", "", (raw.get(card_id) or {}).get("text") or "").strip()
+
+    inert = []
+    for card_id in sorted(patch.pool_ids):
+        plain = patch.effects.get(card_id, ())
+        if not plain or card_id in bait_cards:
+            continue
+        golden_text = _text(card_id + "_G")
+        if not golden_text or golden_text == _text(card_id):
+            continue  # the golden really does print the same thing
+        if patch.triple_merge_golden_abilities(card_id) == plain:
+            inert.append(card_id)
+    assert inert == [], inert
+
+
+def test_a_golden_bounty_fetcher_gets_two(patch):
+    body = patch.make_minion("BG33_822")
+    golden = _forged(patch, "BG33_822")
+    for card, wanted in ((body, 1), (golden, 2)):
+        player = _player(patch, [card])
+        for ability in card.abilities:
+            ShopTriggers(np.random.default_rng(0), patch=patch).apply_shop_effect(
+                player, card, ability.effect, placed=None
+            )
+        assert sum(1 for c in player.hand if c is not None) == wanted
+
+
+def test_a_golden_drone_duplicator_triples(patch):
+    from src.bg_core.minion import Race
+    from src.bg_recruitment.place import magnet_from_hand
+
+    host_id = next(
+        c
+        for c in sorted(patch.pool_ids)
+        if patch.templates[c].race is Race.MECHANICAL
+        and Keyword.MAGNETIC not in patch.templates[c].keywords
+    )
+    part_id = next(
+        c for c in sorted(patch.pool_ids) if Keyword.MAGNETIC in patch.templates[c].keywords
+    )
+    part_attack = patch.templates[part_id].base_attack
+
+    for card, multiple in ((patch.make_minion("BG36_506"), 2), (_forged(patch, "BG36_506"), 3)):
+        host = patch.make_minion(host_id)
+        player = _player(patch, [host])
+        player.hand[0] = patch.make_minion(part_id)
+        for ability in card.abilities:
+            ShopTriggers(np.random.default_rng(0), patch=patch).apply_shop_effect(
+                player, host, ability.effect, placed=None
+            )
+        magnet_from_hand(player, 0, 0, patch=patch)
+        grew = host.base_attack - patch.templates[host_id].base_attack
+        assert grew == part_attack * multiple
+
+
+def test_a_golden_captain_sanders_gilds_two(patch):
+    from src.bg_recruitment.targeted_battlecry import apply_targeted_on_place_battlecries
+
+    for card, wanted in ((patch.make_minion("BG25_034"), 1), (_forged(patch, "BG25_034"), 2)):
+        mates = [patch.make_minion("BGS_119") for _ in range(3)]
+        player = _player(patch, [card, *mates])
+        apply_targeted_on_place_battlecries(
+            ShopTriggers(np.random.default_rng(0), patch=patch),
+            player,
+            card,
+            rng=np.random.default_rng(0),
+        )
+        assert sum(1 for m in player.board if m.is_golden and m is not card) == wanted
+
+
+def _forged(patch, card_id):
+    from src.bg_recruitment.triples import make_forged_golden_minion
+
+    return make_forged_golden_minion(card_id, patch=patch)

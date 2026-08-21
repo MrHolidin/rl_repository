@@ -41,6 +41,11 @@ _GOLDEN_INT_FIELDS = frozenset(
         "health_per_damage",
         "factor",
         "uses",
+        # Added with the golden printings that move them: a Lockbox opening
+        # two turns sooner, a hand-stat grab taken twice, a keep-what-you-
+        # gained that keeps double.
+        "sooner",
+        "times",
         "limit",
         "set_attack",
         "set_health",

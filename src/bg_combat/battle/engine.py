@@ -254,11 +254,14 @@ def _apply_start_of_combat_effect(
     elif isinstance(eff, GainStatsFromHandEffect):
         held = rt.seats[side_idx].hand_minions()
         if held:
+            # "**twice**" on the Golden printing of both: the same hand, read
+            # again, rather than a deeper reach into it.
+            times = max(1, int(getattr(eff, "times", 1)))
             if eff.highest_attack_only:
-                source.bonus_attack += max(row[2] for row in held)
+                source.bonus_attack += max(row[2] for row in held) * times
             else:
-                source.bonus_attack += sum(row[2] for row in held)
-                source.bonus_health += sum(row[3] for row in held)
+                source.bonus_attack += sum(row[2] for row in held) * times
+                source.bonus_health += sum(row[3] for row in held) * times
             _sync_health_all(rt)
     elif isinstance(eff, SummonBestFromHandEffect):
         # Same reach as the Rally that summons from hand, at a different moment:

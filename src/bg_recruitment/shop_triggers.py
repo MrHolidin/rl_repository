@@ -531,9 +531,10 @@ class ShopTriggers:
         """
         for watcher in list(player.board):
             if watcher.wants_next_buy_stats:
-                watcher.wants_next_buy_stats = False
-                watcher.bonus_attack += bought.raw_attack
-                watcher.bonus_health += bought.max_health
+                factor = max(1, int(watcher.wants_next_buy_stats))
+                watcher.wants_next_buy_stats = 0
+                watcher.bonus_attack += bought.raw_attack * factor
+                watcher.bonus_health += bought.max_health * factor
             for ab in watcher.abilities:
                 eff = ab.effect
                 if not isinstance(eff, BuffBoughtMinionEffect):
@@ -724,12 +725,13 @@ class ShopTriggers:
             ):
                 player.gold += effect.amount
         elif isinstance(effect, StealTavernMinionEffect):
-            steal_tavern_minion(
-                player,
-                rng=self._rng,
-                shared_pool=shared_pool,
-                highest_attack=effect.highest_attack,
-            )
+            for _ in range(max(1, int(effect.count))):
+                steal_tavern_minion(
+                    player,
+                    rng=self._rng,
+                    shared_pool=shared_pool,
+                    highest_attack=effect.highest_attack,
+                )
         elif isinstance(effect, BumpSeatCounterEffect):
             bump_seat_counter(player, effect.counter)
         elif isinstance(effect, RepeatPerCountEffect):
@@ -852,8 +854,12 @@ class ShopTriggers:
             # knows which spell was cast; reaching here means nobody named it.
             return
         elif isinstance(effect, AddCardToNextRefreshesEffect):
+            # "add **two** Fodders to your next 3 Refreshes" on the Golden:
+            # more per roll, over the same number of rolls.
             have = player.refresh_promises.get(effect.card_id, 0)
-            player.refresh_promises[effect.card_id] = have + int(effect.refreshes)
+            player.refresh_promises[effect.card_id] = have + int(
+                effect.refreshes
+            ) * max(1, int(effect.count))
         elif isinstance(effect, AddRandomCardToHandEffect):
             # The named set may be minions (the Chromadrakes) or spells (the
             # Bounties), so the card is looked up in both catalogs rather than
@@ -863,8 +869,10 @@ class ShopTriggers:
                 for cid in effect.card_ids
                 if cid in self._patch.templates or cid in self._patch.tavern_spells
             ]
-            slot = first_free_hand_slot(player) if pool else None
-            if slot is not None:
+            for _ in range(max(1, int(effect.count))):
+                slot = first_free_hand_slot(player) if pool else None
+                if slot is None:
+                    break
                 pick = pool[int(self._rng.integers(0, len(pool)))]
                 player.hand[slot] = (
                     make_minion(pick, patch=self._patch)
@@ -914,7 +922,7 @@ class ShopTriggers:
                     )
         elif isinstance(effect, StatsFromNextBuyEffect):
             if source is not None:
-                source.wants_next_buy_stats = True
+                source.wants_next_buy_stats = max(1, int(effect.factor))
         elif isinstance(effect, BuffHandMinionsEffect):
             _buff_hand_minions(player, effect)
         elif isinstance(effect, GiveOwnStatsToHandEffect):
@@ -922,8 +930,9 @@ class ShopTriggers:
                 c for c in player.hand if isinstance(c, Minion) and not is_locked(c)
             ]
             if held and source is not None:
-                held[0].bonus_attack += source.raw_attack
-                held[0].bonus_health += source.max_health
+                factor = max(1, int(effect.factor))
+                held[0].bonus_attack += source.raw_attack * factor
+                held[0].bonus_health += source.max_health * factor
         elif isinstance(effect, GrantCombinedChooseOneEffect):
             grant_combined_choose_one(player, effect.count)
         elif isinstance(effect, RaiseGoldCapEffect):
@@ -940,8 +949,10 @@ class ShopTriggers:
                 if self._patch.templates[cid].tier == effect.tier
                 and golden_upgrade_card_id(cid, catalog) is not None
             ]
-            slot = first_free_hand_slot(player) if pool else None
-            if slot is not None:
+            for _ in range(max(1, int(effect.count))):
+                slot = first_free_hand_slot(player) if pool else None
+                if slot is None:
+                    break
                 pick = pool[int(self._rng.integers(0, len(pool)))]
                 made = make_minion(pick, patch=self._patch)
                 from src.bg_recruitment.targeted_battlecry import make_golden
@@ -949,7 +960,7 @@ class ShopTriggers:
                 # Minted rather than upgraded: the body is new, so the lobby
                 # lends all three copies, not the two an upgrade needs.
                 if shared_pool is not None and not shared_pool.acquire_new(pick, 3):
-                    return
+                    break
                 make_golden(made, patch=self._patch)
                 player.hand[slot] = made
         elif isinstance(effect, AddRandomMinionOfCommonTribeEffect):
@@ -968,7 +979,7 @@ class ShopTriggers:
                 )
         elif isinstance(effect, DoubleNextMagnetizeEffect):
             if source is not None:
-                source.magnet_doubles_next = True
+                source.magnet_doubles_next = max(2, int(effect.factor))
         elif isinstance(effect, BuffPerMagnetizationEffect):
             for minion in player.board:
                 if minion.magnetized_count <= 0:
@@ -1678,7 +1689,7 @@ class ShopTriggers:
         reset_activations(player)
         reset_health_refreshes(player)
         for minion in player.board:
-            minion.magnet_doubles_next = False
+            minion.magnet_doubles_next = 0
             minion.buy_answered_this_turn = False
         player.gold_spent_this_turn = 0
         # Last turn's "until next turn" buffs end here — after the combat they

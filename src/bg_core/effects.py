@@ -641,6 +641,9 @@ class SummonSelfCopyFromHandEffect:
     told to look somewhere else for it.
     """
 
+    #: "summon a copy of it **with double stats**" on the Golden.
+    factor: int = 1
+
 
 @dataclass(frozen=True)
 class GrantKeywordAtAttackThreshold:
@@ -798,6 +801,8 @@ class CastRandomTavernSpellEffect:
 
     self_target: bool = True
 
+    #: "Cast **2** random Tavern spells" on the Golden.
+    repeats: int = 1
 
 @dataclass(frozen=True)
 class CopyLastTavernSpellEffect:
@@ -865,11 +870,17 @@ class GainStatsFromHandEffect:
     """
 
     highest_attack_only: bool = False
+    #: How many times over. The Golden of both printings says "twice"
+    #: rather than reaching further into the hand.
+    times: int = 1
 
 
 @dataclass(frozen=True)
 class GiveOwnStatsToHandEffect:
     """Hand this body's stats to the left-most minion in hand (Futurefin)."""
+
+    #: "give **double** this minion's stats" on the Golden.
+    factor: int = 1
 
 
 @dataclass(frozen=True)
@@ -882,6 +893,8 @@ class AddRandomGoldenMinionEffect:
 
     tier: int = 1
 
+    #: "Get **two** random Golden minions from Tier 4" on the Golden.
+    count: int = 1
 
 @dataclass(frozen=True)
 class AddRandomMinionOfCommonTribeEffect:
@@ -907,6 +920,9 @@ class MakeFriendlyGoldenEffect:
     max_tier: int = 0
     in_tavern: bool = False
 
+    #: How many. "Make **two** friendly minions from Tier 6 or below Golden"
+    #: on the Golden printing.
+    count: int = 1
 
 @dataclass(frozen=True)
 class DiscoverHeroPowerEffect:
@@ -1112,6 +1128,9 @@ class StatsFromNextBuyEffect:
     not been bought yet — so it is remembered on the body and spent by that buy.
     """
 
+    #: "Gain **double** the stats of the next minion you buy" on the Golden.
+    factor: int = 1
+
 
 @dataclass(frozen=True)
 class GoldSpentResponseEffect:
@@ -1211,6 +1230,9 @@ class MagnetizesToTribesEffect:
 class DoubleNextMagnetizeEffect:
     """The next Magnetization onto this minion this turn lands twice."""
 
+    #: What the next Magnetization is multiplied by: doubled on the plain
+    #: printing, **tripled** on the Golden.
+    factor: int = 2
 
 @dataclass(frozen=True)
 class BuffPerMagnetizationEffect:
@@ -1224,6 +1246,8 @@ class BuffPerMagnetizationEffect:
 class EchoMagnetizeEffect:
     """When a Magnetization lands elsewhere, it lands on this body too."""
 
+    #: "it also Magnetizes to this **twice**" on the Golden.
+    repeats: int = 1
 
 @dataclass(frozen=True)
 class AddRandomCardToHandEffect:
@@ -1234,6 +1258,9 @@ class AddRandomCardToHandEffect:
     """
 
     card_ids: Tuple[str, ...] = ()
+    #: How many to roll. The Golden of every card printing this says "2"
+    #: rather than doubling anything else it does.
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -1294,6 +1321,8 @@ class RewardAtDamageDealtEffect:
     threshold: int
     card_id: str
 
+    #: "get **two** Golden Touches" on the Golden. The threshold does not move.
+    count: int = 1
 
 @dataclass(frozen=True)
 class RefreshesCostHealthEffect:
@@ -1335,6 +1364,9 @@ class DestroyFriendlyEffect:
     #: "a **different** friendly Undead" — the destroyer may not eat itself.
     exclude_self: bool = False
 
+    #: How many copies the trade pays. "Destroy a friendly Undead to get
+    #: **2** plain copies of it" on the Golden — one body eaten either way.
+    count: int = 1
 
 @dataclass(frozen=True)
 class SummonBestFromHandEffect:
@@ -1378,6 +1410,11 @@ class KeepCombatGainsEffect:
 
     adjacent: bool = False
     tribe: Any = None
+    #: "keeps Bonus Keywords and **double** stats gained in combat" — what the
+    #: Golden printing of both cards multiplies the kept stats by. Named
+    #: ``factor`` because that is the field the ``double_stats`` hint moves; the
+    #: keywords are not a number and are kept once either way.
+    factor: int = 1
 
 
 @dataclass(frozen=True)
@@ -1716,6 +1753,9 @@ class AddCardToNextRefreshesEffect:
 
     card_id: str
     refreshes: int = 1
+    #: How many of the card per refresh. The Golden of both printings adds
+    #: two Fodders to the same number of Refreshes, not one to twice as many.
+    count: int = 1
 
 
 @dataclass(frozen=True)
@@ -1727,6 +1767,9 @@ class FirstSpellcraftIsPermanentEffect:
     standing property of the body, not something that fires.
     """
 
+    #: How many each turn. "The first **2** Spellcraft spells ... are
+    #: permanent" on the Golden.
+    count: int = 1
 
 @dataclass(frozen=True)
 class ConsumeTavernMinionEffect:
@@ -1858,6 +1901,8 @@ class StealTavernMinionEffect:
 
     highest_attack: bool = False
 
+    #: "Steal the **2** highest-Attack minions" on the Golden.
+    count: int = 1
 
 @dataclass(frozen=True)
 class DiscoverMinionAtTierEffect:
@@ -1872,6 +1917,8 @@ class DiscoverMinionAtTierEffect:
     counter: str = ""
     per: int = 1
 
+    #: How many Discovers. "Discover **two** Tier 1 minions" on the Golden.
+    count: int = 1
 
 @dataclass(frozen=True)
 class GainGoldNextTurnEffect:
@@ -2188,6 +2235,9 @@ class AddRandomMinionToHandOnKillEffect:
     """Combat ON_AFTER_ATTACK: if this minion killed an enemy, queue a random minion for hand."""
 
     tribe: Optional[Any] = None
+    #: "keeps ... **double** stats gained in combat" — what the Golden
+    #: printing multiplies the kept stats by.
+    keep_multiple: int = 1
     count: int = 1
 
 

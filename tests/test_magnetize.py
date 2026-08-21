@@ -126,7 +126,7 @@ def test_drone_duplicator_doubles_the_next_weld(patch, triggers):
 def test_the_doubling_is_spent_by_one_weld(patch, triggers):
     duplicator = _card(patch, "BG36_506")
     player = _player(patch, [duplicator])
-    duplicator.magnet_doubles_next = True
+    duplicator.magnet_doubles_next = 2
     magnetize(player, duplicator, _card(patch, "BG26_146"), triggers=triggers)
     magnetize(player, duplicator, _card(patch, "BG26_146"), triggers=triggers)
     assert duplicator.magnetized_count == 3  # two, then one
@@ -205,7 +205,7 @@ def test_welding_from_hand_goes_through_the_same_door(patch, triggers):
 def test_the_doubling_promise_lifts_at_turn_start(patch, triggers):
     duplicator = _card(patch, "BG36_506")
     player = _player(patch, [duplicator])
-    duplicator.magnet_doubles_next = True
+    duplicator.magnet_doubles_next = 2
     triggers.fire_on_turn_start(player)
     assert not duplicator.magnet_doubles_next
 

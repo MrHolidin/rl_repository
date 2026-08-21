@@ -472,15 +472,22 @@ def apply_targeted_on_place_battlecries(
                 target.bonus_attack += e.attack * times
                 target.bonus_health += e.health * times
         elif isinstance(e, MakeFriendlyGoldenEffect):
-            target = _pick_eater(
-                player,
-                placed,
-                ConsumeTavernMinionEffect(),
-                rng=rng,
-                forced=forced_buff_target,
-            )
-            if target is not None and (not e.max_tier or target.tier <= e.max_tier):
-                make_golden(target, patch=triggers._patch, shared_pool=shared_pool)
+            # "Make **two** friendly minions ... Golden" on the Golden printing:
+            # a fresh pick each time, and one already Golden is not one of them.
+            for _ in range(max(1, int(e.count))):
+                target = _pick_eater(
+                    player,
+                    placed,
+                    ConsumeTavernMinionEffect(),
+                    rng=rng,
+                    forced=forced_buff_target,
+                )
+                if target is None or (e.max_tier and target.tier > e.max_tier):
+                    break
+                if not make_golden(
+                    target, patch=triggers._patch, shared_pool=shared_pool
+                ):
+                    break
         elif isinstance(e, DiscoverTribeEffect) and e.magnetize_onto_target:
             # "Choose a friendly Mech. Discover a Mech to Magnetize to it" —
             # the pick needs the recipient, and only this path knows it.

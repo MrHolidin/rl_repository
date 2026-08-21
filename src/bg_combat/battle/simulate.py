@@ -43,7 +43,7 @@ def _keep_combat_gains(rt: "_CombatRuntime") -> None:
 
     for side_idx in (0, 1):
         living = list(rt.side(side_idx).iter_living())
-        keepers = set()
+        keepers: dict = {}
         for i, bm in enumerate(living):
             for ability in bm.abilities:
                 eff = ability.effect
@@ -51,8 +51,11 @@ def _keep_combat_gains(rt: "_CombatRuntime") -> None:
                     eff, KeepCombatGainsEffect
                 ):
                     continue
+                multiple = max(1, int(getattr(eff, "factor", 1)))
                 if not eff.adjacent:
-                    keepers.add(bm.instance_id)
+                    keepers[bm.instance_id] = max(
+                        multiple, keepers.get(bm.instance_id, 1)
+                    )
                     continue
                 # Granted to the neighbours instead: Persistent Poet keeps
                 # nothing itself.
@@ -61,12 +64,17 @@ def _keep_combat_gains(rt: "_CombatRuntime") -> None:
                         eff.tribe is None
                         or minion_matches_tribe(living[j], eff.tribe)
                     ):
-                        keepers.add(living[j].instance_id)
+                        keepers[living[j].instance_id] = max(
+                            multiple, keepers.get(living[j].instance_id, 1)
+                        )
         for bm in living:
             if bm.instance_id not in keepers:
                 continue
-            gained_attack = bm.bonus_attack - bm.start_bonus_attack
-            gained_health = bm.bonus_health - bm.start_bonus_health
+            # "keeps ... **double** stats gained" on the Golden printing. The
+            # keywords are not a number and are kept once either way.
+            multiple = keepers[bm.instance_id]
+            gained_attack = (bm.bonus_attack - bm.start_bonus_attack) * multiple
+            gained_health = (bm.bonus_health - bm.start_bonus_health) * multiple
             gained_keywords = bm.keywords - bm.start_keywords
             if gained_attack or gained_health or gained_keywords:
                 # By origin id: the seat's board knows the body it sent, not

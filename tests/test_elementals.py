@@ -308,7 +308,7 @@ def test_living_prison_takes_the_next_buys_stats(patch, triggers):
 def test_the_prison_waits_for_a_buy_and_takes_only_one(patch, triggers):
     prison = _card(patch, "BG36_180")
     player = _player(patch, [prison])
-    prison.wants_next_buy_stats = True
+    prison.wants_next_buy_stats = 1
     triggers.fire_on_bought(player, Minion(card_id="b1", base_attack=2, base_health=2, tier=1))
     triggers.fire_on_bought(player, Minion(card_id="b2", base_attack=9, base_health=9, tier=1))
     assert (prison.raw_attack, prison.max_health) == (

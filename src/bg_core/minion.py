@@ -157,9 +157,14 @@ class Minion:
     magnet_abilities: Tuple[Any, ...] = ()
     #: The next Magnetization onto this body lands twice (Drone Duplicator).
     #: Spent by that Magnetization, and cleared at the start of the turn.
-    magnet_doubles_next: bool = False
+    #: What the next Magnetization onto this body is multiplied by, 0 for
+    #: none. An int rather than a flag because the Golden printing triples
+    #: rather than doubling.
+    magnet_doubles_next: int = 0
     #: Waiting to take the stats of the next minion the seat buys this turn.
-    wants_next_buy_stats: bool = False
+    #: What multiple of the next bought minion's stats this body takes, 0 for
+    #: none. An int rather than a flag: the Golden printing takes double.
+    wants_next_buy_stats: int = 0
     #: Turns this card stays locked in hand ("Lock it in your hand for 1
     #: turn"). A locked card is inert: it cannot be played, sold or magnetized,
     #: it does not count toward a triple, and nothing that reads the hand can

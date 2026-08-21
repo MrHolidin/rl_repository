@@ -33,7 +33,10 @@ def catalog_golden_hints(normal_text: Optional[str], golden_text: Optional[str])
 
     if "twice" in g:
         hints["prefer_repeats"] = True
-    if "triple" in g and "attack" in g:
+    if "triple" in g and ("attack" in g or "double" in n):
+        # "double its Attack" -> "triple its Attack", and the same swap with no
+        # Attack in it: Drone Duplicator's Magnetization is doubled, then
+        # tripled. Both are a multiple going 2 -> 3 rather than 2 -> 4.
         hints["triple_factor"] = True
     # "double its stats" -> "**triple** its stats": the multiple is what moves,
     # and by how much is the word the Golden uses.
