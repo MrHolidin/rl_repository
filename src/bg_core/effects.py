@@ -1029,6 +1029,64 @@ class PromiseNextTurnEffect:
 
 
 @dataclass(frozen=True)
+class GainGoldPerTurnEffect:
+    """Gold that grows with the round ("Gain 2 Gold. Increases by 1 each turn")."""
+
+    base: int = 2
+    per_turn: int = 1
+    from_round: int = 1
+
+
+@dataclass(frozen=True)
+class RefreshWithLastOpponentEffect:
+    """Roll the Tavern, filling it with plain copies of a remembered warband."""
+
+
+@dataclass(frozen=True)
+class RefreshWithHigherTierEffect:
+    """Roll the Tavern, with ``count`` offers from a Tier above the seat's."""
+
+    count: int = 2
+    tiers_up: int = 1
+
+
+@dataclass(frozen=True)
+class ReplaceTavernCardEffect:
+    """Swap one card on the counter for another of the same Tier (Malygos)."""
+
+
+@dataclass(frozen=True)
+class SwapWithTavernMinionEffect:
+    """Trade a friendly for a minion on the counter (Jandice Barov).
+
+    ``exclude_golden`` is the card's "non-Golden": a Golden body is three
+    copies and would come back as one.
+    """
+
+    exclude_golden: bool = True
+
+
+@dataclass(frozen=True)
+class BuffTargetByTierEffect:
+    """Stats equal to the seat's Tier, on the side the card is showing today.
+
+    Inge swaps which stat it pays every turn, so ``health`` is not a second
+    number but the same one read differently.
+    """
+
+    health: bool = False
+
+
+@dataclass(frozen=True)
+class SwapAttackBetweenTwoEffect:
+    """Two minions gain each other's Attack until next turn (Vol'jin).
+
+    Gain, not swap: each ends the turn with its own Attack plus the other's,
+    and both come back down at the next turn start.
+    """
+
+
+@dataclass(frozen=True)
 class SetEnemyHealthEffect:
     """Start of Combat: write an enemy minion's Health to a fixed number.
 
@@ -1368,6 +1426,9 @@ class DestroyFriendlyEffect:
     #: "a **different** friendly Undead" — the destroyer may not eat itself.
     exclude_self: bool = False
 
+    #: "Discover one from a **Tier lower**" — the tier is the victim's, not a
+    #: number this can print, so the payout is opened after the body leaves.
+    discover_tiers_below: int = 0
     #: How many copies the trade pays. "Destroy a friendly Undead to get
     #: **2** plain copies of it" on the Golden — one body eaten either way.
     count: int = 1
@@ -1907,6 +1968,15 @@ class StealTavernMinionEffect:
 
     #: "Steal the **2** highest-Attack minions" on the Golden.
     count: int = 1
+    #: What the taking does to the body on the way out. Pyramad doubles its
+    #: Health; Xyrella sets both stats to a number, which is why the two are
+    #: fields on the taking rather than a second effect — the body only exists
+    #: between the two halves.
+    double_health: bool = False
+    set_attack: int = 0
+    set_health: int = 0
+    #: The seat names the card rather than taking a random one (Xyrella).
+    chosen: bool = False
 
 @dataclass(frozen=True)
 class DiscoverMinionAtTierEffect:
@@ -2527,6 +2597,13 @@ __all__ = [
     "RefreshWithTavernSpellsEffect",
     "RefreshWithTribeEffect",
     "BloodGemsOnEveryRefreshEffect",
+    "GainGoldPerTurnEffect",
+    "RefreshWithLastOpponentEffect",
+    "RefreshWithHigherTierEffect",
+    "ReplaceTavernCardEffect",
+    "SwapWithTavernMinionEffect",
+    "BuffTargetByTierEffect",
+    "SwapAttackBetweenTwoEffect",
     "SetEnemyHealthEffect",
     "MultiplyFriendlyAttackEffect",
     "GainNearestEnemyStatsEffect",

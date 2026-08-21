@@ -28,37 +28,44 @@ from src.bg_catalog.cards import normalize_shop_excluded_races
 from src.bg_catalog.patch_context import PatchContext, require_patch
 from src.bg_core.effects import (
     AddRandomTavernSpellToHandEffect,
-    BuffAllShopOffersEffect,
-    BuffSharedTribeEffect,
-    CastSpellAtEffect,
-    BuffTargetFriendlyBattlecry,
-    CastRandomTavernSpellEffect,
-    ChooseOneEffect,
-    CopyLastTavernSpellEffect,
-    DiscoverMinionAtTierEffect,
-    DiscoverTavernSpellEffect,
-    IncreaseTavernSpellBonusEffect,
-    MakeFriendlyGoldenEffect,
     BloodGemsOnEveryRefreshEffect,
+    BuffAllShopOffersEffect,
     BuffMatching,
     BuffOnePerListedTribeFriendly,
+    BuffSharedTribeEffect,
     BuffShopOnEveryRefreshEffect,
+    BuffTargetByTierEffect,
+    BuffTargetFriendlyBattlecry,
+    CastRandomTavernSpellEffect,
+    CastSpellAtEffect,
+    ChooseOneEffect,
+    CopyLastTavernSpellEffect,
     DestroyFriendlyEffect,
     DiscoverHeroPowerEffect,
+    DiscoverMinionAtTierEffect,
+    DiscoverTavernSpellEffect,
+    GainGoldPerTurnEffect,
     GrantTemporaryBuffEffect,
+    IncreaseTavernSpellBonusEffect,
+    MakeFriendlyGoldenEffect,
     MultiplierKind,
     PayInHealthEffect,
     PromiseNextTurnEffect,
+    RaiseStandingBonusEffect,
+    RefreshWithHigherTierEffect,
+    RefreshWithLastOpponentEffect,
     RefreshWithTavernSpellsEffect,
     RefreshWithTribeEffect,
-    SetStatsEffect,
-    StealNeighbourBloodGemsEffect,
-    SummonOnCombatSpaceEffect,
-    RaiseStandingBonusEffect,
+    ReplaceTavernCardEffect,
     RetriggerFriendlyAbilityEffect,
     SellFriendlyForStatsEffect,
-    TransformToHigherTierEffect,
+    SetStatsEffect,
+    StealNeighbourBloodGemsEffect,
     StealTavernMinionEffect,
+    SummonOnCombatSpaceEffect,
+    SwapAttackBetweenTwoEffect,
+    SwapWithTavernMinionEffect,
+    TransformToHigherTierEffect,
     Trigger,
 )
 from src.bg_core.board_helpers import (
@@ -682,6 +689,124 @@ def _apply_spell_effect(
         player.next_turn_promises = player.next_turn_promises + ((effect, tag),)
         return
 
+    if isinstance(effect, GainGoldPerTurnEffect):
+        # "Gain 2 Gold. Increases by 1 each turn." — the round is the number,
+        # so the seat's own round is what it is worth today.
+        rounds = max(0, int(player.round_number) - int(effect.from_round))
+        player.gold += int(effect.base) + rounds * int(effect.per_turn)
+        return
+
+    if isinstance(effect, BuffTargetByTierEffect):
+        chosen = target if target is not None else _random_friendly(player, rng)
+        if chosen is None:
+            return
+        amount = int(player.tavern_tier)
+        if effect.health:
+            chosen.bonus_health += amount
+        else:
+            chosen.bonus_attack += amount
+        return
+
+    if isinstance(effect, SwapAttackBetweenTwoEffect):
+        # "They gain each other's Attack until next turn" — read both before
+        # writing either, or the second reads a number the first just changed.
+        pair = [m for m in player.board if m is not target][:1]
+        if target is not None and target in player.board and pair:
+            first, second = target, pair[0]
+        elif len(player.board) >= 2:
+            picked = list(rng.choice(len(player.board), size=2, replace=False))
+            first, second = player.board[int(picked[0])], player.board[int(picked[1])]
+        else:
+            return
+        a, b = first.raw_attack, second.raw_attack
+        first.temp_attack += b
+        second.temp_attack += a
+        return
+
+    if isinstance(effect, ReplaceTavernCardEffect):
+        from src.bg_recruitment.shop import clear_shop_slot, fill_shop_slot
+
+        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        if not filled:
+            return
+        slot = filled[int(rng.integers(0, len(filled)))]
+        tier = player.shop[slot].tier
+        clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
+        fill_shop_slot(
+            player,
+            slot,
+            shop_excluded_race,
+            rng=rng,
+            shared_pool=shared_pool,
+            patch=patch,
+            exact_tier=tier,
+        )
+        return
+
+    if isinstance(effect, SwapWithTavernMinionEffect):
+        from src.bg_recruitment.pool_ledger import on_bought_from_shop
+        from src.bg_recruitment.pool_ledger import on_sell_minion
+
+        eligible = [
+            m
+            for m in player.board
+            if not (effect.exclude_golden and m.is_golden)
+            and (target is None or m is target)
+        ]
+        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        if not eligible or not filled:
+            return
+        mine = eligible[int(rng.integers(0, len(eligible)))]
+        slot = filled[int(rng.integers(0, len(filled)))]
+        theirs = player.shop[slot]
+        # A straight trade: each body goes where the other was, and the lobby's
+        # ledger does not move because neither copy left the seat's hands.
+        player.board[player.board.index(mine)] = theirs
+        player.shop[slot] = mine
+        return
+
+    if isinstance(effect, RefreshWithLastOpponentEffect):
+        from src.bg_catalog.cards import make_minion as _make
+        from src.bg_recruitment.shop import clear_shop_slot, effective_shop_offers_count
+
+        warband = [m for m in player.last_opponent_board if m is not None]
+        if not warband:
+            return
+        want = effective_shop_offers_count(player)
+        for slot in range(len(player.shop)):
+            clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
+        for slot in range(min(want, len(warband))):
+            # Plain copies: what the body gained in that seat's hands is not
+            # part of the card being offered.
+            player.shop[slot] = _make(warband[slot].card_id, patch=patch)
+        return
+
+    if isinstance(effect, RefreshWithHigherTierEffect):
+        from src.bg_recruitment.shop import clear_shop_slot, fill_shop_slot, refresh_shop
+
+        refresh_shop(
+            player,
+            shop_excluded_race,
+            rng=rng,
+            shared_pool=shared_pool,
+            frozen_slots=player.shop_frozen,
+            patch=patch,
+        )
+        above = int(player.tavern_tier) + max(1, int(effect.tiers_up))
+        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        for slot in filled[: max(0, int(effect.count))]:
+            clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
+            fill_shop_slot(
+                player,
+                slot,
+                shop_excluded_race,
+                rng=rng,
+                shared_pool=shared_pool,
+                patch=patch,
+                exact_tier=above,
+            )
+        return
+
     if isinstance(effect, RetriggerFriendlyAbilityEffect):
         from .shop_triggers import ShopTriggers as _ShopTriggers
 
@@ -826,12 +951,25 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, StealTavernMinionEffect):
-        steal_tavern_minion(
-            player,
-            rng=rng,
-            shared_pool=shared_pool,
-            highest_attack=effect.highest_attack,
-        )
+        # "**Choose** a minion in the Tavern" — the seat names the slot where
+        # the card says so, and a random one otherwise.
+        slot = None
+        if effect.chosen and target is not None:
+            slot = next(
+                (i for i, m in enumerate(player.shop) if m is target), None
+            )
+        for _ in range(max(1, int(effect.count))):
+            steal_tavern_minion(
+                player,
+                rng=rng,
+                shared_pool=shared_pool,
+                highest_attack=effect.highest_attack,
+                double_health=effect.double_health,
+                set_attack=effect.set_attack,
+                set_health=effect.set_health,
+                slot_index=slot,
+            )
+            slot = None
         return
 
     if isinstance(effect, BuffSharedTribeEffect):
@@ -937,6 +1075,10 @@ def steal_tavern_minion(
     rng: np.random.Generator,
     shared_pool: Optional[SharedCardPool] = None,
     highest_attack: bool = False,
+    double_health: bool = False,
+    set_attack: int = 0,
+    set_health: int = 0,
+    slot_index: Optional[int] = None,
 ) -> Optional[Minion]:
     """Take one minion off the counter into hand, free.
 
@@ -947,11 +1089,21 @@ def steal_tavern_minion(
     slot = first_free_hand_slot(player)
     if not filled or slot is None:
         return None
-    if highest_attack:
+    if slot_index is not None and slot_index in filled:
+        idx = slot_index
+    elif highest_attack:
         idx = max(filled, key=lambda i: player.shop[i].raw_attack)
     else:
         idx = filled[int(rng.integers(0, len(filled)))]
     taken = player.shop[idx]
+    # What the taking does to the body on the way out. Pyramad doubles its
+    # Health, Xyrella sets both stats — the body only exists between the two
+    # halves of those cards, so the riders live on the taking.
+    if double_health:
+        taken.bonus_health += taken.max_health
+    if set_attack or set_health:
+        taken.base_attack, taken.base_health = int(set_attack), int(set_health)
+        taken.bonus_attack = taken.bonus_health = 0
     player.shop[idx] = None
     player.hand[slot] = taken
     # It left the tavern for a hand, which is the same thing a purchase does to

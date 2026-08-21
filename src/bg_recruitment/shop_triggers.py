@@ -731,6 +731,9 @@ class ShopTriggers:
                     rng=self._rng,
                     shared_pool=shared_pool,
                     highest_attack=effect.highest_attack,
+                    double_health=effect.double_health,
+                    set_attack=effect.set_attack,
+                    set_health=effect.set_health,
                 )
         elif isinstance(effect, BumpSeatCounterEffect):
             bump_seat_counter(player, effect.counter)

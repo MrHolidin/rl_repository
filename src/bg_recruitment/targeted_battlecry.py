@@ -217,6 +217,7 @@ def apply_destroy_friendly(
     forced: Optional[Minion] = None,
     triggers,
     shared_pool=None,
+    shop_excluded_race=None,
 ) -> None:
     """Destroy a friendly the seat picked, then pay what the card prints.
 
@@ -245,6 +246,17 @@ def apply_destroy_friendly(
     )
     if victim in player.board:
         return  # the trade did not happen (no room for the copy it pays)
+    if effect.discover_tiers_below:
+        from src.bg_recruitment.tavern_spells import _open_tier_discover
+
+        _open_tier_discover(
+            player,
+            max(1, int(victim.tier) - int(effect.discover_tiers_below)),
+            rng=rng,
+            patch=triggers._patch,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )
     if effect.then is not None:
         # ``source`` is None when a *spell* made the trade: there is no body
         # that ate, and the payout is the seat's. Butchering's whole second

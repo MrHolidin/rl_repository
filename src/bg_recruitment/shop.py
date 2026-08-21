@@ -296,6 +296,7 @@ def fill_shop_slot(
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
     tribe: Optional[Race] = None,
+    exact_tier: int = 0,
 ) -> None:
     """Roll one offer into ``slot``, then square it with everything the seat
     owes a minion that has just arrived.
@@ -319,6 +320,7 @@ def fill_shop_slot(
         shared_pool=shared_pool,
         patch=patch,
         tribe=tribe,
+        exact_tier=exact_tier,
     )
     settle_standing_bonuses(player)
     refresh_count_bonuses(player)
@@ -333,8 +335,32 @@ def _roll_shop_slot(
     shared_pool: Optional[SharedCardPool] = None,
     patch: PatchContext,
     tribe: Optional[Race] = None,
+    exact_tier: int = 0,
 ) -> None:
-    """Roll one offer into ``slot``; shared pool reserves on display."""
+    """Roll one offer into ``slot``; shared pool reserves on display.
+
+    ``exact_tier`` names a tier rather than taking the seat's — the cards that
+    replace one offer with another of the *same* Tier, and the one that mixes
+    in offers from a Tier higher.
+    """
+    if exact_tier:
+        from src.bg_catalog.cards import shop_pool_for_tier
+
+        pool = [
+            cid
+            for cid in shop_pool_for_tier(
+                int(exact_tier), shop_excluded_race=shop_excluded_race, patch=patch
+            )
+            if shared_pool is None or shared_pool.remaining_copies(cid) > 0
+        ]
+        if pool:
+            cid = sorted(pool)[int(rng.integers(0, len(pool)))]
+            if shared_pool is None or shared_pool.try_reserve_offer(cid):
+                player.shop[slot] = make_minion(cid, patch=patch)
+                apply_shop_tribe_bonus_to_minion(player.shop[slot], player)
+                _apply_hero_shop_tribe_buff(player, player.shop[slot])
+                return
+        return
     # The card that named a tribe for the whole counter outranks the hero's
     # own extra slot: it asked for this roll, and it asked for one type.
     forced_tribe = tribe or _hero_forced_slot_tribe(player, slot)

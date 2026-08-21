@@ -889,3 +889,127 @@ def test_every_bound_powers_limit_matches_what_the_card_prints(patch, catalog_he
             assert hero.power_charges == 1, hero_id
         else:
             assert hero.power_charges == 0, hero_id
+
+
+# --------------------------------------------------------------------------- #
+# The powers that needed an effect of their own
+# --------------------------------------------------------------------------- #
+
+
+def _stock(patch, player, seed=1):
+    from src.bg_recruitment.shop import refresh_shop
+
+    refresh_shop(player, None, rng=np.random.default_rng(seed), patch=patch)
+    return player
+
+
+def test_kraggs_gold_grows_with_the_round_and_is_spent_for_good(patch):
+    for round_number, wanted in ((1, 2), (5, 6)):
+        player = _armed(patch, "TB_BaconShop_HERO_68", gold=0, round_number=round_number)
+        _press(patch, player)
+        assert player.gold == wanted, round_number
+        assert not hero_passives.can_use_hero_power(player, round_number)
+
+
+def test_edwins_buff_improves_every_four_cards_bought(patch):
+    for buys, wanted in ((0, 3), (4, 5), (8, 7)):
+        body = _minion("mine")
+        player = _armed(patch, "TB_BaconShop_HERO_01", board=[body])
+        player.hero_buy_count = buys
+        _press(patch, player)
+        assert body.raw_attack == wanted, buys
+
+
+def test_xyrella_takes_the_card_she_names_and_sets_it_to_two(patch):
+    from src.bg_recruitment.tavern_spells import apply_tavern_spell_effect
+
+    player = _stock(patch, _armed(patch, "BG20_HERO_101"))
+    named = player.shop[2]
+    apply_tavern_spell_effect(
+        player,
+        player.hero.power[0].effect,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        source=named,
+    )
+    got = [c for c in player.hand if c is not None]
+    assert len(got) == 1
+    assert got[0].card_id == named.card_id
+    assert (got[0].raw_attack, got[0].max_health) == (2, 2)
+
+
+def test_pyramad_doubles_the_health_of_what_it_steals(patch):
+    player = _stock(patch, _armed(patch, "TB_BaconShop_HERO_39"))
+    _press(patch, player)
+    got = next(c for c in player.hand if c is not None)
+    printed = patch.templates[got.card_id]
+    assert got.max_health == printed.base_health * 2
+    assert got.raw_attack == printed.base_attack
+
+
+def test_tess_fills_the_counter_with_the_last_warband(patch):
+    player = _stock(patch, _armed(patch, "TB_BaconShop_HERO_50"))
+    warband = [patch.make_minion(c) for c in sorted(patch.pool_ids)[:4]]
+    for body in warband:
+        body.bonus_attack += 10  # plain copies: the gains do not come along
+    player.last_opponent_board = tuple(warband)
+    _press(patch, player)
+    offers = [m for m in player.shop if m is not None]
+    assert [m.card_id for m in offers] == [m.card_id for m in warband]
+    for offer in offers:
+        assert offer.raw_attack == patch.templates[offer.card_id].base_attack
+
+
+def test_toki_mixes_in_two_offers_from_a_tier_higher(patch):
+    player = _stock(patch, _armed(patch, "TB_BaconShop_HERO_28", tier=3))
+    _press(patch, player)
+    tiers = [m.tier for m in player.shop if m is not None]
+    assert sum(1 for t in tiers if t == 4) == 2
+    assert all(t <= 4 for t in tiers)
+
+
+def test_malygos_swaps_one_card_for_its_own_tier_twice_a_turn(patch):
+    player = _stock(patch, _armed(patch, "TB_BaconShop_HERO_58"))
+    before = [(m.card_id, m.tier) for m in player.shop if m is not None]
+    _press(patch, player)
+    after = [(m.card_id, m.tier) for m in player.shop if m is not None]
+    changed = [(b, a) for b, a in zip(before, after) if b != a]
+    assert len(changed) == 1
+    assert changed[0][0][1] == changed[0][1][1]  # same Tier
+    assert hero_passives.can_use_hero_power(player, 5)  # twice a turn
+
+
+def test_hooktusk_discovers_one_tier_below_the_body_it_removed(patch):
+    tier_four = sorted(c for c in patch.pool_ids if patch.templates[c].tier == 4)[0]
+    body = patch.make_minion(tier_four)
+    player = _armed(patch, "TB_BaconShop_HERO_67", board=[body])
+    _press(patch, player)
+    assert player.board == []
+    assert {patch.templates[o].tier for o in player.pending_choice.options} == {3}
+
+
+def test_jandice_trades_rather_than_taking(patch):
+    mine = patch.make_minion("BGS_119")
+    player = _stock(patch, _armed(patch, "TB_BaconShop_HERO_71", board=[mine]))
+    _press(patch, player)
+    assert len(player.board) == 1 and player.board[0] is not mine
+    assert any(m is mine for m in player.shop if m is not None)
+
+
+def test_inge_pays_the_seats_tier(patch):
+    for tier in (2, 5):
+        body = _minion("mine")
+        player = _armed(patch, "BG26_HERO_102", tier=tier, board=[body])
+        _press(patch, player)
+        assert body.raw_attack == 1 + tier, tier
+
+
+def test_voljin_gives_each_the_others_attack_until_next_turn(patch):
+    from src.bg_recruitment.spellcraft import expire_temporary_buffs
+
+    a, b = _minion("a", 3, 9), _minion("b", 7, 9)
+    player = _armed(patch, "BG20_HERO_201", board=[a, b])
+    _press(patch, player)
+    assert (a.raw_attack, b.raw_attack) == (10, 10)
+    expire_temporary_buffs(player)
+    assert (a.raw_attack, b.raw_attack) == (3, 7)

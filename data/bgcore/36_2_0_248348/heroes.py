@@ -42,15 +42,22 @@ from src.bg_core.effects import (
     DealHeroDamage,
     DestroyFriendlyEffect,
     DiscoverTribeEffect,
+    GainGoldPerTurnEffect,
     GainBloodGemsEffect,
     GrantTemporaryBuffEffect,
     Keyword,
     MakeFriendlyGoldenEffect,
     RaiseGoldCapEffect,
+    RefreshWithHigherTierEffect,
+    RefreshWithLastOpponentEffect,
     RefreshWithTavernSpellsEffect,
+    ReplaceTavernCardEffect,
     RetriggerFriendlyAbilityEffect,
     SellFriendlyForStatsEffect,
     StealTavernMinionEffect,
+    SwapAttackBetweenTwoEffect,
+    SwapWithTavernMinionEffect,
+    BuffTargetByTierEffect,
     Trigger,
 )
 from src.bg_core.hero import (
@@ -536,6 +543,122 @@ HEROES: Dict[str, Hero] = {
         power=(Ability(Trigger.ON_PLACE, RetriggerFriendlyAbilityEffect(trigger=Trigger.ON_PLACE)),),
         power_cost=0,
         power_unlocks_on_turn=3,
+    ),
+    # Pirate Parrrrty — "Gain 2 Gold. Increases by 1 each turn. (Once per
+    # game.)"
+    "TB_BaconShop_HERO_68": Hero(
+        "TB_BaconShop_HERO_68",
+        "Skycap'n Kragg",
+        start_armor=14,
+        power=(Ability(Trigger.ON_PLACE, GainGoldPerTurnEffect(base=2, per_turn=1)),),
+        power_cost=0,
+        power_charges=1,
+    ),
+    # Sharpen Blades — "Give a minion +2/+2. Improves after you buy 4 cards."
+    "TB_BaconShop_HERO_01": Hero(
+        "TB_BaconShop_HERO_01",
+        "Edwin VanCleef",
+        start_armor=15,
+        power=(
+            Ability(
+                Trigger.ON_PLACE,
+                BuffTargetFriendlyBattlecry(attack=2, health=2, exclude_self=False),
+            ),
+        ),
+        power_cost=1,
+        power_improve_per_buys=4,
+    ),
+    # Heal — "Choose a minion in the Tavern. Set its stats to 2 and add it to
+    # your hand."
+    "BG20_HERO_101": Hero(
+        "BG20_HERO_101",
+        "Xyrella",
+        start_armor=12,
+        power=(
+            Ability(
+                Trigger.ON_PLACE,
+                StealTavernMinionEffect(set_attack=2, set_health=2, chosen=True),
+            ),
+        ),
+        power_cost=2,
+    ),
+    # Brick by Brick — "Steal a random minion from the Tavern. Double its
+    # Health."
+    "TB_BaconShop_HERO_39": Hero(
+        "TB_BaconShop_HERO_39",
+        "Pyramad",
+        start_armor=14,
+        power=(Ability(Trigger.ON_PLACE, StealTavernMinionEffect(double_health=True)),),
+        power_cost=2,
+    ),
+    # Cutpurse — "Refresh the Tavern with plain copies of your last opponent's
+    # warband."
+    "TB_BaconShop_HERO_50": Hero(
+        "TB_BaconShop_HERO_50",
+        "Tess Greymane",
+        start_armor=17,
+        power=(Ability(Trigger.ON_PLACE, RefreshWithLastOpponentEffect()),),
+        power_cost=1,
+    ),
+    # Temporal Tavern — "Refresh the Tavern. Include two minions from a Tier
+    # higher than yours."
+    "TB_BaconShop_HERO_28": Hero(
+        "TB_BaconShop_HERO_28",
+        "Infinite Toki",
+        start_armor=10,
+        power=(Ability(Trigger.ON_PLACE, RefreshWithHigherTierEffect(count=2)),),
+        power_cost=1,
+    ),
+    # Sleep the Sleeper — "Replace a card with a random one of the same Tier.
+    # (Twice per turn.)"
+    "TB_BaconShop_HERO_58": Hero(
+        "TB_BaconShop_HERO_58",
+        "Malygos",
+        start_armor=17,
+        power=(Ability(Trigger.ON_PLACE, ReplaceTavernCardEffect()),),
+        power_cost=0,
+        power_uses=2,
+    ),
+    # Swab the Deck — "Remove a friendly minion. Discover one from a Tier
+    # lower to get."
+    "TB_BaconShop_HERO_67": Hero(
+        "TB_BaconShop_HERO_67",
+        "Captain Hooktusk",
+        start_armor=14,
+        power=(
+            Ability(
+                Trigger.ON_PLACE,
+                DestroyFriendlyEffect(get_copy=False, discover_tiers_below=1),
+            ),
+        ),
+        power_cost=0,
+    ),
+    # Trade Up! — "Swap a friendly non-Golden minion with a random one in the
+    # Tavern."
+    "TB_BaconShop_HERO_71": Hero(
+        "TB_BaconShop_HERO_71",
+        "Jandice Barov",
+        start_armor=18,
+        power=(Ability(Trigger.ON_PLACE, SwapWithTavernMinionEffect()),),
+        power_cost=0,
+    ),
+    # Yodel — "Give a minion Attack equal to your Tier. (Swaps to Health next
+    # turn!)"
+    "BG26_HERO_102": Hero(
+        "BG26_HERO_102",
+        "Inge, the Iron Hymn",
+        start_armor=17,
+        power=(Ability(Trigger.ON_PLACE, BuffTargetByTierEffect()),),
+        power_cost=0,
+    ),
+    # Tribal Warfare — "Choose 2 minions. They gain each other's Attack until
+    # next turn."
+    "BG20_HERO_201": Hero(
+        "BG20_HERO_201",
+        "Vol'jin",
+        start_armor=17,
+        power=(Ability(Trigger.ON_PLACE, SwapAttackBetweenTwoEffect()),),
+        power_cost=0,
     ),
 }
 

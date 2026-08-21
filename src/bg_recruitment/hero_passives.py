@@ -485,6 +485,25 @@ def apply_hero_on_refresh(player: PlayerState, *, rng: np.random.Generator) -> N
                     target.has_shield = True
 
 
+def _improved(effect, level: int):
+    """The power's numbers at the level the seat has bought its way to.
+
+    "Improves after you buy 4 cards" multiplies what one use is worth rather
+    than replacing it, so the card still prints the unit.
+    """
+    from dataclasses import fields as _fields, replace as _replace
+
+    if level <= 1:
+        return effect
+    names = {f.name for f in _fields(effect)} & {"attack", "health", "amount"}
+    changed = {
+        name: int(getattr(effect, name)) * level
+        for name in names
+        if int(getattr(effect, name) or 0)
+    }
+    return _replace(effect, **changed) if changed else effect
+
+
 def hero_power_cost(player: PlayerState) -> int:
     """What pressing it costs right now, the printed price plus what it has
     climbed to (Elise's "costs (1) more after each use")."""
@@ -550,10 +569,13 @@ def use_hero_power(
     for p in h.passives:
         if isinstance(p, PowerCostGrowsPerUse):
             player.hero_power_cost_delta += int(p.amount)
+    level = 1
+    if h.power_improve_per_buys:
+        level += player.hero_buy_count // int(h.power_improve_per_buys)
     for ability in h.power:
         apply_tavern_spell_effect(
             player,
-            ability.effect,
+            _improved(ability.effect, level),
             rng=rng,
             patch=patch,
             shop_excluded_race=shop_excluded_race,

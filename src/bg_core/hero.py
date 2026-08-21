@@ -491,6 +491,10 @@ class Hero:
     power_uses: int = 1
     power_charges: int = 0
     power_cooldown_turns: int = 0
+    #: "Improves after you buy 4 cards" — the power's numbers are multiplied by
+    #: how many times the seat has bought that many. A level rather than a
+    #: rewrite, so the card still prints what one use is worth.
+    power_improve_per_buys: int = 0
     #: Powers that only wake up later ("Unlocks at Tier 4", "on Turn 3").
     power_unlocks_at_tier: int = 0
     power_unlocks_on_turn: int = 0
