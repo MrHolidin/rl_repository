@@ -244,7 +244,9 @@ def play_spellcraft_spell_from_hand(
             # goes to the dispatcher that knows them all and raises on the rest.
             from .shop_triggers import ShopTriggers
 
-            ShopTriggers(np.random.default_rng(0), patch=patch).apply_shop_effect(
+            from src.bg_core.board_helpers import seat_rng
+
+            ShopTriggers(seat_rng(player), patch=patch).apply_shop_effect(
                 player, target, ability.effect, placed=None
             )
         else:

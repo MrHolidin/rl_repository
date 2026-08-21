@@ -1155,3 +1155,185 @@ def test_a_named_eater_still_has_to_be_the_tribe_the_card_asks_for(patch):
     )
     assert (eater.raw_attack, eater.max_health) == before
     assert sum(1 for m in player.shop if m is not None) == 3
+
+
+# --------------------------------------------------------------------------- #
+# The second audit's open list, closed
+# --------------------------------------------------------------------------- #
+
+
+def test_a_minion_eaten_off_the_counter_goes_back_to_the_lobby(patch):
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.targeted_battlecry import consume_tavern_minion
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _player(patch, [patch.make_minion("BGS_119")])
+    player.shop[0] = patch.make_minion("BG25_008")
+    pool.try_reserve_offer("BG25_008")
+    before = pool.remaining_copies("BG25_008")
+    consume_tavern_minion(
+        player, player.board[0], rng=np.random.default_rng(0), shared_pool=pool
+    )
+    assert pool.remaining_copies("BG25_008") == before + 1
+
+
+def test_a_token_is_worth_no_copies_at_all(patch):
+    """It was never lent, so releasing it invented a key the lobby never had."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool, copies_for_minion
+
+    token_id = next(c for c in sorted(patch.templates) if patch.templates[c].is_token)
+    token = patch.make_minion(token_id)
+    assert copies_for_minion(token) == 0
+    pool = build_initial_shared_pool(patch=patch)
+    pool.release_minion(token)
+    assert pool.remaining_copies(token_id) == 0
+
+
+def test_a_ghost_fight_answers_the_win_and_tie_questions(patch):
+    import inspect
+
+    from src.bg_lobby import eight_player
+
+    body = inspect.getsource(eight_player.resolve_combat_round)
+    ghost = body[: body.index("assert match.b is not None")]
+    assert "live.last_combat_won" in ghost
+    assert "live.last_combat_tied" in ghost
+
+
+def test_a_card_firing_without_an_rng_still_draws_a_stream(patch):
+    """Every one of these built ``default_rng(0)`` afresh, so a "random" pick
+    was the same pick every time."""
+    from src.bg_core.board_helpers import seat_rng
+
+    player = _player(patch)
+    player.side_rng_seed = 3
+    drawn = {int(seat_rng(player).integers(0, 1000)) for _ in range(20)}
+    assert len(drawn) > 1
+
+    # ...and two seats do not march in lockstep.
+    def _first_ten(seed):
+        seat = _player(patch)
+        seat.side_rng_seed = seed
+        return [int(seat_rng(seat).integers(0, 1000)) for _ in range(10)]
+
+    assert _first_ten(3) != _first_ten(4)
+    assert _first_ten(3) == _first_ten(3)  # and are still fixed by the seed
+
+
+def test_the_stat_giving_predicate_sees_more_than_two_shapes(patch):
+    from src.bg_recruitment.tavern_spells import spell_gives_stats
+
+    bound = [s for s in patch.tavern_spells.values() if s.in_pool and s.abilities]
+    giving = {s.name for s in bound if spell_gives_stats(s)}
+    for name in ("Shiny Ring", "Sanctify", "Queen's Command", "Wave of Gold"):
+        assert name in giving
+
+
+def test_methodical_madness_takes_the_bonus_keywords_too(patch):
+    from src.bg_core.minion import Race
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    demon = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.DEMON
+    )
+    eater = patch.make_minion(demon)
+    player = _player(patch, [eater])
+    player.shop[0] = _plain("taunted", 5, 6)
+    player.shop[0].keywords = frozenset({Keyword.TAUNT})
+    player.shop[1] = _plain("windy", 7, 8)
+    player.shop[1].keywords = frozenset({Keyword.WINDFURY})
+
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG36_880"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=eater,
+    )
+    assert Keyword.TAUNT in eater.all_keywords
+    assert Keyword.WINDFURY in eater.all_keywords
+
+
+def test_one_of_each_type_pays_one_body_per_type(patch):
+    """An All-type minion answers for one type, not for all nine."""
+    from src.bg_core.minion import Race
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    amalgam, beast = _plain("amalgam", 1, 1), _plain("beast", 1, 1)
+    amalgam.race, beast.race = Race.ALL, Race.BEAST
+    player = _player(patch, [amalgam, beast])
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_888"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+    )
+    assert (amalgam.raw_attack, beast.raw_attack) == (3, 3)
+
+
+def test_a_shared_type_buff_includes_the_body_that_named_the_type(patch):
+    from src.bg_core.minion import Race
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    mine, other = _plain("mine", 1, 1), _plain("other", 1, 1)
+    mine.race, other.race = Race.DEMON, Race.BEAST
+    offered = _plain("on-the-counter", 1, 3)
+    offered.race = Race.DEMON
+    player = _player(patch, [mine, other])
+    player.shop[0] = offered
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["BG28_845"],
+        rng=np.random.default_rng(0),
+        patch=patch,
+        target=offered,
+    )
+    assert mine.raw_attack == 4
+    assert offered.raw_attack == 4  # it named the type; it is one of the type
+    assert other.raw_attack == 1
+
+
+def test_tomb_turnings_pick_dies_if_played_the_same_turn(patch):
+    from src.bg_recruitment.discover import resolve_discover_pick
+    from src.bg_recruitment.place import place_from_hand
+    from src.bg_recruitment.tavern_spells import cast_tavern_spell
+
+    def _discovered(player):
+        cast_tavern_spell(
+            player,
+            patch.tavern_spells["BG34_888"],
+            rng=np.random.default_rng(0),
+            patch=patch,
+        )
+        resolve_discover_pick(
+            player,
+            0,
+            None,
+            rng=np.random.default_rng(0),
+            on_after_placed=lambda *_: None,
+            patch=patch,
+        )
+        return next(c for c in player.hand if c is not None)
+
+    def _play(player, card):
+        place_from_hand(
+            player,
+            player.hand.index(card),
+            None,
+            board_size=7,
+            triggers=ShopTriggers(np.random.default_rng(0), patch=patch),
+            rng=np.random.default_rng(0),
+        )
+
+    player = _player(patch)
+    card = _discovered(player)
+    assert card.dies_if_played_this_turn
+    _play(player, card)
+    assert player.board == []
+
+    player = _player(patch)
+    card = _discovered(player)
+    ShopTriggers(np.random.default_rng(0), patch=patch).fire_on_turn_start(player)
+    assert not card.dies_if_played_this_turn
+    _play(player, card)
+    assert [m.card_id for m in player.board] == [card.card_id]

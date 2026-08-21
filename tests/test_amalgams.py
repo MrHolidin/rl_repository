@@ -182,8 +182,10 @@ def test_gatekeeper_amalgam_does_not_cast_forever(patch):
         player, patch.tavern_spells["BG28_897"], rng=np.random.default_rng(0),
         patch=patch, target=gatekeeper,
     )
-    # 6/6 + 2/2 from the spell + one Tea Set pass, and no more.
-    assert gatekeeper.raw_attack == 6 + 2 + 2 * len(ALL_TRIBES)
+    # 6/6, +2/+2 from the spell, and +2/+2 from the Tea Set it casts. Once:
+    # "a friendly minion of each type" pays one body per type and each body
+    # answers for one type, so being every type is not being paid nine times.
+    assert gatekeeper.raw_attack == 6 + 2 + 2
 
 
 def test_golden_gatekeeper_casts_twice(patch):

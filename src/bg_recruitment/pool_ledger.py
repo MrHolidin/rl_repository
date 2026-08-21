@@ -97,4 +97,4 @@ def on_eliminate_player(pool: Optional[SharedCardPool], player: PlayerState) -> 
             pool.release_minion(m)
     for m in player.shop:
         if m is not None:
-            pool.release_offer(m.card_id, copies_for_minion(m))
+            pool.release_minion(m)

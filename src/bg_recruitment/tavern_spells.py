@@ -40,6 +40,9 @@ from src.bg_core.effects import (
     IncreaseTavernSpellBonusEffect,
     MakeFriendlyGoldenEffect,
     BloodGemsOnEveryRefreshEffect,
+    BuffMatching,
+    BuffOnePerListedTribeFriendly,
+    BuffShopOnEveryRefreshEffect,
     DestroyFriendlyEffect,
     DiscoverHeroPowerEffect,
     MultiplierKind,
@@ -47,6 +50,7 @@ from src.bg_core.effects import (
     PromiseNextTurnEffect,
     RefreshWithTavernSpellsEffect,
     RefreshWithTribeEffect,
+    SetStatsEffect,
     StealNeighbourBloodGemsEffect,
     SummonOnCombatSpaceEffect,
     RaiseStandingBonusEffect,
@@ -132,11 +136,27 @@ def spell_gives_stats(spell: SpellCard) -> bool:
     and the catalog has no such flag — but a spell that gives stats is one whose
     effects buff something, which the bindings already say.
     """
-    stat_giving = (BuffTargetFriendlyBattlecry, BuffAllShopOffersEffect)
+    stat_giving = (
+        BuffTargetFriendlyBattlecry,
+        BuffAllShopOffersEffect,
+        # Everything else that puts numbers on a body. Reading only the two
+        # above meant 11 of 72 spells counted, and the ones left out were
+        # Shiny Ring, Sanctify, Queen's Command, Wave of Gold and both stat
+        # Bounties — so the two cards that fetch "a spell that gives stats"
+        # could never roll any of them.
+        BuffMatching,
+        BuffOnePerListedTribeFriendly,
+        BuffSharedTribeEffect,
+        RaiseStandingBonusEffect,
+        BuffShopOnEveryRefreshEffect,
+        SetStatsEffect,
+    )
 
     def _gives(effect) -> bool:
         if isinstance(effect, ChooseOneEffect):
             return _gives(effect.first) or _gives(effect.second)
+        if isinstance(effect, PromiseNextTurnEffect):
+            return _gives(effect.effect)
         return isinstance(effect, stat_giving) and bool(effect.attack or effect.health)
 
     return any(_gives(ability.effect) for ability in spell.abilities)
@@ -767,8 +787,14 @@ def _apply_spell_effect(
         return
 
     if isinstance(effect, BuffSharedTribeEffect):
-        if target is not None:
-            for friendly in player.board:
+        # The minion that named the type is one of the minions that share it.
+        # It was included when it stood on the board and left out when it stood
+        # on the counter, which is the same card behaving two ways.
+        if target is not None and target.race is not None:
+            reached = list(player.board)
+            if not any(m is target for m in reached):
+                reached.append(target)
+            for friendly in reached:
                 if minion_matches_tribe(friendly, target.race):
                     friendly.bonus_attack += effect.attack
                     friendly.bonus_health += effect.health

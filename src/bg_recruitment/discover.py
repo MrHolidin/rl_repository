@@ -58,6 +58,7 @@ def try_open_hand_discover_modal(
     tribe: Optional[Race] = None,
     magnetize_onto_board_idx: Optional[int] = None,
     lock_turns: int = 0,
+    dies_if_played_this_turn: bool = False,
     shared_pool: Optional[SharedCardPool] = None,
 ) -> bool:
     """Open a hand-discover modal only if the player can take at least one pick now.
@@ -83,6 +84,7 @@ def try_open_hand_discover_modal(
         discover_tribe=tribe,
         magnetize_onto_board_idx=magnetize_onto_board_idx,
         lock_turns=lock_turns,
+        dies_if_played_this_turn=dies_if_played_this_turn,
     )
     return True
 
@@ -219,7 +221,9 @@ def _fire_discovered(player: PlayerState, *, patch, picked=None) -> None:
     ]
     if not listeners:
         return
-    triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+    from src.bg_core.board_helpers import seat_rng
+
+    triggers = ShopTriggers(seat_rng(player), patch=patch)
     for source, effect in listeners:
         triggers.apply_shop_effect(player, source, effect, placed=picked)
 
@@ -279,6 +283,7 @@ def resolve_discover_pick(
         # "Lock it in your hand for N turns": it arrives held shut, so nothing
         # can play it, triple it or even see it until it counts down.
         picked.locked_turns = int(pc.lock_turns or 0)
+        picked.dies_if_played_this_turn = bool(pc.dies_if_played_this_turn)
         player.hand[h] = picked
         if pc.options_pool_reserved and shared_pool is not None:
             release_discover_options(shared_pool, pc.options, keep_slot=pick_slot)

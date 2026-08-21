@@ -139,6 +139,11 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
             )
             for _ in range(n)
         )
+        # Its seat number, so the per-seat generator differs between seats
+        # without drawing from the lobby's own stream — see
+        # ``board_helpers.seat_rng``.
+        for seat_index, seat in enumerate(players):
+            seat.side_rng_seed = seat_index + 1
         alive = tuple(range(n))
         order = sample_shop_turn_order(self._rng, len(alive))
         state = BGLikeState(

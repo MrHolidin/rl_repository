@@ -83,10 +83,19 @@ def build_initial_shared_pool(
 def copies_for_minion(m: Minion) -> int:
     """Copies one minion instance represents in the shared pool.
 
+    Zero for a token. ``build_initial_shared_pool`` leaves tokens out, so a
+    token released on a sale or an elimination invented a key the lobby never
+    had — harmless for rolling, since the eligible-card scan filters tokens
+    out, but it broke ``remaining <= initial`` and made every audit noisy.
+    Answered here rather than at the release sites because "how many copies is
+    this body" is the question all of them are asking.
+
     Tavern spells never reach here — they don't go through minion pool
     bookkeeping at all (see triples.py) — so there's no SpellCard case to
     handle, unlike the other ``Minion``-filtering call sites in this module.
     """
+    if m.is_token:
+        return 0
     if m.is_golden:
         return 3
     return 1
@@ -169,6 +178,11 @@ class SharedCardPool:
         n = copies_for_minion(m)
         if n > 0:
             self.release_offer(m.card_id, n)
+
+    def hold_minion(self, m: Minion) -> bool:
+        """Take what this body is worth out of the lobby. False if it cannot."""
+        n = copies_for_minion(m)
+        return True if n <= 0 else self.acquire_new(m.card_id, n)
 
     def roll_card_id(
         self,

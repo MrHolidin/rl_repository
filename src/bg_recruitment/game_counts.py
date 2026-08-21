@@ -98,11 +98,11 @@ def bump_seat_counter(player: PlayerState, counter: str, *, patch=None) -> None:
     player.game_counts[counter] = player.game_counts.get(counter, 0) + 1
     refresh_count_bonuses(player)
     if counter == SPELLS_CAST and patch is not None:
-        import numpy as _np
+        from src.bg_core.board_helpers import seat_rng
 
         from .shop_triggers import ShopTriggers
 
-        ShopTriggers(_np.random.default_rng(0), patch=patch).fire_spell_cast(player)
+        ShopTriggers(seat_rng(player), patch=patch).fire_spell_cast(player)
 
 
 def _abilities(minion: Minion):

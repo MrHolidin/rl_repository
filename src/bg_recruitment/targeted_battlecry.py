@@ -312,6 +312,8 @@ def consume_tavern_minion(
     rng: np.random.Generator,
     highest_health: bool = False,
     stat_multiplier: int = 1,
+    gain_keywords: bool = False,
+    shared_pool=None,
 ) -> Optional[Minion]:
     """``eater`` eats a minion off the counter and takes its stats.
 
@@ -321,6 +323,11 @@ def consume_tavern_minion(
 
     ``stat_multiplier`` is the Golden printing that gains *double* the stats of
     one minion: it eats no more of them, it just takes more from the one.
+
+    The card leaves through the same door every other departing offer uses. It
+    used to be dropped on the floor -- the slot emptied by hand -- which
+    destroyed the copy for the whole lobby and left the slot's freeze flag up
+    over an empty slot.
     """
     filled = [i for i, m in enumerate(player.shop) if m is not None]
     if not filled:
@@ -334,7 +341,18 @@ def consume_tavern_minion(
     factor = max(1, int(stat_multiplier))
     eater.bonus_attack += attack * factor
     eater.bonus_health += health * factor
-    player.shop[idx] = None
+    if gain_keywords:
+        from src.bg_core.effects import Keyword
+        from src.bg_core.minion import BONUS_KEYWORDS
+
+        taken = eaten.all_keywords & BONUS_KEYWORDS
+        if taken:
+            eater.granted_keywords = eater.granted_keywords | taken
+            if Keyword.SHIELD in taken:
+                eater.has_shield = True
+    from src.bg_recruitment.shop import clear_shop_slot
+
+    clear_shop_slot(player, idx, shared_pool, release_to_pool=True)
     return eaten
 
 
@@ -497,7 +515,12 @@ def apply_targeted_on_place_battlecries(
                 continue
             for _ in range(max(1, e.count)):
                 consume_tavern_minion(
-                    player, target, rng=rng, stat_multiplier=e.stat_multiplier
+                    player,
+                    target,
+                    rng=rng,
+                    stat_multiplier=e.stat_multiplier,
+                    gain_keywords=e.gain_keywords,
+                    shared_pool=shared_pool,
                 )
         elif isinstance(e, ConsumeFriendlyBattlecry):
             if forced_buff_target is not None:

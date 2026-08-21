@@ -426,18 +426,28 @@ class ShopTriggers:
         effect: BuffOnePerListedTribeFriendly,
         board: List[Minion],
     ) -> None:
+        # "A friendly minion **of each type**" is one body per type, and each
+        # body answers for one type only: an All-type minion was being picked
+        # for all nine, which is +18/+18 off a two-gold spell.
+        paid: List[Minion] = []
         for tribe in effect.tribes or ALL_TRIBES:
             pool = (
                 [m for m in board if m is not source]
                 if effect.exclude_self
                 else list(board)
             )
-            pool = [m for m in pool if self.minion_matches_tribe(m, tribe)]
+            pool = [
+                m
+                for m in pool
+                if self.minion_matches_tribe(m, tribe)
+                and not any(m is already for already in paid)
+            ]
             if not pool:
                 continue
             target = pool[int(self._rng.integers(0, len(pool)))]
             target.bonus_attack += effect.attack
             target.bonus_health += effect.health
+            paid.append(target)
 
     def apply_buff_random_unique_tribe(
         self,
@@ -899,6 +909,8 @@ class ShopTriggers:
                         rng=self._rng,
                         highest_health=effect.highest_health,
                         stat_multiplier=effect.stat_multiplier,
+                        gain_keywords=effect.gain_keywords,
+                        shared_pool=shared_pool,
                     )
         elif isinstance(effect, StatsFromNextBuyEffect):
             if source is not None:
@@ -1294,6 +1306,7 @@ class ShopTriggers:
             tribe=effect.tribe,
             magnetize_onto_board_idx=magnetize_onto_board_idx,
             lock_turns=effect.lock_turns,
+            dies_if_played_this_turn=effect.dies_if_played_this_turn,
             shared_pool=shared_pool,
         )
 
@@ -1653,6 +1666,10 @@ class ShopTriggers:
         """After round increment, before shop reroll: board L→R, then hand slots."""
         # The fight the promise was bought for has been and gone.
         player.start_combat_promises = ()
+        # ...and a card discovered cheaply stops owing for it, played or not.
+        for card in list(player.board) + list(player.hand):
+            if isinstance(card, Minion) and card.dies_if_played_this_turn:
+                card.dies_if_played_this_turn = False
         # ...and the other kind of promise comes due now, before anything else
         # this turn: "at the start of your next turn" is where the card puts it.
         self._pay_next_turn_promises(player)

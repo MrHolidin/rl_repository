@@ -144,6 +144,15 @@ def place_from_hand(
 
     # Resolve triples only after discover/adapt modals close — otherwise a merge can
     # fill the hand while pending_choice is still set and soft-lock the shop (no legal actions).
+    # "It dies if you play it this turn." The price is paid at the end of the
+    # placement, so the battlecry it came with resolves first — the card was
+    # played, it simply does not survive having been.
+    if minion.dies_if_played_this_turn and minion in player.board:
+        from src.bg_recruitment.targeted_battlecry import destroy_friendly
+
+        destroy_friendly(player, minion, patch=triggers._patch, get_copy=False,
+                         triggers=triggers)
+
     if player.pending_choice is None:
         resolve_triples_loop(player, patch=triggers._patch)
         flush_triple_reward_queue_if_idle(

@@ -203,7 +203,7 @@ def fire_spell_cast_on(
     import numpy as _np
 
     def _rng():
-        return _np.random.default_rng(0)
+        return seat_rng(player)
 
     from .effects import (
         BuffOnSpellCastOnTribeEffect,
@@ -336,7 +336,7 @@ def _fire_board_spell_watchers(player, target: Minion, *, patch=None) -> None:
 
                 from .effects import MagnetizeTokenEffect
 
-                triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+                triggers = ShopTriggers(seat_rng(player), patch=patch)
                 if isinstance(eff.effect, MagnetizeTokenEffect):
                     # The recipient is the minion the spell was cast on, not the
                     # watcher — and the dispatcher has no way to be told which,
@@ -518,6 +518,28 @@ def apply_summoned_listener(
         listener.bonus_health += effect.health
 
 
+def seat_rng(player) -> Any:
+    """A generator for a card firing where no generator was passed in.
+
+    Some effects are reached from bookkeeping — "after you spend N Gold",
+    "every third spell you cast", a deathrattle counted in the tavern — and
+    those call sites carry no ``rng``. They each built ``default_rng(0)``,
+    which is not a stream but the same first draw over and over: Sky Admiral
+    Rogers handed out the same one of its five Bounties forty times running.
+
+    Seeded from the seat and advanced by a counter, so it varies within a seat,
+    differs between seats, and is still fully determined by the app seed. A
+    seat that was never given a seed still varies by its own count.
+    """
+    import numpy as _np
+
+    if player is None:
+        return _np.random.default_rng(0)
+    player.side_rng_draws = int(getattr(player, "side_rng_draws", 0)) + 1
+    seed = (int(getattr(player, "side_rng_seed", 0)) * 1000003) ^ player.side_rng_draws
+    return _np.random.default_rng(seed & 0x7FFFFFFF)
+
+
 def merge_magnet_abilities(host: tuple, parts: tuple) -> tuple:
     """Host's text, then the parts', with every deathrattle behind the rest.
 
@@ -660,6 +682,7 @@ __all__ = [
     "apply_buff_matching",
     "distinct_tribe_count",
     "merge_magnet_abilities",
+    "seat_rng",
     "apply_buff_self",
     "set_minion_stats",
     "apply_summoned_listener",

@@ -239,7 +239,14 @@ def resolve_combat_round(
                 seats=(PlayerCombatSeat(live, patch=patch), RecordingSeat()),
             )
             dmg_live = battle_result.damage_p0
+            dmg_ghost = battle_result.damage_p1
             _apply_hero_damage(state, match.a, dmg_live, patch=patch)
+            # A ghost fight is a fight, and it is read the same way a paired
+            # one is. These used to be left alone, so "if you win your next
+            # combat" was answered by whoever the seat fought *before* the
+            # ghost -- and Overconfidence paid out on a loss.
+            live.last_combat_won = dmg_live == 0 and dmg_ghost > 0
+            live.last_combat_tied = dmg_live == 0 and dmg_ghost == 0
             # Record battle-prediction-head snapshots for the live seat. Ghost
             # is treated like a normal opponent: own=side0 (live), opp=side1
             # (ghost board). raw_signed: +raw_p1 if I won (raw_damage_p1 is

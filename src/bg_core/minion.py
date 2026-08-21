@@ -166,6 +166,10 @@ class Minion:
     #: see it. It still occupies its slot, which is the cost of holding one.
     #: Counted down at the seat's turn start, so "1 turn" is one of its own.
     locked_turns: int = 0
+    #: Discovered cheaply and owed for: playing it before the seat's next turn
+    #: kills it where it stands. Cleared at that turn start, whether or not it
+    #: was played.
+    dies_if_played_this_turn: bool = False
     #: How many times a body that improves *itself* has improved ("give it +2
     #: Attack and improve this permanently"). Per body, not per printing: two
     #: Leviathans improve separately, and a golden built from three starts over.
@@ -264,6 +268,20 @@ class Minion:
 #: Amalgam marker rather than a type of its own, so it is not one of them.
 ALL_TRIBES = tuple(r for r in Race if r is not Race.ALL)
 
+#: What a card means by "Bonus Keywords". The game names six; this engine has
+#: no Stealth, and carries Windfury's bigger printing beside it.
+BONUS_KEYWORDS = frozenset(
+    {
+        Keyword.TAUNT,
+        Keyword.SHIELD,
+        Keyword.WINDFURY,
+        Keyword.MEGA_WINDFURY,
+        Keyword.POISONOUS,
+        Keyword.VENOMOUS,
+        Keyword.REBORN,
+    }
+)
+
 def is_locked(card) -> bool:
     """Whether a hand card is held shut and must be treated as not there.
 
@@ -274,4 +292,4 @@ def is_locked(card) -> bool:
     return int(getattr(card, "locked_turns", 0) or 0) > 0
 
 
-__all__ = ["ALL_TRIBES", "Race", "Minion", "is_locked"]
+__all__ = ["ALL_TRIBES", "BONUS_KEYWORDS", "Race", "Minion", "is_locked"]

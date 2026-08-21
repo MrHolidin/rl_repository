@@ -597,6 +597,10 @@ class DiscoverTribeEffect:
     #: "Discover a **Choose One** card" — narrowed by the keyword the card
     #: carries, the same way the two flags above narrow by an ability.
     require_choose_one: bool = False
+    #: "**It dies if you play it this turn.**" — Tomb Turning's whole price.
+    #: The pick is marked rather than the card, because it is this copy that
+    #: was cheap, and the mark comes off at the seat's next turn start.
+    dies_if_played_this_turn: bool = False
     #: "a minion of your **most common type**" — the tribe is read off the
     #: seat's board when the modal opens, not named here.
     most_common_tribe: bool = False
@@ -1746,6 +1750,10 @@ class ConsumeTavernMinionEffect:
     #: The eater is the card carrying this, not one the seat picks — which is
     #: what separates Insatiable Ur'zul from Mind Muck.
     eater_is_source: bool = False
+    #: "...to gain their stats **and Bonus Keywords**". The keyword half of
+    #: Methodical Madness, which is most of what the card is for and was doing
+    #: nothing at all.
+    gain_keywords: bool = False
 
 
 @dataclass(frozen=True)

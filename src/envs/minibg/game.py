@@ -128,6 +128,8 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
                 shared_pool=shared_pool,
             ),
         )
+        for seat_index, seat in enumerate(players):
+            seat.side_rng_seed = seat_index + 1
         order = sample_shop_turn_order(self._rng, 2)
         return MiniBGState(
             players=players,

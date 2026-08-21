@@ -104,6 +104,8 @@ class PendingChoice:
     magnetize_onto_board_idx: Optional[int] = None
     #: DISCOVER_TRIBE only: turns the pick is held shut for once it lands.
     lock_turns: int = 0
+    #: The pick dies if it is played before the seat's next turn.
+    dies_if_played_this_turn: bool = False
 
 
 class CasterKind(IntEnum):
@@ -200,6 +202,14 @@ class PlayerState:
     last_tavern_spell_cast: Optional[str] = None
     next_roll_cost_override: Optional[int] = None
     free_roll_charges: int = 0
+    #: Seed and draw count for the seat's own generator — see
+    #: ``board_helpers.seat_rng``. A card that fires from a place with no
+    #: generator to hand used to get ``default_rng(0)``, freshly reseeded every
+    #: call, so "get a random Bounty" was the same Bounty every time. A counter
+    #: rather than a live ``Generator`` because the seat's state is copied once
+    #: per action and a value is what survives that unambiguously.
+    side_rng_seed: int = 0
+    side_rng_draws: int = 0
     last_combat_won: bool = False
     #: Neither side took damage. The third answer the "if you win your next
     #: combat" cards ask for, and the only one ``last_combat_won`` cannot give.
@@ -379,7 +389,9 @@ def _fire_hero_damage(player: PlayerState, damage: int, *, patch=None) -> bool:
             # has one.
             continue
         if triggers is None:
-            triggers = ShopTriggers(_np.random.default_rng(0), patch=patch)
+            from src.bg_core.board_helpers import seat_rng
+
+            triggers = ShopTriggers(seat_rng(player), patch=patch)
         for _ in range(times):
             triggers.apply_shop_effect(player, source, effect.effect, placed=None)
     return rewound

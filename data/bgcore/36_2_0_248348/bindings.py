@@ -2187,8 +2187,13 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
     "BG31_896": (  # Hallowed Ritual — Discover a Tier 7 minion
         Ability(Trigger.ON_PLACE, DiscoverMinionAtTierEffect(tier=7)),
     ),
-    "BG34_888": (  # Tomb Turning — Discover an Undead
-        Ability(Trigger.ON_PLACE, DiscoverTribeEffect(tribe=Race.UNDEAD, repeats=1)),
+    "BG34_888": (  # Tomb Turning — an Undead, dead if you play it this turn
+        Ability(
+            Trigger.ON_PLACE,
+            DiscoverTribeEffect(
+                tribe=Race.UNDEAD, dies_if_played_this_turn=True
+            ),
+        ),
     ),
     "BG28_607": (  # Corrupted Cupcakes — a Demon eats three off the counter
         Ability(
@@ -2228,11 +2233,14 @@ SPELL_EFFECTS: Dict[str, Tuple[Ability, ...]] = {
             ),
         ),
     ),
-    "BG36_880": (  # Methodical Madness — a Demon eats two off the counter
+    "BG36_880": (  # Methodical Madness — a Demon eats two, stats and keywords
         Ability(
             Trigger.ON_PLACE,
             ConsumeTavernMinionEffect(
-                filter_race=Race.DEMON, count=2, eater_is_source=True
+                filter_race=Race.DEMON,
+                count=2,
+                eater_is_source=True,
+                gain_keywords=True,
             ),
         ),
     ),

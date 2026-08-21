@@ -196,11 +196,11 @@ def note_gold_spent(player: PlayerState, amount: int, *, patch=None) -> None:
     """
     if amount <= 0 or patch is None:
         return
-    import numpy as _np
+    from src.bg_core.board_helpers import seat_rng
 
     from .shop_triggers import ShopTriggers
 
-    ShopTriggers(_np.random.default_rng(0), patch=patch).fire_gold_spent(player, amount)
+    ShopTriggers(seat_rng(player), patch=patch).fire_gold_spent(player, amount)
 
 
 def buy_from_shop(
