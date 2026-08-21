@@ -44,18 +44,24 @@ team Passes") — and a solo lobby has no partner, so `PatchContext` drops them
 
 ## Bindings
 
-Tier 1 is done: 19 of its 22 solo-pool minions carry effect bindings, two more
-are keyword-only bodies the catalog already describes (so 21 of 22 are complete;
-the 22nd, Aureate Laureate, is the always-golden flag rather than an effect), and
-all 8 tier-1 Tavern spells are bound. Tiers 2-7 are untouched.
+All seven tiers are bound: 244 of the 246 solo-pool minions carry an effect
+binding or are keyword-only bodies the catalog already describes. The two left
+are listed in `UNBOUND_NEEDS_ENGINE` with what each needs. 72 of the 75 Tavern
+spells are bound; Portal in a Fountain, Portal in a Crystal and Bargain Bundle
+are not.
+
+60 of the 121 heroes are in the pool, 25 of them with a power the seat presses.
+Trinkets (390) and Dark Gifts (43) have no engine at all.
 
 `python scripts/check_patch_coverage.py data/bgcore/36_2_0_248348` prints what
 is left; the list is the queue, and it fails the day a binding names a card the
 catalog does not have.
 
-Tavern spells are engine API only (`src/bg_recruitment/tavern_spells.py`), the
-same arrangement Blood Gems and Spellcraft have: the tavern offers, the seat
-buys, the seat plays, and the flat RL action space has no index for any of it.
+Tavern spells are bought with `Action.BUY_TAVERN_SPELL` and played with the
+ordinary `PLAY_HAND_n`. One action rather than one per offer, because a tavern
+shows one spell; `tests/test_buy_tavern_spell.py::test_one_offer_one_action`
+fails the day a package sets `tavern_spells_per_roll` higher. Blood Gems and
+Spellcraft are still engine API only.
 One spell per roll (`ruleset.tavern_spells_per_roll`), offered beside the minion
 row rather than in place of it — a tier-1 tavern shows three minions and a
 spell.
