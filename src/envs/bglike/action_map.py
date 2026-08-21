@@ -45,8 +45,9 @@ A_TARGET_BOARD_LAST = int(Action.TARGET_BOARD_0) + BOARD_SIZE - 1
 # RL-only: skip second adjacent target during staged place (not a game ``Action``).
 A_APPLY_EFFECT_SKIP = A_SWAP_BOARD_LAST + 1
 A_HERO_POWER = int(Action.HERO_POWER)
+A_BUY_TAVERN_SPELL = int(Action.BUY_TAVERN_SPELL)
 
-NUM_ENV_ACTIONS = max(A_APPLY_EFFECT_SKIP, A_HERO_POWER) + 1
+NUM_ENV_ACTIONS = max(A_APPLY_EFFECT_SKIP, A_HERO_POWER, A_BUY_TAVERN_SPELL) + 1
 
 A_BUY_BASE = A_SHOP_SLOT_0
 A_SELL_BASE = A_SELL_BOARD_0
@@ -170,6 +171,8 @@ def struct_action_to_game_action(action) -> int:
         return int(Action.TARGET_BOARD_0) + action.args[0]
     if action.type == StructActionType.HERO_POWER:
         return int(Action.HERO_POWER)
+    if action.type == StructActionType.BUY_TAVERN_SPELL:
+        return int(Action.BUY_TAVERN_SPELL)
     raise ValueError(f"not a shop-phase structured action: {action}")
 
 

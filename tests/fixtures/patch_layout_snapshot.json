@@ -139,8 +139,8 @@
     "HAND_SIZE": 10,
     "MAX_SHOP_SLOTS": 6,
     "MAX_TIER": 6,
-    "NUM_ACTIONS": 115,
-    "NUM_ENV_ACTIONS": 115,
+    "NUM_ACTIONS": 116,
+    "NUM_ENV_ACTIONS": 116,
     "SHOP_OFFERS_BY_TIER": {
       "1": 3,
       "2": 4,
@@ -257,7 +257,8 @@
       "TARGET_BOARD_4",
       "TARGET_BOARD_5",
       "TARGET_BOARD_6",
-      "HERO_POWER"
+      "HERO_POWER",
+      "BUY_TAVERN_SPELL"
     ]
   },
   "obs_dims": {

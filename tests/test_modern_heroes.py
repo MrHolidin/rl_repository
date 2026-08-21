@@ -631,7 +631,8 @@ def test_the_action_is_offered_only_when_the_power_can_be_pressed(patch):
     assert hero_passives.can_use_hero_power(player, 5)
     player.gold = 2
     assert not hero_passives.can_use_hero_power(player, 5)
-    assert int(A.Action.HERO_POWER) == A.NUM_ACTIONS - 1
+    # Appended above the env-only band; anything added later goes above it.
+    assert int(A.Action.HERO_POWER) > A.NUM_CORE_ACTIONS
 
 
 def test_a_seat_with_no_hero_never_offers_it(patch):

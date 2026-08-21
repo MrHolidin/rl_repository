@@ -72,6 +72,12 @@ def _build_action_enum() -> type[IntEnum]:
     # it at the enum's end would have been an append for the enum and a shift for
     # every env id after it.
     members["HERO_POWER"] = n + ENV_ONLY_ACTION_SLOTS
+    # Buying the Tavern spell beside the minion row. One id because a tavern
+    # offers one spell (``ruleset.tavern_spells_per_roll``), and a package that
+    # offers more is caught by the layout test rather than left with an offer
+    # nothing can buy. Appended above HERO_POWER, which is itself above the
+    # env-only band — see NUM_CORE_ACTIONS.
+    members["BUY_TAVERN_SPELL"] = n + ENV_ONLY_ACTION_SLOTS + 1
     return IntEnum("Action", members)
 
 

@@ -37,9 +37,10 @@ def test_action_layout():
     # was appended above them so that adding it moved no id a policy knows.
     assert A_SWAP_BOARD_0 == NUM_CORE_ACTIONS
     assert A_APPLY_EFFECT_SKIP == A_SWAP_BOARD_0 + NUM_SWAP_ADJ
-    # HERO_POWER sits above the env-only band, so the space ends at it.
+    # The appended actions sit above the env-only band, in the order added.
     assert int(GameAction.HERO_POWER) == A_APPLY_EFFECT_SKIP + 1
-    assert NUM_ENV_ACTIONS == int(GameAction.HERO_POWER) + 1
+    assert int(GameAction.BUY_TAVERN_SPELL) == int(GameAction.HERO_POWER) + 1
+    assert NUM_ENV_ACTIONS == int(GameAction.BUY_TAVERN_SPELL) + 1
 
 
 def test_env_to_game_mapping_covers_all_non_order_actions():

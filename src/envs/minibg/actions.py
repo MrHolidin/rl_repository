@@ -105,6 +105,12 @@ class Action(IntEnum):
     # it at the enum's end would have been an append for the enum and a shift for
     # every env id after it.
     HERO_POWER = 80
+    # Buying the Tavern spell beside the minion row. One id because a tavern
+    # offers one spell (``ruleset.tavern_spells_per_roll``), and a package that
+    # offers more is caught by the layout test rather than left with an offer
+    # nothing can buy. Appended above HERO_POWER, which is itself above the
+    # env-only band — see NUM_CORE_ACTIONS.
+    BUY_TAVERN_SPELL = 81
 
 
 #: The contiguous band of game actions, below the env-only ids ``action_map``
@@ -112,7 +118,7 @@ class Action(IntEnum):
 #: what the env stacks its own actions on top of, and it must never move.
 NUM_CORE_ACTIONS = 73
 #: One past the highest action id, env-only reservations included.
-NUM_ACTIONS = 81
+NUM_ACTIONS = 82
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE

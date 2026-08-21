@@ -95,6 +95,7 @@ __all__ = [
     "offer_tavern_spells",
     "clear_tavern_spell_offers",
     "buy_tavern_spell",
+    "can_buy_tavern_spell",
     "spell_costs_health",
     "steal_tavern_minion",
     "add_random_tavern_spells",
@@ -265,6 +266,34 @@ def spell_costs_health(spell: SpellCard) -> bool:
         and isinstance(ability.effect, PayInHealthEffect)
         for ability in spell.abilities
     )
+
+
+def can_buy_tavern_spell(player: PlayerState, offer_index: int = 0) -> bool:
+    """Whether the seat could buy the spell at ``offer_index`` right now.
+
+    What ``buy_tavern_spell`` would refuse, asked before the fact so the legal
+    mask and the purchase cannot disagree — every refusal below is one of its
+    raises. Takes no patch: the price is on the card and the discounts are on
+    the seat.
+    """
+    offers = player.tavern_spell_offers
+    if not 0 <= offer_index < len(offers):
+        return False
+    if player.phase != PlayerPhase.SHOP:
+        return False
+    if first_free_hand_slot(player) is None:
+        return False
+    spell = offers[offer_index]
+    from src.bg_recruitment import hero_passives
+
+    cost = 0 if hero_passives.hero_tavern_spell_is_free(player) else (
+        effective_tavern_spell_cost(player, spell)
+    )
+    if spell_costs_health(spell):
+        # Paid in Health, so gold is not the question — but a purchase that
+        # kills the seat is not one the tavern offers.
+        return player.health + player.armor > cost
+    return player.gold >= cost
 
 
 def buy_tavern_spell(

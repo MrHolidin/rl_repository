@@ -293,7 +293,8 @@ def test_action_space_only_ever_grows_at_the_end():
     the observation. The modern patch's pressable powers added HERO_POWER at
     the end; every member before it kept its value, so a policy trained
     without it reads every other action the same way."""
-    assert int(A.Action.HERO_POWER) == A.NUM_ACTIONS - 1
+    # Appended above the env-only band; anything added later goes above it.
+    assert int(A.Action.HERO_POWER) > A.NUM_CORE_ACTIONS
     for name, value in (
         ("BUY_SLOT_0", 0),
         ("FINISH_FREEZE_SHOP", 59),
