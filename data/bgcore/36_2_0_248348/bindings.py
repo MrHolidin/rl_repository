@@ -212,11 +212,20 @@ BOUNTY_IDS: FrozenSet[str] = frozenset(
 
 #: Tavern spells the tavern only offers when a tribe is in the lobby. Nothing
 #: in the card data marks a spell's tribe, so the package says it, the same way
-#: it names its Bounties above. Only the three families with a printed source
-#: are here: the Bounties are Pirate-lobby spells, Spitescale Special makes
-#: Spellcraft spells that only Naga mint, and Temperature Shift hands over two
-#: Elementals -- which is the one that matters beyond flavour, because it put a
-#: tribe on the board that the rotation had excluded.
+#: it names its Bounties above.
+#:
+#: Most of these name their tribe themselves -- "Choose a friendly Demon",
+#: "Discover an Undead", "Give your Murlocs +2/+2" -- so the gate is only
+#: writing down what the binding beside it already says. Three do not, and are
+#: worth the note: the two Blood Gem cards belong to the Quilboar mechanic
+#: (the catalog tags both ``BACON_BLOOD_GEM_TOOLTIP``), and Brood of Nozdormu
+#: names no tribe at all in text or binding -- its gate is the card page's own
+#: "can only appear in lobbies where Dragons are present".
+#:
+#: Flavour for most of them; not for the ones that hand a body over. Cloning
+#: Conch gives two Murlocs, Temperature Shift two Elementals and Boon of
+#: Beetles summons Beasts, so an ungated offer put a tribe on the board that
+#: the rotation had excluded.
 SPELL_TRIBE_GATES: Dict[str, Race] = {
     "BG33_811": Race.PIRATE,  # Healthy Bounty
     "BG33_812": Race.PIRATE,  # Hostile Bounty
@@ -225,7 +234,21 @@ SPELL_TRIBE_GATES: Dict[str, Race] = {
     "BG33_815": Race.PIRATE,  # Wealthy Bounty
     "BG31_886": Race.PIRATE,  # Forest's Bounty
     "BG28_606": Race.NAGA,  # Spitescale Special
+    "BG32_815": Race.NAGA,  # Shifting Tide
+    "BG35_922": Race.NAGA,  # Queen's Command
     "BG31_819": Race.ELEMENTAL,  # Temperature Shift
+    "BG33_899": Race.ELEMENTAL,  # Mounting Avalanche
+    "BG28_604": Race.UNDEAD,  # Butchering
+    "BG34_888": Race.UNDEAD,  # Tomb Turning
+    "BG28_607": Race.DEMON,  # Corrupted Cupcakes
+    "BG36_880": Race.DEMON,  # Methodical Madness
+    "BG28_601": Race.MURLOC,  # Cloning Conch
+    "BG35_149": Race.MURLOC,  # Deepwater Clan
+    "BG34_889": Race.DRAGON,  # Brood of Nozdormu
+    "BG36_246": Race.DRAGON,  # Mighty Dragonbreath
+    "BG28_698": Race.QUILBOAR,  # Gem Confiscation
+    "BG34_689": Race.QUILBOAR,  # Blood Gem Barrage
+    "BG28_603": Race.BEAST,  # Boon of Beetles
 }
 
 #: Cards that come out of the tavern already golden. The flag is the whole

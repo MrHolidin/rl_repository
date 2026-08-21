@@ -886,20 +886,22 @@ def test_a_death_mid_fight_makes_the_room(patch):
 
 def test_a_tribe_gated_spell_leaves_the_pool_with_its_tribe(patch):
     """Nothing in the card data marks a spell's tribe, so the package says it.
-    Temperature Shift is the one that matters beyond flavour: it hands over two
-    Elementals, so offering it in an Elemental-less lobby put a tribe on the
-    board the rotation had excluded."""
+    Flavour for most; not for the ones that hand a body over -- Cloning Conch
+    gives two Murlocs, Temperature Shift two Elementals, Boon of Beetles
+    summons Beasts -- where an ungated offer put a tribe on the board the
+    rotation had excluded."""
     from src.bg_recruitment.tavern_spells import tavern_spell_pool
 
     everything = set(tavern_spell_pool(6, patch=patch))
-    for tribe, gated in (
-        (Race.PIRATE, {"BG33_811", "BG33_812", "BG33_813", "BG33_814", "BG33_815", "BG31_886"}),
-        (Race.NAGA, {"BG28_606"}),
-        (Race.ELEMENTAL, {"BG31_819"}),
-    ):
-        assert gated <= everything
+    by_tribe: dict = {}
+    for card_id, tribe in patch.spell_tribe_gates.items():
+        by_tribe.setdefault(tribe, set()).add(card_id)
+    assert by_tribe, "the package gates no spells at all"
+
+    for tribe, gated in by_tribe.items():
+        assert gated <= everything, tribe
         without = set(tavern_spell_pool(6, patch=patch, shop_excluded_race=tribe))
-        assert everything - without == gated
+        assert everything - without == gated, tribe
 
 
 def test_two_excluded_tribes_drop_both_families(patch):
@@ -909,7 +911,68 @@ def test_two_excluded_tribes_drop_both_families(patch):
     without = set(
         tavern_spell_pool(6, patch=patch, shop_excluded_race=(Race.NAGA, Race.ELEMENTAL))
     )
-    assert everything - without == {"BG28_606", "BG31_819"}
+    expected = {
+        c for c, t in patch.spell_tribe_gates.items() if t in (Race.NAGA, Race.ELEMENTAL)
+    }
+    assert everything - without == expected
+
+
+def test_every_gated_spell_names_its_tribe_or_is_one_of_three(patch):
+    """The gate is mostly writing down what the binding beside it already says.
+    Four cards do not name a tribe: the two Blood Gem cards and Spitescale
+    Special belong to a keyword a tribe owns (Blood Gems to Quilboar,
+    Spellcraft to Naga), and Brood of Nozdormu names nothing at all -- its gate
+    is the card page and its own name."""
+    from src.bg_core.minion import Race as R
+
+    unnamed = {"BG28_698", "BG34_689", "BG28_606", "BG34_889"}
+
+    def _tribes_named(card_id):
+        found = set()
+
+        def walk(effect):
+            for field in (
+                "tribe", "filter_race", "repeat_if_tribe", "recipient_tribe",
+                "scope_key", "race",
+            ):
+                value = getattr(effect, field, None)
+                if isinstance(value, R):
+                    found.add(value)
+            for field in ("buff", "first", "second", "then", "effect"):
+                sub = getattr(effect, field, None)
+                if sub is not None and hasattr(sub, "__dataclass_fields__"):
+                    walk(sub)
+            token = getattr(effect, "token_id", None)
+            if token and token in patch.templates:
+                race = patch.templates[token].race
+                if race is not None:
+                    found.add(race)
+
+        for ability in patch.tavern_spells[card_id].abilities:
+            walk(ability.effect)
+        return found
+
+    for card_id, tribe in patch.spell_tribe_gates.items():
+        if card_id in unnamed or tribe is Race.PIRATE:  # Bounties are a named cycle
+            continue
+        assert tribe in _tribes_named(card_id), card_id
+
+
+def test_gating_never_empties_the_counter(patch):
+    """A real lobby leaves five tribes out; the tavern still has plenty."""
+    import itertools
+
+    from src.bg_core.minion import ALL_TRIBES
+    from src.bg_recruitment.tavern_spells import tavern_spell_pool
+
+    excluded_count = patch.meta.rotation_excluded_count
+    worst = min(
+        itertools.combinations(ALL_TRIBES, excluded_count),
+        key=lambda combo: len(tavern_spell_pool(6, patch=patch, shop_excluded_race=combo)),
+    )
+    for tier in (1, 3, 6):
+        # Three is what a Discover needs; the roll needs one.
+        assert len(tavern_spell_pool(tier, patch=patch, shop_excluded_race=worst)) >= 3
 
 
 def test_the_counter_never_offers_a_gated_spell_its_lobby_left_out(patch):
