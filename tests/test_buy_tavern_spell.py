@@ -1,9 +1,10 @@
 """Buying the Tavern spell off the counter.
 
-The spell sits beside the minion row rather than in it, so buying it is its own
-action rather than a shop slot. `can_buy_tavern_spell` is the mask's question
-and `buy_tavern_spell` is the purchase; every refusal in one is a raise in the
-other, which is what keeps a legal action from crashing.
+Engine API only, the arrangement Blood Gems and Spellcraft have: the tavern
+offers, the seat buys, the seat plays. `can_buy_tavern_spell` is the question
+asked before the fact and `buy_tavern_spell` is the purchase — every refusal in
+one is a raise in the other, so a driver that checks first never crashes and one
+that does not gets told why.
 """
 
 from __future__ import annotations
@@ -16,14 +17,12 @@ import pytest
 import src.envs.minibg  # noqa: F401  (breaks a circular import at collection)
 from src.bg_catalog.patch_context import PatchContext
 from src.bg_lobby.player import PlayerPhase, PlayerState
-from src.bg_player_turn.context import PlayerTurnContext
-from src.bg_player_turn.engine import PlayerTurnEngine
 from src.bg_recruitment import tavern_spells as ts
-from src.bg_recruitment.shop_triggers import ShopTriggers
 from src.envs.bglike import actions as A
 
 PATCH_DIR = Path("data/bgcore/36_2_0_248348")
 HEALTH_SPELL = "BG28_571"  # Hasty Excavation — "costs Health to buy instead of Gold"
+CHEAP_SPELL = "BG28_503"
 
 
 @pytest.fixture(scope="module")
@@ -60,14 +59,6 @@ def _offer(patch, player, card_id=None):
     return player.tavern_spell_offers[0]
 
 
-def _engine(patch):
-    rng = np.random.default_rng(0)
-    ctx = PlayerTurnContext(
-        rng=rng, triggers=ShopTriggers(rng, patch=patch), patch=patch, round_number=6
-    )
-    return PlayerTurnEngine(A), ctx
-
-
 # --------------------------------------------------------------------------- #
 # The purchase
 # --------------------------------------------------------------------------- #
@@ -77,33 +68,27 @@ def test_the_spell_moves_from_the_counter_to_the_hand(patch):
     player = _seat(patch)
     spell = _offer(patch, player)
     gold = player.gold
-    engine, ctx = _engine(patch)
 
-    assert int(A.Action.BUY_TAVERN_SPELL) in engine.legal_actions(
-        player, patch.meta.ruleset
-    )
-    assert engine.apply(player, int(A.Action.BUY_TAVERN_SPELL), ctx) is True
+    assert ts.can_buy_tavern_spell(player, 0)
+    assert ts.buy_tavern_spell(player, 0, patch=patch) is spell
 
     assert player.hand[0] is spell
     assert player.tavern_spell_offers == ()
     assert player.gold == gold - spell.cost
-    # A purchase is a shop action; the caller spends the budget on a True.
-    assert int(A.Action.BUY_TAVERN_SPELL) not in engine.legal_actions(
-        player, patch.meta.ruleset
-    )
+    # And it is gone from the counter, so it cannot be bought twice.
+    assert not ts.can_buy_tavern_spell(player, 0)
 
 
-def test_the_mask_and_the_purchase_never_disagree(patch):
+def test_asking_first_and_being_refused_are_the_same_question(patch):
     """Every refusal `can_buy_tavern_spell` gives is one `buy_tavern_spell`
-    raises — so an action the mask offers cannot crash, and one it withholds
-    cannot half-happen."""
+    raises, so the two can never disagree about what is allowed."""
     cases = []
 
     empty = _seat(patch)  # nothing on the counter
     cases.append(empty)
 
     broke = _seat(patch, gold=0)
-    _offer(patch, broke, "BG28_503")
+    _offer(patch, broke, CHEAP_SPELL)
     cases.append(broke)
 
     full = _seat(patch)
@@ -123,15 +108,17 @@ def test_the_mask_and_the_purchase_never_disagree(patch):
 
 
 def test_a_spell_bought_is_a_spell_playable(patch):
-    """The whole point of the action: what it puts in hand is a card the seat
-    can then play."""
+    """The point of the purchase: what it puts in hand is a card the seat can
+    then cast, at a target when the card names one."""
     player = _seat(patch, gold=20)
-    _offer(patch, player, "BG28_503")
-    engine, ctx = _engine(patch)
-    engine.apply(player, int(A.Action.BUY_TAVERN_SPELL), ctx)
+    _offer(patch, player, CHEAP_SPELL)
+    ts.buy_tavern_spell(player, 0, patch=patch)
     player.board.append(patch.make_minion("BGS_119"))
-    player.shop_actions_used = 0
-    assert int(A.Action.PLAY_HAND_0) in engine.legal_actions(player, patch.meta.ruleset)
+
+    ts.play_tavern_spell_from_hand(
+        player, 0, target_board_index=0, rng=np.random.default_rng(0), patch=patch
+    )
+    assert player.hand[0] is None
 
 
 # --------------------------------------------------------------------------- #
@@ -163,15 +150,15 @@ def test_the_tavern_does_not_offer_a_purchase_that_would_kill(patch):
 
 
 def test_taethelans_every_third_spell_is_free(patch):
-    """A passive that could never fire before: nothing in either action space
-    reached the purchase it counts."""
+    """A passive that had never fired: nothing was calling the purchase it
+    counts."""
     hero = next(
         hid for hid, h in patch.heroes.items() if h.name == "Tae'thelan Bloodwatcher"
     )
     player = _seat(patch, gold=99, hero_id=hero)
     paid = []
     for _ in range(6):
-        spell = _offer(patch, player)
+        _offer(patch, player)
         before = player.gold
         ts.buy_tavern_spell(player, 0, patch=patch)
         paid.append(before - player.gold)
@@ -180,50 +167,9 @@ def test_taethelans_every_third_spell_is_free(patch):
     assert all(p > 0 for i, p in enumerate(paid) if i not in (2, 5))
 
 
-# --------------------------------------------------------------------------- #
-# The action space
-# --------------------------------------------------------------------------- #
-
-
-def test_one_offer_one_action(patch):
-    """The action names no slot because a tavern shows one spell. A package
-    that offered more would leave the extras unbuyable."""
-    for package in sorted(Path("data/bgcore").iterdir()):
-        if not (package / "meta.json").exists():
-            continue
-        ctx = PatchContext.load(package)
-        assert ctx.meta.ruleset.tavern_spells_per_roll <= 1, package.name
-
-
-def test_the_structured_path_can_buy_one_too(patch):
-    from src.envs.bglike.action_map import struct_action_to_game_action
-    from src.envs.minibg.structured_actions import (
-        StructAction,
-        StructActionType,
-        validate_struct_action,
-    )
-
-    token = StructAction(StructActionType.BUY_TAVERN_SPELL, ())
-    validate_struct_action(token, hand_size=10, board_size=7, max_shop_slots=7)
-    assert struct_action_to_game_action(token) == int(A.Action.BUY_TAVERN_SPELL)
-    with pytest.raises(ValueError):
-        validate_struct_action(
-            StructAction(StructActionType.BUY_TAVERN_SPELL, (0,)),
-            hand_size=10,
-            board_size=7,
-            max_shop_slots=7,
-        )
-
-
 def test_the_classic_packages_have_no_spell_to_buy(patch):
-    """They carry no Tavern spells at all, so the action is never legal there
-    and a 2021 policy sees exactly the mask it was trained on."""
-    engine, _ = _engine(patch)
+    """They carry no pool spells at all, so nothing there can be bought."""
     for package in ("data/bgcore/19_6_0_74257", "data/bgcore/15_6_2_36393"):
         ctx = PatchContext.load(Path(package))
         assert ts.tavern_spell_pool(6, patch=ctx) == [], package
-        player = _seat(ctx)
-        assert not ts.can_buy_tavern_spell(player, 0)
-        assert int(A.Action.BUY_TAVERN_SPELL) not in engine.legal_actions(
-            player, ctx.meta.ruleset
-        )
+        assert not ts.can_buy_tavern_spell(_seat(ctx), 0)

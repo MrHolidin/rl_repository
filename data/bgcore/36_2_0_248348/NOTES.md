@@ -57,11 +57,11 @@ Trinkets (390) and Dark Gifts (43) have no engine at all.
 is left; the list is the queue, and it fails the day a binding names a card the
 catalog does not have.
 
-Tavern spells are bought with `Action.BUY_TAVERN_SPELL` and played with the
-ordinary `PLAY_HAND_n`. One action rather than one per offer, because a tavern
-shows one spell; `tests/test_buy_tavern_spell.py::test_one_offer_one_action`
-fails the day a package sets `tavern_spells_per_roll` higher. Blood Gems and
-Spellcraft are still engine API only.
+Tavern spells are engine API only (`src/bg_recruitment/tavern_spells.py`), the
+same arrangement Blood Gems and Spellcraft have: the tavern offers, the seat
+buys (`can_buy_tavern_spell` / `buy_tavern_spell`), the seat plays. No RL action
+space has an index for any of it, deliberately — the engine comes first and the
+observation and action layouts are a later question.
 One spell per roll (`ruleset.tavern_spells_per_roll`), offered beside the minion
 row rather than in place of it — a tier-1 tavern shows three minions and a
 spell.

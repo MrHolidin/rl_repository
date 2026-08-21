@@ -11,7 +11,6 @@ from src.bg_recruitment import discover as recruitment_discover
 from src.bg_recruitment import economy as recruitment_economy
 from src.bg_recruitment import hero_passives
 from src.bg_recruitment import place as recruitment_place
-from src.bg_recruitment import tavern_spells as recruitment_tavern_spells
 from src.bg_recruitment import triples as recruitment_triples
 from src.bg_recruitment.hand_slots import hand_has_free_slot, hand_size
 from src.bg_recruitment.shop import effective_shop_offers_count, toggle_shop_slot_frozen
@@ -119,10 +118,6 @@ class PlayerTurnEngine:
 
             if player.gold >= recruitment_economy.effective_roll_cost(player):
                 actions.append(int(a.Action.ROLL))
-
-            if not hand_full and hasattr(a.Action, "BUY_TAVERN_SPELL"):
-                if recruitment_tavern_spells.can_buy_tavern_spell(player, 0):
-                    actions.append(int(a.Action.BUY_TAVERN_SPELL))
 
             # Pressing the hero power is not a shop action and costs none of
             # the turn's budget — it is its own resource, spent by its own
@@ -332,12 +327,6 @@ class PlayerTurnEngine:
             # shop actions. This used to return whether a modal opened, which
             # charged a shop action for every press that did not.
             return False
-
-        if hasattr(a.Action, "BUY_TAVERN_SPELL") and action_int == int(
-            a.Action.BUY_TAVERN_SPELL
-        ):
-            recruitment_tavern_spells.buy_tavern_spell(player, 0, patch=ctx.patch)
-            return True
 
         if action_int == int(a.Action.ROLL):
             recruitment_economy.roll_shop(

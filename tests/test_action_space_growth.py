@@ -51,19 +51,13 @@ def test_the_env_stacks_its_own_actions_on_the_game_band(actions, amap):
     "actions, amap",
     [(bglike_actions, bglike_map), (minibg_actions, minibg_map)],
 )
-def test_each_new_action_was_appended_above_everything_that_existed(actions, amap):
-    """Appending at the game enum's end would have been an append for the enum
-    and a *shift* for every env id above it. So the new ones stack on the
-    env-only band, in the order they were added."""
-    appended = [
-        int(actions.Action.HERO_POWER),
-        int(actions.Action.BUY_TAVERN_SPELL),
-    ]
-    assert appended == list(
-        range(amap.A_APPLY_EFFECT_SKIP + 1, amap.A_APPLY_EFFECT_SKIP + 1 + len(appended))
-    )
-    assert appended[-1] == amap.NUM_ENV_ACTIONS - 1
-    assert appended[-1] == actions.NUM_ACTIONS - 1
+def test_hero_power_was_appended_above_everything_that_existed(actions, amap):
+    """Appending it at the game enum's end would have been an append for the
+    enum and a *shift* for every env id above it."""
+    hero_power = int(actions.Action.HERO_POWER)
+    assert hero_power == amap.A_APPLY_EFFECT_SKIP + 1
+    assert hero_power == amap.NUM_ENV_ACTIONS - 1
+    assert hero_power == actions.NUM_ACTIONS - 1
 
 
 @pytest.mark.parametrize("actions", [bglike_actions, minibg_actions])

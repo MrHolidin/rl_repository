@@ -25,7 +25,6 @@ class StructActionType(IntEnum):
     # head, so a new kind costs one embedding row and leaves the other ten
     # meaning exactly what they meant.
     HERO_POWER = 11
-    BUY_TAVERN_SPELL = 12
 
 
 @dataclass(frozen=True)
@@ -125,10 +124,6 @@ def validate_struct_action(
     elif t == StructActionType.HERO_POWER:
         if a.args != ():
             raise ValueError(f"HERO_POWER expects args (), got {a.args}")
-    elif t == StructActionType.BUY_TAVERN_SPELL:
-        # One offer, so no slot to name — see Action.BUY_TAVERN_SPELL.
-        if a.args != ():
-            raise ValueError(f"BUY_TAVERN_SPELL expects args (), got {a.args}")
     elif t == StructActionType.COMPLETE_TURN or t == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
         if a.args != ():
             raise ValueError(f"{t.name} expects args (); pass board_perm to env.step_structured")
