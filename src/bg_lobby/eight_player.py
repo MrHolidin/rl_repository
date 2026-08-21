@@ -419,18 +419,34 @@ def resolve_combat_round(
             rng=rng,
             shop_excluded_race=state.shop_excluded_race,
         )
+        was_frozen = p.shop_frozen
         if p.shop_freeze_next_round:
             refresh_shop_fill_empty_slots(p, state.shop_excluded_race)
             p.shop_freeze_next_round = False
         else:
             refresh_shop(p, state.shop_excluded_race)
+        hero_passives.apply_hero_after_shop_refresh(
+            p,
+            state.round_number,
+            patch=patch,
+            rng=rng,
+            shop_excluded_race=state.shop_excluded_race,
+        )
         # A freeze lasts until the shop it protected is served, then lifts: the
         # kept minions stay on the counter but are no longer pinned, so the next
         # roll clears them. Only the whole-shop flag above used to be cleared
         # here; the per-slot tuple was never cleared anywhere, and rolling with
         # it set preserved those slots for the rest of the game. That went
         # unnoticed because the per-action state copy dropped the field.
-        p.shop_frozen = (False,) * len(p.shop_frozen)
+        #
+        # Only what was pinned when the turn ended lifts. A freeze the refresh
+        # itself put on — Varden's copy and the minion it was copied from —
+        # is a new pin on a new tavern, and clearing it here undid the whole
+        # passive on every turn-start roll.
+        p.shop_frozen = tuple(
+            now and not (i < len(was_frozen) and was_frozen[i])
+            for i, now in enumerate(p.shop_frozen)
+        )
 
     from src.bg_lobby.shop_order import sample_shop_turn_order
 

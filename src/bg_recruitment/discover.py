@@ -257,11 +257,17 @@ def resolve_discover_pick(
         _fire_discovered(player, patch=patch, picked=patch.templates.get(choice_token))
         return
     if pc.kind is PendingChoiceKind.HERO_POWER_DISCOVER:
-        # The pick is not a card and lands nowhere: it replaces the power the
-        # seat is playing with.
-        hero = patch.heroes.get(choice_token)
-        if hero is not None:
-            player.hero = hero
+        # The pick is not a card and lands nowhere: it replaces the *power* the
+        # seat is playing with, and nothing else. Swapping the whole hero threw
+        # away the passives the seat is still playing — including Master
+        # Nguyen's own "at the start of every turn", which made a power that
+        # changes every turn change exactly once — and handed the countdown
+        # passives a settled backlog they had never earned.
+        taken = patch.heroes.get(choice_token)
+        if taken is not None and player.hero is not None:
+            player.hero = player.hero.with_power_of(taken)
+        elif taken is not None:
+            player.hero = taken
         player.pending_choice = None
         _fire_discovered(player, patch=patch)
         return

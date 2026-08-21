@@ -17,7 +17,7 @@ Numeric values that changed across patches are documented at their use sites in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from src.bg_core.effects import Keyword
 from src.bg_core.minion import Race
@@ -451,6 +451,31 @@ HeroPassive = Union[
     OnSellBuffRandomShop,
     OnSellRaceAddToShop,
     StartOfCombatGrantLeftmost,
+    GoldOnBuyTribe,
+    GoldNextTurnOnSell,
+    OnNthSellAddRaceToHand,
+    OnNthDeathAddRaceToHand,
+    EveryNthTavernSpellFree,
+    BuffCombatSummons,
+    AttackOnKill,
+    SummonCopyWhenSpace,
+    PowerCostGrowsPerUse,
+    OnNthBuyAddCardToHand,
+    OnTiersBoughtAddCardToHand,
+    OnAttacksAddCardToHand,
+    FreeBuyEachTurnAfterAttacks,
+    ShopStatBuffPerBuys,
+    TavernSpellBonusPerTurns,
+    CastRandomSpellEachTurn,
+    OnRefreshCopyHighestTier,
+    OnRefreshGrantBonusKeyword,
+    SkipTurnsThenDiscover,
+    DiscoverAtTierOnGoldSpent,
+    DiscoverHeroPowerOnTurn,
+    FewerShopSlots,
+    FreezeShopEachTurn,
+    StartOfCombatBuffEnds,
+    StartOfCombatBuffOnePerTribe,
 ]
 
 
@@ -498,6 +523,28 @@ class Hero:
     #: Powers that only wake up later ("Unlocks at Tier 4", "on Turn 3").
     power_unlocks_at_tier: int = 0
     power_unlocks_on_turn: int = 0
+
+    def with_power_of(self, other: "Hero") -> "Hero":
+        """This hero, playing ``other``'s power.
+
+        "Discover a new Hero Power" takes the power and leaves the hero: the
+        seat keeps its name, its armor and every passive it is still playing —
+        including the passive that opened the Discover, which is how Master
+        Nguyen's power can change *every* turn rather than once.
+        """
+        from dataclasses import replace
+
+        return replace(
+            self,
+            power=other.power,
+            power_cost=other.power_cost,
+            power_uses=other.power_uses,
+            power_charges=other.power_charges,
+            power_cooldown_turns=other.power_cooldown_turns,
+            power_improve_per_buys=other.power_improve_per_buys,
+            power_unlocks_at_tier=other.power_unlocks_at_tier,
+            power_unlocks_on_turn=other.power_unlocks_on_turn,
+        )
 
     # -- passive-derived reads (cheap scans; called from economy/shop/combat) --
 

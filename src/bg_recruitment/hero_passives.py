@@ -69,6 +69,7 @@ __all__ = [
     "assign_random_hero",
     "apply_hero_on_game_start",
     "apply_hero_on_turn_start",
+    "apply_hero_after_shop_refresh",
     "can_use_hero_power",
     "hero_power_cost",
     "use_hero_power",
@@ -192,18 +193,6 @@ def apply_hero_on_turn_start(
             if p.per_turns > 0 and int(round_number) % p.per_turns == 1:
                 player.tavern_spell_bonus_attack += p.attack
                 player.tavern_spell_bonus_health += p.health
-        elif isinstance(p, CastRandomSpellEachTurn):
-            if int(round_number) >= p.unlocks_on_turn:
-                from .tavern_spells import apply_tavern_spell_effect
-                from src.bg_core.effects import CastRandomTavernSpellEffect
-
-                apply_tavern_spell_effect(
-                    player,
-                    CastRandomTavernSpellEffect(),
-                    rng=rng,
-                    patch=patch,
-                    shop_excluded_race=shop_excluded_race,
-                )
         elif isinstance(p, SkipTurnsThenDiscover):
             if int(round_number) in p.rounds:
                 player.gold = 0
@@ -299,7 +288,6 @@ def flush_hero_tier_discovers(
 
     while player.hero_pending_tier_discovers and player.pending_choice is None:
         tier, *rest = player.hero_pending_tier_discovers
-        player.hero_pending_tier_discovers = tuple(rest)
         _open_tier_discover(
             player,
             int(tier),
@@ -309,6 +297,13 @@ def flush_hero_tier_discovers(
             shared_pool=shared_pool,
             repeats=1,
         )
+        if player.pending_choice is None:
+            # It refused — a full hand, or nothing left in the pool at that
+            # Tier. The queue is what makes the chain open one at a time, so
+            # taking the head off before knowing it opened threw the whole
+            # chain away on one bad moment. It stays owed.
+            break
+        player.hero_pending_tier_discovers = tuple(rest)
 
 
 def _open_hero_power_discover(player, *, rng, patch, options: int = 2) -> None:
@@ -316,7 +311,13 @@ def _open_hero_power_discover(player, *, rng, patch, options: int = 2) -> None:
     from src.bg_lobby.player import PendingChoice, PendingChoiceKind
 
     held = player.hero.hero_id if player.hero is not None else None
-    pool = sorted(cid for cid in patch.hero_pool_ids if cid != held)
+    # A passive hero has no power to offer, and picking one would *delete* the
+    # seat's rather than replace it — a third of the pool, before this.
+    pool = sorted(
+        cid
+        for cid in patch.hero_pool_ids
+        if cid != held and patch.heroes[cid].has_power()
+    )
     if len(pool) < options:
         return
     picks = []
@@ -691,6 +692,40 @@ def use_hero_power(
         )
 
 
+def apply_hero_after_shop_refresh(
+    player: PlayerState,
+    round_number: int,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    shop_excluded_race: Optional[Race] = None,
+) -> None:
+    """After the lobby has built the turn's tavern, not before it.
+
+    Yogg-Saron casts a random Tavern spell every turn, and half of what a
+    Tavern spell can do is to the counter — buff an offer, swap one, steal one.
+    Cast at the turn-start hook it landed on the *previous* turn's shop, which
+    the refresh then threw away, so the spell only ever counted when it happened
+    to be one of the ones that does not touch the tavern.
+    """
+    h = player.hero
+    if h is None:
+        return
+    from src.bg_core.effects import CastRandomTavernSpellEffect
+
+    from .tavern_spells import apply_tavern_spell_effect
+
+    for p in h.passives:
+        if isinstance(p, CastRandomSpellEachTurn) and int(round_number) >= p.unlocks_on_turn:
+            apply_tavern_spell_effect(
+                player,
+                CastRandomTavernSpellEffect(),
+                rng=rng,
+                patch=patch,
+                shop_excluded_race=shop_excluded_race,
+            )
+
+
 def apply_hero_on_turn_end(player: PlayerState) -> None:
     """Sindragosa: the Tavern Freezes at the end of each turn."""
     h = player.hero
@@ -700,11 +735,26 @@ def apply_hero_on_turn_end(player: PlayerState) -> None:
         player.shop_freeze_next_round = True
 
 
-def apply_hero_on_gold_spent(player: PlayerState, amount: int) -> None:
-    """Count gold leaving the seat, for the heroes that read a lifetime total."""
+def apply_hero_on_gold_spent(
+    player: PlayerState,
+    amount: int,
+    *,
+    rng: Optional[np.random.Generator] = None,
+    patch: Optional[PatchContext] = None,
+) -> None:
+    """Count gold leaving the seat, for the heroes that read a lifetime total.
+
+    And pay out on the spot: "after you spend 60 Gold" is a threshold the
+    purchase crosses, so the card arrives in the hand that just paid rather
+    than at the following turn's start.
+    """
     if player.hero is None or amount <= 0:
         return
     player.hero_gold_spent_total += int(amount)
+    if patch is not None:
+        _pay_gold_spent_heroes(
+            player, rng=rng if rng is not None else np.random.default_rng(0), patch=patch
+        )
 
 
 def apply_hero_on_deaths(

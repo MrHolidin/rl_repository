@@ -855,7 +855,13 @@ def test_picking_a_hero_power_replaces_the_one_you_had(patch):
         on_after_placed=lambda *_: None,
         patch=with_heroes,
     )
-    assert player.hero.hero_id == wanted
+    # The power is what changes hands: the seat keeps its own hero, its armor
+    # and its passives, and plays the power it picked.
+    assert player.hero.hero_id == "patchwerk"
+    taken = with_heroes.heroes[wanted]
+    assert player.hero.power == taken.power
+    assert player.hero.power_cost == taken.power_cost
+    assert player.hero.passives == with_heroes.heroes["patchwerk"].passives
     assert player.pending_choice is None
 
 

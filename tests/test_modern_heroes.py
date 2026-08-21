@@ -367,9 +367,17 @@ def test_vanndar_reads_health_where_drekthar_reads_attack(patch):
 
 
 def _turn(patch, player, round_number):
+    """The seat's turn start, in the order the lobby runs it: the hero's
+    per-turn levers, then the tavern is built, then the hero acts on it."""
     hero_passives.apply_hero_on_turn_start(
         player,
         round_number=round_number,
+        patch=patch,
+        rng=np.random.default_rng(round_number),
+    )
+    hero_passives.apply_hero_after_shop_refresh(
+        player,
+        round_number,
         patch=patch,
         rng=np.random.default_rng(round_number),
     )
@@ -1252,4 +1260,148 @@ def test_a_press_that_could_do_nothing_is_not_offered(patch):
     assert hero_passives.can_use_hero_power(elise, 9)
     elise.hand = [patch.make_minion(beast) for _ in elise.hand]
     assert not hero_passives.can_use_hero_power(elise, 9)
+
+
+# --------------------------------------------------------------------------- #
+# What the state audit found
+# --------------------------------------------------------------------------- #
+
+
+def test_a_tier_discover_that_could_not_open_is_still_owed(patch):
+    """The queue is what makes a chain open one modal at a time. Taking the
+    head off before knowing it opened threw the whole chain away the moment the
+    hand happened to be full."""
+    beast = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.BEAST
+    )
+    player = _seat(patch, "BG22_HERO_201")  # Ambassador Faelin
+    player.tavern_tier = 6
+    player.hero_pending_tier_discovers = (6, 4, 2)
+    player.hand = [patch.make_minion(beast) for _ in player.hand]
+    hero_passives.flush_hero_tier_discovers(
+        player, rng=np.random.default_rng(0), patch=patch
+    )
+    assert player.pending_choice is None
+    assert player.hero_pending_tier_discovers == (6, 4, 2)
+
+    player.hand[0] = None
+    hero_passives.flush_hero_tier_discovers(
+        player, rng=np.random.default_rng(0), patch=patch
+    )
+    assert player.pending_choice is not None
+    assert player.hero_pending_tier_discovers == (4, 2)
+
+
+def test_a_hero_power_discover_only_offers_heroes_that_have_one(patch):
+    """A passive hero has no power to offer, so picking one used to *delete*
+    the seat's rather than replace it."""
+    for seed in range(30):
+        player = _seat(patch, "BG20_HERO_202")  # Master Nguyen
+        hero_passives._open_hero_power_discover(
+            player, rng=np.random.default_rng(seed), patch=patch, options=2
+        )
+        options = player.pending_choice.options
+        assert len(options) == 2, seed
+        assert all(patch.heroes[o].has_power() for o in options), seed
+        assert player.hero.hero_id not in options, seed
+
+
+def test_picking_a_power_leaves_the_hero_that_picked_it(patch):
+    """Master Nguyen Discovers "at the start of every turn" — which he can only
+    do while he is still the hero doing it."""
+    from src.bg_recruitment.discover import resolve_discover_pick
+
+    player = _seat(patch, "BG20_HERO_202")
+    for rnd in (1, 2, 3):
+        hero_passives.apply_hero_on_turn_start(
+            player, round_number=rnd, patch=patch, rng=np.random.default_rng(rnd)
+        )
+        assert player.pending_choice is not None, rnd
+        taken = patch.heroes[player.pending_choice.options[0]]
+        resolve_discover_pick(
+            player,
+            0,
+            None,
+            rng=np.random.default_rng(0),
+            on_after_placed=lambda *_: None,
+            patch=patch,
+        )
+        assert player.hero.hero_id == "BG20_HERO_202", rnd
+        assert player.hero.power == taken.power, rnd
+        assert player.hero.passives == patch.heroes["BG20_HERO_202"].passives, rnd
+
+
+def test_a_swapped_in_power_does_not_settle_a_backlog_it_never_earned(patch):
+    """The countdown counters belong to the seat. When a Discover replaced the
+    whole hero, one turn start paid out every reward the new hero's passive
+    would have owed for a game it did not play."""
+    from src.bg_recruitment.discover import resolve_discover_pick
+
+    player = _seat(patch, "BG20_HERO_202")
+    player.hero_deaths = 40
+    player.hero_attacks = 90
+    hero_passives.apply_hero_on_turn_start(
+        player, round_number=1, patch=patch, rng=np.random.default_rng(0)
+    )
+    resolve_discover_pick(
+        player,
+        0,
+        None,
+        rng=np.random.default_rng(0),
+        on_after_placed=lambda *_: None,
+        patch=patch,
+    )
+    hero_passives.apply_hero_on_turn_start(
+        player, round_number=2, patch=patch, rng=np.random.default_rng(0)
+    )
+    assert _hand(player) == [] or all(
+        c is None for c in player.hand[1:]
+    ), "a power swap paid out a countdown the seat never ran"
+
+
+def test_thorim_pays_when_the_gold_is_spent(patch):
+    """"After you spend 60 Gold" is a threshold the purchase crosses, so the
+    card arrives in the hand that just paid for it."""
+    from src.bg_recruitment.economy import note_gold_spent
+
+    player = _seat(patch, "BG27_HERO_801")
+    assert player.hero_promised_card
+    promised = player.hero_promised_card
+    for _ in range(20):
+        note_gold_spent(player, 3, patch=patch)
+    assert promised in _hand(player)
+    assert player.hero_gold_paid == 1
+    before = len(_hand(player))
+    for _ in range(20):
+        note_gold_spent(player, 3, patch=patch)
+    assert len(_hand(player)) == before
+
+
+def test_yogg_casts_into_the_tavern_the_seat_will_be_shown(patch):
+    """Half of what a Tavern spell does is to the counter, so casting before
+    the turn's refresh threw the spell away on every turn but the ones that
+    happened not to touch the shop."""
+    from src.bg_recruitment.shop import refresh_shop
+
+    hits = 0
+    for seed in range(12):
+        player = _seat(patch, "TB_BaconShop_HERO_35")
+        player.tavern_tier = 5
+        hero_passives.apply_hero_on_turn_start(
+            player, round_number=6, patch=patch, rng=np.random.default_rng(seed)
+        )
+        refresh_shop(player, None, rng=np.random.default_rng(seed), patch=patch)
+        before = [
+            (m.card_id, m.raw_attack, m.max_health) if m else None for m in player.shop
+        ]
+        hero_passives.apply_hero_after_shop_refresh(
+            player, 6, patch=patch, rng=np.random.default_rng(seed)
+        )
+        after = [
+            (m.card_id, m.raw_attack, m.max_health) if m else None for m in player.shop
+        ]
+        assert player.last_tavern_spell_cast is not None, seed
+        hits += before != after
+    # Not every random spell touches the counter, but some must now be able to.
+    assert hits > 0
 

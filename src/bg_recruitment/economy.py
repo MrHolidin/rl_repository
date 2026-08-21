@@ -206,7 +206,7 @@ def note_gold_spent(player: PlayerState, amount: int, *, patch=None) -> None:
     from .hero_passives import apply_hero_on_gold_spent
     from .shop_triggers import ShopTriggers
 
-    apply_hero_on_gold_spent(player, amount)
+    apply_hero_on_gold_spent(player, amount, rng=seat_rng(player), patch=patch)
     ShopTriggers(seat_rng(player), patch=patch).fire_gold_spent(player, amount)
 
 
