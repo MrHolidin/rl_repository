@@ -374,7 +374,13 @@ class ShopTriggers:
     def damage_hero(self, player: PlayerState, amount: int) -> None:
         if amount <= 0 or self.player_has_hero_immune(player):
             return
-        player.health -= amount
+        from src.bg_lobby.player import apply_hero_damage
+
+        # Through the one choke point, so a card that costs the seat life and a
+        # lost combat land the same way: armor absorbs first and the listeners
+        # that read hero damage read this too. Lich Baz'hial's power is the
+        # reason he starts with fifteen armor.
+        apply_hero_damage(player, amount, patch=self._patch)
         player.hero_damage_taken_total += amount
 
     def apply_buff_adjacent(

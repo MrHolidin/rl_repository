@@ -20,7 +20,7 @@ adding one would move every number a trained checkpoint is wired to.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -544,16 +544,23 @@ def _apply_spell_effect(
         # "Your Tavern spells give an extra +1 Attack" lands here, on the buff
         # itself, so it applies once however many minions the spell reaches.
         extra_attack, extra_health = tavern_spell_bonus(player)
+        scaled = replace(
+            effect,
+            attack=effect.attack + extra_attack,
+            health=effect.health + extra_health,
+        )
+        picky = _buff_helps(scaled)
+        chosen = target
+        if chosen is None and picky is not None:
+            chosen = _random_friendly(player, rng, where=picky)
+            if chosen is None:
+                return
         apply_targeted_buff(
             player,
             source=None,
-            effect=replace(
-                effect,
-                attack=effect.attack + extra_attack,
-                health=effect.health + extra_health,
-            ),
+            effect=scaled,
             rng=rng,
-            forced_buff_target=target,
+            forced_buff_target=chosen,
         )
         return
 
@@ -701,7 +708,12 @@ def _apply_spell_effect(
         if chosen is None:
             return
         amount = int(player.tavern_tier)
-        if effect.health:
+        # "(Swaps to Health next turn!)" — the same number paid to the other
+        # stat every other turn, so which half it lands on is the round's
+        # parity rather than a second effect. ``health`` says which half the
+        # card starts on, and odd rounds show that one.
+        to_health = bool(effect.health) != (int(player.round_number) % 2 == 0)
+        if to_health:
             chosen.bonus_health += amount
         else:
             chosen.bonus_attack += amount
@@ -792,8 +804,19 @@ def _apply_spell_effect(
             frozen_slots=player.shop_frozen,
             patch=patch,
         )
-        above = int(player.tavern_tier) + max(1, int(effect.tiers_up))
-        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        # "A Tier higher than yours" runs out at the top of the tavern: there
+        # is no seventh tier for the counter to show, and the tier-7 cards the
+        # pool deliberately keeps out of the shop are not this to hand out.
+        cap = int(patch.meta.ruleset.max_tier) if patch is not None else 6
+        above = min(cap, int(player.tavern_tier) + max(1, int(effect.tiers_up)))
+        # A frozen slot is not one of the slots the refresh rerolled, so it is
+        # not one of the slots this upgrades either.
+        frz = player.shop_frozen
+        filled = [
+            i
+            for i, m in enumerate(player.shop)
+            if m is not None and not (i < len(frz) and frz[i])
+        ]
         for slot in filled[: max(0, int(effect.count))]:
             clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
             fill_shop_slot(
@@ -838,10 +861,16 @@ def _apply_spell_effect(
         from .spellcraft import apply_temporary_buff
 
         # "Give a minion Reborn until next turn" — the same buff a Spellcraft
-        # spell hands out, cast by a hero power instead of played from hand.
+        # spell hands out, but *not* played from hand: nothing on the board
+        # cast a spell, so the watchers stay quiet and Lava Lurker's "the first
+        # Spellcraft spell on this is permanent" is not spent on it. Only a
+        # hero power reaches this branch bare; every card that grants one wraps
+        # it in a Spellcraft, which goes down the other path.
         chosen = target if target is not None else _random_friendly(player, rng)
         if chosen is not None:
-            apply_temporary_buff(chosen, effect, player=player, patch=patch)
+            apply_temporary_buff(
+                chosen, effect, player=player, patch=patch, from_spell=False
+            )
         return
 
     if isinstance(effect, MakeFriendlyGoldenEffect):
@@ -858,7 +887,13 @@ def _apply_spell_effect(
             # case where the pick is already Golden and there is nothing to do.
             make_golden(offer, patch=patch, shared_pool=shared_pool)
             return
-        chosen = target if target is not None else _random_friendly(player, rng)
+        # A body that is already Golden is not one this can upgrade, and Reno
+        # has one press for the whole game to spend on it.
+        chosen = (
+            target
+            if target is not None
+            else _random_friendly(player, rng, where=lambda m: not m.is_golden)
+        )
         if chosen is None:
             return
         if effect.max_tier and chosen.tier > effect.max_tier:
@@ -1044,15 +1079,35 @@ def _apply_spell_effect(
     )
 
 
-def _random_friendly(player: PlayerState, rng: np.random.Generator) -> Optional[Minion]:
+def _random_friendly(
+    player: PlayerState,
+    rng: np.random.Generator,
+    where: Optional[Callable[[Minion], bool]] = None,
+) -> Optional[Minion]:
     """A friendly at random — what a targeted spell falls back to with no pick.
 
     Same arrangement every other targeted effect has: the seat's choice when it
-    made one, a legal target otherwise.
+    made one, a legal target otherwise. ``where`` is what "legal" means for the
+    effect asking: a body it cannot help is not a target, and returning nothing
+    is better than spending the press on it.
     """
-    if not player.board:
+    pool = [m for m in player.board if where is None or where(m)]
+    if not pool:
         return None
-    return player.board[int(rng.integers(0, len(player.board)))]
+    return pool[int(rng.integers(0, len(pool)))]
+
+
+def _buff_helps(effect: BuffTargetFriendlyBattlecry) -> Optional[Callable[[Minion], bool]]:
+    """Which friendlies a buff cast with no named target may land on.
+
+    Stats help whatever they land on, so most buffs are not picky. A buff that
+    is *only* a keyword is: handing Divine Shield to a body that already has
+    one is a press spent on nothing.
+    """
+    if effect.attack or effect.health or effect.grant_keyword is None:
+        return None
+    kw = effect.grant_keyword
+    return lambda m: kw not in m.all_keywords
 
 
 def _positional_targets(player: PlayerState, source: Minion, effect) -> List[Minion]:

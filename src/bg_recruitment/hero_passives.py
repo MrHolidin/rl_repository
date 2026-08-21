@@ -240,13 +240,15 @@ def apply_hero_on_bought(
         return
     # What the buy was worth, counted once and read by however many passives
     # ask. A hero that pays per Tier and one that pays per Battlecry are two
-    # questions about the same purchase.
+    # questions about the same purchase — and the plain count of buys is a
+    # third, read by a power that improves ("after you buy 4 cards") and by a
+    # counter buff that grows, neither of which is a passive of its own.
+    player.hero_buy_count += 1
     player.hero_tiers_bought += max(0, int(minion.tier))
     if _has_battlecry(minion):
         player.hero_battlecry_buys += 1
     for p in h.passives:
         if isinstance(p, EveryNthBuyBuff):
-            player.hero_buy_count += 1
             if p.n > 0 and player.hero_buy_count % p.n == 0:
                 minion.bonus_attack += p.attack
                 minion.bonus_health += p.health
@@ -533,7 +535,113 @@ def can_use_hero_power(player: PlayerState, round_number: int = 1) -> bool:
         return False
     if h.power_unlocks_on_turn and int(round_number) < h.power_unlocks_on_turn:
         return False
-    return player.gold >= hero_power_cost(player)
+    if player.gold < hero_power_cost(player):
+        return False
+    return _power_can_land(player)
+
+
+def _power_can_land(player: PlayerState) -> bool:
+    """Whether pressing it would do anything at all.
+
+    The tavern greys the button out rather than taking the gold for nothing,
+    and the mask should not offer a press that provably does nothing either: a
+    swap against an empty counter, a Discover with a full hand, "destroy a
+    friendly Undead" with no Undead on the board. Only what an effect certainly
+    needs is listed — a power whose requirement is not here is always offered,
+    so the ladder can be short and wrong-in-one-direction only.
+    """
+    from src.bg_core.board_helpers import minion_matches_tribe
+    from src.bg_core.effects import (
+        AddRandomMinionToHandEffect,
+        AddRandomTavernSpellToHandEffect,
+        BuffTargetByTierEffect,
+        BuffTargetFriendlyBattlecry,
+        DestroyFriendlyEffect,
+        DiscoverTribeEffect,
+        GrantTemporaryBuffEffect,
+        MakeFriendlyGoldenEffect,
+        RefreshWithLastOpponentEffect,
+        ReplaceTavernCardEffect,
+        RetriggerFriendlyAbilityEffect,
+        SellFriendlyForStatsEffect,
+        StealTavernMinionEffect,
+        SwapAttackBetweenTwoEffect,
+        SwapWithTavernMinionEffect,
+    )
+    from src.bg_recruitment.hand_slots import first_free_hand_slot
+    from src.bg_recruitment.tavern_spells import _buff_helps
+
+    h = player.hero
+    if h is None:
+        return False
+    board = player.board
+    on_counter = [m for m in player.shop if m is not None]
+    hand_room = first_free_hand_slot(player) is not None
+
+    for ability in h.power:
+        e = ability.effect
+        if isinstance(e, StealTavernMinionEffect):
+            if not on_counter or not hand_room:
+                return False
+        elif isinstance(
+            e,
+            (
+                AddRandomMinionToHandEffect,
+                AddRandomTavernSpellToHandEffect,
+                DiscoverTribeEffect,
+            ),
+        ):
+            if not hand_room:
+                return False
+        elif isinstance(e, DestroyFriendlyEffect):
+            if not any(
+                e.filter_race is None or minion_matches_tribe(m, e.filter_race)
+                for m in board
+            ):
+                return False
+            # Both halves or neither: the body is gone the moment it is
+            # destroyed, so a payout with nowhere to land loses the trade.
+            wants_hand = e.then is not None or e.get_copy or e.discover_tiers_below
+            if wants_hand and not hand_room:
+                return False
+        elif isinstance(e, SwapWithTavernMinionEffect):
+            if not on_counter:
+                return False
+            if not any(not (e.exclude_golden and m.is_golden) for m in board):
+                return False
+        elif isinstance(e, ReplaceTavernCardEffect):
+            if not on_counter:
+                return False
+        elif isinstance(e, MakeFriendlyGoldenEffect):
+            if e.in_tavern:
+                if not on_counter:
+                    return False
+            elif not any(not m.is_golden for m in board):
+                return False
+        elif isinstance(e, RetriggerFriendlyAbilityEffect):
+            if not any(
+                any(ab.trigger == e.trigger for ab in m.abilities) for m in board
+            ):
+                return False
+        elif isinstance(e, BuffTargetFriendlyBattlecry):
+            picky = _buff_helps(e)
+            if not any(
+                (e.filter_race is None or minion_matches_tribe(m, e.filter_race))
+                and (picky is None or picky(m))
+                for m in board
+            ):
+                return False
+        elif isinstance(e, (SellFriendlyForStatsEffect, SwapAttackBetweenTwoEffect)):
+            # Two bodies: one to spend and one to receive.
+            if len(board) < 2:
+                return False
+        elif isinstance(e, (BuffTargetByTierEffect, GrantTemporaryBuffEffect)):
+            if not board:
+                return False
+        elif isinstance(e, RefreshWithLastOpponentEffect):
+            if not any(m is not None for m in player.last_opponent_board):
+                return False
+    return True
 
 
 def use_hero_power(

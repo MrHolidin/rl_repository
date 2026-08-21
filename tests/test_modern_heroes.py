@@ -17,7 +17,7 @@ import pytest
 
 import src.envs.minibg  # noqa: F401  (breaks a circular import at collection)
 from src.bg_catalog.patch_context import PatchContext
-from src.bg_core.effects import Keyword
+from src.bg_core.effects import Keyword, Trigger
 from src.bg_core.minion import Race
 from src.bg_lobby.player import PlayerPhase, PlayerState
 from src.bg_recruitment import hero_passives
@@ -665,11 +665,30 @@ def test_a_power_that_has_not_woken_up_is_not_offered(patch):
     assert hero_passives.can_use_hero_power(
         _armed(patch, "TB_BaconShop_HERO_56", tier=4), 5
     )
+    # Shudderwock unlocks on Turn 3 — with a Battlecry on the board either
+    # way, so the turn is the only thing being read.
+    battlecry = next(
+        c
+        for c in sorted(patch.pool_ids)
+        if any(ab.trigger is Trigger.ON_PLACE for ab in patch.templates[c].abilities)
+    )
     assert not hero_passives.can_use_hero_power(
-        _armed(patch, "TB_BaconShop_HERO_23", round_number=2), 2
-    )  # Shudderwock unlocks on Turn 3
+        _armed(
+            patch,
+            "TB_BaconShop_HERO_23",
+            round_number=2,
+            board=[patch.make_minion(battlecry)],
+        ),
+        2,
+    )
     assert hero_passives.can_use_hero_power(
-        _armed(patch, "TB_BaconShop_HERO_23", round_number=3), 3
+        _armed(
+            patch,
+            "TB_BaconShop_HERO_23",
+            round_number=3,
+            board=[patch.make_minion(battlecry)],
+        ),
+        3,
     )
 
 
@@ -739,10 +758,17 @@ def test_bazhial_steals_and_bleeds(patch):
 
     player = _armed(patch, "TB_BaconShop_HERO_25")
     refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch)
-    health = player.health
+    health, armor = player.health, player.armor
+    assert armor == player.hero.start_armor > 0
     _press(patch, player)
     assert len(_hand(player)) == 1
-    assert player.health == health - 2
+    # "Take 2 damage" is damage like any other: armor absorbs it first, which
+    # is the whole reason this hero starts with fifteen of it.
+    assert (player.health, player.armor) == (health, armor - 2)
+    player.armor = 1
+    player.hero_power_uses_this_turn = 0
+    _press(patch, player)
+    assert (player.health, player.armor) == (health - 1, 0)
 
 
 def test_cenarius_raises_the_gold_cap(patch):
@@ -786,6 +812,9 @@ def test_pressing_never_reaches_the_dispatcher_with_nothing_to_do(patch):
         from src.bg_recruitment.shop import refresh_shop
 
         refresh_shop(player, None, rng=np.random.default_rng(0), patch=patch)
+        # Tess refreshes with the last warband she saw; without one there is
+        # nothing for the power to copy and the mask would rightly hide it.
+        player.last_opponent_board = [patch.make_minion("BGS_119")]
         assert hero_passives.can_use_hero_power(player, 8), hero_id
         _press(patch, player)  # raises loudly if any effect is unhandled
 
@@ -1013,3 +1042,214 @@ def test_voljin_gives_each_the_others_attack_until_next_turn(patch):
     assert (a.raw_attack, b.raw_attack) == (10, 10)
     expire_temporary_buffs(player)
     assert (a.raw_attack, b.raw_attack) == (3, 7)
+
+
+# --------------------------------------------------------------------------- #
+# What the audit found: seven powers doing something other than what they print
+# --------------------------------------------------------------------------- #
+
+
+def test_toki_stops_at_the_top_of_the_tavern(patch):
+    """"A Tier higher than yours" has nowhere to go at Tier 6. The tier-7 cards
+    the pool keeps out of the counter are not this power's to hand out."""
+    from src.bg_recruitment.shop import refresh_shop
+
+    cap = patch.meta.ruleset.max_tier
+    for seed in range(8):
+        player = _armed(patch, "TB_BaconShop_HERO_28", tier=cap)
+        refresh_shop(player, None, rng=np.random.default_rng(seed), patch=patch)
+        _press(patch, player, seed=seed)
+        assert all(m.tier <= cap for m in player.shop if m is not None), seed
+
+
+def test_toki_offers_the_tier_above_while_there_is_one(patch):
+    from src.bg_recruitment.shop import refresh_shop
+
+    player = _armed(patch, "TB_BaconShop_HERO_28", tier=4)
+    refresh_shop(player, None, rng=np.random.default_rng(3), patch=patch)
+    _press(patch, player, seed=3)
+    assert sum(1 for m in player.shop if m is not None and m.tier == 5) >= 2
+
+
+def test_toki_leaves_a_frozen_slot_alone(patch):
+    """A frozen slot is not one of the slots the refresh rerolled, so it is not
+    one of the slots the higher-Tier pair replaces either."""
+    from src.bg_recruitment.shop import refresh_shop
+
+    player = _armed(patch, "TB_BaconShop_HERO_28", tier=3)
+    refresh_shop(player, None, rng=np.random.default_rng(5), patch=patch)
+    player.shop_frozen = tuple(
+        [True, True] + [False] * (len(player.shop_frozen) - 2)
+    )
+    kept = [player.shop[0].card_id, player.shop[1].card_id]
+    _press(patch, player, seed=5)
+    assert [player.shop[0].card_id, player.shop[1].card_id] == kept
+
+
+def test_edwins_power_improves_with_the_buys_it_counts(patch):
+    """"Improves after you buy 4 cards" reads the plain count of buys, which
+    belongs to the purchase rather than to any one passive that asks for it."""
+    for buys, wanted in ((0, 2), (3, 2), (4, 4), (8, 6)):
+        player = _armed(
+            patch, "TB_BaconShop_HERO_01", board=[patch.make_minion("BGS_115")]
+        )
+        player.hero_buy_count = buys
+        body = player.board[0]
+        before = (body.raw_attack, body.max_health)
+        _press(patch, player)
+        assert (body.raw_attack - before[0], body.max_health - before[1]) == (
+            wanted,
+            wanted,
+        ), buys
+
+
+def test_a_buy_is_counted_once_however_many_passives_read_it(patch):
+    """The counter is the purchase's, not a passive's: a hero with no
+    every-Nth-buy passive still counts what it bought."""
+    player = _armed(patch, "TB_BaconShop_HERO_01", gold=30)
+    for _ in range(3):
+        hero_passives.apply_hero_on_bought(
+            patch.make_minion("BGS_115"), player, patch=patch
+        )
+    assert player.hero_buy_count == 3
+    assert player.hero_tiers_bought == 3 * patch.templates["BGS_115"].tier
+
+
+def test_inge_swaps_which_stat_she_pays(patch):
+    """"(Swaps to Health next turn!)" — the same number, the other half of the
+    body, every other turn."""
+    player = _armed(patch, "BG26_HERO_102", tier=5, board=[patch.make_minion("BGS_115")])
+    body = player.board[0]
+    seen = []
+    for rnd in (1, 2, 3, 4):
+        player.round_number = rnd
+        player.hero_power_uses_this_turn = 0
+        before = (body.raw_attack, body.max_health)
+        hero_passives.use_hero_power(
+            player, rng=np.random.default_rng(0), patch=patch, round_number=rnd
+        )
+        seen.append(
+            (body.raw_attack - before[0], body.max_health - before[1])
+        )
+    assert seen == [(5, 0), (0, 5), (5, 0), (0, 5)]
+
+
+def test_the_lich_kings_power_is_not_a_spell_cast_on_the_body(patch):
+    """Nothing was played from hand, so the cards that read a cast do not read
+    this: no +1 Health from a spell watcher, and Lava Lurker's "the first
+    Spellcraft spell on this is permanent" is not spent on it."""
+    watcher = next(
+        (
+            c
+            for c in sorted(patch.pool_ids)
+            if any(
+                ab.trigger is Trigger.ON_TARGETED_BY_SPELL
+                for ab in patch.templates[c].abilities
+            )
+        ),
+        None,
+    )
+    player = _armed(patch, "TB_BaconShop_HERO_22", board=[patch.make_minion("BGS_115")])
+    body = player.board[0]
+    before = (body.raw_attack, body.max_health)
+    _press(patch, player)
+    assert Keyword.REBORN in body.all_keywords
+    assert (body.raw_attack, body.max_health) == before
+    if watcher is not None:
+        player = _armed(
+            patch, "TB_BaconShop_HERO_22", board=[patch.make_minion(watcher)]
+        )
+        body = player.board[0]
+        before = (body.raw_attack, body.max_health)
+        _press(patch, player)
+        assert (body.raw_attack, body.max_health) == before
+
+
+def test_bazhial_and_armor(patch):
+    """Covered by ``test_bazhial_steals_and_bleeds``; kept here as the shape of
+    the rule — the shop-phase damage path is the combat one."""
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+
+    player = _seat(patch)
+    player.armor = 5
+    ShopTriggers(np.random.default_rng(0), patch=patch).damage_hero(player, 3)
+    assert (player.health, player.armor) == (patch.meta.ruleset.starting_health, 2)
+    ShopTriggers(np.random.default_rng(0), patch=patch).damage_hero(player, 4)
+    assert (player.health, player.armor) == (patch.meta.ruleset.starting_health - 2, 0)
+
+
+def test_a_fallback_pick_is_one_the_effect_can_use(patch):
+    """With no seat to ask, the target is drawn from the bodies the effect can
+    actually help — Reno has one press for the whole game to spend."""
+    for seed in range(20):
+        player = _armed(
+            patch,
+            "TB_BaconShop_HERO_41",
+            board=[patch.make_minion("BGS_115"), patch.make_minion("BGS_115")],
+        )
+        player.board[0].is_golden = True
+        _press(patch, player, seed=seed)
+        assert player.board[1].is_golden, seed
+
+    for seed in range(20):
+        player = _armed(
+            patch,
+            "TB_BaconShop_HERO_15",
+            board=[patch.make_minion("BGS_115"), patch.make_minion("BGS_115")],
+        )
+        player.board[0].has_shield = True
+        player.board[0].granted_keywords = frozenset({Keyword.SHIELD})
+        _press(patch, player, seed=seed)
+        assert player.board[1].has_shield, seed
+
+
+def test_a_press_that_could_do_nothing_is_not_offered(patch):
+    """The tavern greys the button out rather than taking the gold for nothing:
+    no Undead to destroy, no counter to swap with, no room for the card."""
+    from src.bg_recruitment.shop import refresh_shop
+
+    def armed(hero_id, **kw):
+        return _armed(patch, hero_id, round_number=9, **kw)
+
+    beast = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.BEAST
+    )
+    # The Jailer: "Destroy a friendly Undead" with no Undead on the board.
+    jailer = armed("TB_BaconShop_HERO_702", board=[patch.make_minion(beast)])
+    assert not hero_passives.can_use_hero_power(jailer, 9)
+    undead = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.UNDEAD
+    )
+    jailer.board.append(patch.make_minion(undead))
+    assert hero_passives.can_use_hero_power(jailer, 9)
+    # ...and with nowhere for the Undead it gets to land.
+    jailer.hand = [patch.make_minion(beast) for _ in jailer.hand]
+    assert not hero_passives.can_use_hero_power(jailer, 9)
+
+    # Jandice and Malygos both need something on the counter.
+    for hero_id in ("TB_BaconShop_HERO_71", "TB_BaconShop_HERO_58"):
+        player = armed(hero_id, board=[patch.make_minion(beast)])
+        assert not hero_passives.can_use_hero_power(player, 9), hero_id
+        refresh_shop(player, None, rng=np.random.default_rng(0), patch=patch)
+        assert hero_passives.can_use_hero_power(player, 9), hero_id
+
+    # Mutanus and Vol'jin need two bodies: one to spend and one to receive.
+    for hero_id in ("BG20_HERO_301", "BG20_HERO_201"):
+        player = armed(hero_id, board=[patch.make_minion(beast)])
+        assert not hero_passives.can_use_hero_power(player, 9), hero_id
+        player.board.append(patch.make_minion(beast))
+        assert hero_passives.can_use_hero_power(player, 9), hero_id
+
+    # Tess reads the last warband she fought.
+    tess = armed("TB_BaconShop_HERO_50")
+    assert not hero_passives.can_use_hero_power(tess, 9)
+    tess.last_opponent_board = [patch.make_minion(beast)]
+    assert hero_passives.can_use_hero_power(tess, 9)
+
+    # Elise Discovers into the hand, and pays more every time — a press with a
+    # full hand would climb the price for nothing.
+    elise = armed("TB_BaconShop_HERO_42", tier=4)
+    assert hero_passives.can_use_hero_power(elise, 9)
+    elise.hand = [patch.make_minion(beast) for _ in elise.hand]
+    assert not hero_passives.can_use_hero_power(elise, 9)
+

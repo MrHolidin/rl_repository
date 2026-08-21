@@ -158,14 +158,23 @@ def apply_temporary_buff(
     player=None,
     patch=None,
     spell_card_id: str = "",
+    from_spell: bool = True,
 ) -> None:
     """Stats and keyword that come off again at the owner's next turn.
 
     Unless the body keeps them: Lava Lurker makes the first Spellcraft spell
     cast on it each turn permanent, which is the same buff written to the
     lasting fields instead of the expiring ones.
+
+    ``from_spell`` is false when a hero power hands out the same buff. Nothing
+    was cast, so the cards that read a cast — Lava Lurker's permanence, "gain
+    +1 Health whenever you cast a spell on this" — do not read this one.
     """
-    permanent = _keeps_first_spellcraft(target) and not target.spellcraft_kept_this_turn
+    permanent = (
+        from_spell
+        and _keeps_first_spellcraft(target)
+        and not target.spellcraft_kept_this_turn
+    )
     if permanent:
         target.spellcraft_kept_this_turn = True
         target.bonus_attack += buff.attack
@@ -185,13 +194,14 @@ def apply_temporary_buff(
             # (Glowscale's whole printing) was worth exactly nothing.
             if buff.keyword is Keyword.SHIELD:
                 target.has_shield = True
-    fire_spell_cast_on(
-        target,
-        player=player,
-        patch=patch,
-        spell_card_id=spell_card_id,
-        spellcraft=True,
-    )
+    if from_spell:
+        fire_spell_cast_on(
+            target,
+            player=player,
+            patch=patch,
+            spell_card_id=spell_card_id,
+            spellcraft=True,
+        )
 
 
 def _count_spell_cast(player: PlayerState, *, patch=None) -> None:
