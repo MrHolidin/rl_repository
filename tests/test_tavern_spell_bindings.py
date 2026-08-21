@@ -781,12 +781,42 @@ def test_hasty_excavation_still_gives_its_gold(patch):
 
 
 def test_unmasked_identity_offers_hero_powers_but_not_your_own(patch):
-    """The pool is the package's. This one ships none, so nothing opens —
-    the same answer Planar Telescope gives an empty board."""
-    from src.bg_catalog.patch_context import PatchContext
+    """The pool is the package's own. This card was bound long before the
+    package shipped a hero, and stayed inert until it did — nothing about it
+    changed when the pool arrived."""
     from src.bg_lobby.player import PendingChoiceKind
 
-    assert _cast(patch, "EBG_Spell_037", _player(patch)).pending_choice is None
+    held = sorted(patch.hero_pool_ids)[0]
+    player = _player(patch)
+    player.hero = patch.heroes[held]
+    _cast(patch, "EBG_Spell_037", player)
+    pending = player.pending_choice
+    assert pending.kind is PendingChoiceKind.HERO_POWER_DISCOVER
+    assert len(pending.options) == 3
+    assert held not in pending.options
+    assert set(pending.options) <= patch.hero_pool_ids
+
+
+def test_unmasked_identity_finds_nothing_in_a_package_with_no_heroes(patch):
+    """A Discover with nothing to offer does not open, the same answer Planar
+    Telescope gives an empty board."""
+    from src.bg_catalog.patch_context import PatchContext
+
+    heroless = PatchContext.load(Path("data/bgcore/15_6_2_36393"))
+    assert not heroless.hero_pool_ids
+    player = _player(heroless)
+    cast_tavern_spell(
+        player,
+        patch.tavern_spells["EBG_Spell_037"],
+        rng=np.random.default_rng(0),
+        patch=heroless,
+    )
+    assert player.pending_choice is None
+
+
+def test_picking_a_hero_power_on_the_classic_pool_too(patch):
+    from src.bg_catalog.patch_context import PatchContext
+    from src.bg_lobby.player import PendingChoiceKind
 
     with_heroes = PatchContext.load(Path("data/bgcore/19_6_0_74257"))
     player = _player(with_heroes)

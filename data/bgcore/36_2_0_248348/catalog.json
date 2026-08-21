@@ -65674,7 +65674,7 @@
    "text": null,
    "mechanics": [],
    "referencedTags": [],
-   "armor": null,
+   "armor": 0,
    "health": 60,
    "powerId": "TB_BaconShop_HP_035",
    "powerName": "All Patched Up",

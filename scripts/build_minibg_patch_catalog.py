@@ -222,7 +222,10 @@ def collect_heroes(cards: list) -> list[dict]:
         out.append(
             _row(
                 c,
-                armor=c.get("armor"),
+                # Absent armor is none of it. Patchwerk is the only hero that
+                # ships without the field, and a null there reads as "unknown"
+                # where the truth is zero.
+                armor=c.get("armor") or 0,
                 health=c.get("health"),
                 powerId=power.get("id"),
                 powerName=power.get("name"),
