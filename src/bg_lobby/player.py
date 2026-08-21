@@ -270,6 +270,16 @@ class PlayerState:
     hero_free_buys: int = 0
     #: The card Thorim picked at the start of the game, waiting on the gold.
     hero_promised_card: str = ""
+    #: How often the hero power has been pressed this turn, and whether a
+    #: once-per-game one has been spent. Reset at the seat's turn start.
+    hero_power_uses_this_turn: int = 0
+    hero_power_spent: bool = False
+    #: What the power costs beyond its printed price (Elise, whose climbs).
+    hero_power_cost_delta: int = 0
+    #: The round this seat is playing. Recorded at its turn start because the
+    #: legal mask has to answer "has this power woken up yet" and is handed a
+    #: seat, not a game.
+    round_number: int = 1
     #: Tiers A.F. Kay and Ambassador Faelin still owe a Discover at. A list
     #: rather than a count, because the tiers differ — "Tiers 6, 4, and 2" is
     #: three different Discovers, which the modal chain cannot express (it

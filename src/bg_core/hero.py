@@ -50,6 +50,7 @@ __all__ = [
     "BuffCombatSummons",
     "AttackOnKill",
     "SummonCopyWhenSpace",
+    "PowerCostGrowsPerUse",
     "OnNthBuyAddCardToHand",
     "OnTiersBoughtAddCardToHand",
     "OnAttacksAddCardToHand",
@@ -285,6 +286,13 @@ class SummonCopyWhenSpace:
 
 
 @dataclass(frozen=True)
+class PowerCostGrowsPerUse:
+    """"Costs (1) more after each use" — Elise's price climbs as she is used."""
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
 class OnNthBuyAddCardToHand:
     """Every ``n`` cards bought, a named card to hand (Kael'thas' Tavern Coin).
 
@@ -462,6 +470,19 @@ class Hero:
     # per-hero balance lever, 0 on classic/no-armor patches).
     start_armor: int = 0
     passives: Tuple[HeroPassive, ...] = field(default_factory=tuple)
+    #: What the seat presses. A tuple of abilities resolved by the same
+    #: dispatcher a Tavern spell goes through, because a hero power is the
+    #: same kind of thing: an effect with no body behind it.
+    power: Tuple[Any, ...] = field(default_factory=tuple)
+    #: The price on the card, and how often it may be pressed. ``power_uses``
+    #: is per turn ("Twice per turn"); ``power_once_per_game`` is the other
+    #: kind ("Once per game").
+    power_cost: int = 0
+    power_uses: int = 1
+    power_once_per_game: bool = False
+    #: Powers that only wake up later ("Unlocks at Tier 4", "on Turn 3").
+    power_unlocks_at_tier: int = 0
+    power_unlocks_on_turn: int = 0
 
     # -- passive-derived reads (cheap scans; called from economy/shop/combat) --
 
@@ -482,6 +503,9 @@ class Hero:
 
     def extra_shop_slots(self) -> int:
         return sum(1 for p in self.passives if isinstance(p, ExtraShopDragon))
+
+    def has_power(self) -> bool:
+        return bool(self.power)
 
     def fewer_shop_slots(self) -> int:
         return sum(p.amount for p in self.passives if isinstance(p, FewerShopSlots))

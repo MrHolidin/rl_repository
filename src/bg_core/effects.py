@@ -597,6 +597,10 @@ class DiscoverTribeEffect:
     #: "Discover a **Choose One** card" — narrowed by the keyword the card
     #: carries, the same way the two flags above narrow by an ability.
     require_choose_one: bool = False
+    #: "Discover a minion of a specific minion type. **Swaps type each
+    #: turn.**" — the tribe is not printed, it is whichever the seat's hero is
+    #: rotating through this turn.
+    tribe_from_hero_rotation: bool = False
     #: "**It dies if you play it this turn.**" — Tomb Turning's whole price.
     #: The pick is marked rather than the card, because it is this copy that
     #: was cheap, and the mark comes off at the seat's next turn start.

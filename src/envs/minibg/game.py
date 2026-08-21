@@ -93,6 +93,7 @@ class MiniBGGame(TurnBasedGame[MiniBGState]):
             shop_excluded_race=state.shop_excluded_race,
             shared_pool=state.shared_pool,
             patch=self._patch,
+            round_number=state.round_number,
         )
 
     def _pick_shop_excluded_race(self) -> Optional[Tuple[Race, ...]]:

@@ -39,6 +39,7 @@ from src.bg_core.hero import (
     OnSellRaceAddToShop,
     RotatingBuyTribeBuff,
     OnNthBuyAddCardToHand,
+    PowerCostGrowsPerUse,
     OnTiersBoughtAddCardToHand,
     OnAttacksAddCardToHand,
     FreeBuyEachTurnAfterAttacks,
@@ -68,6 +69,9 @@ __all__ = [
     "assign_random_hero",
     "apply_hero_on_game_start",
     "apply_hero_on_turn_start",
+    "can_use_hero_power",
+    "hero_power_cost",
+    "use_hero_power",
     "flush_hero_tier_discovers",
     "apply_hero_on_bought",
     "apply_hero_on_sell",
@@ -160,9 +164,13 @@ def apply_hero_on_turn_start(
     rng: np.random.Generator,
     shop_excluded_race: Optional[Race] = None,
 ) -> None:
+    # Recorded whether or not there is a hero: the mask asks the seat what
+    # round it is playing, and a seat is not told otherwise.
+    player.round_number = int(round_number)
     h = player.hero
     if h is None:
         return
+    player.hero_power_uses_this_turn = 0
     for p in h.passives:
         if isinstance(p, FreeFirstRefreshEachTurn):
             player.hero_free_roll_pending = True
@@ -475,6 +483,77 @@ def apply_hero_on_refresh(player: PlayerState, *, rng: np.random.Generator) -> N
                 target.granted_keywords = target.granted_keywords | {keyword}
                 if keyword.name == "SHIELD":
                     target.has_shield = True
+
+
+def hero_power_cost(player: PlayerState) -> int:
+    """What pressing it costs right now, the printed price plus what it has
+    climbed to (Elise's "costs (1) more after each use")."""
+    h = player.hero
+    if h is None:
+        return 0
+    return max(0, int(h.power_cost) + int(player.hero_power_cost_delta))
+
+
+def can_use_hero_power(player: PlayerState, round_number: int = 1) -> bool:
+    """Whether the seat may press its power.
+
+    Everything the card prints and nothing the engine invents: it has a power,
+    it has woken up, it has a use left, and the seat can pay. The phase and the
+    open-modal question belong to the caller, which is the mask.
+    """
+    h = player.hero
+    if h is None or not h.has_power():
+        return False
+    if h.power_once_per_game and player.hero_power_spent:
+        return False
+    if player.hero_power_uses_this_turn >= max(1, int(h.power_uses)):
+        return False
+    if h.power_unlocks_at_tier and player.tavern_tier < h.power_unlocks_at_tier:
+        return False
+    if h.power_unlocks_on_turn and int(round_number) < h.power_unlocks_on_turn:
+        return False
+    return player.gold >= hero_power_cost(player)
+
+
+def use_hero_power(
+    player: PlayerState,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    round_number: int = 1,
+    shop_excluded_race: Optional[Race] = None,
+    shared_pool=None,
+) -> None:
+    """Press it: pay, count the use, and resolve what it does.
+
+    Resolved through the Tavern-spell path because a hero power is the same
+    kind of thing -- an effect with no body behind it -- so everything a spell
+    can already do, a power can, and the one loud dispatcher covers both.
+    """
+    from .economy import note_gold_spent
+    from .tavern_spells import apply_tavern_spell_effect
+
+    h = player.hero
+    if h is None or not can_use_hero_power(player, round_number):
+        raise ValueError("hero power is not available")
+    cost = hero_power_cost(player)
+    player.gold -= cost
+    note_gold_spent(player, cost, patch=patch)
+    player.hero_power_uses_this_turn += 1
+    if h.power_once_per_game:
+        player.hero_power_spent = True
+    for p in h.passives:
+        if isinstance(p, PowerCostGrowsPerUse):
+            player.hero_power_cost_delta += int(p.amount)
+    for ability in h.power:
+        apply_tavern_spell_effect(
+            player,
+            ability.effect,
+            rng=rng,
+            patch=patch,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )
 
 
 def apply_hero_on_turn_end(player: PlayerState) -> None:

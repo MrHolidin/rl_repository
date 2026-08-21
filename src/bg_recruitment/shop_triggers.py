@@ -1295,6 +1295,12 @@ class ShopTriggers:
             tribe = _most_common_tribe(player)
             if tribe is None:
                 return
+        elif effect.tribe_from_hero_rotation:
+            # "Discover a minion of a specific minion type. Swaps type each
+            # turn." — the type is the seat's hero's, rotated at turn start.
+            tribe = player.hero_rotating_tribe
+            if tribe is None:
+                return
         opts = roll_discover_tribe_triple(
             self._rng,
             player.tavern_tier,

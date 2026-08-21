@@ -45,6 +45,7 @@ from src.bg_core.effects import (
     BuffShopOnEveryRefreshEffect,
     DestroyFriendlyEffect,
     DiscoverHeroPowerEffect,
+    GrantTemporaryBuffEffect,
     MultiplierKind,
     PayInHealthEffect,
     PromiseNextTurnEffect,
@@ -54,6 +55,7 @@ from src.bg_core.effects import (
     StealNeighbourBloodGemsEffect,
     SummonOnCombatSpaceEffect,
     RaiseStandingBonusEffect,
+    RetriggerFriendlyAbilityEffect,
     SellFriendlyForStatsEffect,
     TransformToHigherTierEffect,
     StealTavernMinionEffect,
@@ -678,6 +680,43 @@ def _apply_spell_effect(
                 target.promise_tag = next_instance_id()
             tag = target.promise_tag
         player.next_turn_promises = player.next_turn_promises + ((effect, tag),)
+        return
+
+    if isinstance(effect, RetriggerFriendlyAbilityEffect):
+        from .shop_triggers import ShopTriggers as _ShopTriggers
+
+        # "Trigger a friendly minion's Battlecry" — the seat names the body,
+        # and with no pick a *legal* one is chosen: a minion with no Battlecry
+        # is not a target this can take, so the fallback only looks at the ones
+        # that carry the trigger it means to fire again.
+        eligible = [
+            minion
+            for minion in player.board
+            if any(ability.trigger is effect.trigger for ability in minion.abilities)
+        ]
+        chosen = (
+            target
+            if target is not None and any(target is m for m in eligible)
+            else (eligible[int(rng.integers(0, len(eligible)))] if eligible else None)
+        )
+        if chosen is not None:
+            _ShopTriggers(rng, patch=patch).retrigger_friendly_ability(
+                player,
+                chosen,
+                effect,
+                shop_excluded_race=shop_excluded_race,
+                shared_pool=shared_pool,
+            )
+        return
+
+    if isinstance(effect, GrantTemporaryBuffEffect):
+        from .spellcraft import apply_temporary_buff
+
+        # "Give a minion Reborn until next turn" — the same buff a Spellcraft
+        # spell hands out, cast by a hero power instead of played from hand.
+        chosen = target if target is not None else _random_friendly(player, rng)
+        if chosen is not None:
+            apply_temporary_buff(chosen, effect, player=player, patch=patch)
         return
 
     if isinstance(effect, MakeFriendlyGoldenEffect):

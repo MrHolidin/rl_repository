@@ -288,9 +288,20 @@ def test_with_heroes_assigns_every_seat(patch):
     assert all(pl.hero is not None for pl in s.players)
 
 
-def test_action_and_obs_dims_unchanged():
-    # Heroes must not change the action space or observation layout.
-    assert A.NUM_ACTIONS == 73
+def test_action_space_only_ever_grows_at_the_end():
+    """Heroes may not move an action that already existed, and may not touch
+    the observation. The modern patch's pressable powers added HERO_POWER at
+    the end; every member before it kept its value, so a policy trained
+    without it reads every other action the same way."""
+    assert int(A.Action.HERO_POWER) == A.NUM_ACTIONS - 1
+    for name, value in (
+        ("BUY_SLOT_0", 0),
+        ("FINISH_FREEZE_SHOP", 59),
+        ("TARGET_BOARD_0", 60),
+        ("FREEZE_SHOP_SLOT_0", 67),
+    ):
+        assert int(getattr(A.Action, name)) == value, name
+
     from src.envs.bglike.obs_v5 import OBS_DIM_V5
 
     assert OBS_DIM_V5 == 2536

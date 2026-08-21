@@ -3,6 +3,8 @@
 from pathlib import Path
 
 import numpy as np
+
+from src.envs.minibg.action_map import NUM_ENV_ACTIONS
 import pytest
 
 from tests.minibg_helpers import make_minion
@@ -36,7 +38,7 @@ def _shop_state() -> MiniBGState:
 def test_assert_action_not_in_mask_raises_and_logs(tmp_path, monkeypatch):
     monkeypatch.setenv("RL_RUN_DIR", str(tmp_path))
     state = _shop_state()
-    mask = np.zeros(80, dtype=bool)
+    mask = np.zeros(NUM_ENV_ACTIONS, dtype=bool)
     mask[3] = True
     with pytest.raises(RuntimeError, match="ILLEGAL_ACTION"):
         assert_action_in_legal_mask(state, 15, mask, where="test")
@@ -48,7 +50,7 @@ def test_assert_action_not_in_mask_raises_and_logs(tmp_path, monkeypatch):
 def test_masked_finish_uses_target_when_finish_masked():
     from src.envs.minibg.action_map import A_FINISH, A_TARGET_BOARD_0
 
-    mask = np.zeros(80, dtype=bool)
+    mask = np.zeros(NUM_ENV_ACTIONS, dtype=bool)
     mask[A_TARGET_BOARD_0] = True
     assert masked_finish(mask) == A_TARGET_BOARD_0
 

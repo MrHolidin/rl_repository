@@ -55,6 +55,12 @@ def _build_action_enum() -> type[IntEnum]:
     for i in range(BOARD_SIZE):
         members[f"TARGET_BOARD_{i}"] = n
         n += 1
+    # Appended last, and only ever appended: every member before it keeps its
+    # value, so a policy trained without this one reads every other action the
+    # same way. The modern patch has 65 heroes whose power the seat presses;
+    # the 2021 pool is passive and never offers it.
+    members["HERO_POWER"] = n
+    n += 1
     return IntEnum("Action", members)
 
 

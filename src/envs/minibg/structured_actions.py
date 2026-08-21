@@ -21,6 +21,10 @@ class StructActionType(IntEnum):
     COMPLETE_TURN_FREEZE_SHOP = 8
     APPLY_EFFECT = 9
     APPLY_EFFECT_SKIP = 10
+    # Appended: the actor scores a token per legal action rather than a fixed
+    # head, so a new kind costs one embedding row and leaves the other ten
+    # meaning exactly what they meant.
+    HERO_POWER = 11
 
 
 @dataclass(frozen=True)

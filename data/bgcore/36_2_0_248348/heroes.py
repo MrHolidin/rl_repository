@@ -34,7 +34,25 @@ from __future__ import annotations
 
 from typing import Dict, FrozenSet
 
-from src.bg_core.effects import Keyword
+from src.bg_core.effects import (
+    Ability,
+    AddRandomMinionToHandEffect,
+    AddRandomTavernSpellToHandEffect,
+    BuffTargetFriendlyBattlecry,
+    DealHeroDamage,
+    DestroyFriendlyEffect,
+    DiscoverTribeEffect,
+    GainBloodGemsEffect,
+    GrantTemporaryBuffEffect,
+    Keyword,
+    MakeFriendlyGoldenEffect,
+    RaiseGoldCapEffect,
+    RefreshWithTavernSpellsEffect,
+    RetriggerFriendlyAbilityEffect,
+    SellFriendlyForStatsEffect,
+    StealTavernMinionEffect,
+    Trigger,
+)
 from src.bg_core.hero import (
     AttackOnKill,
     BuffCombatSummons,
@@ -61,6 +79,8 @@ from src.bg_core.hero import (
     OnRefreshCopyHighestTier,
     OnRefreshGrantBonusKeyword,
     OnTiersBoughtAddCardToHand,
+    PowerCostGrowsPerUse,
+    RotatingBuyTribeBuff,
     ShopStatBuffPerBuys,
     SkipTurnsThenDiscover,
     StartOfCombatBuffEnds,
@@ -360,6 +380,162 @@ HEROES: Dict[str, Hero] = {
         "Sindragosa",
         start_armor=7,
         passives=(FlatBuyCost(2), FewerShopSlots(1), FreezeShopEachTurn()),
+    ),
+    # ------------------------------------------------ powers the seat presses
+    # Every one of these resolves an effect the engine already had, most of
+    # them because a Tavern spell prints the same sentence.
+    # Refreshing Anomaly — "Refresh the Tavern with Tavern spells." (Saloon's
+    # Finest, pressed instead of bought.)
+    "BG34_HERO_001": Hero(
+        "BG34_HERO_001",
+        "Time Twister Chromie",
+        start_armor=12,
+        power=(Ability(Trigger.ON_PLACE, RefreshWithTavernSpellsEffect()),),
+        power_cost=0,
+    ),
+    # Fresh Fish — "Sell a friendly minion. Spit its stats onto another."
+    # (Channel the Devourer.)
+    "BG20_HERO_301": Hero(
+        "BG20_HERO_301",
+        "Mutanus the Devourer",
+        start_armor=20,
+        power=(Ability(Trigger.ON_PLACE, SellFriendlyForStatsEffect()),),
+        power_cost=0,
+    ),
+    # Chains of Domination — "Destroy a friendly Undead to get a random
+    # Undead." (Butchering's trade, paid in a card.)
+    "TB_BaconShop_HERO_702": Hero(
+        "TB_BaconShop_HERO_702",
+        "The Jailer",
+        start_armor=10,
+        power=(
+            Ability(
+                Trigger.ON_PLACE,
+                DestroyFriendlyEffect(
+                    filter_race=Race.UNDEAD,
+                    get_copy=False,
+                    then=AddRandomMinionToHandEffect(tribe=Race.UNDEAD),
+                ),
+            ),
+        ),
+        power_cost=1,
+        power_unlocks_at_tier=2,
+    ),
+    # Spell Slinger — "Get a random Tavern spell."
+    "BG28_HERO_801": Hero(
+        "BG28_HERO_801",
+        "Doctor Holli'dae",
+        start_armor=14,
+        power=(Ability(Trigger.ON_PLACE, AddRandomTavernSpellToHandEffect(count=1)),),
+        power_cost=1,
+    ),
+    # Blood Gems — "Get 2 Blood Gems. (Twice per turn.)"
+    "BG20_HERO_103": Hero(
+        "BG20_HERO_103",
+        "Death Speaker Blackthorn",
+        start_armor=18,
+        power=(Ability(Trigger.ON_PLACE, GainBloodGemsEffect(count=2)),),
+        power_cost=1,
+        power_uses=2,
+    ),
+    # Nature's Gift — "Increase your maximum Gold by 1."
+    "BG32_HERO_001": Hero(
+        "BG32_HERO_001",
+        "Forest Lord Cenarius",
+        start_armor=16,
+        power=(Ability(Trigger.ON_PLACE, RaiseGoldCapEffect(amount=1)),),
+        power_cost=3,
+    ),
+    # Reborn Rites — "Give a minion Reborn until next turn."
+    "TB_BaconShop_HERO_22": Hero(
+        "TB_BaconShop_HERO_22",
+        "The Lich King",
+        start_armor=14,
+        power=(
+            Ability(
+                Trigger.ON_PLACE, GrantTemporaryBuffEffect(keyword=Keyword.REBORN)
+            ),
+        ),
+        power_cost=0,
+    ),
+    # The Vault — "Give a minion Divine Shield."
+    "TB_BaconShop_HERO_15": Hero(
+        "TB_BaconShop_HERO_15",
+        "George the Fallen",
+        start_armor=15,
+        power=(
+            Ability(
+                Trigger.ON_PLACE,
+                BuffTargetFriendlyBattlecry(
+                    attack=0, health=0, exclude_self=False,
+                    grant_keyword=Keyword.SHIELD,
+                ),
+            ),
+        ),
+        power_cost=1,
+    ),
+    # Gold Coin — "Once per game, make a friendly minion Golden."
+    "TB_BaconShop_HERO_41": Hero(
+        "TB_BaconShop_HERO_41",
+        "Reno Jackson",
+        start_armor=16,
+        power=(Ability(Trigger.ON_PLACE, MakeFriendlyGoldenEffect()),),
+        power_cost=0,
+        power_once_per_game=True,
+    ),
+    # Grave Strength — "Steal a card from the Tavern. Take 2 damage."
+    "TB_BaconShop_HERO_25": Hero(
+        "TB_BaconShop_HERO_25",
+        "Lich Baz'hial",
+        start_armor=18,
+        power=(
+            Ability(Trigger.ON_PLACE, StealTavernMinionEffect()),
+            Ability(Trigger.ON_PLACE, DealHeroDamage(amount=2)),
+        ),
+        power_cost=2,
+    ),
+    # Dragon's Hoard — "Discover a Dragon. (Unlocks at Tier 4.)"
+    "TB_BaconShop_HERO_56": Hero(
+        "TB_BaconShop_HERO_56",
+        "Alexstrasza",
+        start_armor=10,
+        power=(Ability(Trigger.ON_PLACE, DiscoverTribeEffect(tribe=Race.DRAGON)),),
+        power_cost=1,
+        power_unlocks_at_tier=4,
+    ),
+    # A Tale of Kings — "Discover a minion of a specific minion type. Swaps
+    # type each turn." The rotation is the passive the 2021 printing used for
+    # its buy buff; here it names the Discover instead, so it pays nothing.
+    "TB_BaconShop_HERO_12": Hero(
+        "TB_BaconShop_HERO_12",
+        "The Rat King",
+        start_armor=12,
+        passives=(RotatingBuyTribeBuff(attack=0, health=0),),
+        power=(
+            Ability(
+                Trigger.ON_PLACE, DiscoverTribeEffect(tribe_from_hero_rotation=True)
+            ),
+        ),
+        power_cost=2,
+    ),
+    # Lead Explorer — "Discover a minion from your Tier. Costs (1) more after
+    # each use."
+    "TB_BaconShop_HERO_42": Hero(
+        "TB_BaconShop_HERO_42",
+        "Elise Starseeker",
+        start_armor=15,
+        passives=(PowerCostGrowsPerUse(1),),
+        power=(Ability(Trigger.ON_PLACE, DiscoverTribeEffect(exact_tier=True)),),
+        power_cost=1,
+    ),
+    # Burble — "Trigger a friendly minion's Battlecry. (Unlocks on Turn 3.)"
+    "TB_BaconShop_HERO_23": Hero(
+        "TB_BaconShop_HERO_23",
+        "Shudderwock",
+        start_armor=10,
+        power=(Ability(Trigger.ON_PLACE, RetriggerFriendlyAbilityEffect(trigger=Trigger.ON_PLACE)),),
+        power_cost=0,
+        power_unlocks_on_turn=3,
     ),
 }
 

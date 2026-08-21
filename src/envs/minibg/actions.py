@@ -93,9 +93,14 @@ class Action(IntEnum):
     FREEZE_SHOP_SLOT_3 = 70
     FREEZE_SHOP_SLOT_4 = 71
     FREEZE_SHOP_SLOT_5 = 72
+    # Appended last, and only ever appended: every member before it keeps its
+    # value, so a policy trained without this one reads every other action the
+    # same way. The modern patch has 65 heroes whose power the seat presses;
+    # the 2021 pool is passive and never offers it.
+    HERO_POWER = 73
 
 
-NUM_ACTIONS = 73
+NUM_ACTIONS = 74
 
 MAGNET_ACTION_BASE = int(Action.MAGNET_HAND_0_BOARD_0)
 NUM_MAGNET_ACTIONS = HAND_SIZE * BOARD_SIZE

@@ -119,6 +119,12 @@ class PlayerTurnEngine:
             if player.gold >= recruitment_economy.effective_roll_cost(player):
                 actions.append(int(a.Action.ROLL))
 
+            # Pressing the hero power is not a shop action and costs none of
+            # the turn's budget — it is its own resource, spent by its own
+            # per-turn count.
+            if hero_passives.can_use_hero_power(player, player.round_number):
+                actions.append(int(a.Action.HERO_POWER))
+
             if (
                 player.tavern_tier < ruleset.max_tier
                 and player.gold >= recruitment_economy.effective_level_up_cost(player)
@@ -302,6 +308,20 @@ class PlayerTurnEngine:
                 shared_pool=ctx.shared_pool,
             )
             return True
+
+        if action_int == int(a.Action.HERO_POWER):
+            hero_passives.use_hero_power(
+                player,
+                rng=ctx.rng,
+                patch=ctx.patch,
+                round_number=ctx.round_number,
+                shop_excluded_race=race,
+                shared_pool=ctx.shared_pool,
+            )
+            recruitment_triples.resolve_triples_loop(
+                player, shared_pool=ctx.shared_pool, patch=ctx.patch
+            )
+            return player.pending_choice is None
 
         if action_int == int(a.Action.ROLL):
             recruitment_economy.roll_shop(

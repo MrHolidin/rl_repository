@@ -20,6 +20,8 @@ class PlayerTurnContext:
     patch: PatchContext
     shop_excluded_race: Optional[Tuple[Race, ...]] = None
     shared_pool: Optional[SharedCardPool] = None
+    #: The round being played, for the hero powers that wake up on a turn.
+    round_number: int = 1
 
 
 __all__ = ["PlayerTurnContext"]
