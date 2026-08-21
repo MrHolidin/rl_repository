@@ -72,6 +72,15 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def combat_summon_buff(self):
+        """What a minion summoned mid-combat arrives with, from the hero."""
+
+    def attack_on_kill(self) -> int:
+        """Attack a friendly keeps for killing something, from the hero."""
+
+    def space_summon_copy(self):
+        """"highest-Attack" / "highest-Health" / None — the hero's free slot."""
+
     def take_combat_space_summon(self) -> object:
         """Spend one "when you have space in combat" charge, or None.
 
@@ -238,6 +247,16 @@ class RecordingSeat:
 
     def take_combat_space_summon(self) -> object:
         """None: a seatless combat holds no charges to spend."""
+        return None
+
+    def combat_summon_buff(self):
+        """Nothing: a seatless combat has no hero behind it."""
+        return (0, 0, frozenset())
+
+    def attack_on_kill(self) -> int:
+        return 0
+
+    def space_summon_copy(self):
         return None
 
     def settle_standing_bonus(self, minion: object) -> None:

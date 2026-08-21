@@ -41,9 +41,11 @@ __all__ = ["PlayerCombatSeat"]
 class PlayerCombatSeat(RecordingSeat):
     """A combat seat bound to a real ``PlayerState``."""
 
-    def __init__(self, player: PlayerState, *, patch=None) -> None:
+    def __init__(self, player: PlayerState, *, patch=None, round_number: int = 1) -> None:
         super().__init__()
         self.player = player
+        # Only the heroes whose power unlocks on a given turn read it.
+        self.round_number = int(round_number)
         # Only the rewards need it — a card handed over mid-fight has to be
         # built from somewhere — so a seat without one still fights fine and
         # simply cannot pay those out.
@@ -80,6 +82,21 @@ class PlayerCombatSeat(RecordingSeat):
 
     def start_combat_promises(self) -> Tuple[object, ...]:
         return tuple(self.player.start_combat_promises)
+
+    def combat_summon_buff(self):
+        from . import hero_passives
+
+        return hero_passives.hero_combat_summon_buff(self.player)
+
+    def attack_on_kill(self) -> int:
+        from . import hero_passives
+
+        return hero_passives.hero_attack_on_kill(self.player)
+
+    def space_summon_copy(self):
+        from . import hero_passives
+
+        return hero_passives.hero_space_summon(self.player, self.round_number)
 
     def take_combat_space_summon(self) -> object:
         held = self.player.combat_space_summons

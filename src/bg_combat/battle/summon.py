@@ -34,6 +34,14 @@ def _summon_insert(
     # Idempotent by the body's own absorbed record, so summoning a *copy* of a
     # minion that was already paid on the counter does not pay it twice.
     rt.seats[side_idx].settle_standing_bonus(bm)
+    # "Give +1/+2 and Taunt to minions you summon during combat" — the hero's,
+    # so it lands here beside the seat's own table and on the same bodies.
+    gain_attack, gain_health, gain_keywords = rt.seats[side_idx].combat_summon_buff()
+    if gain_attack or gain_health:
+        bm.bonus_attack += gain_attack
+        bm.bonus_health += gain_health
+    for keyword in gain_keywords:
+        bm.keywords = frozenset(bm.keywords | {keyword})
     if not rt.watch_attack_thresholds and has_attack_threshold_ability(template):
         rt.watch_attack_thresholds = True
     if at_idx is None or at_idx >= len(side.minions):

@@ -247,6 +247,13 @@ class PlayerState:
     # ``upgrade_cost_delta`` / ``next_roll_cost_override``, which that copy
     # intentionally resets) so hero levers survive across shop actions.
     hero_buy_count: int = 0  # Kael'thas: every 3rd buy
+    #: Sales, Tavern-spell purchases and friendly deaths counted for the heroes
+    #: that pay every Nth of them. Separate from the game-long tallies in
+    #: ``game_counts``: those are read by cards and keyed by card id, and a
+    #: hero's countdown is neither.
+    hero_sell_count: int = 0
+    hero_tavern_spell_count: int = 0
+    hero_deaths_paid: int = 0
     hero_rotating_tribe: Optional[Race] = None  # The Rat King: current tribe
     hero_elementals_progress: int = 0  # Chenvaala: Elementals toward next discount
     hero_free_roll_pending: bool = False  # Nozdormu: first refresh this turn is free

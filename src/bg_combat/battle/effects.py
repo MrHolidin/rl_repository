@@ -429,6 +429,15 @@ def _fire_friendly_kill_listeners(
     ):
         if isinstance(eff, BuffSelf):
             _apply_buff_self(rt, killer_side_idx, listener, eff)
+    # "After a friendly minion kills an enemy, give it +1 Attack permanently."
+    # Permanently, so it goes back to the seat the way every other kept gain
+    # does rather than dying with the copy that earned it.
+    on_kill = rt.seats[killer_side_idx].attack_on_kill()
+    if on_kill:
+        killer.bonus_attack += on_kill
+        rt.seats[killer_side_idx].keep_combat_gains(
+            killer.origin_instance_id, on_kill, 0, frozenset()
+        )
     _sync_health_all(rt)
 
 
@@ -1714,7 +1723,13 @@ def _count_arrival(rt: _CombatRuntime, side_idx: int, arrived: BattleMinion) -> 
 
 
 def _count_death(rt: _CombatRuntime, dead: BattleMinion, side_idx: int) -> None:
-    """Count a death on the owner's tally ("each Eternal Knight that died")."""
+    """Count a death on the owner's tallies.
+
+    Two of them. The per-card one is what the cards read ("for each Eternal
+    Knight that died"), so it is only kept for a card that asks. The plain
+    total beside it is what a countdown wants and is always kept.
+    """
+    rt.seats[side_idx].bump_game_count("died", "*")
     for ability in dead.abilities:
         if ability.trigger is not Trigger.AURA:
             continue

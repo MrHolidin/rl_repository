@@ -240,6 +240,9 @@ class _CombatRuntime:
         default_factory=dict
     )
     attacker_killed_this_swing: bool = False
+    #: Whether each side's hero has already put a copy of its biggest minion
+    #: into a free slot. Once per fight — see ``_fill_combat_space_from_hero``.
+    hero_space_summoned: List[bool] = field(default_factory=lambda: [False, False])
     #: Whether any minion in this combat watches its own Attack for a keyword
     #: latch (Scarlet Survivor). Almost always False, and _sync_health_all runs
     #: on every board change, so the flag keeps that hot path free of a scan.

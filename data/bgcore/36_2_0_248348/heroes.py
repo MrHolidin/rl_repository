@@ -10,12 +10,15 @@ ships 121 heroes: 56 whose power is passive and 65 the seat clicks. An active
 power needs somewhere in the action space to be pressed, and that space is
 frozen — so the active half waits on a decision this file does not make.
 
-Of the 56 passives, these eight are the ones expressible with the passive
-descriptors the engine already has and with cards this package already holds.
-The rest of the 56 want either a descriptor that does not exist yet (Cap'n
-Hoggarr's gold per Pirate bought, Rokara's Attack on a kill) or a card the
-package does not carry (The Curator's Amalgam, N'Zoth's Fish, Onyxia's Whelp),
-and the second kind is deliberately out of scope here.
+Of the 56 passives, these seventeen are the ones that need no card the package
+does not already carry. What is left out is the rest: The Curator's Amalgam,
+N'Zoth's Fish, Onyxia's Whelp, Sneed's Shredder, Jim Raynor's Battlecruiser,
+the Timewarps, the trinket heroes, and the ones whose power is itself a
+Discover of new Hero Powers.
+
+Nine of the seventeen are the descriptors the engine already had; the other
+eight brought a descriptor of their own, which is engine work rather than new
+cards.
 
 Keyed by card id rather than by a short slug, unlike the 2021 package: every
 other id in this package is a card id, and it is what the catalog's
@@ -33,17 +36,26 @@ from typing import Dict, FrozenSet
 
 from src.bg_core.effects import Keyword
 from src.bg_core.hero import (
+    AttackOnKill,
+    BuffCombatSummons,
     CombatAttackAuraAll,
+    EveryNthTavernSpellFree,
     ExtraShopDragon,
     FlatBuyCost,
     FlatRefreshCost,
     FreeFirstRefreshEachTurn,
+    GoldNextTurnOnSell,
+    GoldOnBuyTribe,
     GoldOnUpgrade,
     Hero,
+    OnNthDeathAddRaceToHand,
+    OnNthSellAddRaceToHand,
     StartOfCombatGrantLeftmost,
+    SummonCopyWhenSpace,
     UpgradeCostSurcharge,
     UpgradeDiscountPerElementals,
 )
+from src.bg_core.minion import Race
 
 HEROES: Dict[str, Hero] = {
     # I'm ready to rumble! — "Start the game with 30 extra Health."
@@ -110,6 +122,75 @@ HEROES: Dict[str, Hero] = {
                 (Keyword.WINDFURY, Keyword.SHIELD, Keyword.TAUNT)
             ),
         ),
+    ),
+    # Whatever You Want — "After you buy a Pirate, gain 1 Gold."
+    "BG26_HERO_101": Hero(
+        "BG26_HERO_101",
+        "Cap'n Hoggarr",
+        start_armor=12,
+        passives=(GoldOnBuyTribe(Race.PIRATE, 1),),
+    ),
+    # Smart Savings — "After you sell a minion, gain 1 Gold next turn."
+    "TB_BaconShop_HERO_10": Hero(
+        "TB_BaconShop_HERO_10",
+        "Trade Prince Gallywix",
+        start_armor=5,
+        passives=(GoldNextTurnOnSell(1),),
+    ),
+    # I'll Take That! — "After you sell 5 minions, get a random Murloc."
+    # The 2021 printing put it in the Tavern; this one hands it over.
+    "TB_BaconShop_HERO_55": Hero(
+        "TB_BaconShop_HERO_55",
+        "Fungalmancer Flurgl",
+        start_armor=12,
+        passives=(OnNthSellAddRaceToHand(n=5, race=Race.MURLOC),),
+    ),
+    # Repair Mode — "After 9 friendly minions die, get a random Mech."
+    "BG22_HERO_200": Hero(
+        "BG22_HERO_200",
+        "Ini Stormcoil",
+        start_armor=15,
+        passives=(OnNthDeathAddRaceToHand(n=9, race=Race.MECHANICAL),),
+    ),
+    # Relic Vendor — "Every third Tavern spell you buy costs (0)."
+    "BG28_HERO_800": Hero(
+        "BG28_HERO_800",
+        "Tae'thelan Bloodwatcher",
+        start_armor=18,
+        passives=(EveryNthTavernSpellFree(3),),
+    ),
+    # Grasp of Nature — "Give +1/+2 and Taunt to minions you summon during
+    # combat."
+    "TB_BaconShop_HERO_95": Hero(
+        "TB_BaconShop_HERO_95",
+        "Greybough",
+        start_armor=16,
+        passives=(
+            BuffCombatSummons(attack=1, health=2, keywords=(Keyword.TAUNT,)),
+        ),
+    ),
+    # Blademaster — "After a friendly minion kills an enemy, give it +1 Attack
+    # permanently."
+    "BG20_HERO_100": Hero(
+        "BG20_HERO_100",
+        "Rokara",
+        start_armor=18,
+        passives=(AttackOnKill(1),),
+    ),
+    # Frostwolf Banner — "When you have space in combat, summon a copy of your
+    # highest-Attack minion. (Unlocks on Turn 7.)"
+    "BG22_HERO_002": Hero(
+        "BG22_HERO_002",
+        "Drek'Thar",
+        start_armor=10,
+        passives=(SummonCopyWhenSpace(unlocks_on_turn=7),),
+    ),
+    # Stormpike Banner — the same, read for Health.
+    "BG22_HERO_003": Hero(
+        "BG22_HERO_003",
+        "Vanndar Stormpike",
+        start_armor=12,
+        passives=(SummonCopyWhenSpace(by_health=True, unlocks_on_turn=7),),
     ),
 }
 

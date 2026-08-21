@@ -42,6 +42,14 @@ __all__ = [
     "OnSellBuffRandomShop",
     "OnSellRaceAddToShop",
     "StartOfCombatGrantLeftmost",
+    "GoldOnBuyTribe",
+    "GoldNextTurnOnSell",
+    "OnNthSellAddRaceToHand",
+    "OnNthDeathAddRaceToHand",
+    "EveryNthTavernSpellFree",
+    "BuffCombatSummons",
+    "AttackOnKill",
+    "SummonCopyWhenSpace",
 ]
 
 
@@ -175,6 +183,89 @@ class OnSellRaceAddToShop:
     Tavern (Fungalmancer Flurgl → Murloc)."""
 
     race: Race
+
+
+@dataclass(frozen=True)
+class GoldOnBuyTribe:
+    """After you buy a minion of ``race``, gain gold (Cap'n Hoggarr)."""
+
+    race: Race
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class GoldNextTurnOnSell:
+    """After you sell a minion, gain gold *next* turn (Trade Prince Gallywix).
+
+    Next turn, not this one, which is the whole shape of the card: the gold is
+    banked and paid at the start of the turn after.
+    """
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class OnNthSellAddRaceToHand:
+    """Every ``n`` sales, a random minion of ``race`` to hand (Flurgl).
+
+    To hand rather than to the counter — the 2021 printing put it in the
+    Tavern, this one hands it over.
+    """
+
+    n: int
+    race: Race
+
+
+@dataclass(frozen=True)
+class OnNthDeathAddRaceToHand:
+    """Every ``n`` friendly deaths, a random minion of ``race`` to hand (Ini).
+
+    Counted from the seat's own game-long death tally and paid at its next turn
+    start: the deaths happen inside a fight, and a fight hands what it owes to
+    the seat rather than reaching into the hand mid-combat.
+    """
+
+    n: int
+    race: Race
+
+
+@dataclass(frozen=True)
+class EveryNthTavernSpellFree:
+    """Every ``n``th Tavern spell bought costs nothing (Tae'thelan)."""
+
+    n: int = 3
+
+
+@dataclass(frozen=True)
+class BuffCombatSummons:
+    """Minions summoned during combat arrive bigger (Greybough)."""
+
+    attack: int = 0
+    health: int = 0
+    keywords: Tuple[Keyword, ...] = ()
+
+
+@dataclass(frozen=True)
+class AttackOnKill:
+    """After a friendly kills an enemy, it keeps +``amount`` Attack (Rokara).
+
+    Permanently: the gain outlives the combat copy that earned it, so it goes
+    back to the seat the way every other kept gain does.
+    """
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class SummonCopyWhenSpace:
+    """While there is room in combat, copy your biggest minion (Drek'Thar).
+
+    ``by_health`` picks the highest-Health one instead (Vanndar Stormpike), and
+    ``unlocks_on_turn`` is the turn the power starts working.
+    """
+
+    by_health: bool = False
+    unlocks_on_turn: int = 1
 
 
 @dataclass(frozen=True)

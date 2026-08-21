@@ -183,6 +183,7 @@ def _fill_combat_space(rt: _CombatRuntime, side_idx: int) -> None:
     for, not room for all of them.
     """
     side = rt.side(side_idx)
+    _fill_combat_space_from_hero(rt, side_idx)
     while side.alive_count() < rt.combat_board_max:
         effect = rt.seats[side_idx].take_combat_space_summon()
         if effect is None:
@@ -302,6 +303,40 @@ def _apply_start_of_combat_effect(
             f"Start of Combat effect {type(eff).__name__} has no combat handler "
             f"(minion {source.card_id})"
         )
+
+
+def _fill_combat_space_from_hero(rt: _CombatRuntime, side_idx: int) -> None:
+    """"When you have space in combat, summon a copy of your biggest minion."
+
+    Once per fight. The card prints no charge count, unlike Boon of Beetles'
+    "(2 left!)", and firing it after every death would refill the board for
+    free all combat — so the bound is one, and it is a reading rather than a
+    rule the card states.
+    """
+    if rt.hero_space_summoned[side_idx]:
+        return
+    by = rt.seats[side_idx].space_summon_copy()
+    if by is None:
+        return
+    side = rt.side(side_idx)
+    if side.alive_count() >= rt.combat_board_max:
+        return
+    living = list(side.iter_living())
+    if not living:
+        return
+    biggest = max(
+        living,
+        key=(
+            (lambda m: m.max_health)
+            if by == "health"
+            else (lambda m: _combat_attack(rt, side_idx, m))
+        ),
+    )
+    rt.hero_space_summoned[side_idx] = True
+    if _summon_append(rt, side_idx, biggest) is not None:
+        _sync_health_all(rt)
+        while rt.queue:
+            _dispatch(rt, rt.queue.popleft())
 
 
 def _combat_attack(rt: _CombatRuntime, side_idx: int, bm: BattleMinion) -> int:

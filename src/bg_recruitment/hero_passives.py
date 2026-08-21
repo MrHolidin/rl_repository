@@ -25,6 +25,14 @@ from src.bg_catalog.patch_context import PatchContext
 from src.bg_core.board_helpers import minion_matches_tribe
 from src.bg_core.hero import (
     EveryNthBuyBuff,
+    AttackOnKill,
+    BuffCombatSummons,
+    EveryNthTavernSpellFree,
+    GoldNextTurnOnSell,
+    GoldOnBuyTribe,
+    OnNthDeathAddRaceToHand,
+    OnNthSellAddRaceToHand,
+    SummonCopyWhenSpace,
     FreeFirstRefreshEachTurn,
     GoldOnUpgrade,
     OnSellBuffRandomShop,
@@ -38,7 +46,7 @@ from src.bg_core.hero import (
 from src.bg_core.minion import Minion, Race
 from src.bg_lobby.player import PlayerState
 from src.bg_recruitment.hand_slots import first_free_hand_slot
-from src.bg_recruitment.shop import add_random_minion_to_shop
+from src.bg_recruitment.shop import add_random_minion_to_hand, add_random_minion_to_shop
 
 __all__ = [
     "assign_random_hero",
@@ -136,6 +144,9 @@ def apply_hero_on_turn_start(
         elif isinstance(p, ZeroGoldForRounds):
             if int(round_number) in p.rounds:
                 player.gold = 0
+    apply_hero_on_deaths(
+        player, rng=rng, patch=patch, shop_excluded_race=shop_excluded_race
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -158,6 +169,9 @@ def apply_hero_on_bought(minion: Minion, player: PlayerState) -> None:
             if tribe is not None and minion_matches_tribe(minion, tribe):
                 minion.bonus_attack += p.attack
                 minion.bonus_health += p.health
+        elif isinstance(p, GoldOnBuyTribe):
+            if minion_matches_tribe(minion, p.race):
+                player.gold += p.amount
 
 
 def apply_hero_on_sell(
@@ -175,6 +189,20 @@ def apply_hero_on_sell(
     for p in h.passives:
         if isinstance(p, OnSellBuffRandomShop):
             _buff_random_shop(player, p.count, p.attack, p.health, rng)
+        elif isinstance(p, GoldNextTurnOnSell):
+            # Next turn, not this one: the gold is banked and the turn start
+            # pays it, which is the whole shape of the card.
+            player.gold_next_turn += p.amount
+        elif isinstance(p, OnNthSellAddRaceToHand):
+            player.hero_sell_count += 1
+            if p.n > 0 and player.hero_sell_count % p.n == 0:
+                add_random_minion_to_hand(
+                    player,
+                    p.race,
+                    shop_excluded_race,
+                    rng=rng,
+                    patch=patch,
+                )
         elif isinstance(p, OnSellRaceAddToShop):
             if minion_matches_tribe(sold, p.race):
                 add_random_minion_to_shop(
@@ -187,6 +215,31 @@ def apply_hero_on_sell(
                 )
 
 
+def hero_tavern_spell_is_free(player: PlayerState) -> bool:
+    """Whether the *next* Tavern spell the seat buys costs nothing.
+
+    Asked before the purchase and spent by it, the way every other "every Nth"
+    promise on a seat is: the count moves when the card is bought, not when
+    the price is quoted, or reading the price twice would move it twice.
+    """
+    h = player.hero
+    if h is None:
+        return False
+    for p in h.passives:
+        if isinstance(p, EveryNthTavernSpellFree) and p.n > 0:
+            return (player.hero_tavern_spell_count + 1) % p.n == 0
+    return False
+
+
+def apply_hero_on_tavern_spell_bought(player: PlayerState) -> None:
+    """Count one Tavern spell for the hero that pays every third."""
+    h = player.hero
+    if h is None:
+        return
+    if any(isinstance(p, EveryNthTavernSpellFree) for p in h.passives):
+        player.hero_tavern_spell_count += 1
+
+
 def apply_hero_on_level_up(player: PlayerState) -> None:
     h = player.hero
     if h is None:
@@ -194,6 +247,36 @@ def apply_hero_on_level_up(player: PlayerState) -> None:
     for p in h.passives:
         if isinstance(p, GoldOnUpgrade):
             player.gold += p.amount
+
+
+def apply_hero_on_deaths(
+    player: PlayerState,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    shop_excluded_race: Optional[Race] = None,
+) -> None:
+    """Pay the heroes that count friendly deaths, and remember what was paid.
+
+    Read at the seat's own turn start rather than at the death: the deaths
+    happen inside a fight, and a fight hands what it owes to the seat instead
+    of reaching into its hand mid-combat.
+    """
+    from .game_counts import DEATHS
+
+    h = player.hero
+    if h is None:
+        return
+    died = int(player.game_counts.get(DEATHS, 0))
+    for p in h.passives:
+        if not isinstance(p, OnNthDeathAddRaceToHand) or p.n <= 0:
+            continue
+        owed = died // p.n - player.hero_deaths_paid
+        for _ in range(max(0, owed)):
+            add_random_minion_to_hand(
+                player, p.race, shop_excluded_race, rng=rng, patch=patch
+            )
+            player.hero_deaths_paid += 1
 
 
 def apply_hero_on_elemental_played(player: PlayerState) -> None:
@@ -221,6 +304,49 @@ def hero_combat_attack_aura(player: PlayerState) -> int:
 def hero_start_combat_keywords(player: PlayerState) -> frozenset:
     h = player.hero
     return h.start_combat_leftmost_keywords() if h is not None else frozenset()
+
+
+def hero_combat_summon_buff(player: PlayerState):
+    """What a minion summoned mid-combat arrives with (Greybough).
+
+    ``(attack, health, keywords)``, all zero and empty for a seat whose hero
+    says nothing about it — which is every seat but one.
+    """
+    h = player.hero
+    if h is None:
+        return (0, 0, frozenset())
+    for p in h.passives:
+        if isinstance(p, BuffCombatSummons):
+            return (int(p.attack), int(p.health), frozenset(p.keywords))
+    return (0, 0, frozenset())
+
+
+def hero_attack_on_kill(player: PlayerState) -> int:
+    """Attack a friendly keeps for killing something (Rokara)."""
+    h = player.hero
+    if h is None:
+        return 0
+    for p in h.passives:
+        if isinstance(p, AttackOnKill):
+            return int(p.amount)
+    return 0
+
+
+def hero_space_summon(player: PlayerState, round_number: int):
+    """Whether this seat copies its biggest minion into a free combat slot.
+
+    ``None`` unless the hero says so and the turn it unlocks on has come;
+    otherwise ``"health"`` or ``"attack"`` — which of the two it copies.
+    """
+    h = player.hero
+    if h is None:
+        return None
+    for p in h.passives:
+        if isinstance(p, SummonCopyWhenSpace):
+            if int(round_number) < int(p.unlocks_on_turn):
+                return None
+            return "health" if p.by_health else "attack"
+    return None
 
 
 # --------------------------------------------------------------------------- #

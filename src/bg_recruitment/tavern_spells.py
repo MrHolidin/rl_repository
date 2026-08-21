@@ -279,7 +279,13 @@ def buy_tavern_spell(
     spell = offers[offer_index]
     if player.phase != PlayerPhase.SHOP:
         raise TavernSpellNotAllowed("buying is a recruit-phase move")
+    from src.bg_recruitment import hero_passives
+
     cost = effective_tavern_spell_cost(player, spell)
+    if hero_passives.hero_tavern_spell_is_free(player):
+        # "Every third Tavern spell you buy costs (0)." Counted by the purchase
+        # below, so quoting the price twice cannot move the countdown.
+        cost = 0
     in_health = spell_costs_health(spell)
     if not in_health and player.gold < cost:
         raise TavernSpellNotAllowed(
@@ -302,6 +308,7 @@ def buy_tavern_spell(
     # The discount was for this purchase and is spent by it, whether or not it
     # was worth anything (a 0-cost spell still consumes Ominous Seer's promise).
     player.tavern_spell_cost_delta = 0
+    hero_passives.apply_hero_on_tavern_spell_bought(player)
     player.hand[slot] = spell
     player.tavern_spell_offers = tuple(
         s for i, s in enumerate(offers) if i != offer_index

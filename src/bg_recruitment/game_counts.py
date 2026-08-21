@@ -34,6 +34,7 @@ from src.bg_lobby.player import PlayerState
 __all__ = [
     "SUMMONED",
     "DIED",
+    "DEATHS",
     "counter_key",
     "GOLDEN_PLAYED",
     "SPELLS_CAST",
@@ -65,6 +66,12 @@ TAVERN_SPELLS_CAST = "tavern_spells_cast:*"
 #: per body: a deathrattle doubled by Baron is two triggers, and one fired
 #: without a death (Deathstrider re-triggering the left-most) is one more.
 DEATHRATTLES_TRIGGERED = "deathrattles_triggered:*"
+
+#: Every friendly this seat has lost, whatever it was. The tally beside it is
+#: keyed by card id because the cards that read one name a card ("for each
+#: Eternal Knight that died"); this one is the plain total, which is what a
+#: countdown wants.
+DEATHS = "died:*"
 
 #: Golden minions this seat has played. Played, not summoned: the cards that
 #: read it say "you've played", and a golden token summoned in a fight is not
@@ -184,6 +191,7 @@ def bump_died(player: PlayerState, dead: Minion) -> None:
     game happened in a fight.
     """
     bump_game_count(player, DIED, dead.card_id, subject_card=dead)
+    player.game_counts[DEATHS] = player.game_counts.get(DEATHS, 0) + 1
 
 
 def bump_played(player: PlayerState, played: Minion) -> None:

@@ -89,7 +89,10 @@ def resolve_battle_and_advance(
         # permanent Blood Gems, "this game" modifiers — straight onto the two
         # players. Gold and hand adds keep coming back through the lists above,
         # because those are applied in one batch after the fight by rule.
-        seats=(PlayerCombatSeat(pa, patch=patch), PlayerCombatSeat(pb, patch=patch)),
+        seats=(
+            PlayerCombatSeat(pa, patch=patch, round_number=state.round_number),
+            PlayerCombatSeat(pb, patch=patch, round_number=state.round_number),
+        ),
     )
     apply_hero_damage(state.players[0], dmg_p0, patch=patch)
     apply_hero_damage(state.players[1], dmg_p1, patch=patch)
