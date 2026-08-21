@@ -201,11 +201,37 @@ def collect_trinkets(cards: list) -> list[dict]:
 
 
 def collect_heroes(cards: list) -> list[dict]:
-    out = [
-        _row(c, armor=c.get("armor"), health=c.get("health"))
-        for c in cards
-        if c.get("battlegroundsHero")
-    ]
+    """Every Battlegrounds hero, carrying the power it plays with.
+
+    A hero card is a portrait: a name, a health pool and some armor, and no
+    rules text at all. What the hero *does* is a second card, which the hero
+    points at by ``heroPowerDbfId`` — so a heroes section without it can name
+    121 heroes and describe none of them.
+
+    ``power_passive`` is the client's own ``hideCost``: a power the seat cannot
+    click has no cost to show. It is the split that matters most to an engine,
+    because a passive needs no action and an active one needs somewhere in the
+    action space to be pressed.
+    """
+    by_dbf = {c.get("dbfId"): c for c in cards if c.get("dbfId") is not None}
+    out = []
+    for c in cards:
+        if not c.get("battlegroundsHero"):
+            continue
+        power = by_dbf.get(c.get("heroPowerDbfId")) or {}
+        out.append(
+            _row(
+                c,
+                armor=c.get("armor"),
+                health=c.get("health"),
+                powerId=power.get("id"),
+                powerName=power.get("name"),
+                powerText=power.get("text"),
+                powerCost=power.get("cost"),
+                powerMechanics=power.get("mechanics") or [],
+                powerPassive=bool(power.get("hideCost")),
+            )
+        )
     return sorted(out, key=lambda r: r["id"] or "")
 
 
