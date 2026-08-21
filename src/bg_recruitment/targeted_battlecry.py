@@ -173,6 +173,7 @@ def destroy_friendly(
     patch,
     get_copy: bool = True,
     triggers=None,
+    shared_pool=None,
 ) -> Optional[Minion]:
     """Destroy ``victim``, optionally handing its owner a plain copy.
 
@@ -201,6 +202,15 @@ def destroy_friendly(
     if triggers is not None:
         triggers.fire_tavern_deathrattle(victim, player)
     if not get_copy:
+        # A body that leaves the board with nothing standing in for it goes
+        # back to the lobby, the way a sold one does. With ``get_copy`` the
+        # plain copy in hand *is* what stands in for it, so the seat still
+        # holds the card and nothing is owed back. Hooktusk and The Jailer
+        # press this for free, once a turn, all game.
+        if shared_pool is not None:
+            from .pool_ledger import on_sell_minion
+
+            on_sell_minion(shared_pool, victim)
         return None
     # Plain: built from the template, so nothing the body had gained rides along.
     copy = make_minion(victim.card_id, patch=patch)
@@ -243,6 +253,7 @@ def apply_destroy_friendly(
         patch=triggers._patch,
         get_copy=effect.get_copy,
         triggers=triggers,
+        shared_pool=shared_pool,
     )
     if victim in player.board:
         return  # the trade did not happen (no room for the copy it pays)

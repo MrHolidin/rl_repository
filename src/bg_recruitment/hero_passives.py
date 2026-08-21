@@ -88,17 +88,61 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 
 
+def _races_a_hero_needs(hero) -> frozenset:
+    """Every tribe the hero's power and passives name.
+
+    Read off the fields rather than listed per hero, so a new descriptor that
+    names a tribe is covered by having named it.
+    """
+    # Two descriptors print their tribe in the class name rather than a field,
+    # which is fine for them and invisible to a field scan.
+    by_name = {
+        "ExtraShopDragon": Race.DRAGON,          # Ysera
+        "UpgradeDiscountPerElementals": Race.ELEMENTAL,  # Chenvaala
+    }
+    found = set()
+    sources = list(hero.passives) + [ab.effect for ab in hero.power]
+    for src in sources:
+        named = by_name.get(type(src).__name__)
+        if named is not None:
+            found.add(named)
+        for field in ("tribe", "race", "filter_race", "race_filter"):
+            value = getattr(src, field, None)
+            if isinstance(value, Race):
+                found.add(value)
+        for field in ("tribes", "races"):
+            for value in getattr(src, field, ()) or ():
+                if isinstance(value, Race):
+                    found.add(value)
+    return frozenset(found)
+
+
 def assign_random_hero(
     player: PlayerState,
     *,
     patch: PatchContext,
     rng: np.random.Generator,
+    shop_excluded_race=None,
 ) -> None:
-    """Assign one random hero from the patch pool (deterministic given ``rng``)."""
+    """Assign one random hero from the patch pool (deterministic given ``rng``).
+
+    A hero whose whole power is a tribe this lobby left out is not offered.
+    Alexstrasza with no Dragons pays a gold for a Discover that cannot be
+    filled, and Ysera's guaranteed Dragon slot is a slot like any other — the
+    tavern removes them from the offer rather than dealing a dead hero.
+    """
+    from src.bg_catalog.cards import normalize_shop_excluded_races
+
     pool = patch.hero_pool_ids
     if not pool:
         return
-    hid = sorted(pool)[int(rng.integers(0, len(pool)))]
+    out = frozenset(normalize_shop_excluded_races(shop_excluded_race) or ())
+    eligible = sorted(pool)
+    if out:
+        served = [h for h in eligible if not (_races_a_hero_needs(patch.heroes[h]) & out)]
+        if served:
+            eligible = served
+    hid = eligible[int(rng.integers(0, len(eligible)))]
     player.hero = patch.heroes[hid]
 
 
@@ -559,6 +603,7 @@ def _power_can_land(player: PlayerState) -> bool:
         BuffTargetFriendlyBattlecry,
         DestroyFriendlyEffect,
         DiscoverTribeEffect,
+        GainBloodGemsEffect,
         GrantTemporaryBuffEffect,
         MakeFriendlyGoldenEffect,
         RefreshWithLastOpponentEffect,
@@ -570,7 +615,7 @@ def _power_can_land(player: PlayerState) -> bool:
         SwapWithTavernMinionEffect,
     )
     from src.bg_recruitment.hand_slots import first_free_hand_slot
-    from src.bg_recruitment.tavern_spells import _buff_helps
+    from src.bg_recruitment.tavern_spells import _buff_helps, temp_buff_helps as _temp_buff_helps
 
     h = player.hero
     if h is None:
@@ -590,6 +635,9 @@ def _power_can_land(player: PlayerState) -> bool:
                 AddRandomMinionToHandEffect,
                 AddRandomTavernSpellToHandEffect,
                 DiscoverTribeEffect,
+                # A Blood Gem is a card in hand like any other, and a hand with
+                # no room loses it.
+                GainBloodGemsEffect,
             ),
         ):
             if not hand_room:
@@ -636,8 +684,13 @@ def _power_can_land(player: PlayerState) -> bool:
             # Two bodies: one to spend and one to receive.
             if len(board) < 2:
                 return False
-        elif isinstance(e, (BuffTargetByTierEffect, GrantTemporaryBuffEffect)):
+        elif isinstance(e, BuffTargetByTierEffect):
             if not board:
+                return False
+        elif isinstance(e, GrantTemporaryBuffEffect):
+            # Reborn until next turn is worth nothing to a body that already
+            # has it, the same way a second Divine Shield is.
+            if not any(_temp_buff_helps(e, m) for m in board):
                 return False
         elif isinstance(e, RefreshWithLastOpponentEffect):
             if not any(m is not None for m in player.last_opponent_board):

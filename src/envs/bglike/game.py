@@ -357,7 +357,12 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         self._assign_tribe_pref(player)
         if self._with_heroes:
             # Assign before the opening shop fill so Millificent/Ysera shape it.
-            hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
+            hero_passives.assign_random_hero(
+                player,
+                patch=self._patch,
+                rng=self._rng,
+                shop_excluded_race=shop_excluded_race,
+            )
         self._refresh_shop(player, shop_excluded_race, shared_pool=shared_pool)
         if self._with_heroes:
             hero_passives.apply_hero_on_game_start(
@@ -434,7 +439,12 @@ class BGLikeGame(TurnBasedGame[BGLikeState]):
         )
         self._assign_tribe_pref(player)
         if self._with_heroes:
-            hero_passives.assign_random_hero(player, patch=self._patch, rng=self._rng)
+            hero_passives.assign_random_hero(
+                player,
+                patch=self._patch,
+                rng=self._rng,
+                shop_excluded_race=shop_excluded_race,
+            )
         for seed_tier in (5, 6):
             m = self._random_minion_of_tier(seed_tier, shop_excluded_race, shared_pool)
             if m is not None:

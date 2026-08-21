@@ -264,10 +264,16 @@ def resolve_discover_pick(
         # changes every turn change exactly once — and handed the countdown
         # passives a settled backlog they had never earned.
         taken = patch.heroes.get(choice_token)
-        if taken is not None and player.hero is not None:
-            player.hero = player.hero.with_power_of(taken)
-        elif taken is not None:
-            player.hero = taken
+        if taken is not None:
+            player.hero = (
+                player.hero.with_power_of(taken) if player.hero is not None else taken
+            )
+            # The charges are the power's, not the seat's: a once-per-game
+            # power arrived unusable when the seat had already pressed one.
+            player.hero_power_uses_game = 0
+            player.hero_power_uses_this_turn = 0
+            player.hero_power_ready_on_round = 0
+            player.hero_power_cost_delta = 0
         player.pending_choice = None
         _fire_discovered(player, patch=patch)
         return

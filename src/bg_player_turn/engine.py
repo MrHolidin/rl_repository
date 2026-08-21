@@ -321,7 +321,12 @@ class PlayerTurnEngine:
             recruitment_triples.resolve_triples_loop(
                 player, shared_pool=ctx.shared_pool, patch=ctx.patch
             )
-            return player.pending_choice is None
+            # No budget, as the comment in ``legal_actions`` says: the power is
+            # its own resource, spent by its own per-turn count and its own
+            # price, and pressing it did not cost the seat one of the turn's
+            # shop actions. This used to return whether a modal opened, which
+            # charged a shop action for every press that did not.
+            return False
 
         if action_int == int(a.Action.ROLL):
             recruitment_economy.roll_shop(

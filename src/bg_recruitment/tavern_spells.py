@@ -788,9 +788,23 @@ def _apply_spell_effect(
         for slot in range(len(player.shop)):
             clear_shop_slot(player, slot, shared_pool, release_to_pool=True)
         for slot in range(min(want, len(warband))):
+            body = warband[slot]
+            if body.card_id not in patch.templates:
+                # A token — Fishbait and the summons — has no printing to build
+                # a copy from, and is not the lobby's to lend either. The body
+                # is copied directly, which is also what makes this not raise
+                # on a warband that fought with one.
+                player.shop[slot] = _plain_copy_of(body)
+                continue
             # Plain copies: what the body gained in that seat's hands is not
-            # part of the card being offered.
-            player.shop[slot] = _make(warband[slot].card_id, patch=patch)
+            # part of the card being offered. A copy standing on the counter is
+            # still a copy of that card, so the lobby lends it like any offer
+            # and keeps the one it already released above.
+            if shared_pool is not None and not shared_pool.try_reserve_offer(
+                body.card_id
+            ):
+                continue
+            player.shop[slot] = _make(body.card_id, patch=patch)
         return
 
     if isinstance(effect, RefreshWithHigherTierEffect):
@@ -866,7 +880,13 @@ def _apply_spell_effect(
         # Spellcraft spell on this is permanent" is not spent on it. Only a
         # hero power reaches this branch bare; every card that grants one wraps
         # it in a Spellcraft, which goes down the other path.
-        chosen = target if target is not None else _random_friendly(player, rng)
+        chosen = (
+            target
+            if target is not None
+            else _random_friendly(
+                player, rng, where=lambda m: temp_buff_helps(effect, m)
+            )
+        )
         if chosen is not None:
             apply_temporary_buff(
                 chosen, effect, player=player, patch=patch, from_spell=False
@@ -1079,6 +1099,29 @@ def _apply_spell_effect(
     )
 
 
+def _plain_copy_of(body: Minion) -> Minion:
+    """A fresh printing of ``body`` for a card the catalog does not carry.
+
+    Tokens are built in code rather than from a template, so the only way to
+    make another one is to copy the body and take back what it gained.
+    """
+    import copy as _copy
+
+    made = _copy.copy(body)
+    made.bonus_attack = 0
+    made.bonus_health = 0
+    made.temp_attack = 0
+    made.temp_health = 0
+    made.damage_taken = 0
+    made.granted_keywords = frozenset()
+    made.temp_keywords = frozenset()
+    from src.bg_core.effects import Keyword as _Keyword
+
+    made.has_shield = _Keyword.SHIELD in made.keywords
+    made.instance_id = next_instance_id()
+    return made
+
+
 def _random_friendly(
     player: PlayerState,
     rng: np.random.Generator,
@@ -1095,6 +1138,17 @@ def _random_friendly(
     if not pool:
         return None
     return pool[int(rng.integers(0, len(pool)))]
+
+
+def temp_buff_helps(effect, m: Minion) -> bool:
+    """Whether a "until next turn" buff would do anything to ``m``.
+
+    Stats always do. A keyword handed to a body that already has it does not,
+    which is the whole of what a hero power granting Reborn is.
+    """
+    if effect.attack or effect.health or effect.keyword is None:
+        return True
+    return effect.keyword not in m.all_keywords
 
 
 def _buff_helps(effect: BuffTargetFriendlyBattlecry) -> Optional[Callable[[Minion], bool]]:

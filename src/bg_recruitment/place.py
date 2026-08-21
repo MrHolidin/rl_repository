@@ -151,7 +151,7 @@ def place_from_hand(
         from src.bg_recruitment.targeted_battlecry import destroy_friendly
 
         destroy_friendly(player, minion, patch=triggers._patch, get_copy=False,
-                         triggers=triggers)
+                         triggers=triggers, shared_pool=shared_pool)
 
     if player.pending_choice is None:
         resolve_triples_loop(player, patch=triggers._patch)

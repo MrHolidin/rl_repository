@@ -537,6 +537,9 @@ class Hero:
         return replace(
             self,
             power=other.power,
+            # ``power_charges`` belongs to the power, so the seat's lifetime
+            # count of presses is reset with it — a once-per-game power picked
+            # up mid-game has not been pressed this game.
             power_cost=other.power_cost,
             power_uses=other.power_uses,
             power_charges=other.power_charges,

@@ -121,6 +121,9 @@ def validate_struct_action(
     elif t == StructActionType.APPLY_EFFECT_SKIP:
         if a.args != ():
             raise ValueError(f"APPLY_EFFECT_SKIP expects args (), got {a.args}")
+    elif t == StructActionType.HERO_POWER:
+        if a.args != ():
+            raise ValueError(f"HERO_POWER expects args (), got {a.args}")
     elif t == StructActionType.COMPLETE_TURN or t == StructActionType.COMPLETE_TURN_FREEZE_SHOP:
         if a.args != ():
             raise ValueError(f"{t.name} expects args (); pass board_perm to env.step_structured")

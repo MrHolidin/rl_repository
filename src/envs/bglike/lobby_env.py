@@ -588,6 +588,8 @@ class BGLobbyEnv:
             out.append(StructAction(StructActionType.ROLL))
         if int(GameAction.LEVEL_UP) in legal_game:
             out.append(StructAction(StructActionType.LEVEL_UP))
+        if hasattr(GameAction, "HERO_POWER") and int(GameAction.HERO_POWER) in legal_game:
+            out.append(StructAction(StructActionType.HERO_POWER))
 
         for slot in range(MAX_SHOP_SLOTS):
             if (int(GameAction.BUY_SLOT_0) + slot) in legal_game:

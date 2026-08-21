@@ -165,6 +165,8 @@ def struct_action_to_game_action(action) -> int:
         return int(Action.DISCOVER_PICK_0) + action.args[0]
     if action.type == StructActionType.APPLY_EFFECT:
         return int(Action.TARGET_BOARD_0) + action.args[0]
+    if action.type == StructActionType.HERO_POWER:
+        return int(Action.HERO_POWER)
     raise ValueError(f"not a shop-phase structured action: {action}")
 
 

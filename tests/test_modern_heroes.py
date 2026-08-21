@@ -1405,3 +1405,170 @@ def test_yogg_casts_into_the_tavern_the_seat_will_be_shown(patch):
     # Not every random spell touches the counter, but some must now be able to.
     assert hits > 0
 
+
+# --------------------------------------------------------------------------- #
+# What the fuzzer found
+# --------------------------------------------------------------------------- #
+
+
+def test_the_structured_path_can_press_the_power(patch):
+    """The flat mask offered it and the structured one did not, which on the
+    training path is a power the policy can never reach."""
+    from src.envs.bglike.action_map import struct_action_to_game_action
+    from src.envs.bglike import actions as A
+    from src.envs.minibg.structured_actions import (
+        StructAction,
+        StructActionType,
+        validate_struct_action,
+    )
+
+    token = StructAction(StructActionType.HERO_POWER, ())
+    validate_struct_action(token, hand_size=10, board_size=7, max_shop_slots=7)
+    assert struct_action_to_game_action(token) == int(A.Action.HERO_POWER)
+    with pytest.raises(ValueError):
+        validate_struct_action(
+            StructAction(StructActionType.HERO_POWER, (0,)),
+            hand_size=10,
+            board_size=7,
+            max_shop_slots=7,
+        )
+
+
+def test_tess_copies_a_warband_that_fought_with_a_token(patch):
+    """Fishbait is built in code and has no printing, so building the offer
+    from its card id raised. Any seat can buy one and take it to a combat."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+    from src.bg_recruitment.fishbait import make_fishbait
+    from src.bg_recruitment.shop import refresh_shop
+
+    pool = build_initial_shared_pool(patch=patch)
+    player = _armed(patch, "TB_BaconShop_HERO_50", round_number=8)
+    refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch, shared_pool=pool)
+    plain = next(c for c in sorted(patch.pool_ids) if patch.templates[c].tier == 1)
+    player.last_opponent_board = [make_fishbait(), patch.make_minion(plain)]
+    before = pool.remaining_copies(plain)
+    hero_passives.use_hero_power(
+        player,
+        rng=np.random.default_rng(1),
+        patch=patch,
+        round_number=8,
+        shared_pool=pool,
+    )
+    offers = [m.card_id for m in player.shop if m is not None]
+    assert "BG36_205" in offers
+    # And the copy on the counter is one the lobby lent, not one minted.
+    assert pool.remaining_copies(plain) == before - 1
+
+
+def test_a_destroyed_minion_goes_back_to_the_lobby(patch):
+    """Hooktusk presses this for free, once a turn, all game — every press used
+    to take a copy out of the shared pool for good."""
+    from src.bg_lobby.shared_pool import build_initial_shared_pool
+
+    plain = next(c for c in sorted(patch.pool_ids) if patch.templates[c].tier == 1)
+    pool = build_initial_shared_pool(patch=patch)
+    player = _armed(
+        patch, "TB_BaconShop_HERO_67", round_number=8, board=[patch.make_minion(plain)]
+    )
+    before = pool.remaining_copies(plain)
+    hero_passives.use_hero_power(
+        player,
+        rng=np.random.default_rng(0),
+        patch=patch,
+        round_number=8,
+        shared_pool=pool,
+    )
+    assert player.board == []
+    assert pool.remaining_copies(plain) == before + 1
+
+
+def test_a_borrowed_power_brings_its_own_charges(patch):
+    """``power_charges`` belongs to the power. A once-per-game power picked up
+    by a seat that had already pressed one arrived unusable."""
+    from src.bg_recruitment.discover import resolve_discover_pick
+
+    player = _armed(patch, "BG20_HERO_202", round_number=8)
+    player.hero_power_uses_game = 4
+    player.hero_power_uses_this_turn = 1
+    player.hero_power_cost_delta = 3
+    hero_passives._open_hero_power_discover(
+        player, rng=np.random.default_rng(0), patch=patch, options=2
+    )
+    resolve_discover_pick(
+        player,
+        0,
+        None,
+        rng=np.random.default_rng(0),
+        on_after_placed=lambda *_: None,
+        patch=patch,
+    )
+    assert player.hero_power_uses_game == 0
+    assert player.hero_power_uses_this_turn == 0
+    assert player.hero_power_cost_delta == 0
+
+
+def test_a_hero_the_lobbys_tribes_cannot_serve_is_not_dealt(patch):
+    """Alexstrasza with no Dragons pays a gold for a Discover that cannot be
+    filled; the tavern leaves her out of the offer instead."""
+    from collections import Counter
+
+    dragon_locked = {"Alexstrasza", "Ysera"}
+    seen = Counter()
+    for i in range(200):
+        player = _seat(patch)
+        hero_passives.assign_random_hero(
+            player,
+            patch=patch,
+            rng=np.random.default_rng(i),
+            shop_excluded_race=(Race.DRAGON,),
+        )
+        seen[player.hero.name] += 1
+    assert not (dragon_locked & set(seen))
+    assert len(seen) > 40  # and the rest of the pool is still dealt
+
+    open_pool = Counter()
+    for i in range(200):
+        player = _seat(patch)
+        hero_passives.assign_random_hero(
+            player, patch=patch, rng=np.random.default_rng(i)
+        )
+        open_pool[player.hero.name] += 1
+    assert dragon_locked & set(open_pool)
+
+
+def test_a_gem_needs_somewhere_to_go_and_reborn_needs_a_body_without_it(patch):
+    beast = next(
+        c for c in sorted(patch.pool_ids) if patch.templates[c].race is Race.BEAST
+    )
+    gems = _armed(
+        patch, "BG20_HERO_103", round_number=8, board=[patch.make_minion(beast)]
+    )
+    assert hero_passives.can_use_hero_power(gems, 8)
+    gems.hand = [patch.make_minion(beast) for _ in gems.hand]
+    assert not hero_passives.can_use_hero_power(gems, 8)
+
+    king = _armed(
+        patch, "TB_BaconShop_HERO_22", round_number=8, board=[patch.make_minion(beast)]
+    )
+    assert hero_passives.can_use_hero_power(king, 8)
+    king.board[0].granted_keywords = frozenset({Keyword.REBORN})
+    assert not hero_passives.can_use_hero_power(king, 8)
+
+
+def test_pressing_the_power_costs_none_of_the_turns_budget(patch):
+    """It is its own resource, spent by its own per-turn count and its own
+    price — not by one of the turn's shop actions."""
+    from src.bg_player_turn.context import PlayerTurnContext
+    from src.bg_player_turn.engine import PlayerTurnEngine
+    from src.bg_recruitment.shop_triggers import ShopTriggers
+    from src.envs.bglike import actions as A
+
+    player = _armed(patch, "BG32_HERO_001", round_number=8)  # Cenarius, no target
+    rng = np.random.default_rng(0)
+    ctx = PlayerTurnContext(
+        rng=rng, triggers=ShopTriggers(rng, patch=patch), patch=patch, round_number=8
+    )
+    engine = PlayerTurnEngine(A)
+    assert int(A.Action.HERO_POWER) in engine.legal_actions(player, patch.meta.ruleset)
+    assert engine.apply(player, int(A.Action.HERO_POWER), ctx) is False
+
