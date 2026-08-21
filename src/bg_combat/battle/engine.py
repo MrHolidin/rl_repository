@@ -41,6 +41,7 @@ from .events import (
 )
 from .auras import attack_value, _grant_keyword, _sync_health_all
 from src.bg_core.board_helpers import apply_buff_matching, minion_matches_tribe
+from src.bg_core.minion import ALL_TRIBES
 from .targeting import (
     _attacker_has_cleave,
     _cleave_victim_ids_at_swing_start,
@@ -94,6 +95,52 @@ def _queue_hand_start_of_combat(
             pending.append((battle_copy(template, rt.alloc_id()), ab.effect))
 
 
+def _fire_hero_start_of_combat(rt: _CombatRuntime, side_idx: int) -> None:
+    """The hero powers that land before a blow is struck.
+
+    Illidan's ends and Wagtoggle's one-per-type. Read off the seat rather than
+    bound as an ability, because a hero has no body on the board to carry one.
+    """
+    side = rt.side(side_idx)
+    living = list(side.iter_living())
+    if not living:
+        return
+    ends = rt.seats[side_idx].start_combat_ends()
+    swingers = []
+    if ends is not None:
+        for bm in {id(living[0]): living[0], id(living[-1]): living[-1]}.values():
+            bm.bonus_attack += ends.attack
+            bm.bonus_health += ends.health
+            swingers.append(bm)
+    per_tribe = rt.seats[side_idx].start_combat_one_per_tribe()
+    if per_tribe is not None:
+        attack, health = per_tribe
+        paid: list = []
+        for tribe in ALL_TRIBES:
+            pool = [
+                m
+                for m in living
+                if minion_matches_tribe(m, tribe)
+                and not any(m is already for already in paid)
+            ]
+            if not pool:
+                continue
+            pick = pool[int(rt.rng.integers(0, len(pool)))]
+            pick.bonus_attack += attack
+            pick.bonus_health += health
+            paid.append(pick)
+    _sync_health_all(rt)
+    if ends is not None and ends.attack_immediately:
+        # "...and attack immediately" — after both halves have landed, so the
+        # stats are on the body before it swings.
+        from .effects import _summon_attack_immediately_if_requested
+
+        for bm in swingers:
+            _summon_attack_immediately_if_requested(rt, bm, side_idx)
+            while rt.queue:
+                _dispatch(rt, rt.queue.popleft())
+
+
 def _queue_seat_start_of_combat(
     rt: _CombatRuntime,
     side_idx: int,
@@ -130,6 +177,8 @@ def _fire_start_of_combat(rt: _CombatRuntime) -> None:
             for kw in side.start_combat_keywords:
                 _grant_keyword(rt, side_idx, bm, kw)
             break
+    for side_idx in (0, 1):
+        _fire_hero_start_of_combat(rt, side_idx)
     # Both sides' triggers in board order, left to right.
     pending: Tuple[List[Tuple[BattleMinion, object]], List[Tuple[BattleMinion, object]]] = ([], [])
     for side_idx in (0, 1):
@@ -416,6 +465,8 @@ def _run_single_swing(
     rt.in_death_resolution = False
     if not attacker.alive or not target.alive:
         return
+    # One of the owner's minions is swinging, for the heroes that count them.
+    rt.seats[attacker_side_idx].count_attack()
     _fire_when_attacked(rt, defender_side_idx, target)
     # Rally reads the board the attack was declared on: after the target is
     # locked in and the defender's own on-attacked triggers have run, but before

@@ -79,11 +79,17 @@ def test_every_hero_in_the_pool_has_a_passive_power(patch, catalog_heroes):
 
 def test_no_hero_needs_a_card_the_package_does_not_carry(patch):
     """`HERO_TOKEN_IDS` is what a hero adds to the card index; the heroes that
-    would need one are deliberately left out."""
+    would need one are deliberately left out. A hero pays in minions *or*
+    spells — a Brann, a Tavern Coin, a Triple Reward — so both catalogs count.
+    """
     for hero_id, hero in patch.heroes.items():
         for passive in hero.passives:
             card_id = getattr(passive, "card_id", None)
-            assert card_id is None or card_id in patch.templates, hero_id
+            if card_id is None:
+                continue
+            assert (
+                card_id in patch.templates or card_id in patch.tavern_spells
+            ), f"{hero_id} wants {card_id}"
 
 
 def test_hero_health_and_armor_match_the_catalog(patch, catalog_heroes):
@@ -349,3 +355,228 @@ def test_vanndar_reads_health_where_drekthar_reads_attack(patch):
         round_number=7,
     )
     assert [m.card_id for m in out].count("tough") == 2
+
+
+# --------------------------------------------------------------------------- #
+# The countdown, refresh and start-of-combat passives
+# --------------------------------------------------------------------------- #
+
+
+def _turn(patch, player, round_number):
+    hero_passives.apply_hero_on_turn_start(
+        player,
+        round_number=round_number,
+        patch=patch,
+        rng=np.random.default_rng(round_number),
+    )
+
+
+def _hand(player):
+    return [c.card_id for c in player.hand if c is not None]
+
+
+def _buy(patch, player, minion):
+    player.hero_buy_count += 1
+    hero_passives.apply_hero_on_bought(
+        minion, player, rng=np.random.default_rng(0), patch=patch
+    )
+
+
+def test_kaelthas_hands_over_a_tavern_coin_every_third_buy(patch):
+    player = _seat(patch, "TB_BaconShop_HERO_60")
+    for _ in range(6):
+        _buy(patch, player, _minion())
+    assert _hand(player) == ["BG28_810", "BG28_810"]
+
+
+def test_dinotamer_brann_pays_once_and_only_for_battlecries(patch):
+    player = _seat(patch, "TB_BaconShop_HERO_43")
+    for _ in range(8):
+        _buy(patch, player, _minion())  # no Battlecry
+    assert _hand(player) == []
+
+    player = _seat(patch, "TB_BaconShop_HERO_43")
+    battlecry = patch.make_minion("BGS_020")
+    for _ in range(8):
+        _buy(patch, player, battlecry)
+    assert _hand(player) == ["BG_LOE_077"]  # once per game
+
+
+def test_guff_counts_tiers_rather_than_cards(patch):
+    player = _seat(patch, "BG20_HERO_242")
+    for _ in range(7):
+        _buy(patch, player, _minion(attack=1, health=1))  # 7 Tiers' worth
+    assert player.hero_tiers_bought == 7
+    assert _hand(player) == []
+
+    for _ in range(7):
+        _buy(patch, player, patch.make_minion("BG25_354"))  # Tier 5 each
+    assert player.hero_tiers_bought == 42
+    assert _hand(player) == ["triple_reward_discover"] * (42 // 20)
+
+
+def test_saurfangs_counter_grows_with_your_buys(patch):
+    from src.bg_recruitment.shop import refresh_shop
+
+    def _first_offer(buys):
+        player = _seat(patch, "BG20_HERO_102")
+        player.tavern_tier = 3
+        player.hero_buy_count = buys
+        refresh_shop(player, None, rng=np.random.default_rng(1), patch=patch)
+        offer = next(m for m in player.shop if m is not None)
+        printed = patch.templates[offer.card_id]
+        return offer.raw_attack - printed.base_attack
+
+    assert _first_offer(0) == 1
+    assert _first_offer(6) == 3
+
+
+def test_aranna_makes_the_first_buy_free_once_unlocked(patch):
+    from src.bg_recruitment.economy import effective_buy_cost
+
+    player = _seat(patch, "TB_BaconShop_HERO_59")
+    _turn(patch, player, 5)
+    assert effective_buy_cost(player) == 3  # 14 attacks have not happened
+
+    player.hero_attacks = 14
+    _turn(patch, player, 6)
+    assert effective_buy_cost(player) == 0
+    player.hero_free_buys -= 1  # spent by the purchase
+    assert effective_buy_cost(player) == 3
+
+
+def test_sindragosa_shows_one_fewer_and_freezes(patch):
+    from src.bg_recruitment.economy import effective_buy_cost
+    from src.bg_recruitment.shop import effective_shop_offers_count
+
+    plain, sindragosa = _seat(patch), _seat(patch, "TB_BaconShop_HERO_27")
+    plain.tavern_tier = sindragosa.tavern_tier = 4
+    assert effective_shop_offers_count(sindragosa) == (
+        effective_shop_offers_count(plain) - 1
+    )
+    assert effective_buy_cost(sindragosa) == 2
+    hero_passives.apply_hero_on_turn_end(sindragosa)
+    assert sindragosa.shop_freeze_next_round
+
+
+def test_rakanishu_improves_every_third_turn(patch):
+    """Game start *is* turn 1, so the base grant happens there."""
+    player = _seat(patch, "TB_BaconShop_HERO_75")
+    assert player.tavern_spell_bonus_attack == 1
+    for round_number in (2, 3):
+        _turn(patch, player, round_number)
+    assert player.tavern_spell_bonus_attack == 1
+    _turn(patch, player, 4)
+    assert player.tavern_spell_bonus_attack == 2
+
+
+def test_yogg_casts_from_turn_three(patch):
+    player = _seat(patch, "TB_BaconShop_HERO_35")
+    player.tavern_tier = 3
+    _turn(patch, player, 2)
+    assert player.last_tavern_spell_cast is None
+    _turn(patch, player, 3)
+    assert player.last_tavern_spell_cast is not None
+
+
+def test_varden_copies_the_best_offer_and_freezes_both(patch):
+    from src.bg_recruitment.shop import refresh_shop
+
+    player = _seat(patch, "BG22_HERO_004")
+    player.tavern_tier = 4
+    refresh_shop(player, None, rng=np.random.default_rng(2), patch=patch)
+    offers = [(i, m) for i, m in enumerate(player.shop) if m is not None]
+    best_tier = max(m.tier for _, m in offers)
+    doubled = [m.card_id for _, m in offers if m.tier == best_tier]
+    assert len(doubled) == 2 and doubled[0] == doubled[1]
+    frozen = [i for i, f in enumerate(player.shop_frozen) if f]
+    assert len(frozen) == 2
+
+
+def test_enhance_o_grants_two_bonus_keywords(patch):
+    from src.bg_core.minion import BONUS_KEYWORDS
+    from src.bg_recruitment.shop import refresh_shop
+
+    player = _seat(patch, "BG24_HERO_204")
+    player.tavern_tier = 4
+    refresh_shop(player, None, rng=np.random.default_rng(3), patch=patch)
+    granted = [k for m in player.shop if m is not None for k in m.granted_keywords]
+    assert len(granted) == 2
+    assert set(granted) <= BONUS_KEYWORDS
+
+
+def test_afkay_and_faelin_discover_at_each_tier_they_name(patch):
+    """A list, not a count: the modal chain re-rolls one kind, so these are
+    opened one at a time."""
+    from src.bg_recruitment.discover import resolve_discover_pick
+
+    for hero_id, wanted in (
+        ("TB_BaconShop_HERO_16", [3, 4]),
+        ("BG22_HERO_201", [6, 4, 2]),
+    ):
+        player = _seat(patch, hero_id)
+        for round_number in (2, 3):
+            _turn(patch, player, round_number)
+        seen = []
+        while player.pending_choice is not None:
+            tiers = {patch.templates[o].tier for o in player.pending_choice.options}
+            seen.append(sorted(tiers))
+            resolve_discover_pick(
+                player,
+                0,
+                None,
+                rng=np.random.default_rng(0),
+                on_after_placed=lambda *_: None,
+                patch=patch,
+            )
+            hero_passives.flush_hero_tier_discovers(
+                player, rng=np.random.default_rng(1), patch=patch
+            )
+        assert seen == [[t] for t in wanted], hero_id
+
+
+def test_thorims_pick_waits_on_sixty_gold(patch):
+    player = _seat(patch, "BG27_HERO_801")
+    promised = player.hero_promised_card
+    assert patch.templates[promised].tier == 7
+
+    player.hero_gold_spent_total = 59
+    _turn(patch, player, 3)
+    assert _hand(player) == []
+
+    player.hero_gold_spent_total = 60
+    _turn(patch, player, 4)
+    assert _hand(player) == [promised]
+
+
+def test_genn_swaps_its_power_on_turn_four(patch):
+    from src.bg_lobby.player import PendingChoiceKind
+
+    player = _seat(patch, "BG35_HERO_001")
+    _turn(patch, player, 3)
+    assert player.pending_choice is None
+    _turn(patch, player, 4)
+    assert player.pending_choice.kind is PendingChoiceKind.HERO_POWER_DISCOVER
+    assert len(player.pending_choice.options) == 2
+    assert "BG35_HERO_001" not in player.pending_choice.options
+
+
+def test_illidan_buffs_both_ends_and_swings_at_once(patch):
+    ends = [_minion("left", 3, 40), _minion("mid", 1, 40), _minion("right", 3, 40)]
+    player = _seat(patch, "TB_BaconShop_HERO_08")
+    out = _fight(patch, player, ends, [_minion("wall", 0, 300)])
+    by_id = {m.card_id: m for m in out}
+    assert (by_id["left"].raw_attack, by_id["right"].raw_attack) == (5, 5)
+    assert by_id["mid"].raw_attack == 1
+
+
+def test_wagtoggle_pays_one_of_each_type(patch):
+    beast, murloc, other = (
+        _minion("beast", 1, 40, race=Race.BEAST),
+        _minion("murloc", 1, 40, race=Race.MURLOC),
+        _minion("beast2", 1, 40, race=Race.BEAST),
+    )
+    player = _seat(patch, "TB_BaconShop_HERO_14")
+    out = _fight(patch, player, [beast, murloc, other], [_minion("wall", 0, 300)])
+    gained = sum(m.raw_attack - 1 for m in out)
+    assert gained == 2  # one Beast and one Murloc, not both Beasts

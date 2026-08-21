@@ -38,6 +38,22 @@ from src.bg_core.hero import (
     OnSellBuffRandomShop,
     OnSellRaceAddToShop,
     RotatingBuyTribeBuff,
+    OnNthBuyAddCardToHand,
+    OnTiersBoughtAddCardToHand,
+    OnAttacksAddCardToHand,
+    FreeBuyEachTurnAfterAttacks,
+    ShopStatBuffPerBuys,
+    TavernSpellBonusPerTurns,
+    CastRandomSpellEachTurn,
+    OnRefreshCopyHighestTier,
+    OnRefreshGrantBonusKeyword,
+    SkipTurnsThenDiscover,
+    DiscoverAtTierOnGoldSpent,
+    DiscoverHeroPowerOnTurn,
+    FewerShopSlots,
+    FreezeShopEachTurn,
+    StartOfCombatBuffEnds,
+    StartOfCombatBuffOnePerTribe,
     StartHandToken,
     StartTierMinions,
     UpgradeDiscountPerElementals,
@@ -52,6 +68,7 @@ __all__ = [
     "assign_random_hero",
     "apply_hero_on_game_start",
     "apply_hero_on_turn_start",
+    "flush_hero_tier_discovers",
     "apply_hero_on_bought",
     "apply_hero_on_sell",
     "apply_hero_on_level_up",
@@ -116,6 +133,18 @@ def apply_hero_on_game_start(
                 shared_pool=shared_pool,
                 patch=patch,
             )
+        elif isinstance(p, DiscoverAtTierOnGoldSpent):
+            # "Discover a Tier 7 minion to get after you spend 60 Gold" — the
+            # pick is made now and held; the gold is what releases it.
+            from .discover_pool import shop_pool_for_tier
+
+            pool = sorted(
+                shop_pool_for_tier(p.tier, shop_excluded_race=shop_excluded_race, patch=patch)
+            )
+            if pool:
+                player.hero_promised_card = pool[int(rng.integers(0, len(pool)))]
+        elif isinstance(p, ZeroGoldForRounds):
+            pass
     # Round-1 turn-start levers (Nozdormu free roll, Rat King initial tribe,
     # A.F. Kay gold 0). Subsequent rounds go through apply_hero_on_turn_start.
     apply_hero_on_turn_start(
@@ -144,6 +173,43 @@ def apply_hero_on_turn_start(
         elif isinstance(p, ZeroGoldForRounds):
             if int(round_number) in p.rounds:
                 player.gold = 0
+        elif isinstance(p, FreeBuyEachTurnAfterAttacks):
+            # "the first minion you buy each turn is free", once the attacks
+            # the card counts have happened.
+            if player.hero_attacks >= p.attacks:
+                player.hero_free_buys = 1
+        elif isinstance(p, TavernSpellBonusPerTurns):
+            # "improve this at the start of every 3 turns" — the bonus is the
+            # seat's own standing one, raised on the turns the card names.
+            if p.per_turns > 0 and int(round_number) % p.per_turns == 1:
+                player.tavern_spell_bonus_attack += p.attack
+                player.tavern_spell_bonus_health += p.health
+        elif isinstance(p, CastRandomSpellEachTurn):
+            if int(round_number) >= p.unlocks_on_turn:
+                from .tavern_spells import apply_tavern_spell_effect
+                from src.bg_core.effects import CastRandomTavernSpellEffect
+
+                apply_tavern_spell_effect(
+                    player,
+                    CastRandomTavernSpellEffect(),
+                    rng=rng,
+                    patch=patch,
+                    shop_excluded_race=shop_excluded_race,
+                )
+        elif isinstance(p, SkipTurnsThenDiscover):
+            if int(round_number) in p.rounds:
+                player.gold = 0
+            elif int(round_number) == max(p.rounds) + 1:
+                player.hero_pending_tier_discovers = tuple(int(t) for t in p.tiers)
+        elif isinstance(p, DiscoverHeroPowerOnTurn):
+            due = p.every_turn or int(round_number) == int(p.on_turn)
+            if due:
+                _open_hero_power_discover(player, rng=rng, patch=patch, options=p.options)
+    flush_hero_tier_discovers(
+        player, rng=rng, patch=patch, shop_excluded_race=shop_excluded_race
+    )
+    _pay_gold_spent_heroes(player, rng=rng, patch=patch)
+    apply_hero_on_attacks(player, patch=patch)
     apply_hero_on_deaths(
         player, rng=rng, patch=patch, shop_excluded_race=shop_excluded_race
     )
@@ -154,10 +220,22 @@ def apply_hero_on_turn_start(
 # --------------------------------------------------------------------------- #
 
 
-def apply_hero_on_bought(minion: Minion, player: PlayerState) -> None:
+def apply_hero_on_bought(
+    minion: Minion,
+    player: PlayerState,
+    *,
+    rng: Optional[np.random.Generator] = None,
+    patch: Optional[PatchContext] = None,
+) -> None:
     h = player.hero
     if h is None:
         return
+    # What the buy was worth, counted once and read by however many passives
+    # ask. A hero that pays per Tier and one that pays per Battlecry are two
+    # questions about the same purchase.
+    player.hero_tiers_bought += max(0, int(minion.tier))
+    if _has_battlecry(minion):
+        player.hero_battlecry_buys += 1
     for p in h.passives:
         if isinstance(p, EveryNthBuyBuff):
             player.hero_buy_count += 1
@@ -172,6 +250,117 @@ def apply_hero_on_bought(minion: Minion, player: PlayerState) -> None:
         elif isinstance(p, GoldOnBuyTribe):
             if minion_matches_tribe(minion, p.race):
                 player.gold += p.amount
+        elif isinstance(p, OnNthBuyAddCardToHand):
+            if p.once and player.hero_once_paid:
+                continue
+            counted = (
+                player.hero_battlecry_buys
+                if p.require_battlecry
+                else player.hero_buy_count
+            )
+            if p.n > 0 and counted > 0 and counted % p.n == 0:
+                if _give_card(player, p.card_id, patch):
+                    player.hero_once_paid = True
+        elif isinstance(p, OnTiersBoughtAddCardToHand):
+            if p.n <= 0:
+                continue
+            owed = player.hero_tiers_bought // p.n - player.hero_tiers_paid
+            for _ in range(max(0, owed)):
+                _give_card(player, p.card_id, patch)
+                player.hero_tiers_paid += 1
+
+
+def flush_hero_tier_discovers(
+    player: PlayerState,
+    *,
+    rng: np.random.Generator,
+    patch: PatchContext,
+    shop_excluded_race: Optional[Race] = None,
+    shared_pool=None,
+) -> None:
+    """Open the next Discover A.F. Kay or Faelin still owes, if the seat is idle.
+
+    One at a time, because the tiers differ and the modal chain re-rolls the
+    same kind — "Tiers 6, 4, and 2" is three different Discovers, not one
+    repeated three times. Called at the same post-action moment the waiting
+    Spellcraft spell is handed over.
+    """
+    from .tavern_spells import _open_tier_discover
+
+    while player.hero_pending_tier_discovers and player.pending_choice is None:
+        tier, *rest = player.hero_pending_tier_discovers
+        player.hero_pending_tier_discovers = tuple(rest)
+        _open_tier_discover(
+            player,
+            int(tier),
+            rng=rng,
+            patch=patch,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+            repeats=1,
+        )
+
+
+def _open_hero_power_discover(player, *, rng, patch, options: int = 2) -> None:
+    """Offer other heroes' powers, the seat's own left out."""
+    from src.bg_lobby.player import PendingChoice, PendingChoiceKind
+
+    held = player.hero.hero_id if player.hero is not None else None
+    pool = sorted(cid for cid in patch.hero_pool_ids if cid != held)
+    if len(pool) < options:
+        return
+    picks = []
+    remaining = list(pool)
+    for _ in range(options):
+        picks.append(remaining.pop(int(rng.integers(0, len(remaining)))))
+    player.pending_choice = PendingChoice(
+        PendingChoiceKind.HERO_POWER_DISCOVER, tuple(picks), 0
+    )
+
+
+def _pay_gold_spent_heroes(player, *, rng, patch) -> None:
+    """Thorim: the minion picked at the start arrives once the gold is spent."""
+    h = player.hero
+    if h is None:
+        return
+    for p in h.passives:
+        if not isinstance(p, DiscoverAtTierOnGoldSpent):
+            continue
+        if player.hero_gold_spent_total < p.gold or player.hero_gold_paid:
+            continue
+        held = player.hero_promised_card
+        if held:
+            if _give_card(player, held, patch):
+                player.hero_gold_paid = 1
+                player.hero_promised_card = ""
+
+
+def _has_battlecry(minion: Minion) -> bool:
+    from src.bg_core.effects import Trigger
+
+    return any(ab.trigger is Trigger.ON_PLACE for ab in minion.abilities)
+
+
+def _give_card(player: PlayerState, card_id: str, patch: Optional[PatchContext]) -> bool:
+    """Put a named card in hand, minion or spell. False if it did not fit.
+
+    A hero pays in cards this package already carries — a Brann, a Tavern
+    Coin, a Triple Reward — so this looks the id up in both catalogs rather
+    than assuming which kind it is.
+    """
+    if patch is None:
+        return False
+    slot = first_free_hand_slot(player)
+    if slot is None:
+        return False
+    if card_id in patch.templates:
+        player.hand[slot] = make_minion(card_id, patch=patch)
+        return True
+    spell = patch.tavern_spells.get(card_id)
+    if spell is None:
+        return False
+    player.hand[slot] = spell
+    return True
 
 
 def apply_hero_on_sell(
@@ -249,6 +438,61 @@ def apply_hero_on_level_up(player: PlayerState) -> None:
             player.gold += p.amount
 
 
+def apply_hero_on_refresh(player: PlayerState, *, rng: np.random.Generator) -> None:
+    """What a hero does to the counter it has just rolled."""
+    from copy import copy as _copy
+
+    from src.bg_core.minion import BONUS_KEYWORDS
+
+    h = player.hero
+    if h is None:
+        return
+    for p in h.passives:
+        filled = [i for i, m in enumerate(player.shop) if m is not None]
+        if not filled:
+            return
+        if isinstance(p, OnRefreshCopyHighestTier):
+            # "copy its highest-Tier minion and Freeze them both" — the copy
+            # takes a free slot if there is one, and both are pinned so the
+            # next roll leaves them alone.
+            best = max(filled, key=lambda i: player.shop[i].tier)
+            empty = next(
+                (i for i in range(len(player.shop)) if player.shop[i] is None), None
+            )
+            if empty is None:
+                continue
+            player.shop[empty] = _copy(player.shop[best])
+            frozen = list(player.shop_frozen)
+            for slot in (best, empty):
+                if slot < len(frozen):
+                    frozen[slot] = True
+            player.shop_frozen = tuple(frozen)
+        elif isinstance(p, OnRefreshGrantBonusKeyword):
+            keywords = sorted(BONUS_KEYWORDS, key=lambda k: k.name)
+            for _ in range(max(1, int(p.repeats))):
+                target = player.shop[filled[int(rng.integers(0, len(filled)))]]
+                keyword = keywords[int(rng.integers(0, len(keywords)))]
+                target.granted_keywords = target.granted_keywords | {keyword}
+                if keyword.name == "SHIELD":
+                    target.has_shield = True
+
+
+def apply_hero_on_turn_end(player: PlayerState) -> None:
+    """Sindragosa: the Tavern Freezes at the end of each turn."""
+    h = player.hero
+    if h is None:
+        return
+    if any(isinstance(p, FreezeShopEachTurn) for p in h.passives):
+        player.shop_freeze_next_round = True
+
+
+def apply_hero_on_gold_spent(player: PlayerState, amount: int) -> None:
+    """Count gold leaving the seat, for the heroes that read a lifetime total."""
+    if player.hero is None or amount <= 0:
+        return
+    player.hero_gold_spent_total += int(amount)
+
+
 def apply_hero_on_deaths(
     player: PlayerState,
     *,
@@ -304,6 +548,61 @@ def hero_combat_attack_aura(player: PlayerState) -> int:
 def hero_start_combat_keywords(player: PlayerState) -> frozenset:
     h = player.hero
     return h.start_combat_leftmost_keywords() if h is not None else frozenset()
+
+
+def hero_start_combat_ends(player: PlayerState):
+    """Illidan: what the end minions gain, and whether they swing at once."""
+    h = player.hero
+    if h is None:
+        return None
+    for p in h.passives:
+        if isinstance(p, StartOfCombatBuffEnds):
+            return p
+    return None
+
+
+def hero_start_combat_one_per_tribe(player: PlayerState):
+    """Wagtoggle: stats for a friendly of each type, improved by gold spent."""
+    h = player.hero
+    if h is None:
+        return None
+    for p in h.passives:
+        if isinstance(p, StartOfCombatBuffOnePerTribe):
+            level = 1
+            if p.per_gold > 0:
+                level += player.hero_gold_spent_total // p.per_gold
+            return (p.attack * level, p.health * level)
+    return None
+
+
+def hero_counts_attacks(player: PlayerState) -> bool:
+    """Whether this seat's hero cares how many of its minions have attacked."""
+    h = player.hero
+    if h is None:
+        return False
+    return any(
+        isinstance(p, (OnAttacksAddCardToHand, FreeBuyEachTurnAfterAttacks))
+        for p in h.passives
+    )
+
+
+def apply_hero_on_attacks(
+    player: PlayerState, *, patch: Optional[PatchContext] = None
+) -> None:
+    """Pay the heroes that count friendly attacks, at the seat's turn start.
+
+    The attacks happen in a fight; a fight hands what it owes to the seat.
+    """
+    h = player.hero
+    if h is None:
+        return
+    for p in h.passives:
+        if not isinstance(p, OnAttacksAddCardToHand) or p.n <= 0:
+            continue
+        owed = player.hero_attacks // p.n - player.hero_attacks_paid
+        for _ in range(max(0, owed)):
+            _give_card(player, p.card_id, patch)
+            player.hero_attacks_paid += 1
 
 
 def hero_combat_summon_buff(player: PlayerState):

@@ -338,3 +338,12 @@ def resolve_discover_pick(
             player, shop_excluded_race, rng=rng, patch=patch
         )
         flush_pending_spellcraft(player)
+        from src.bg_recruitment import hero_passives
+
+        hero_passives.flush_hero_tier_discovers(
+            player,
+            rng=rng,
+            patch=patch,
+            shop_excluded_race=shop_excluded_race,
+            shared_pool=shared_pool,
+        )

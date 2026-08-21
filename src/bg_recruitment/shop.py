@@ -47,7 +47,8 @@ def effective_shop_offers_count(player: PlayerState) -> int:
     n = shop_offers_for_tier(player)
     if player.hero is not None:
         n += player.hero.extra_shop_slots()
-    return min(MAX_SHOP_SLOTS, n)
+        n -= player.hero.fewer_shop_slots()
+    return max(1, min(MAX_SHOP_SLOTS, n))
 
 
 def _hero_forced_slot_tribe(player: PlayerState, slot: int) -> Optional[Race]:
@@ -69,6 +70,14 @@ def _apply_hero_shop_tribe_buff(player: PlayerState, minion: Optional[Minion]) -
     if buff is not None and minion_matches_tribe(minion, buff.race):
         minion.bonus_attack += buff.attack
         minion.bonus_health += buff.health
+    # "Minions in the Tavern have +1/+1. Improves after you buy 3 minions." —
+    # every minion rather than one tribe, and the size grows with the seat's
+    # buys rather than being printed.
+    growing = h.shop_stat_buff_per_buys()
+    if growing is not None:
+        level = 1 + (player.hero_buy_count // max(1, growing.per))
+        minion.bonus_attack += growing.attack * level
+        minion.bonus_health += growing.health * level
 
 
 def shop_tribe_bonus_for(
@@ -440,6 +449,7 @@ def refresh_shop(
     _pay_refresh_promises(player, n, frozen, shared_pool=shared_pool, patch=patch)
     _pay_refresh_buffs(player, rng=rng)
     _pay_refresh_blood_gems(player, patch=patch)
+    _pay_hero_refresh(player, rng=rng)
 
 
 def _pay_refresh_buffs(player: PlayerState, *, rng: np.random.Generator) -> None:
@@ -453,6 +463,13 @@ def _pay_refresh_buffs(player: PlayerState, *, rng: np.random.Generator) -> None
         target = player.shop[filled[int(rng.integers(0, len(filled)))]]
         target.bonus_attack += attack
         target.bonus_health += health
+
+
+def _pay_hero_refresh(player: PlayerState, *, rng: np.random.Generator) -> None:
+    """The heroes that answer a roll: Varden's copy, Enhance-o's keyword."""
+    from src.bg_recruitment import hero_passives
+
+    hero_passives.apply_hero_on_refresh(player, rng=rng)
 
 
 def _pay_refresh_blood_gems(player: PlayerState, *, patch: PatchContext) -> None:

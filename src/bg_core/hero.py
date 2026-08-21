@@ -50,6 +50,22 @@ __all__ = [
     "BuffCombatSummons",
     "AttackOnKill",
     "SummonCopyWhenSpace",
+    "OnNthBuyAddCardToHand",
+    "OnTiersBoughtAddCardToHand",
+    "OnAttacksAddCardToHand",
+    "FreeBuyEachTurnAfterAttacks",
+    "ShopStatBuffPerBuys",
+    "TavernSpellBonusPerTurns",
+    "CastRandomSpellEachTurn",
+    "OnRefreshCopyHighestTier",
+    "OnRefreshGrantBonusKeyword",
+    "SkipTurnsThenDiscover",
+    "DiscoverAtTierOnGoldSpent",
+    "DiscoverHeroPowerOnTurn",
+    "FewerShopSlots",
+    "FreezeShopEachTurn",
+    "StartOfCombatBuffEnds",
+    "StartOfCombatBuffOnePerTribe",
 ]
 
 
@@ -269,6 +285,139 @@ class SummonCopyWhenSpace:
 
 
 @dataclass(frozen=True)
+class OnNthBuyAddCardToHand:
+    """Every ``n`` cards bought, a named card to hand (Kael'thas' Tavern Coin).
+
+    ``require_battlecry`` counts only the minions that have one (Dinotamer
+    Brann), and ``once`` stops after the first payout.
+    """
+
+    n: int
+    card_id: str
+    require_battlecry: bool = False
+    once: bool = False
+
+
+@dataclass(frozen=True)
+class OnTiersBoughtAddCardToHand:
+    """Every ``n`` Tiers' worth of cards bought, a named card (Guff)."""
+
+    n: int
+    card_id: str
+
+
+@dataclass(frozen=True)
+class OnAttacksAddCardToHand:
+    """Every ``n`` friendly attacks, a named card to hand (Loh)."""
+
+    n: int
+    card_id: str
+
+
+@dataclass(frozen=True)
+class FreeBuyEachTurnAfterAttacks:
+    """After ``attacks`` friendly attacks, the first buy each turn is free."""
+
+    attacks: int
+
+
+@dataclass(frozen=True)
+class ShopStatBuffPerBuys:
+    """Minions in the Tavern have +N/+N, growing every ``per`` buys."""
+
+    attack: int = 1
+    health: int = 1
+    per: int = 3
+
+
+@dataclass(frozen=True)
+class TavernSpellBonusPerTurns:
+    """"Your Tavern spells give an extra +1/+1", improving every N turns."""
+
+    attack: int = 1
+    health: int = 1
+    per_turns: int = 3
+
+
+@dataclass(frozen=True)
+class CastRandomSpellEachTurn:
+    """At the start of your turn, cast a random Tavern spell (Yogg-Saron)."""
+
+    unlocks_on_turn: int = 1
+
+
+@dataclass(frozen=True)
+class OnRefreshCopyHighestTier:
+    """After a Refresh, copy the counter's best minion and freeze both."""
+
+
+@dataclass(frozen=True)
+class OnRefreshGrantBonusKeyword:
+    """After a Refresh, hand a random Tavern minion a random Bonus Keyword."""
+
+    repeats: int = 1
+
+
+@dataclass(frozen=True)
+class SkipTurnsThenDiscover:
+    """Skip the opening turns, then Discover at each named tier in turn."""
+
+    rounds: Tuple[int, ...]
+    tiers: Tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class DiscoverAtTierOnGoldSpent:
+    """Discover a minion at ``tier`` now; it arrives after ``gold`` is spent."""
+
+    tier: int
+    gold: int
+
+
+@dataclass(frozen=True)
+class DiscoverHeroPowerOnTurn:
+    """Swap this power for one of a Discover, on a turn or every turn."""
+
+    on_turn: int = 0
+    every_turn: bool = False
+    options: int = 2
+
+
+@dataclass(frozen=True)
+class FewerShopSlots:
+    """The Tavern shows this many fewer minions (Sindragosa)."""
+
+    amount: int = 1
+
+
+@dataclass(frozen=True)
+class FreezeShopEachTurn:
+    """The Tavern Freezes at the end of each turn (Sindragosa)."""
+
+
+@dataclass(frozen=True)
+class StartOfCombatBuffEnds:
+    """Start of Combat: the end minions gain stats and swing at once."""
+
+    attack: int = 0
+    health: int = 0
+    attack_immediately: bool = False
+
+
+@dataclass(frozen=True)
+class StartOfCombatBuffOnePerTribe:
+    """Start of Combat: a friendly of each type gains stats (Wagtoggle).
+
+    ``per_gold`` is the improvement the card prints, read off the gold the seat
+    has spent all game.
+    """
+
+    attack: int = 1
+    health: int = 1
+    per_gold: int = 0
+
+
+@dataclass(frozen=True)
 class StartOfCombatGrantLeftmost:
     """Start of Combat: grant ``keywords`` to your left-most minion
     (Al'Akir → Windfury, Divine Shield, Taunt)."""
@@ -333,6 +482,15 @@ class Hero:
 
     def extra_shop_slots(self) -> int:
         return sum(1 for p in self.passives if isinstance(p, ExtraShopDragon))
+
+    def fewer_shop_slots(self) -> int:
+        return sum(p.amount for p in self.passives if isinstance(p, FewerShopSlots))
+
+    def shop_stat_buff_per_buys(self) -> Optional["ShopStatBuffPerBuys"]:
+        for p in self.passives:
+            if isinstance(p, ShopStatBuffPerBuys):
+                return p
+        return None
 
     def shop_tribe_buff(self) -> Optional[ShopTribeStatBuff]:
         for p in self.passives:

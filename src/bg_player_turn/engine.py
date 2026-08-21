@@ -179,6 +179,13 @@ class PlayerTurnEngine:
                     player, race, rng=ctx.rng, patch=ctx.patch
                 )
                 flush_pending_spellcraft(player)
+                hero_passives.flush_hero_tier_discovers(
+                    player,
+                    rng=ctx.rng,
+                    patch=ctx.patch,
+                    shop_excluded_race=race,
+                    shared_pool=ctx.shared_pool,
+                )
                 return True
             if not a.is_discover_pick_game_action(action_int):
                 raise ValueError(
@@ -254,7 +261,9 @@ class PlayerTurnEngine:
                 p.bought_tribe_counts[race] = p.bought_tribe_counts.get(race, 0) + 1
                 ctx.triggers.fire_on_buy(m, p)
                 ctx.triggers.fire_on_bought(p, m)  # watchers that pay the card bought
-                hero_passives.apply_hero_on_bought(m, p)  # Kael'thas / Rat King
+                hero_passives.apply_hero_on_bought(
+                    m, p, rng=ctx.rng, patch=ctx.patch
+                )
 
             recruitment_economy.buy_from_shop(
                 player,
@@ -346,6 +355,7 @@ class PlayerTurnEngine:
 
     def end_turn(self, player: PlayerState, *, freeze_shop: bool = False) -> None:
         player.shop_freeze_next_round = freeze_shop
+        hero_passives.apply_hero_on_turn_end(player)
         player.phase = PlayerPhase.DONE
 
 

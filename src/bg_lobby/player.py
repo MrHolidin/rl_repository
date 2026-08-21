@@ -254,6 +254,27 @@ class PlayerState:
     hero_sell_count: int = 0
     hero_tavern_spell_count: int = 0
     hero_deaths_paid: int = 0
+    #: Tiers' worth of cards bought, Battlecry minions bought, gold spent all
+    #: game, and friendly attacks — the running totals the countdown heroes
+    #: read. ``hero_*_paid`` is how much of each has already been settled, so a
+    #: total that is read twice pays once.
+    hero_tiers_bought: int = 0
+    hero_battlecry_buys: int = 0
+    hero_gold_spent_total: int = 0
+    hero_attacks: int = 0
+    hero_tiers_paid: int = 0
+    hero_attacks_paid: int = 0
+    hero_gold_paid: int = 0
+    hero_once_paid: bool = False
+    #: Buys that cost nothing (Aranna, once her power unlocks).
+    hero_free_buys: int = 0
+    #: The card Thorim picked at the start of the game, waiting on the gold.
+    hero_promised_card: str = ""
+    #: Tiers A.F. Kay and Ambassador Faelin still owe a Discover at. A list
+    #: rather than a count, because the tiers differ — "Tiers 6, 4, and 2" is
+    #: three different Discovers, which the modal chain cannot express (it
+    #: re-rolls the same kind) so they are opened one at a time.
+    hero_pending_tier_discovers: Tuple[int, ...] = ()
     hero_rotating_tribe: Optional[Race] = None  # The Rat King: current tribe
     hero_elementals_progress: int = 0  # Chenvaala: Elementals toward next discount
     hero_free_roll_pending: bool = False  # Nozdormu: first refresh this turn is free

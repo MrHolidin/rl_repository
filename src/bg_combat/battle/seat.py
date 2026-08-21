@@ -72,6 +72,15 @@ class CombatSeat(Protocol):
     ) -> None:
         """Raise a "this game" bonus on the owner, from inside the fight."""
 
+    def start_combat_ends(self):
+        """Illidan: what the end minions gain before a blow is struck."""
+
+    def start_combat_one_per_tribe(self):
+        """Wagtoggle: stats for a friendly of each type, or None."""
+
+    def count_attack(self) -> None:
+        """One of the owner's minions swung, for the heroes that count them."""
+
     def combat_summon_buff(self):
         """What a minion summoned mid-combat arrives with, from the hero."""
 
@@ -248,6 +257,15 @@ class RecordingSeat:
     def take_combat_space_summon(self) -> object:
         """None: a seatless combat holds no charges to spend."""
         return None
+
+    def start_combat_ends(self):
+        return None
+
+    def start_combat_one_per_tribe(self):
+        return None
+
+    def count_attack(self) -> None:
+        """Nothing: a seatless combat has no hero counting."""
 
     def combat_summon_buff(self):
         """Nothing: a seatless combat has no hero behind it."""

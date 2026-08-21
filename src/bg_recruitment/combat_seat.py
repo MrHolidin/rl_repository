@@ -83,6 +83,22 @@ class PlayerCombatSeat(RecordingSeat):
     def start_combat_promises(self) -> Tuple[object, ...]:
         return tuple(self.player.start_combat_promises)
 
+    def start_combat_ends(self):
+        from . import hero_passives
+
+        return hero_passives.hero_start_combat_ends(self.player)
+
+    def start_combat_one_per_tribe(self):
+        from . import hero_passives
+
+        return hero_passives.hero_start_combat_one_per_tribe(self.player)
+
+    def count_attack(self) -> None:
+        from . import hero_passives
+
+        if hero_passives.hero_counts_attacks(self.player):
+            self.player.hero_attacks += 1
+
     def combat_summon_buff(self):
         from . import hero_passives
 

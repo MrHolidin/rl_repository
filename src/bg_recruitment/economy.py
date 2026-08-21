@@ -76,6 +76,11 @@ def effective_roll_cost(player: PlayerState) -> int:
 
 
 def effective_buy_cost(player: PlayerState) -> int:
+    # Aranna: the first buy each turn is free once her power unlocks. Answered
+    # here rather than at the purchase so the legal mask agrees — a seat with
+    # no gold and a free buy can still buy.
+    if player.hero_free_buys > 0:
+        return 0
     # Millhouse: minions cost a flat amount.
     if player.hero is not None:
         flat = player.hero.flat_buy_cost()
@@ -198,8 +203,10 @@ def note_gold_spent(player: PlayerState, amount: int, *, patch=None) -> None:
         return
     from src.bg_core.board_helpers import seat_rng
 
+    from .hero_passives import apply_hero_on_gold_spent
     from .shop_triggers import ShopTriggers
 
+    apply_hero_on_gold_spent(player, amount)
     ShopTriggers(seat_rng(player), patch=patch).fire_gold_spent(player, amount)
 
 
@@ -216,6 +223,10 @@ def buy_from_shop(
     minion = player.shop[slot]
     assert minion is not None
     buy_cost = effective_buy_cost(player)
+    # Spent by the purchase, not by quoting the price: re-granted at the next
+    # turn start for as long as the power stays unlocked.
+    if player.hero_free_buys > 0:
+        player.hero_free_buys -= 1
     player.gold -= buy_cost
     clear_shop_slot(player, slot, shared_pool, release_to_pool=False)
     h = first_free_hand_slot(player)

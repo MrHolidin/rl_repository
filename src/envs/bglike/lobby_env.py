@@ -865,6 +865,15 @@ class BGLobbyEnv:
             patch=self._game._patch,
         )
         flush_pending_spellcraft(player)
+        from src.bg_recruitment import hero_passives
+
+        hero_passives.flush_hero_tier_discovers(
+            player,
+            rng=self._game._rng,
+            patch=self._game._patch,
+            shop_excluded_race=self._state.shop_excluded_race,
+            shared_pool=self._state.shared_pool,
+        )
 
     def _try_begin_rl_place(self, seat: int, hand_slot: int) -> bool:
         assert self._state is not None

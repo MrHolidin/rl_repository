@@ -54,6 +54,7 @@ from .structured_actions import (
     structured_legal_set,
     validate_board_perm,
 )
+from src.bg_recruitment import hero_passives
 from src.bg_recruitment.spellcraft import flush_pending_spellcraft
 from src.bg_recruitment.triples import flush_triple_reward_queue_if_idle
 
@@ -843,6 +844,13 @@ class MiniBGEnv(TurnBasedEnv):
             patch=self._game._patch,
         )
         flush_pending_spellcraft(player)
+        hero_passives.flush_hero_tier_discovers(
+            player,
+            rng=self._game._rng,
+            patch=self._game._patch,
+            shop_excluded_race=self._state.shop_excluded_race,
+            shared_pool=self._state.shared_pool,
+        )
         if self._rl_place_budget_pending:
             player.shop_actions_used += 1
             self._rl_place_budget_pending = False

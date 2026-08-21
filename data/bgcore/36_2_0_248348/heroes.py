@@ -38,8 +38,14 @@ from src.bg_core.effects import Keyword
 from src.bg_core.hero import (
     AttackOnKill,
     BuffCombatSummons,
+    CastRandomSpellEachTurn,
     CombatAttackAuraAll,
+    DiscoverAtTierOnGoldSpent,
+    DiscoverHeroPowerOnTurn,
     EveryNthTavernSpellFree,
+    FewerShopSlots,
+    FreeBuyEachTurnAfterAttacks,
+    FreezeShopEachTurn,
     ExtraShopDragon,
     FlatBuyCost,
     FlatRefreshCost,
@@ -48,14 +54,30 @@ from src.bg_core.hero import (
     GoldOnBuyTribe,
     GoldOnUpgrade,
     Hero,
+    OnAttacksAddCardToHand,
+    OnNthBuyAddCardToHand,
     OnNthDeathAddRaceToHand,
     OnNthSellAddRaceToHand,
+    OnRefreshCopyHighestTier,
+    OnRefreshGrantBonusKeyword,
+    OnTiersBoughtAddCardToHand,
+    ShopStatBuffPerBuys,
+    SkipTurnsThenDiscover,
+    StartOfCombatBuffEnds,
+    StartOfCombatBuffOnePerTribe,
+    TavernSpellBonusPerTurns,
     StartOfCombatGrantLeftmost,
     SummonCopyWhenSpace,
     UpgradeCostSurcharge,
     UpgradeDiscountPerElementals,
 )
 from src.bg_core.minion import Race
+
+#: Cards these heroes hand over. All three are in the package already — a hero
+#: that would need a new one is not in this file.
+BRANN = "BG_LOE_077"
+TAVERN_COIN = "BG28_810"
+TRIPLE_REWARD = "triple_reward_discover"
 
 HEROES: Dict[str, Hero] = {
     # I'm ready to rumble! — "Start the game with 30 extra Health."
@@ -191,6 +213,153 @@ HEROES: Dict[str, Hero] = {
         "Vanndar Stormpike",
         start_armor=12,
         passives=(SummonCopyWhenSpace(by_health=True, unlocks_on_turn=7),),
+    ),
+    # Sharpen Blades — "After 14 friendly minions attack, the first minion you
+    # buy each turn is free."
+    "TB_BaconShop_HERO_59": Hero(
+        "TB_BaconShop_HERO_59",
+        "Aranna Starseeker",
+        start_armor=12,
+        passives=(FreeBuyEachTurnAfterAttacks(attacks=14),),
+    ),
+    # Blood Gems — "Minions in the Tavern have +1/+1. Improves after you buy
+    # 3 minions."
+    "BG20_HERO_102": Hero(
+        "BG20_HERO_102",
+        "Overlord Saurfang",
+        start_armor=15,
+        passives=(ShopStatBuffPerBuys(attack=1, health=1, per=3),),
+    ),
+    # Verdant Spheres — "After you buy 3 minions, get a Tavern Coin."
+    "TB_BaconShop_HERO_60": Hero(
+        "TB_BaconShop_HERO_60",
+        "Kael'thas Sunstrider",
+        start_armor=16,
+        passives=(OnNthBuyAddCardToHand(n=3, card_id=TAVERN_COIN),),
+    ),
+    # Bring It On! — "After you buy 4 Battlecry minions, get a Brann
+    # Bronzebeard. (Once per game.)"
+    "TB_BaconShop_HERO_43": Hero(
+        "TB_BaconShop_HERO_43",
+        "Dinotamer Brann",
+        start_armor=18,
+        passives=(
+            OnNthBuyAddCardToHand(
+                n=4, card_id=BRANN, require_battlecry=True, once=True
+            ),
+        ),
+    ),
+    # Nature's Ally — "After you buy 20 Tiers' worth of cards, get a Triple
+    # Reward."
+    "BG20_HERO_242": Hero(
+        "BG20_HERO_242",
+        "Guff Runetotem",
+        start_armor=12,
+        passives=(OnTiersBoughtAddCardToHand(n=20, card_id=TRIPLE_REWARD),),
+    ),
+    # Living Legend — "After 15 friendly minions attack, get a Triple Reward."
+    "BG33_HERO_001": Hero(
+        "BG33_HERO_001",
+        "Loh, the Living Legend",
+        start_armor=17,
+        passives=(OnAttacksAddCardToHand(n=15, card_id=TRIPLE_REWARD),),
+    ),
+    # Wax Warband — "Your Tavern spells give an extra +1/+1. At the start of
+    # every 3 turns, improve this."
+    "TB_BaconShop_HERO_75": Hero(
+        "TB_BaconShop_HERO_75",
+        "Rakanishu",
+        start_armor=10,
+        passives=(TavernSpellBonusPerTurns(attack=1, health=1, per_turns=3),),
+    ),
+    # Puzzle Box — "At the start of your turn, cast a random Tavern spell.
+    # (Unlocks on Turn 3.)"
+    "TB_BaconShop_HERO_35": Hero(
+        "TB_BaconShop_HERO_35",
+        "Yogg-Saron, Hope's End",
+        start_armor=10,
+        passives=(CastRandomSpellEachTurn(unlocks_on_turn=3),),
+    ),
+    # Twice as Nice — "After the Tavern is Refreshed, copy its highest-Tier
+    # minion and Freeze them both."
+    "BG22_HERO_004": Hero(
+        "BG22_HERO_004",
+        "Varden Dawngrasp",
+        start_armor=18,
+        passives=(OnRefreshCopyHighestTier(),),
+    ),
+    # Enhance-o Mechano — "After the Tavern is Refreshed, give a random minion
+    # in it a random Bonus Keyword, twice."
+    "BG24_HERO_204": Hero(
+        "BG24_HERO_204",
+        "Enhance-o Mechano",
+        start_armor=14,
+        passives=(OnRefreshGrantBonusKeyword(repeats=2),),
+    ),
+    # Procrastinate — "Skip your first two turns, then Discover a minion from
+    # Tier 3 and Tier 4."
+    "TB_BaconShop_HERO_16": Hero(
+        "TB_BaconShop_HERO_16",
+        "A. F. Kay",
+        start_armor=15,
+        passives=(SkipTurnsThenDiscover(rounds=(1, 2), tiers=(3, 4)),),
+    ),
+    # Deep Dive — "Skip your first turn. Discover minions from Tiers 6, 4 and
+    # 2 to get at those Tiers."
+    "BG22_HERO_201": Hero(
+        "BG22_HERO_201",
+        "Ambassador Faelin",
+        start_armor=14,
+        passives=(SkipTurnsThenDiscover(rounds=(1,), tiers=(6, 4, 2)),),
+    ),
+    # Stormlord's Boon — "At the start of the game, Discover a Tier 7 minion
+    # to get after you spend 60 Gold."
+    "BG27_HERO_801": Hero(
+        "BG27_HERO_801",
+        "Thorim, Stormlord",
+        start_armor=18,
+        passives=(DiscoverAtTierOnGoldSpent(tier=7, gold=60),),
+    ),
+    # Wax Rager — "On Turn 4, Discover two Hero Powers to replace this."
+    "BG35_HERO_001": Hero(
+        "BG35_HERO_001",
+        "Genn, Worgen King",
+        start_armor=7,
+        passives=(DiscoverHeroPowerOnTurn(on_turn=4, options=2),),
+    ),
+    # Pandaren Mystic — "At the start of every turn, choose from 2 new Hero
+    # Powers."
+    "BG20_HERO_202": Hero(
+        "BG20_HERO_202",
+        "Master Nguyen",
+        start_armor=10,
+        passives=(DiscoverHeroPowerOnTurn(every_turn=True, options=2),),
+    ),
+    # Demon Hunter — "Start of Combat: Your left- and right-most minions gain
+    # +2/+1 and attack immediately."
+    "TB_BaconShop_HERO_08": Hero(
+        "TB_BaconShop_HERO_08",
+        "Illidan Stormrage",
+        start_armor=18,
+        passives=(
+            StartOfCombatBuffEnds(attack=2, health=1, attack_immediately=True),
+        ),
+    ),
+    # Wax Warband — "Start of Combat: Give a friendly minion of each type
+    # +1/+1. (Improves after you spend 10 Gold.)"
+    "TB_BaconShop_HERO_14": Hero(
+        "TB_BaconShop_HERO_14",
+        "Queen Wagtoggle",
+        start_armor=14,
+        passives=(StartOfCombatBuffOnePerTribe(attack=1, health=1, per_gold=10),),
+    ),
+    # Frost Shards — "Minions cost (2). The Tavern offers one fewer minion and
+    # Freezes at the end of each turn."
+    "TB_BaconShop_HERO_27": Hero(
+        "TB_BaconShop_HERO_27",
+        "Sindragosa",
+        start_armor=7,
+        passives=(FlatBuyCost(2), FewerShopSlots(1), FreezeShopEachTurn()),
     ),
 }
 
